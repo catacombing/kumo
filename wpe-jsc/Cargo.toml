@@ -1,0 +1,24 @@
+[package]
+name = "wpe-jsc"
+version = "0.1.0"
+description = "Rust bindings for WPE WebKit's JavaScriptCore"
+authors = ["Christian Duerr <contact@christianduerr.com>"]
+repository = "https://github.com/catacombing/kumo"
+rust-version = "1.76.0"
+license = "MIT OR Apache-2.0"
+categories = ["api-bindings"]
+keywords = ["webkit", "wpe", "jsc", "browser", "embedded"]
+edition = "2021"
+
+[package.metadata.docs.rs]
+all-features = true
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+libc = "0.2"
+glib = "0.19.0"
+
+[dependencies.ffi]
+package = "wpe-jsc-sys"
+path = "../wpe-jsc-sys"

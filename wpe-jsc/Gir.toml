@@ -1,0 +1,38 @@
+[options]
+library = "WPEJavaScriptCore"
+version = "1.1"
+min_cfg_version = "2.38"
+target_path = "."
+girs_directories = ["/usr/share/gir-1.0/", "../gir-files"]
+work_mode = "normal"
+single_version_file = true
+deprecate_by_min_version = true
+generate_builder = true
+generate = [
+    "WPEJavaScriptCore.CheckSyntaxMode",
+    "WPEJavaScriptCore.CheckSyntaxResult",
+    "WPEJavaScriptCore.Class",
+    "WPEJavaScriptCore.ClassDeletePropertyFunction",
+    "WPEJavaScriptCore.ClassEnumeratePropertiesFunction",
+    "WPEJavaScriptCore.ClassGetPropertyFunction",
+    "WPEJavaScriptCore.ClassHasPropertyFunction",
+    "WPEJavaScriptCore.ClassSetPropertyFunction",
+    # "WPEJavaScriptCore.ClassVTable",
+    "WPEJavaScriptCore.Context",
+    "WPEJavaScriptCore.Exception",
+    "WPEJavaScriptCore.ExceptionHandler",
+    "WPEJavaScriptCore.OptionsFunc",
+    "WPEJavaScriptCore.OptionType",
+    "WPEJavaScriptCore.TypedArrayType",
+    "WPEJavaScriptCore.Value",
+    "WPEJavaScriptCore.ValuePropertyFlags",
+    "WPEJavaScriptCore.VirtualMachine",
+    "WPEJavaScriptCore.WeakValue",
+]
+manual = [
+    "GLib.Bytes",
+    "GLib.DestroyNotify",
+    "GLib.OptionGroup",
+
+    "GObject.Callback",
+]

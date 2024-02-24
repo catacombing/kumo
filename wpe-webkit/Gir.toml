@@ -1,0 +1,179 @@
+[options]
+library = "WPEWebKit"
+version = "1.1"
+min_cfg_version = "2.42"
+target_path = "."
+girs_directories = ["/usr/share/gir-1.0/", "../gir-files"]
+work_mode = "normal"
+single_version_file = true
+deprecate_by_min_version = true
+generate_builder = true
+generate = [
+    "WPEWebKit.ApplicationInfo",
+    "WPEWebKit.AuthenticationScheme",
+    "WPEWebKit.AutomationBrowsingContextPresentation",
+    "WPEWebKit.AutomationSession",
+    "WPEWebKit.AutoplayPolicy",
+    "WPEWebKit.BackForwardList",
+    "WPEWebKit.BackForwardListItem",
+    "WPEWebKit.CacheModel",
+    "WPEWebKit.Color",
+    "WPEWebKit.ContextMenu",
+    "WPEWebKit.ContextMenuAction",
+    "WPEWebKit.ContextMenuItem",
+    "WPEWebKit.CookieAcceptPolicy",
+    "WPEWebKit.CookiePersistentStorage",
+    "WPEWebKit.Credential",
+    "WPEWebKit.CredentialPersistence",
+    "WPEWebKit.DeviceInfoPermissionRequest",
+    "WPEWebKit.Download",
+    "WPEWebKit.DownloadError",
+    "WPEWebKit.EditorState",
+    "WPEWebKit.EditorTypingAttributes",
+    "WPEWebKit.FaviconDatabase",
+    "WPEWebKit.FaviconDatabaseError",
+    "WPEWebKit.Feature",
+    "WPEWebKit.FeatureList",
+    "WPEWebKit.FeatureStatus",
+    "WPEWebKit.FileChooserRequest",
+    "WPEWebKit.FindController",
+    "WPEWebKit.FindOptions",
+    "WPEWebKit.FormSubmissionRequest",
+    "WPEWebKit.FrameDisplayedCallback",
+    "WPEWebKit.GeolocationManager",
+    "WPEWebKit.GeolocationPermissionRequest",
+    "WPEWebKit.GeolocationPosition",
+    "WPEWebKit.HitTestResult",
+    "WPEWebKit.HitTestResultContext",
+    "WPEWebKit.InputHints",
+    "WPEWebKit.InputMethodContext",
+    "WPEWebKit.InputMethodUnderline",
+    "WPEWebKit.InputPurpose",
+    "WPEWebKit.InsecureContentEvent",
+    "WPEWebKit.InstallMissingMediaPluginsPermissionRequest",
+    "WPEWebKit.ITPFirstParty",
+    "WPEWebKit.ITPThirdParty",
+    "WPEWebKit.JavascriptError",
+    "WPEWebKit.JavascriptResult",
+    "WPEWebKit.LoadEvent",
+    "WPEWebKit.MediaCaptureState",
+    "WPEWebKit.MediaKeySystemPermissionRequest",
+    "WPEWebKit.MemoryPressureSettings",
+    # "WPEWebKit.MimeInfo",
+    "WPEWebKit.NavigationAction",
+    "WPEWebKit.NavigationPolicyDecision",
+    "WPEWebKit.NavigationType",
+    "WPEWebKit.NetworkError",
+    "WPEWebKit.NetworkProxyMode",
+    "WPEWebKit.NetworkProxySettings",
+    "WPEWebKit.Notification",
+    "WPEWebKit.NotificationPermissionRequest",
+    "WPEWebKit.OptionMenu",
+    "WPEWebKit.OptionMenuItem",
+    "WPEWebKit.PermissionRequest",
+    "WPEWebKit.PermissionState",
+    "WPEWebKit.PermissionStateQuery",
+    "WPEWebKit.Plugin",
+    "WPEWebKit.PluginError",
+    "WPEWebKit.PolicyDecision",
+    "WPEWebKit.PolicyDecisionType",
+    "WPEWebKit.PolicyError",
+    # "WPEWebKit.PrintOperation",
+    "WPEWebKit.ProcessModel",
+    "WPEWebKit.Rectangle",
+    "WPEWebKit.ResponsePolicyDecision",
+    "WPEWebKit.SaveMode",
+    "WPEWebKit.ScriptDialog",
+    "WPEWebKit.ScriptDialogType",
+    "WPEWebKit.ScriptMessageReply",
+    "WPEWebKit.SecurityManager",
+    "WPEWebKit.SecurityOrigin",
+    "WPEWebKit.Settings",
+    "WPEWebKit.SnapshotError",
+    "WPEWebKit.TLSErrorsPolicy",
+    "WPEWebKit.URIRequest",
+    "WPEWebKit.URIResponse",
+    "WPEWebKit.URISchemeRequest",
+    "WPEWebKit.URISchemeRequestCallback",
+    "WPEWebKit.URISchemeResponse",
+    "WPEWebKit.UserContentFilter",
+    "WPEWebKit.UserContentFilterError",
+    "WPEWebKit.UserContentInjectedFrames",
+    "WPEWebKit.UserContentManager",
+    "WPEWebKit.UserMediaPermissionRequest",
+    "WPEWebKit.UserMessage",
+    "WPEWebKit.UserMessageError",
+    "WPEWebKit.UserScript",
+    "WPEWebKit.UserScriptInjectionTime",
+    "WPEWebKit.UserStyleLevel",
+    "WPEWebKit.UserStyleSheet",
+    "WPEWebKit.WebContext",
+    "WPEWebKit.WebExtensionMode",
+    "WPEWebKit.WebProcessTerminationReason",
+    "WPEWebKit.WebResource",
+    "WPEWebKit.WebsiteData",
+    "WPEWebKit.WebsiteDataAccessPermissionRequest",
+    "WPEWebKit.WebsiteDataTypes",
+    "WPEWebKit.WebsitePolicies",
+    "WPEWebKit.WebView",
+    "WPEWebKit.WebViewBackend",
+    "WPEWebKit.WebViewSessionState",
+    "WPEWebKit.WindowProperties",
+]
+manual = [
+    "Gio.Action",
+    "Gio.AsyncReadyCallback",
+    "Gio.AsyncResult",
+    "Gio.Cancellable",
+    "Gio.File",
+    "Gio.InputStream",
+    "Gio.TlsCertificate",
+    "Gio.TlsCertificateFlags",
+    "Gio.TlsPasswordFlags",
+    "Gio.UnixFDList",
+
+    "GLib.Bytes",
+    "GLib.DateTime",
+    "GLib.DestroyNotify",
+    "GLib.Error",
+    "GLib.Quark",
+    "GLib.TimeSpan",
+    "GLib.Variant",
+
+    "WPEJavaScriptCore.Value",
+
+    "Soup.Cookie",
+    "Soup.MessageHeaders",
+]
+
+[[object]]
+name = "WPEWebKit.CookieManager"
+status = "generate"
+function = [
+    { name = "add_cookie", parameter = [{ name = "cookie", const = true }] },
+    { name = "delete_cookie", parameter = [{ name = "cookie", const = true }] },
+    { name = "replace_cookies", manual = true },
+]
+
+[[object]]
+name = "WPEWebKit.WebsiteDataManager"
+status = "generate"
+function = [
+    { name = "remove", manual = true },
+    { name = "clear", manual = true },
+    { name = "set_network_proxy_settings", manual = true },
+]
+
+[[object]]
+name = "WPEWebKit.UserContentFilterStore"
+status = "generate"
+function = [
+    { name = "fetch_identifiers", ignore = true },
+]
+
+[[object]]
+name = "WPEWebKit.AuthenticationRequest"
+status = "generate"
+function = [
+    { name = "authenticate", manual = true },
+]

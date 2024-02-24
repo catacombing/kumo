@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "libwpe-sys",
+    "wpe-jsc",
+    "wpe-jsc-sys",
+    "wpe-webkit",
+    "wpe-webkit-sys",
+]
+resolver = "2"

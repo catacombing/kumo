@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "libwpe-sys",
+    "wpe-backend-fdo-sys",
     "wpe-jsc",
     "wpe-jsc-sys",
     "wpe-webkit",

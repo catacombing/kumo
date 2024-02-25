@@ -116,7 +116,6 @@ generate = [
     "WPEWebKit.WebsiteDataTypes",
     "WPEWebKit.WebsitePolicies",
     "WPEWebKit.WebView",
-    "WPEWebKit.WebViewBackend",
     "WPEWebKit.WebViewSessionState",
     "WPEWebKit.WindowProperties",
 ]
@@ -176,4 +175,12 @@ name = "WPEWebKit.AuthenticationRequest"
 status = "generate"
 function = [
     { name = "authenticate", manual = true },
+]
+
+[[object]]
+name = "WPEWebKit.WebViewBackend"
+status = "generate"
+function = [
+    { name = "new", manual = true },
+    { name = "get_wpe_backend", manual = true },
 ]

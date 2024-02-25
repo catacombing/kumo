@@ -9,4 +9,5 @@ mod authentication_request;
 #[allow(warnings)]
 mod auto;
 mod cookie_manager;
+mod web_view_backend;
 mod website_data_manager;

@@ -13,17 +13,3 @@ glib::wrapper! {
         type_ => || ffi::webkit_web_view_backend_get_type(),
     }
 }
-
-impl WebViewBackend {
-    //#[doc(alias = "webkit_web_view_backend_new")]
-    // pub fn new(backend: /*Unimplemented*/Option<Basic: Pointer>, user_data:
-    // /*Unimplemented*/Option<Basic: Pointer>) -> WebViewBackend {    unsafe {
-    // TODO: call ffi:webkit_web_view_backend_new() }
-    //}
-
-    //#[doc(alias = "webkit_web_view_backend_get_wpe_backend")]
-    //#[doc(alias = "get_wpe_backend")]
-    // pub fn wpe_backend(&mut self) -> /*Unimplemented*/Option<Basic: Pointer> {
-    //    unsafe { TODO: call ffi:webkit_web_view_backend_get_wpe_backend() }
-    //}
-}

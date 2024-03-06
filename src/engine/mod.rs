@@ -21,7 +21,7 @@ pub trait Engine {
     fn set_size(&mut self, width: u32, height: u32);
 
     /// Update the browser engine's scale.
-    fn set_scale(&mut self, scale: f32);
+    fn set_scale(&mut self, scale: f64);
 
     /// Load a new page.
     fn load_uri(&self, uri: &str);

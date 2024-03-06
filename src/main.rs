@@ -11,6 +11,7 @@ use smithay_client_toolkit::reexports::client::globals::{self, GlobalError};
 use smithay_client_toolkit::reexports::client::{
     ConnectError, Connection, EventQueue, QueueHandle,
 };
+use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::shell::xdg::window::{Window as XdgWindow, WindowDecorations};
 use smithay_client_toolkit::shell::WaylandSurface;
 
@@ -158,16 +159,26 @@ struct Window {
     active_tab: usize,
 
     xdg: XdgWindow,
+    viewport: WpViewport,
+    scale: f64,
     width: u32,
     height: u32,
     initial_commit_done: bool,
+
     dirty: bool,
 }
 
 impl Window {
     fn new(protocol_states: &ProtocolStates, queue: &QueueHandle<State>) -> Self {
-        // Create XDG window.
         let surface = protocol_states.compositor.create_surface(queue);
+
+        // Enable fractional scaling.
+        protocol_states.fractional_scale.fractional_scaling(queue, &surface);
+
+        // Enable viewporter.
+        let viewport = protocol_states.viewporter.viewport(queue, &surface);
+
+        // Create XDG window.
         let decorations = WindowDecorations::RequestServer;
         let xdg = protocol_states.xdg_shell.create_window(surface, decorations, queue);
         xdg.set_title("Kumo");
@@ -177,10 +188,12 @@ impl Window {
         let id = WindowId::new();
 
         Self {
+            viewport,
             xdg,
             id,
             height: DEFAULT_HEIGHT,
             width: DEFAULT_WIDTH,
+            scale: 1.,
             initial_commit_done: Default::default(),
             active_tab: Default::default(),
             dirty: Default::default(),
@@ -200,7 +213,6 @@ impl Window {
         engines: &HashMap<EngineId, Box<dyn Engine>>,
     ) {
         if !self.dirty {
-            // println!("SKIPPING REDRAW");
             let surface = self.xdg.wl_surface();
             surface.frame(wayland_queue, surface.clone());
             surface.commit();
@@ -212,8 +224,6 @@ impl Window {
             Some(buffer) => buffer,
             None => return,
         };
-
-        println!("DRAWING AT {}x{}", self.width, self.height);
 
         self.dirty = false;
 
@@ -236,8 +246,6 @@ impl Window {
         engines: &HashMap<EngineId, Box<dyn Engine>>,
         engine_id: EngineId,
     ) {
-        println!("NEW BUFFER");
-
         // Mark window as dirty if active tab changed.
         if engine_id == self.active_tab() {
             self.dirty = true;
@@ -248,6 +256,45 @@ impl Window {
             self.draw(wayland_queue, engines);
             self.initial_commit_done = true;
             let _ = connection.flush();
+        }
+    }
+
+    /// Update surface size.
+    fn set_size(
+        &mut self,
+        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        width: u32,
+        height: u32,
+    ) {
+        // Update window dimensions.
+        self.width = width;
+        self.height = height;
+
+        // Update viewporter logical render size.
+        self.viewport.set_destination(self.width as i32, self.height as i32);
+
+        // Resize window's browser engines.
+        for engine_id in &mut self.tabs {
+            let engine = match engines.get_mut(engine_id) {
+                Some(engine) => engine,
+                None => continue,
+            };
+            engine.set_size(self.width, self.height);
+        }
+    }
+
+    /// Update surface scale.
+    fn set_scale(&mut self, engines: &mut HashMap<EngineId, Box<dyn Engine>>, scale: f64) {
+        // Update window scale.
+        self.scale = scale;
+
+        // Resize window's browser engines.
+        for engine_id in &mut self.tabs {
+            let engine = match engines.get_mut(engine_id) {
+                Some(engine) => engine,
+                None => continue,
+            };
+            engine.set_scale(scale);
         }
     }
 

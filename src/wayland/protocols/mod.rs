@@ -15,12 +15,19 @@ use smithay_client_toolkit::{
     delegate_xdg_window, registry_handlers,
 };
 
+use crate::wayland::protocols::fractional_scale::{FractionalScaleHandler, FractionalScaleManager};
+use crate::wayland::protocols::viewporter::Viewporter;
 use crate::State;
+
+pub mod fractional_scale;
+pub mod viewporter;
 
 #[derive(Debug)]
 pub struct ProtocolStates {
+    pub fractional_scale: FractionalScaleManager,
     pub compositor: CompositorState,
     pub registry: RegistryState,
+    pub viewporter: Viewporter,
     pub xdg_shell: XdgShell,
     pub output: OutputState,
 }
@@ -28,11 +35,13 @@ pub struct ProtocolStates {
 impl ProtocolStates {
     pub fn new(globals: &GlobalList, wayland_queue: &QueueHandle<State>) -> Self {
         let registry = RegistryState::new(globals);
+        let fractional_scale = FractionalScaleManager::new(globals, wayland_queue).unwrap();
         let compositor = CompositorState::bind(globals, wayland_queue).unwrap();
+        let viewporter = Viewporter::new(globals, wayland_queue).unwrap();
         let xdg_shell = XdgShell::bind(globals, wayland_queue).unwrap();
         let output = OutputState::new(globals, wayland_queue);
 
-        Self { registry, compositor, xdg_shell, output }
+        Self { fractional_scale, viewporter, registry, compositor, xdg_shell, output }
     }
 }
 
@@ -42,9 +51,9 @@ impl CompositorHandler for State {
         _: &Connection,
         _: &QueueHandle<Self>,
         _: &WlSurface,
-        _scale: i32,
+        _: i32,
     ) {
-        println!("SCALE CHANGED: {}", _scale);
+        // NOTE: We exclusively use fractional scaling.
     }
 
     fn transform_changed(
@@ -97,28 +106,32 @@ impl WindowHandler for State {
         configure: WindowConfigure,
         _serial: u32,
     ) {
-        let window = match self.windows.values_mut().find(|w| &w.xdg == window) {
-            Some(window) => window,
-            None => return,
-        };
-
-        // Update window dimensions.
-        window.width = configure.new_size.0.map(|w| w.get()).unwrap_or(window.width);
-        window.height = configure.new_size.1.map(|h| h.get()).unwrap_or(window.height);
-
-        // Resize window's browser engines.
-        for engine_id in &mut window.tabs {
-            let engine = match self.engines.get_mut(engine_id) {
-                Some(engine) => engine,
-                None => continue,
-            };
-            engine.set_size(window.width, window.height);
+        let window = self.windows.values_mut().find(|w| &w.xdg == window);
+        if let Some(window) = window {
+            // Update window dimensions.
+            let width = configure.new_size.0.map(|w| w.get()).unwrap_or(window.width);
+            let height = configure.new_size.1.map(|h| h.get()).unwrap_or(window.height);
+            window.set_size(&mut self.engines, width, height);
         }
     }
 }
 delegate_xdg_shell!(State);
-
 delegate_xdg_window!(State);
+
+impl FractionalScaleHandler for State {
+    fn scale_factor_changed(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        surface: &WlSurface,
+        scale: f64,
+    ) {
+        let window = self.windows.values_mut().find(|w| w.xdg.wl_surface() == surface);
+        if let Some(window) = window {
+            window.set_scale(&mut self.engines, scale);
+        }
+    }
+}
 
 impl ProvidesRegistryState for State {
     registry_handlers![OutputState];

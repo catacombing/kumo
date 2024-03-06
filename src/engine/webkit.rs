@@ -59,8 +59,10 @@ impl WebKitHandler for State {
         unsafe {
             let width = wpe_fdo_egl_exported_image_get_width(image);
             let height = wpe_fdo_egl_exported_image_get_height(image);
+            let desired_width = (webkit_engine.width as f32 * webkit_engine.scale).round() as u32;
+            let desired_height = (webkit_engine.height as f32 * webkit_engine.scale).round() as u32;
 
-            if webkit_engine.width != width || webkit_engine.height != height {
+            if desired_width != width || desired_height != height {
                 webkit_engine.frame_done();
                 wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image(
                     webkit_engine.exportable,
@@ -94,6 +96,7 @@ pub struct WebKitEngine {
 
     width: u32,
     height: u32,
+    scale: f32,
 }
 
 impl Drop for WebKitEngine {
@@ -143,13 +146,14 @@ impl WebKitEngine {
         web_view.load_uri("about:blank");
 
         Ok(Self {
-            id: engine_id,
+            exportable,
             web_view,
             backend,
-            exportable,
             width,
             height,
             image: ptr::null_mut(),
+            id: engine_id,
+            scale: 1.0,
             buffer: Default::default(),
         })
     }
@@ -229,12 +233,17 @@ impl Engine for WebKitEngine {
         }
     }
 
-    fn set_scale(&mut self, scale: f32) {
+    fn set_scale(&mut self, scale: f64) {
+        // Clamp scale to WebKit's limits.
+        //
+        // https://webplatformforembedded.github.io/libwpe/view-backend.html#wpe_view_backend_dispatch_set_device_scale_factor
+        self.scale = scale.clamp(0.05, 5.0) as f32;
+
         unsafe {
             let wpe_backend = self.backend.wpe_backend();
             wpe_backend_fdo_sys::wpe_view_backend_dispatch_set_device_scale_factor(
                 wpe_backend,
-                scale,
+                self.scale,
             );
         }
     }

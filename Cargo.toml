@@ -1,5 +1,17 @@
+[package]
+name = "kumo"
+version = "0.1.0"
+description = "A Wayland Mobile Browser"
+authors = ["Christian Duerr <contact@christianduerr.com>"]
+repository = "https://github.com/catacombing/kumo"
+rust-version = "1.76.0"
+license = "GPL-3.0"
+edition = "2021"
+
 [workspace]
 members = [
+    "funq",
+    "funq/funq_derive",
     "libwpe-sys",
     "wpe-backend-fdo-sys",
     "wpe-jsc",
@@ -7,4 +19,16 @@ members = [
     "wpe-webkit",
     "wpe-webkit-sys",
 ]
-resolver = "2"
+
+[dependencies]
+funq = { path = "./funq" }
+glutin_egl_sys = { path = "../../rust-windowing/glutin/glutin_egl_sys" }
+glutin = { path = "../../rust-windowing/glutin/glutin", default-features = false, features = ["wayland"] }
+raw-window-handle = "0.5.2"
+smithay-client-toolkit = "0.18.1"
+thiserror = "1.0.57"
+wayland-backend = { version = "0.3.3", features = ["client_system"] }
+wpe-backend-fdo-sys = { path = "./wpe-backend-fdo-sys" }
+wpe-webkit = { path = "./wpe-webkit" }
+glib = "0.19.2"
+gio = "0.19.2"

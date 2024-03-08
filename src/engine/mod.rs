@@ -2,6 +2,7 @@ use std::any::Any;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
+use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::WindowId;
 
@@ -22,6 +23,12 @@ pub trait Engine {
 
     /// Update the browser engine's scale.
     fn set_scale(&mut self, scale: f64);
+
+    /// Handle key down.
+    fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers);
+
+    /// Handle key up.
+    fn release_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers);
 
     /// Load a new page.
     fn load_uri(&self, uri: &str);

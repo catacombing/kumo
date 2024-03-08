@@ -48,7 +48,11 @@ impl<S> Queue<S> {
     /// This allows for function parameters which cannot be sent across thread
     /// boundaries, but sending the handle itself is not safe either.
     pub fn local_handle(&self) -> StQueueHandle<S> {
-        StQueueHandle { tx: self.st_tx.clone(), waker: self.waker.clone() }
+        StQueueHandle {
+            tx: self.st_tx.clone(),
+            mt_tx: self.mt_tx.clone(),
+            waker: self.waker.clone(),
+        }
     }
 
     /// Dispatch all pending callbacks.
@@ -105,6 +109,8 @@ impl<S> Clone for MtQueueHandle<S> {
 pub struct StQueueHandle<S> {
     tx: Sender<StFun<S>>,
     waker: Arc<OwnedFd>,
+
+    mt_tx: Sender<MtFun<S>>,
 }
 
 impl<S> StQueueHandle<S> {
@@ -113,11 +119,19 @@ impl<S> StQueueHandle<S> {
         let _ = self.tx.send(fun);
         let _ = write(&self.waker, &1u64.to_ne_bytes());
     }
+
+    /// Get a handle for dispatching thread-safe callbacks.
+    ///
+    /// To dispatch callbacks which are not thread-safe, see
+    /// [`Self::local_handle`] instead.
+    pub fn handle(&self) -> MtQueueHandle<S> {
+        MtQueueHandle { tx: self.mt_tx.clone(), waker: self.waker.clone() }
+    }
 }
 
 impl<S> Clone for StQueueHandle<S> {
     fn clone(&self) -> Self {
-        Self { tx: self.tx.clone(), waker: self.waker.clone() }
+        Self { tx: self.tx.clone(), mt_tx: self.mt_tx.clone(), waker: self.waker.clone() }
     }
 }
 

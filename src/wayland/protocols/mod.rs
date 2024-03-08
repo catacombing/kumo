@@ -3,21 +3,31 @@
 use smithay_client_toolkit::compositor::{CompositorHandler, CompositorState};
 use smithay_client_toolkit::output::{OutputHandler, OutputState};
 use smithay_client_toolkit::reexports::client::globals::GlobalList;
+use smithay_client_toolkit::reexports::client::protocol::wl_keyboard::WlKeyboard;
 use smithay_client_toolkit::reexports::client::protocol::wl_output::{Transform, WlOutput};
+use smithay_client_toolkit::reexports::client::protocol::wl_pointer::WlPointer;
+use smithay_client_toolkit::reexports::client::protocol::wl_seat::WlSeat;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
+use smithay_client_toolkit::reexports::client::protocol::wl_touch::WlTouch;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
 use smithay_client_toolkit::registry::{ProvidesRegistryState, RegistryState};
+use smithay_client_toolkit::seat::keyboard::{
+    KeyEvent, KeyboardHandler, Keysym, Modifiers, RepeatInfo,
+};
+use smithay_client_toolkit::seat::pointer::{PointerEvent, PointerHandler};
+use smithay_client_toolkit::seat::touch::TouchHandler;
+use smithay_client_toolkit::seat::{Capability, SeatHandler, SeatState};
 use smithay_client_toolkit::shell::xdg::window::{Window, WindowConfigure, WindowHandler};
 use smithay_client_toolkit::shell::xdg::XdgShell;
 use smithay_client_toolkit::shell::WaylandSurface;
 use smithay_client_toolkit::{
-    delegate_compositor, delegate_output, delegate_registry, delegate_xdg_shell,
-    delegate_xdg_window, registry_handlers,
+    delegate_compositor, delegate_keyboard, delegate_output, delegate_pointer, delegate_registry,
+    delegate_seat, delegate_touch, delegate_xdg_shell, delegate_xdg_window, registry_handlers,
 };
 
 use crate::wayland::protocols::fractional_scale::{FractionalScaleHandler, FractionalScaleManager};
 use crate::wayland::protocols::viewporter::Viewporter;
-use crate::State;
+use crate::{KeyboardState, State};
 
 pub mod fractional_scale;
 pub mod viewporter;
@@ -30,6 +40,7 @@ pub struct ProtocolStates {
     pub viewporter: Viewporter,
     pub xdg_shell: XdgShell,
     pub output: OutputState,
+    pub seat: SeatState,
 }
 
 impl ProtocolStates {
@@ -40,8 +51,9 @@ impl ProtocolStates {
         let viewporter = Viewporter::new(globals, wayland_queue).unwrap();
         let xdg_shell = XdgShell::bind(globals, wayland_queue).unwrap();
         let output = OutputState::new(globals, wayland_queue);
+        let seat = SeatState::new(globals, wayland_queue);
 
-        Self { fractional_scale, viewporter, registry, compositor, xdg_shell, output }
+        Self { fractional_scale, viewporter, registry, compositor, xdg_shell, output, seat }
     }
 }
 
@@ -132,6 +144,288 @@ impl FractionalScaleHandler for State {
         }
     }
 }
+
+impl SeatHandler for State {
+    fn seat_state(&mut self) -> &mut SeatState {
+        &mut self.protocol_states.seat
+    }
+
+    fn new_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: WlSeat) {}
+
+    fn new_capability(
+        &mut self,
+        _connection: &Connection,
+        queue: &QueueHandle<Self>,
+        seat: WlSeat,
+        capability: Capability,
+    ) {
+        match capability {
+            Capability::Keyboard if self.keyboard.is_none() => {
+                let keyboard = self.protocol_states.seat.get_keyboard(queue, &seat, None).ok();
+                self.keyboard = keyboard.map(|kbd| KeyboardState::new(self.queue.handle(), kbd));
+            },
+            Capability::Pointer if self.pointer.is_none() => {
+                self.pointer = self.protocol_states.seat.get_pointer(queue, &seat).ok();
+            },
+            Capability::Touch if self.touch.is_none() => {
+                self.touch = self.protocol_states.seat.get_touch(queue, &seat).ok();
+            },
+            _ => (),
+        }
+    }
+
+    fn remove_capability(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _seat: WlSeat,
+        capability: Capability,
+    ) {
+        match capability {
+            Capability::Keyboard => self.keyboard = None,
+            Capability::Pointer => {
+                if let Some(pointer) = self.pointer.take() {
+                    pointer.release();
+                }
+            },
+            Capability::Touch => {
+                if let Some(touch) = self.touch.take() {
+                    touch.release();
+                }
+            },
+            _ => (),
+        }
+    }
+
+    fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: WlSeat) {}
+}
+delegate_seat!(State);
+
+impl KeyboardHandler for State {
+    fn enter(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _keyboard: &WlKeyboard,
+        surface: &WlSurface,
+        _serial: u32,
+        _raws: &[u32],
+        _keysyms: &[Keysym],
+    ) {
+        // Update window with keyboard focus.
+        let window = match self.windows.values_mut().find(|win| win.xdg.wl_surface() == surface) {
+            Some(window) => window,
+            None => return,
+        };
+        self.keyboard_focus = Some(window.id);
+    }
+
+    fn leave(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _keyboard: &WlKeyboard,
+        _surface: &WlSurface,
+        _serial: u32,
+    ) {
+        let keyboard_state = match &mut self.keyboard {
+            Some(keyboard_state) => keyboard_state,
+            None => return,
+        };
+
+        // Cancel active key repetition.
+        keyboard_state.cancel_repeat();
+
+        // Update window with keyboard focus.
+        self.keyboard_focus = None;
+    }
+
+    fn press_key(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _keyboard: &WlKeyboard,
+        _serial: u32,
+        event: KeyEvent,
+    ) {
+        let keyboard_state = match &mut self.keyboard {
+            Some(keyboard_state) => keyboard_state,
+            None => return,
+        };
+        keyboard_state.press_key(event.raw_code, event.keysym);
+
+        // Update pressed keys.
+        let window = match self.keyboard_focus.and_then(|focus| self.windows.get(&focus)) {
+            Some(window) => window,
+            _ => return,
+        };
+        window.press_key(&mut self.engines, event.raw_code, event.keysym, keyboard_state.modifiers);
+    }
+
+    fn release_key(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _keyboard: &WlKeyboard,
+        _serial: u32,
+        event: KeyEvent,
+    ) {
+        let keyboard_state = match &mut self.keyboard {
+            Some(keyboard_state) => keyboard_state,
+            None => return,
+        };
+        keyboard_state.release_key(event.raw_code);
+
+        // Update pressed keys.
+        let window = match self.keyboard_focus.and_then(|focus| self.windows.get(&focus)) {
+            Some(window) => window,
+            _ => return,
+        };
+        window.release_key(
+            &mut self.engines,
+            event.raw_code,
+            event.keysym,
+            keyboard_state.modifiers,
+        );
+    }
+
+    fn update_modifiers(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _keyboard: &WlKeyboard,
+        _serial: u32,
+        modifiers: Modifiers,
+    ) {
+        let keyboard_state = match &mut self.keyboard {
+            Some(keyboard_state) => keyboard_state,
+            None => return,
+        };
+
+        // Update pressed modifiers.
+        keyboard_state.modifiers = modifiers;
+    }
+
+    fn update_repeat_info(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _keyboard: &WlKeyboard,
+        repeat_info: RepeatInfo,
+    ) {
+        let keyboard_state = match &mut self.keyboard {
+            Some(keyboard_state) => keyboard_state,
+            None => return,
+        };
+
+        // Update keyboard repeat state.
+        keyboard_state.repeat_info = repeat_info;
+    }
+}
+delegate_keyboard!(State);
+
+#[funq::callbacks(State)]
+pub trait KeyRepeat {
+    fn repeat_key(&mut self);
+}
+
+impl KeyRepeat for State {
+    fn repeat_key(&mut self) {
+        let keyboard_state = match &mut self.keyboard {
+            Some(keyboard_state) => keyboard_state,
+            None => return,
+        };
+        let (raw, keysym, modifiers) = match keyboard_state.repeat_key() {
+            Some(repeat_key) => repeat_key,
+            None => return,
+        };
+
+        // Once the timeout completed, we need to clear the GLib repeat source ID, since
+        // removing an invalid source ID causes a panic.
+        keyboard_state.current_repeat.take();
+
+        // Update pressed keys.
+        if let Some(window) = self.keyboard_focus.and_then(|focus| self.windows.get(&focus)) {
+            window.press_key(&mut self.engines, raw, keysym, modifiers);
+        }
+
+        // Request next repeat.
+        keyboard_state.request_repeat(raw, keysym, false);
+    }
+}
+
+impl TouchHandler for State {
+    fn down(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _touch: &WlTouch,
+        _serial: u32,
+        _time: u32,
+        _surface: WlSurface,
+        _id: i32,
+        _position: (f64, f64),
+    ) {
+    }
+
+    fn up(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _touch: &WlTouch,
+        _serial: u32,
+        _time: u32,
+        _id: i32,
+    ) {
+    }
+
+    fn motion(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _touch: &WlTouch,
+        _time: u32,
+        _id: i32,
+        _position: (f64, f64),
+    ) {
+    }
+
+    fn cancel(&mut self, _connection: &Connection, _queue: &QueueHandle<Self>, _touch: &WlTouch) {}
+
+    fn shape(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _touch: &WlTouch,
+        _id: i32,
+        _major: f64,
+        _minor: f64,
+    ) {
+    }
+
+    fn orientation(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _touch: &WlTouch,
+        _id: i32,
+        _orientation: f64,
+    ) {
+    }
+}
+delegate_touch!(State);
+
+impl PointerHandler for State {
+    fn pointer_frame(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _pointer: &WlPointer,
+        _events: &[PointerEvent],
+    ) {
+    }
+}
+delegate_pointer!(State);
 
 impl ProvidesRegistryState for State {
     registry_handlers![OutputState];

@@ -2,16 +2,23 @@ use std::any::Any;
 use std::ffi::{self, CString};
 use std::ptr;
 use std::sync::Once;
+use std::time::UNIX_EPOCH;
 
 use funq::StQueueHandle;
 use glutin::api::egl::EGL;
 use glutin::display::{AsRawDisplay, Display, RawDisplay};
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::{Connection, Proxy};
+use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use wayland_backend::client::ObjectId;
 use wpe_backend_fdo_sys::{
     wpe_fdo_egl_exported_image, wpe_fdo_egl_exported_image_get_egl_image,
     wpe_fdo_egl_exported_image_get_height, wpe_fdo_egl_exported_image_get_width,
+    wpe_input_keyboard_event, wpe_input_modifier_wpe_input_keyboard_modifier_alt,
+    wpe_input_modifier_wpe_input_keyboard_modifier_control,
+    wpe_input_modifier_wpe_input_keyboard_modifier_meta,
+    wpe_input_modifier_wpe_input_keyboard_modifier_shift, wpe_view_backend_dispatch_keyboard_event,
+    wpe_view_backend_dispatch_set_device_scale_factor, wpe_view_backend_dispatch_set_size,
     wpe_view_backend_exportable_fdo, wpe_view_backend_exportable_fdo_dispatch_frame_complete,
     wpe_view_backend_exportable_fdo_egl_client, wpe_view_backend_exportable_fdo_egl_create,
     wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image,
@@ -229,7 +236,7 @@ impl Engine for WebKitEngine {
 
         unsafe {
             let wpe_backend = self.backend.wpe_backend();
-            wpe_backend_fdo_sys::wpe_view_backend_dispatch_set_size(wpe_backend, width, height);
+            wpe_view_backend_dispatch_set_size(wpe_backend, width, height);
         }
     }
 
@@ -241,10 +248,23 @@ impl Engine for WebKitEngine {
 
         unsafe {
             let wpe_backend = self.backend.wpe_backend();
-            wpe_backend_fdo_sys::wpe_view_backend_dispatch_set_device_scale_factor(
-                wpe_backend,
-                self.scale,
-            );
+            wpe_view_backend_dispatch_set_device_scale_factor(wpe_backend, self.scale);
+        }
+    }
+
+    fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
+        let mut event = wpe_keyboard_event(raw, keysym, modifiers, true);
+        unsafe {
+            let wpe_backend = self.backend.wpe_backend();
+            wpe_view_backend_dispatch_keyboard_event(wpe_backend, &mut event);
+        }
+    }
+
+    fn release_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
+        let mut event = wpe_keyboard_event(raw, keysym, modifiers, false);
+        unsafe {
+            let wpe_backend = self.backend.wpe_backend();
+            wpe_view_backend_dispatch_keyboard_event(wpe_backend, &mut event);
         }
     }
 
@@ -254,6 +274,41 @@ impl Engine for WebKitEngine {
 
     fn as_any(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+/// Construct WPE keyboard event from its components.
+fn wpe_keyboard_event(
+    raw: u32,
+    keysym: Keysym,
+    modifiers: Modifiers,
+    pressed: bool,
+) -> wpe_input_keyboard_event {
+    // Convert Wayland modifiers to WPE format.
+    let mut wpe_modifiers = 0;
+    if modifiers.ctrl {
+        wpe_modifiers += wpe_input_modifier_wpe_input_keyboard_modifier_control;
+    }
+    if modifiers.shift {
+        wpe_modifiers += wpe_input_modifier_wpe_input_keyboard_modifier_shift;
+    }
+    if modifiers.alt {
+        wpe_modifiers += wpe_input_modifier_wpe_input_keyboard_modifier_alt;
+    }
+    if modifiers.logo {
+        wpe_modifiers += wpe_input_modifier_wpe_input_keyboard_modifier_meta;
+    }
+
+    // Get system time in seconds.
+    let elapsed = UNIX_EPOCH.elapsed().unwrap_or_default();
+    let time = elapsed.as_secs() as u32;
+
+    wpe_input_keyboard_event {
+        pressed,
+        time,
+        modifiers: wpe_modifiers,
+        hardware_key_code: raw,
+        key_code: keysym.raw(),
     }
 }
 

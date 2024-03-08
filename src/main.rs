@@ -2,22 +2,28 @@ use std::collections::HashMap;
 use std::io;
 use std::os::fd::{AsFd, AsRawFd};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 
-use funq::{Queue, StQueueHandle};
+use funq::{MtQueueHandle, Queue, StQueueHandle};
+use glib::source::SourceId;
 use glib::{source, ControlFlow, IOCondition, MainLoop};
 use glutin::display::{Display, DisplayApiPreference};
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
 use smithay_client_toolkit::reexports::client::globals::{self, GlobalError};
+use smithay_client_toolkit::reexports::client::protocol::wl_keyboard::WlKeyboard;
+use smithay_client_toolkit::reexports::client::protocol::wl_pointer::WlPointer;
+use smithay_client_toolkit::reexports::client::protocol::wl_touch::WlTouch;
 use smithay_client_toolkit::reexports::client::{
     ConnectError, Connection, EventQueue, QueueHandle,
 };
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
+use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers, RepeatInfo};
 use smithay_client_toolkit::shell::xdg::window::{Window as XdgWindow, WindowDecorations};
 use smithay_client_toolkit::shell::WaylandSurface;
 
 use crate::engine::webkit::{WebKitEngine, WebKitError};
 use crate::engine::{Engine, EngineId};
-use crate::wayland::protocols::ProtocolStates;
+use crate::wayland::protocols::{KeyRepeat, ProtocolStates};
 use crate::wayland::WaylandDispatch;
 
 // Default window size.
@@ -84,13 +90,18 @@ pub struct State {
     connection: Connection,
     egl_display: Display,
 
-    windows: HashMap<WindowId, Window>,
+    keyboard: Option<KeyboardState>,
+    pointer: Option<WlPointer>,
+    touch: Option<WlTouch>,
 
-    local_queue: StQueueHandle<Self>,
+    windows: HashMap<WindowId, Window>,
+    keyboard_focus: Option<WindowId>,
+
+    queue: StQueueHandle<Self>,
 }
 
 impl State {
-    fn new(local_queue: StQueueHandle<Self>) -> Result<Self, Error> {
+    fn new(queue: StQueueHandle<Self>) -> Result<Self, Error> {
         // Initialize Wayland connection.
         let connection = Connection::connect_to_env()?;
         let (globals, wayland_queue) = globals::registry_queue_init(&connection)?;
@@ -104,13 +115,17 @@ impl State {
 
         Ok(Self {
             protocol_states,
-            local_queue,
             egl_display,
             connection,
+            queue,
             wayland_queue: Some(wayland_queue),
+            keyboard_focus: Default::default(),
             terminated: Default::default(),
+            keyboard: Default::default(),
             engines: Default::default(),
             windows: Default::default(),
+            pointer: Default::default(),
+            touch: Default::default(),
         })
     }
 
@@ -136,7 +151,7 @@ impl State {
         let engine_id = EngineId::new(window_id);
         let engine = WebKitEngine::new(
             &self.egl_display,
-            self.local_queue.clone(),
+            self.queue.clone(),
             engine_id,
             DEFAULT_WIDTH,
             DEFAULT_HEIGHT,
@@ -298,9 +313,117 @@ impl Window {
         }
     }
 
+    /// Handle new key press.
+    fn press_key(
+        &self,
+        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        raw: u32,
+        keysym: Keysym,
+        modifiers: Modifiers,
+    ) {
+        let engine = match engines.get_mut(&self.active_tab()) {
+            Some(engine) => engine,
+            None => return,
+        };
+        engine.press_key(raw, keysym, modifiers);
+    }
+
+    /// Handle new key release.
+    fn release_key(
+        &self,
+        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        raw: u32,
+        keysym: Keysym,
+        modifiers: Modifiers,
+    ) {
+        // Forward keyboard event to browser engine.
+        if let Some(engine) = engines.get_mut(&self.active_tab()) {
+            engine.release_key(raw, keysym, modifiers);
+        }
+    }
+
     /// Get the engine ID for the current tab.
     fn active_tab(&self) -> EngineId {
         self.tabs[self.active_tab]
+    }
+}
+
+/// Key status tracking for WlKeyboard.
+pub struct KeyboardState {
+    wl_keyboard: WlKeyboard,
+    repeat_info: RepeatInfo,
+    modifiers: Modifiers,
+
+    queue: MtQueueHandle<State>,
+    current_repeat: Option<(SourceId, u32, Keysym)>,
+}
+
+impl Drop for KeyboardState {
+    fn drop(&mut self) {
+        self.wl_keyboard.release();
+    }
+}
+
+impl KeyboardState {
+    pub fn new(queue: MtQueueHandle<State>, wl_keyboard: WlKeyboard) -> Self {
+        Self {
+            wl_keyboard,
+            queue,
+            repeat_info: RepeatInfo::Disable,
+            current_repeat: Default::default(),
+            modifiers: Default::default(),
+        }
+    }
+
+    /// Handle new key press.
+    fn press_key(&mut self, raw: u32, keysym: Keysym) {
+        // Update key repeat timers.
+        if !keysym.is_modifier_key() {
+            self.request_repeat(raw, keysym, true);
+        }
+    }
+
+    /// Handle new key release.
+    fn release_key(&mut self, raw: u32) {
+        // Cancel repetition if released key is being repeated.
+        if self.current_repeat.as_ref().map_or(false, |repeat| repeat.1 == raw) {
+            self.cancel_repeat();
+        }
+    }
+
+    /// Stage new key repetition.
+    fn request_repeat(&mut self, raw: u32, keysym: Keysym, initial: bool) {
+        // Ensure all previous events are cleared.
+        self.cancel_repeat();
+
+        let (delay, rate) = match self.repeat_info {
+            RepeatInfo::Repeat { delay, rate } => (delay, rate),
+            _ => return,
+        };
+
+        // Stage new timer.
+        let mut queue = self.queue.clone();
+        let delay = if initial {
+            Duration::from_millis(delay as u64)
+        } else {
+            Duration::from_millis(1000 / rate.get() as u64)
+        };
+        let source_id = source::timeout_add_once(delay, move || queue.repeat_key());
+
+        self.current_repeat = Some((source_id, raw, keysym));
+    }
+
+    /// Cancel currently staged key repetition.
+    fn cancel_repeat(&mut self) {
+        if let Some((source_id, ..)) = self.current_repeat.take() {
+            source_id.remove();
+        }
+    }
+
+    /// Get last pressed key for repetition.
+    fn repeat_key(&self) -> Option<(u32, Keysym, Modifiers)> {
+        let (_, raw, keysym) = self.current_repeat.as_ref()?;
+        Some((*raw, *keysym, self.modifiers))
     }
 }
 

@@ -49,7 +49,8 @@ enum Error {
 
 fn main() -> Result<(), Error> {
     let queue = Queue::new()?;
-    let mut state = State::new(queue.local_handle())?;
+    let main_loop = MainLoop::new(None, true);
+    let mut state = State::new(queue.local_handle(), main_loop.clone())?;
 
     // Create our initial window.
     state.create_window()?;
@@ -75,7 +76,7 @@ fn main() -> Result<(), Error> {
     });
 
     // Run main event loop.
-    MainLoop::new(None, true).run();
+    main_loop.run();
 
     Ok(())
 }
@@ -83,7 +84,7 @@ fn main() -> Result<(), Error> {
 /// Main application state.
 pub struct State {
     engines: HashMap<EngineId, Box<dyn Engine>>,
-    terminated: bool,
+    main_loop: MainLoop,
 
     wayland_queue: Option<EventQueue<Self>>,
     protocol_states: ProtocolStates,
@@ -101,7 +102,7 @@ pub struct State {
 }
 
 impl State {
-    fn new(queue: StQueueHandle<Self>) -> Result<Self, Error> {
+    fn new(queue: StQueueHandle<Self>, main_loop: MainLoop) -> Result<Self, Error> {
         // Initialize Wayland connection.
         let connection = Connection::connect_to_env()?;
         let (globals, wayland_queue) = globals::registry_queue_init(&connection)?;
@@ -117,10 +118,10 @@ impl State {
             protocol_states,
             egl_display,
             connection,
+            main_loop,
             queue,
             wayland_queue: Some(wayland_queue),
             keyboard_focus: Default::default(),
-            terminated: Default::default(),
             keyboard: Default::default(),
             engines: Default::default(),
             windows: Default::default(),

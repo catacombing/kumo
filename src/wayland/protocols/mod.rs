@@ -107,7 +107,7 @@ delegate_output!(State);
 
 impl WindowHandler for State {
     fn request_close(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &Window) {
-        self.terminated = true;
+        self.main_loop.quit();
     }
 
     fn configure(

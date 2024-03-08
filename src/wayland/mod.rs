@@ -19,10 +19,21 @@ pub trait WaylandDispatch {
 
 impl WaylandDispatch for State {
     fn wayland_dispatch(&mut self) {
+        // Avoid poking dead socket with multiple pending requests.
+        if !self.main_loop.is_running() {
+            return;
+        }
+
         let mut queue = self.wayland_queue.take().unwrap();
 
         if let Err(err) = self.wayland_dispatch_internal(&mut queue) {
-            eprintln!("wayland dispatch failed: {err}");
+            match err {
+                WaylandError::Io(io) if io.kind() == io::ErrorKind::BrokenPipe => {
+                    eprintln!("Wayland socket has shut down");
+                    self.main_loop.quit();
+                },
+                err => eprintln!("wayland dispatch failed: {err}"),
+            }
         }
 
         self.wayland_queue = Some(queue);

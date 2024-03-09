@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::collections::HashMap;
 use std::ffi::{self, CString};
 use std::ptr;
 use std::sync::Once;
@@ -23,10 +24,14 @@ use wpe_backend_fdo_sys::{
     wpe_input_modifier_wpe_input_keyboard_modifier_meta,
     wpe_input_modifier_wpe_input_keyboard_modifier_shift, wpe_input_pointer_event,
     wpe_input_pointer_event_type_wpe_input_pointer_event_type_button,
-    wpe_input_pointer_event_type_wpe_input_pointer_event_type_motion,
-    wpe_view_backend_dispatch_axis_event, wpe_view_backend_dispatch_keyboard_event,
-    wpe_view_backend_dispatch_pointer_event, wpe_view_backend_dispatch_set_device_scale_factor,
-    wpe_view_backend_dispatch_set_size, wpe_view_backend_exportable_fdo,
+    wpe_input_pointer_event_type_wpe_input_pointer_event_type_motion, wpe_input_touch_event,
+    wpe_input_touch_event_raw, wpe_input_touch_event_type,
+    wpe_input_touch_event_type_wpe_input_touch_event_type_down,
+    wpe_input_touch_event_type_wpe_input_touch_event_type_motion,
+    wpe_input_touch_event_type_wpe_input_touch_event_type_up, wpe_view_backend_dispatch_axis_event,
+    wpe_view_backend_dispatch_keyboard_event, wpe_view_backend_dispatch_pointer_event,
+    wpe_view_backend_dispatch_set_device_scale_factor, wpe_view_backend_dispatch_set_size,
+    wpe_view_backend_dispatch_touch_event, wpe_view_backend_exportable_fdo,
     wpe_view_backend_exportable_fdo_dispatch_frame_complete,
     wpe_view_backend_exportable_fdo_egl_client, wpe_view_backend_exportable_fdo_egl_create,
     wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image,
@@ -221,6 +226,30 @@ impl WebKitEngine {
             Ok(())
         }
     }
+
+    /// Emit a touch input event.
+    fn touch_event(
+        &mut self,
+        touch_points: &[wpe_input_touch_event_raw],
+        time: u32,
+        id: i32,
+        modifiers: Modifiers,
+        type_: wpe_input_touch_event_type,
+    ) {
+        let mut event = wpe_input_touch_event {
+            type_,
+            time,
+            id,
+            touchpoints_length: touch_points.len() as u64,
+            modifiers: wpe_modifiers(modifiers),
+            touchpoints: touch_points.as_ptr(),
+        };
+
+        unsafe {
+            let wpe_backend = self.backend.wpe_backend();
+            wpe_view_backend_dispatch_touch_event(wpe_backend, &mut event);
+        }
+    }
 }
 
 impl Engine for WebKitEngine {
@@ -350,6 +379,42 @@ impl Engine for WebKitEngine {
         }
     }
 
+    fn touch_down(
+        &mut self,
+        touch_points: &HashMap<i32, (f64, f64)>,
+        time: u32,
+        id: i32,
+        modifiers: Modifiers,
+    ) {
+        let event_type = wpe_input_touch_event_type_wpe_input_touch_event_type_down;
+        let touch_points = wpe_touch_points(touch_points, self.scale, time, id, event_type);
+        self.touch_event(&touch_points, time, id, modifiers, event_type);
+    }
+
+    fn touch_up(
+        &mut self,
+        touch_points: &HashMap<i32, (f64, f64)>,
+        time: u32,
+        id: i32,
+        modifiers: Modifiers,
+    ) {
+        let event_type = wpe_input_touch_event_type_wpe_input_touch_event_type_up;
+        let touch_points = wpe_touch_points(touch_points, self.scale, time, id, event_type);
+        self.touch_event(&touch_points, time, id, modifiers, event_type);
+    }
+
+    fn touch_motion(
+        &mut self,
+        touch_points: &HashMap<i32, (f64, f64)>,
+        time: u32,
+        id: i32,
+        modifiers: Modifiers,
+    ) {
+        let event_type = wpe_input_touch_event_type_wpe_input_touch_event_type_motion;
+        let touch_points = wpe_touch_points(touch_points, self.scale, time, id, event_type);
+        self.touch_event(&touch_points, time, id, modifiers, event_type);
+    }
+
     fn load_uri(&self, uri: &str) {
         self.web_view.load_uri(uri);
     }
@@ -395,6 +460,32 @@ fn wpe_modifiers(modifiers: Modifiers) -> u32 {
         wpe_modifiers += wpe_input_modifier_wpe_input_keyboard_modifier_meta;
     }
     wpe_modifiers
+}
+
+/// Convert touch points to WPE touch events.
+fn wpe_touch_points(
+    touch_points: &HashMap<i32, (f64, f64)>,
+    scale: f32,
+    time: u32,
+    main_id: i32,
+    main_type: wpe_input_touch_event_type,
+) -> Vec<wpe_input_touch_event_raw> {
+    touch_points
+        .iter()
+        .map(|(&point_id, &(x, y))| {
+            // Pretend all existing touch points just moved in place.
+            let type_ = if main_id == point_id {
+                main_type
+            } else {
+                wpe_input_touch_event_type_wpe_input_touch_event_type_motion
+            };
+
+            let x = (x * scale as f64).round() as i32;
+            let y = (y * scale as f64).round() as i32;
+
+            wpe_input_touch_event_raw { type_, time, id: point_id, x, y }
+        })
+        .collect()
 }
 
 /// Shared state leaked to FDO backend callbacks.

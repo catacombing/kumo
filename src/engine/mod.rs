@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
@@ -55,6 +56,33 @@ pub trait Engine {
 
     /// Handle pointer motion.
     fn pointer_motion(&mut self, time: u32, x: f64, y: f64, modifiers: Modifiers);
+
+    /// Handle touch press.
+    fn touch_up(
+        &mut self,
+        touch_points: &HashMap<i32, (f64, f64)>,
+        time: u32,
+        id: i32,
+        modifiers: Modifiers,
+    );
+
+    /// Handle touch release.
+    fn touch_down(
+        &mut self,
+        touch_points: &HashMap<i32, (f64, f64)>,
+        time: u32,
+        id: i32,
+        modifiers: Modifiers,
+    );
+
+    /// Handle touch motion.
+    fn touch_motion(
+        &mut self,
+        touch_points: &HashMap<i32, (f64, f64)>,
+        time: u32,
+        id: i32,
+        modifiers: Modifiers,
+    );
 
     /// Load a new page.
     fn load_uri(&self, uri: &str);

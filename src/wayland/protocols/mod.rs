@@ -361,11 +361,24 @@ impl TouchHandler for State {
         _queue: &QueueHandle<Self>,
         _touch: &WlTouch,
         _serial: u32,
-        _time: u32,
-        _surface: WlSurface,
-        _id: i32,
-        _position: (f64, f64),
+        time: u32,
+        surface: WlSurface,
+        id: i32,
+        position: (f64, f64),
     ) {
+        // Update window with touch focus.
+        let window = match self.windows.values_mut().find(|win| win.xdg.wl_surface() == &surface) {
+            Some(window) => window,
+            None => return,
+        };
+        self.touch_focus = Some(window.id);
+
+        let modifiers = match &self.keyboard {
+            Some(keyboard_state) => keyboard_state.modifiers,
+            None => Modifiers::default(),
+        };
+
+        window.touch_down(&mut self.engines, time, id, position.0, position.1, modifiers);
     }
 
     fn up(
@@ -374,9 +387,20 @@ impl TouchHandler for State {
         _queue: &QueueHandle<Self>,
         _touch: &WlTouch,
         _serial: u32,
-        _time: u32,
-        _id: i32,
+        time: u32,
+        id: i32,
     ) {
+        let window = match self.touch_focus.and_then(|focus| self.windows.get_mut(&focus)) {
+            Some(window) => window,
+            _ => return,
+        };
+
+        let modifiers = match &self.keyboard {
+            Some(keyboard_state) => keyboard_state.modifiers,
+            None => Modifiers::default(),
+        };
+
+        window.touch_up(&mut self.engines, time, id, modifiers);
     }
 
     fn motion(
@@ -384,10 +408,21 @@ impl TouchHandler for State {
         _connection: &Connection,
         _queue: &QueueHandle<Self>,
         _touch: &WlTouch,
-        _time: u32,
-        _id: i32,
-        _position: (f64, f64),
+        time: u32,
+        id: i32,
+        position: (f64, f64),
     ) {
+        let window = match self.touch_focus.and_then(|focus| self.windows.get_mut(&focus)) {
+            Some(window) => window,
+            _ => return,
+        };
+
+        let modifiers = match &self.keyboard {
+            Some(keyboard_state) => keyboard_state.modifiers,
+            None => Modifiers::default(),
+        };
+
+        window.touch_motion(&mut self.engines, time, id, position.0, position.1, modifiers);
     }
 
     fn cancel(&mut self, _connection: &Connection, _queue: &QueueHandle<Self>, _touch: &WlTouch) {}

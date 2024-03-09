@@ -98,6 +98,7 @@ pub struct State {
 
     windows: HashMap<WindowId, Window>,
     keyboard_focus: Option<WindowId>,
+    touch_focus: Option<WindowId>,
 
     queue: StQueueHandle<Self>,
 }
@@ -123,6 +124,7 @@ impl State {
             queue,
             wayland_queue: Some(wayland_queue),
             keyboard_focus: Default::default(),
+            touch_focus: Default::default(),
             keyboard: Default::default(),
             engines: Default::default(),
             windows: Default::default(),
@@ -182,6 +184,9 @@ struct Window {
     height: u32,
     initial_commit_done: bool,
 
+    // Touch point position tracking.
+    touch_points: HashMap<i32, (f64, f64)>,
+
     dirty: bool,
 }
 
@@ -212,6 +217,7 @@ impl Window {
             width: DEFAULT_WIDTH,
             scale: 1.,
             initial_commit_done: Default::default(),
+            touch_points: Default::default(),
             active_tab: Default::default(),
             dirty: Default::default(),
             tabs: Default::default(),
@@ -345,6 +351,7 @@ impl Window {
     }
 
     /// Handle scroll axis events.
+    #[allow(clippy::too_many_arguments)]
     fn pointer_axis(
         &self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
@@ -362,6 +369,7 @@ impl Window {
     }
 
     /// Handle pointer button events.
+    #[allow(clippy::too_many_arguments)]
     fn pointer_button(
         &self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
@@ -390,6 +398,59 @@ impl Window {
         // Forward event to browser engine.
         if let Some(engine) = engines.get_mut(&self.active_tab()) {
             engine.pointer_motion(time, x, y, modifiers);
+        }
+    }
+
+    /// Handle touch press events.
+    fn touch_down(
+        &mut self,
+        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        time: u32,
+        id: i32,
+        x: f64,
+        y: f64,
+        modifiers: Modifiers,
+    ) {
+        self.touch_points.insert(id, (x, y));
+
+        // Forward event to browser engine.
+        if let Some(engine) = engines.get_mut(&self.active_tab()) {
+            engine.touch_down(&self.touch_points, time, id, modifiers);
+        }
+    }
+
+    /// Handle touch release events.
+    fn touch_up(
+        &mut self,
+        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        time: u32,
+        id: i32,
+        modifiers: Modifiers,
+    ) {
+        // Forward event to browser engine.
+        if let Some(engine) = engines.get_mut(&self.active_tab()) {
+            engine.touch_up(&self.touch_points, time, id, modifiers);
+        }
+
+        // Remove touch point from all future events.
+        self.touch_points.remove(&id);
+    }
+
+    /// Handle touch motion events.
+    fn touch_motion(
+        &mut self,
+        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        time: u32,
+        id: i32,
+        x: f64,
+        y: f64,
+        modifiers: Modifiers,
+    ) {
+        self.touch_points.insert(id, (x, y));
+
+        // Forward event to browser engine.
+        if let Some(engine) = engines.get_mut(&self.active_tab()) {
+            engine.touch_motion(&self.touch_points, time, id, modifiers);
         }
     }
 

@@ -28,11 +28,11 @@ impl WaylandDispatch for State {
 
         if let Err(err) = self.wayland_dispatch_internal(&mut queue) {
             match err {
-                WaylandError::Io(io) if io.kind() == io::ErrorKind::BrokenPipe => {
-                    eprintln!("Wayland socket has shut down");
+                WaylandError::Io(io) if io.kind() == io::ErrorKind::WouldBlock => (),
+                err => {
+                    eprintln!("wayland dispatch failed: {err}");
                     self.main_loop.quit();
                 },
-                err => eprintln!("wayland dispatch failed: {err}"),
             }
         }
 

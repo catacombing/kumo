@@ -14,7 +14,7 @@ use smithay_client_toolkit::registry::{ProvidesRegistryState, RegistryState};
 use smithay_client_toolkit::seat::keyboard::{
     KeyEvent, KeyboardHandler, Keysym, Modifiers, RepeatInfo,
 };
-use smithay_client_toolkit::seat::pointer::{PointerEvent, PointerHandler};
+use smithay_client_toolkit::seat::pointer::{PointerEvent, PointerEventKind, PointerHandler};
 use smithay_client_toolkit::seat::touch::TouchHandler;
 use smithay_client_toolkit::seat::{Capability, SeatHandler, SeatState};
 use smithay_client_toolkit::shell::xdg::window::{Window, WindowConfigure, WindowHandler};
@@ -421,8 +421,46 @@ impl PointerHandler for State {
         _connection: &Connection,
         _queue: &QueueHandle<Self>,
         _pointer: &WlPointer,
-        _events: &[PointerEvent],
+        events: &[PointerEvent],
     ) {
+        for event in events {
+            // Find target window.
+            let mut windows = self.windows.values();
+            let window = match windows.find(|window| window.xdg.wl_surface() == &event.surface) {
+                Some(window) => window,
+                None => continue,
+            };
+
+            // Get shared event attributes.
+            let (x, y) = event.position;
+            let modifiers = match &self.keyboard {
+                Some(keyboard_state) => keyboard_state.modifiers,
+                None => Modifiers::default(),
+            };
+
+            // Dispatch event to the window.
+            match event.kind {
+                PointerEventKind::Enter { .. } | PointerEventKind::Leave { .. } => (),
+                PointerEventKind::Motion { time } => {
+                    window.pointer_motion(&mut self.engines, time, x, y, modifiers)
+                },
+                PointerEventKind::Press { time, button, .. } => {
+                    window.pointer_button(&mut self.engines, time, x, y, button, 1, modifiers)
+                },
+                PointerEventKind::Release { time, button, .. } => {
+                    window.pointer_button(&mut self.engines, time, x, y, button, 0, modifiers)
+                },
+                PointerEventKind::Axis { time, horizontal, vertical, .. } => window.pointer_axis(
+                    &mut self.engines,
+                    time,
+                    x,
+                    y,
+                    horizontal,
+                    vertical,
+                    modifiers,
+                ),
+            }
+        }
     }
 }
 delegate_pointer!(State);

@@ -10,16 +10,24 @@ use glutin::display::{AsRawDisplay, Display, RawDisplay};
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::{Connection, Proxy};
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
+use smithay_client_toolkit::seat::pointer::AxisScroll;
 use wayland_backend::client::ObjectId;
 use wpe_backend_fdo_sys::{
     wpe_fdo_egl_exported_image, wpe_fdo_egl_exported_image_get_egl_image,
     wpe_fdo_egl_exported_image_get_height, wpe_fdo_egl_exported_image_get_width,
-    wpe_input_keyboard_event, wpe_input_modifier_wpe_input_keyboard_modifier_alt,
+    wpe_input_axis_2d_event, wpe_input_axis_event,
+    wpe_input_axis_event_type_wpe_input_axis_event_type_mask_2d,
+    wpe_input_axis_event_type_wpe_input_axis_event_type_motion_smooth, wpe_input_keyboard_event,
+    wpe_input_modifier_wpe_input_keyboard_modifier_alt,
     wpe_input_modifier_wpe_input_keyboard_modifier_control,
     wpe_input_modifier_wpe_input_keyboard_modifier_meta,
-    wpe_input_modifier_wpe_input_keyboard_modifier_shift, wpe_view_backend_dispatch_keyboard_event,
-    wpe_view_backend_dispatch_set_device_scale_factor, wpe_view_backend_dispatch_set_size,
-    wpe_view_backend_exportable_fdo, wpe_view_backend_exportable_fdo_dispatch_frame_complete,
+    wpe_input_modifier_wpe_input_keyboard_modifier_shift, wpe_input_pointer_event,
+    wpe_input_pointer_event_type_wpe_input_pointer_event_type_button,
+    wpe_input_pointer_event_type_wpe_input_pointer_event_type_motion,
+    wpe_view_backend_dispatch_axis_event, wpe_view_backend_dispatch_keyboard_event,
+    wpe_view_backend_dispatch_pointer_event, wpe_view_backend_dispatch_set_device_scale_factor,
+    wpe_view_backend_dispatch_set_size, wpe_view_backend_exportable_fdo,
+    wpe_view_backend_exportable_fdo_dispatch_frame_complete,
     wpe_view_backend_exportable_fdo_egl_client, wpe_view_backend_exportable_fdo_egl_create,
     wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image,
     wpe_view_backend_exportable_fdo_get_view_backend,
@@ -268,6 +276,80 @@ impl Engine for WebKitEngine {
         }
     }
 
+    fn pointer_axis(
+        &mut self,
+        time: u32,
+        x: f64,
+        y: f64,
+        horizontal: AxisScroll,
+        vertical: AxisScroll,
+        modifiers: Modifiers,
+    ) {
+        let type_ = wpe_input_axis_event_type_wpe_input_axis_event_type_motion_smooth
+            | wpe_input_axis_event_type_wpe_input_axis_event_type_mask_2d;
+
+        let mut axis_event = wpe_input_axis_2d_event {
+            base: wpe_input_axis_event {
+                type_,
+                time,
+                x: (x * self.scale as f64).round() as i32,
+                y: (y * self.scale as f64).round() as i32,
+                modifiers: wpe_modifiers(modifiers),
+                axis: 0,
+                value: 0,
+            },
+            x_axis: horizontal.absolute,
+            y_axis: -vertical.absolute,
+        };
+
+        unsafe {
+            let wpe_backend = self.backend.wpe_backend();
+            wpe_view_backend_dispatch_axis_event(wpe_backend, &mut axis_event.base);
+        }
+    }
+
+    fn pointer_button(
+        &mut self,
+        time: u32,
+        x: f64,
+        y: f64,
+        button: u32,
+        state: u32,
+        modifiers: Modifiers,
+    ) {
+        let mut event = wpe_input_pointer_event {
+            button,
+            state,
+            time,
+            type_: wpe_input_pointer_event_type_wpe_input_pointer_event_type_button,
+            x: (x * self.scale as f64).round() as i32,
+            y: (y * self.scale as f64).round() as i32,
+            modifiers: wpe_modifiers(modifiers),
+        };
+
+        unsafe {
+            let wpe_backend = self.backend.wpe_backend();
+            wpe_view_backend_dispatch_pointer_event(wpe_backend, &mut event);
+        }
+    }
+
+    fn pointer_motion(&mut self, time: u32, x: f64, y: f64, modifiers: Modifiers) {
+        let mut event = wpe_input_pointer_event {
+            time,
+            type_: wpe_input_pointer_event_type_wpe_input_pointer_event_type_motion,
+            button: 0,
+            state: 0,
+            x: (x * self.scale as f64).round() as i32,
+            y: (y * self.scale as f64).round() as i32,
+            modifiers: wpe_modifiers(modifiers),
+        };
+
+        unsafe {
+            let wpe_backend = self.backend.wpe_backend();
+            wpe_view_backend_dispatch_pointer_event(wpe_backend, &mut event);
+        }
+    }
+
     fn load_uri(&self, uri: &str) {
         self.web_view.load_uri(uri);
     }
@@ -284,7 +366,21 @@ fn wpe_keyboard_event(
     modifiers: Modifiers,
     pressed: bool,
 ) -> wpe_input_keyboard_event {
-    // Convert Wayland modifiers to WPE format.
+    // Get system time in seconds.
+    let elapsed = UNIX_EPOCH.elapsed().unwrap_or_default();
+    let time = elapsed.as_secs() as u32;
+
+    wpe_input_keyboard_event {
+        pressed,
+        time,
+        modifiers: wpe_modifiers(modifiers),
+        hardware_key_code: raw,
+        key_code: keysym.raw(),
+    }
+}
+
+/// Convert Wayland modifiers to WPE modifiers.
+fn wpe_modifiers(modifiers: Modifiers) -> u32 {
     let mut wpe_modifiers = 0;
     if modifiers.ctrl {
         wpe_modifiers += wpe_input_modifier_wpe_input_keyboard_modifier_control;
@@ -298,18 +394,7 @@ fn wpe_keyboard_event(
     if modifiers.logo {
         wpe_modifiers += wpe_input_modifier_wpe_input_keyboard_modifier_meta;
     }
-
-    // Get system time in seconds.
-    let elapsed = UNIX_EPOCH.elapsed().unwrap_or_default();
-    let time = elapsed.as_secs() as u32;
-
-    wpe_input_keyboard_event {
-        pressed,
-        time,
-        modifiers: wpe_modifiers,
-        hardware_key_code: raw,
-        key_code: keysym.raw(),
-    }
+    wpe_modifiers
 }
 
 /// Shared state leaked to FDO backend callbacks.

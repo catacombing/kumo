@@ -18,6 +18,7 @@ use smithay_client_toolkit::reexports::client::{
 };
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers, RepeatInfo};
+use smithay_client_toolkit::seat::pointer::AxisScroll;
 use smithay_client_toolkit::shell::xdg::window::{Window as XdgWindow, WindowDecorations};
 use smithay_client_toolkit::shell::WaylandSurface;
 
@@ -340,6 +341,55 @@ impl Window {
         // Forward keyboard event to browser engine.
         if let Some(engine) = engines.get_mut(&self.active_tab()) {
             engine.release_key(raw, keysym, modifiers);
+        }
+    }
+
+    /// Handle scroll axis events.
+    fn pointer_axis(
+        &self,
+        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        time: u32,
+        x: f64,
+        y: f64,
+        horizontal: AxisScroll,
+        vertical: AxisScroll,
+        modifiers: Modifiers,
+    ) {
+        // Forward event to browser engine.
+        if let Some(engine) = engines.get_mut(&self.active_tab()) {
+            engine.pointer_axis(time, x, y, horizontal, vertical, modifiers);
+        }
+    }
+
+    /// Handle pointer button events.
+    fn pointer_button(
+        &self,
+        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        time: u32,
+        x: f64,
+        y: f64,
+        button: u32,
+        state: u32,
+        modifiers: Modifiers,
+    ) {
+        // Forward event to browser engine.
+        if let Some(engine) = engines.get_mut(&self.active_tab()) {
+            engine.pointer_button(time, x, y, button, state, modifiers);
+        }
+    }
+
+    /// Handle pointer motion events.
+    fn pointer_motion(
+        &self,
+        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        time: u32,
+        x: f64,
+        y: f64,
+        modifiers: Modifiers,
+    ) {
+        // Forward event to browser engine.
+        if let Some(engine) = engines.get_mut(&self.active_tab()) {
+            engine.pointer_motion(time, x, y, modifiers);
         }
     }
 

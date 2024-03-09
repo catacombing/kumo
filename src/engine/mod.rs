@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
+use smithay_client_toolkit::seat::pointer::AxisScroll;
 
 use crate::WindowId;
 
@@ -29,6 +30,31 @@ pub trait Engine {
 
     /// Handle key up.
     fn release_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers);
+
+    /// Handle pointer axis scroll.
+    fn pointer_axis(
+        &mut self,
+        time: u32,
+        x: f64,
+        y: f64,
+        horizontal: AxisScroll,
+        vertical: AxisScroll,
+        modifiers: Modifiers,
+    );
+
+    /// Handle pointer button press.
+    fn pointer_button(
+        &mut self,
+        time: u32,
+        x: f64,
+        y: f64,
+        button: u32,
+        state: u32,
+        modifiers: Modifiers,
+    );
+
+    /// Handle pointer motion.
+    fn pointer_motion(&mut self, time: u32, x: f64, y: f64, modifiers: Modifiers);
 
     /// Load a new page.
     fn load_uri(&self, uri: &str);

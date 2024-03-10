@@ -15,7 +15,7 @@ use std::{env, str};
 use tempfile::Builder;
 use wpe_webkit_sys::*;
 
-static PACKAGES: &[&str] = &["wpe-webkit-1.1"];
+static PACKAGES: &[&str] = &["wpe-webkit-2.0"];
 
 #[derive(Clone, Debug)]
 struct Compiler {
@@ -205,10 +205,6 @@ fn get_c_output(name: &str) -> Result<String, Box<dyn Error>> {
 }
 
 const RUST_LAYOUTS: &[(&str, Layout)] = &[
-    ("WebKitAuthenticationRequest", Layout {
-        size: size_of::<WebKitAuthenticationRequest>(),
-        alignment: align_of::<WebKitAuthenticationRequest>(),
-    }),
     ("WebKitAuthenticationRequestClass", Layout {
         size: size_of::<WebKitAuthenticationRequestClass>(),
         alignment: align_of::<WebKitAuthenticationRequestClass>(),
@@ -221,10 +217,6 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitAutomationBrowsingContextPresentation>(),
         alignment: align_of::<WebKitAutomationBrowsingContextPresentation>(),
     }),
-    ("WebKitAutomationSession", Layout {
-        size: size_of::<WebKitAutomationSession>(),
-        alignment: align_of::<WebKitAutomationSession>(),
-    }),
     ("WebKitAutomationSessionClass", Layout {
         size: size_of::<WebKitAutomationSessionClass>(),
         alignment: align_of::<WebKitAutomationSessionClass>(),
@@ -233,17 +225,9 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitAutoplayPolicy>(),
         alignment: align_of::<WebKitAutoplayPolicy>(),
     }),
-    ("WebKitBackForwardList", Layout {
-        size: size_of::<WebKitBackForwardList>(),
-        alignment: align_of::<WebKitBackForwardList>(),
-    }),
     ("WebKitBackForwardListClass", Layout {
         size: size_of::<WebKitBackForwardListClass>(),
         alignment: align_of::<WebKitBackForwardListClass>(),
-    }),
-    ("WebKitBackForwardListItem", Layout {
-        size: size_of::<WebKitBackForwardListItem>(),
-        alignment: align_of::<WebKitBackForwardListItem>(),
     }),
     ("WebKitBackForwardListItemClass", Layout {
         size: size_of::<WebKitBackForwardListItemClass>(),
@@ -257,10 +241,6 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitColor>(),
         alignment: align_of::<WebKitColor>(),
     }),
-    ("WebKitContextMenu", Layout {
-        size: size_of::<WebKitContextMenu>(),
-        alignment: align_of::<WebKitContextMenu>(),
-    }),
     ("WebKitContextMenuAction", Layout {
         size: size_of::<WebKitContextMenuAction>(),
         alignment: align_of::<WebKitContextMenuAction>(),
@@ -269,10 +249,6 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitContextMenuClass>(),
         alignment: align_of::<WebKitContextMenuClass>(),
     }),
-    ("WebKitContextMenuItem", Layout {
-        size: size_of::<WebKitContextMenuItem>(),
-        alignment: align_of::<WebKitContextMenuItem>(),
-    }),
     ("WebKitContextMenuItemClass", Layout {
         size: size_of::<WebKitContextMenuItemClass>(),
         alignment: align_of::<WebKitContextMenuItemClass>(),
@@ -280,10 +256,6 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
     ("WebKitCookieAcceptPolicy", Layout {
         size: size_of::<WebKitCookieAcceptPolicy>(),
         alignment: align_of::<WebKitCookieAcceptPolicy>(),
-    }),
-    ("WebKitCookieManager", Layout {
-        size: size_of::<WebKitCookieManager>(),
-        alignment: align_of::<WebKitCookieManager>(),
     }),
     ("WebKitCookieManagerClass", Layout {
         size: size_of::<WebKitCookieManagerClass>(),
@@ -297,17 +269,9 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitCredentialPersistence>(),
         alignment: align_of::<WebKitCredentialPersistence>(),
     }),
-    ("WebKitDeviceInfoPermissionRequest", Layout {
-        size: size_of::<WebKitDeviceInfoPermissionRequest>(),
-        alignment: align_of::<WebKitDeviceInfoPermissionRequest>(),
-    }),
     ("WebKitDeviceInfoPermissionRequestClass", Layout {
         size: size_of::<WebKitDeviceInfoPermissionRequestClass>(),
         alignment: align_of::<WebKitDeviceInfoPermissionRequestClass>(),
-    }),
-    ("WebKitDownload", Layout {
-        size: size_of::<WebKitDownload>(),
-        alignment: align_of::<WebKitDownload>(),
     }),
     ("WebKitDownloadClass", Layout {
         size: size_of::<WebKitDownloadClass>(),
@@ -317,10 +281,6 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitDownloadError>(),
         alignment: align_of::<WebKitDownloadError>(),
     }),
-    ("WebKitEditorState", Layout {
-        size: size_of::<WebKitEditorState>(),
-        alignment: align_of::<WebKitEditorState>(),
-    }),
     ("WebKitEditorStateClass", Layout {
         size: size_of::<WebKitEditorStateClass>(),
         alignment: align_of::<WebKitEditorStateClass>(),
@@ -329,33 +289,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitEditorTypingAttributes>(),
         alignment: align_of::<WebKitEditorTypingAttributes>(),
     }),
-    ("WebKitFaviconDatabase", Layout {
-        size: size_of::<WebKitFaviconDatabase>(),
-        alignment: align_of::<WebKitFaviconDatabase>(),
-    }),
-    ("WebKitFaviconDatabaseClass", Layout {
-        size: size_of::<WebKitFaviconDatabaseClass>(),
-        alignment: align_of::<WebKitFaviconDatabaseClass>(),
-    }),
-    ("WebKitFaviconDatabaseError", Layout {
-        size: size_of::<WebKitFaviconDatabaseError>(),
-        alignment: align_of::<WebKitFaviconDatabaseError>(),
-    }),
     ("WebKitFeatureStatus", Layout {
         size: size_of::<WebKitFeatureStatus>(),
         alignment: align_of::<WebKitFeatureStatus>(),
     }),
-    ("WebKitFileChooserRequest", Layout {
-        size: size_of::<WebKitFileChooserRequest>(),
-        alignment: align_of::<WebKitFileChooserRequest>(),
-    }),
     ("WebKitFileChooserRequestClass", Layout {
         size: size_of::<WebKitFileChooserRequestClass>(),
         alignment: align_of::<WebKitFileChooserRequestClass>(),
-    }),
-    ("WebKitFindController", Layout {
-        size: size_of::<WebKitFindController>(),
-        alignment: align_of::<WebKitFindController>(),
     }),
     ("WebKitFindControllerClass", Layout {
         size: size_of::<WebKitFindControllerClass>(),
@@ -365,33 +305,17 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitFindOptions>(),
         alignment: align_of::<WebKitFindOptions>(),
     }),
-    ("WebKitFormSubmissionRequest", Layout {
-        size: size_of::<WebKitFormSubmissionRequest>(),
-        alignment: align_of::<WebKitFormSubmissionRequest>(),
-    }),
     ("WebKitFormSubmissionRequestClass", Layout {
         size: size_of::<WebKitFormSubmissionRequestClass>(),
         alignment: align_of::<WebKitFormSubmissionRequestClass>(),
-    }),
-    ("WebKitGeolocationManager", Layout {
-        size: size_of::<WebKitGeolocationManager>(),
-        alignment: align_of::<WebKitGeolocationManager>(),
     }),
     ("WebKitGeolocationManagerClass", Layout {
         size: size_of::<WebKitGeolocationManagerClass>(),
         alignment: align_of::<WebKitGeolocationManagerClass>(),
     }),
-    ("WebKitGeolocationPermissionRequest", Layout {
-        size: size_of::<WebKitGeolocationPermissionRequest>(),
-        alignment: align_of::<WebKitGeolocationPermissionRequest>(),
-    }),
     ("WebKitGeolocationPermissionRequestClass", Layout {
         size: size_of::<WebKitGeolocationPermissionRequestClass>(),
         alignment: align_of::<WebKitGeolocationPermissionRequestClass>(),
-    }),
-    ("WebKitHitTestResult", Layout {
-        size: size_of::<WebKitHitTestResult>(),
-        alignment: align_of::<WebKitHitTestResult>(),
     }),
     ("WebKitHitTestResultClass", Layout {
         size: size_of::<WebKitHitTestResultClass>(),
@@ -421,14 +345,6 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitInsecureContentEvent>(),
         alignment: align_of::<WebKitInsecureContentEvent>(),
     }),
-    ("WebKitInstallMissingMediaPluginsPermissionRequest", Layout {
-        size: size_of::<WebKitInstallMissingMediaPluginsPermissionRequest>(),
-        alignment: align_of::<WebKitInstallMissingMediaPluginsPermissionRequest>(),
-    }),
-    ("WebKitInstallMissingMediaPluginsPermissionRequestClass", Layout {
-        size: size_of::<WebKitInstallMissingMediaPluginsPermissionRequestClass>(),
-        alignment: align_of::<WebKitInstallMissingMediaPluginsPermissionRequestClass>(),
-    }),
     ("WebKitJavascriptError", Layout {
         size: size_of::<WebKitJavascriptError>(),
         alignment: align_of::<WebKitJavascriptError>(),
@@ -441,17 +357,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitMediaCaptureState>(),
         alignment: align_of::<WebKitMediaCaptureState>(),
     }),
-    ("WebKitMediaKeySystemPermissionRequest", Layout {
-        size: size_of::<WebKitMediaKeySystemPermissionRequest>(),
-        alignment: align_of::<WebKitMediaKeySystemPermissionRequest>(),
+    ("WebKitMediaError", Layout {
+        size: size_of::<WebKitMediaError>(),
+        alignment: align_of::<WebKitMediaError>(),
     }),
     ("WebKitMediaKeySystemPermissionRequestClass", Layout {
         size: size_of::<WebKitMediaKeySystemPermissionRequestClass>(),
         alignment: align_of::<WebKitMediaKeySystemPermissionRequestClass>(),
-    }),
-    ("WebKitNavigationPolicyDecision", Layout {
-        size: size_of::<WebKitNavigationPolicyDecision>(),
-        alignment: align_of::<WebKitNavigationPolicyDecision>(),
     }),
     ("WebKitNavigationPolicyDecisionClass", Layout {
         size: size_of::<WebKitNavigationPolicyDecisionClass>(),
@@ -469,49 +381,29 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitNetworkProxyMode>(),
         alignment: align_of::<WebKitNetworkProxyMode>(),
     }),
-    ("WebKitNotification", Layout {
-        size: size_of::<WebKitNotification>(),
-        alignment: align_of::<WebKitNotification>(),
+    ("WebKitNetworkSessionClass", Layout {
+        size: size_of::<WebKitNetworkSessionClass>(),
+        alignment: align_of::<WebKitNetworkSessionClass>(),
     }),
     ("WebKitNotificationClass", Layout {
         size: size_of::<WebKitNotificationClass>(),
         alignment: align_of::<WebKitNotificationClass>(),
     }),
-    ("WebKitNotificationPermissionRequest", Layout {
-        size: size_of::<WebKitNotificationPermissionRequest>(),
-        alignment: align_of::<WebKitNotificationPermissionRequest>(),
-    }),
     ("WebKitNotificationPermissionRequestClass", Layout {
         size: size_of::<WebKitNotificationPermissionRequestClass>(),
         alignment: align_of::<WebKitNotificationPermissionRequestClass>(),
-    }),
-    ("WebKitOptionMenu", Layout {
-        size: size_of::<WebKitOptionMenu>(),
-        alignment: align_of::<WebKitOptionMenu>(),
     }),
     ("WebKitOptionMenuClass", Layout {
         size: size_of::<WebKitOptionMenuClass>(),
         alignment: align_of::<WebKitOptionMenuClass>(),
     }),
-    ("WebKitPermissionRequestIface", Layout {
-        size: size_of::<WebKitPermissionRequestIface>(),
-        alignment: align_of::<WebKitPermissionRequestIface>(),
+    ("WebKitPermissionRequestInterface", Layout {
+        size: size_of::<WebKitPermissionRequestInterface>(),
+        alignment: align_of::<WebKitPermissionRequestInterface>(),
     }),
     ("WebKitPermissionState", Layout {
         size: size_of::<WebKitPermissionState>(),
         alignment: align_of::<WebKitPermissionState>(),
-    }),
-    ("WebKitPlugin", Layout {
-        size: size_of::<WebKitPlugin>(),
-        alignment: align_of::<WebKitPlugin>(),
-    }),
-    ("WebKitPluginClass", Layout {
-        size: size_of::<WebKitPluginClass>(),
-        alignment: align_of::<WebKitPluginClass>(),
-    }),
-    ("WebKitPluginError", Layout {
-        size: size_of::<WebKitPluginError>(),
-        alignment: align_of::<WebKitPluginError>(),
     }),
     ("WebKitPolicyDecision", Layout {
         size: size_of::<WebKitPolicyDecision>(),
@@ -529,17 +421,9 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitPolicyError>(),
         alignment: align_of::<WebKitPolicyError>(),
     }),
-    ("WebKitProcessModel", Layout {
-        size: size_of::<WebKitProcessModel>(),
-        alignment: align_of::<WebKitProcessModel>(),
-    }),
     ("WebKitRectangle", Layout {
         size: size_of::<WebKitRectangle>(),
         alignment: align_of::<WebKitRectangle>(),
-    }),
-    ("WebKitResponsePolicyDecision", Layout {
-        size: size_of::<WebKitResponsePolicyDecision>(),
-        alignment: align_of::<WebKitResponsePolicyDecision>(),
     }),
     ("WebKitResponsePolicyDecisionClass", Layout {
         size: size_of::<WebKitResponsePolicyDecisionClass>(),
@@ -553,17 +437,9 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitScriptDialogType>(),
         alignment: align_of::<WebKitScriptDialogType>(),
     }),
-    ("WebKitSecurityManager", Layout {
-        size: size_of::<WebKitSecurityManager>(),
-        alignment: align_of::<WebKitSecurityManager>(),
-    }),
     ("WebKitSecurityManagerClass", Layout {
         size: size_of::<WebKitSecurityManagerClass>(),
         alignment: align_of::<WebKitSecurityManagerClass>(),
-    }),
-    ("WebKitSettings", Layout {
-        size: size_of::<WebKitSettings>(),
-        alignment: align_of::<WebKitSettings>(),
     }),
     ("WebKitSettingsClass", Layout {
         size: size_of::<WebKitSettingsClass>(),
@@ -577,33 +453,17 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitTLSErrorsPolicy>(),
         alignment: align_of::<WebKitTLSErrorsPolicy>(),
     }),
-    ("WebKitURIRequest", Layout {
-        size: size_of::<WebKitURIRequest>(),
-        alignment: align_of::<WebKitURIRequest>(),
-    }),
     ("WebKitURIRequestClass", Layout {
         size: size_of::<WebKitURIRequestClass>(),
         alignment: align_of::<WebKitURIRequestClass>(),
-    }),
-    ("WebKitURIResponse", Layout {
-        size: size_of::<WebKitURIResponse>(),
-        alignment: align_of::<WebKitURIResponse>(),
     }),
     ("WebKitURIResponseClass", Layout {
         size: size_of::<WebKitURIResponseClass>(),
         alignment: align_of::<WebKitURIResponseClass>(),
     }),
-    ("WebKitURISchemeRequest", Layout {
-        size: size_of::<WebKitURISchemeRequest>(),
-        alignment: align_of::<WebKitURISchemeRequest>(),
-    }),
     ("WebKitURISchemeRequestClass", Layout {
         size: size_of::<WebKitURISchemeRequestClass>(),
         alignment: align_of::<WebKitURISchemeRequestClass>(),
-    }),
-    ("WebKitURISchemeResponse", Layout {
-        size: size_of::<WebKitURISchemeResponse>(),
-        alignment: align_of::<WebKitURISchemeResponse>(),
     }),
     ("WebKitURISchemeResponseClass", Layout {
         size: size_of::<WebKitURISchemeResponseClass>(),
@@ -613,10 +473,6 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitUserContentFilterError>(),
         alignment: align_of::<WebKitUserContentFilterError>(),
     }),
-    ("WebKitUserContentFilterStore", Layout {
-        size: size_of::<WebKitUserContentFilterStore>(),
-        alignment: align_of::<WebKitUserContentFilterStore>(),
-    }),
     ("WebKitUserContentFilterStoreClass", Layout {
         size: size_of::<WebKitUserContentFilterStoreClass>(),
         alignment: align_of::<WebKitUserContentFilterStoreClass>(),
@@ -625,25 +481,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitUserContentInjectedFrames>(),
         alignment: align_of::<WebKitUserContentInjectedFrames>(),
     }),
-    ("WebKitUserContentManager", Layout {
-        size: size_of::<WebKitUserContentManager>(),
-        alignment: align_of::<WebKitUserContentManager>(),
-    }),
     ("WebKitUserContentManagerClass", Layout {
         size: size_of::<WebKitUserContentManagerClass>(),
         alignment: align_of::<WebKitUserContentManagerClass>(),
     }),
-    ("WebKitUserMediaPermissionRequest", Layout {
-        size: size_of::<WebKitUserMediaPermissionRequest>(),
-        alignment: align_of::<WebKitUserMediaPermissionRequest>(),
-    }),
     ("WebKitUserMediaPermissionRequestClass", Layout {
         size: size_of::<WebKitUserMediaPermissionRequestClass>(),
         alignment: align_of::<WebKitUserMediaPermissionRequestClass>(),
-    }),
-    ("WebKitUserMessage", Layout {
-        size: size_of::<WebKitUserMessage>(),
-        alignment: align_of::<WebKitUserMessage>(),
     }),
     ("WebKitUserMessageClass", Layout {
         size: size_of::<WebKitUserMessageClass>(),
@@ -661,10 +505,6 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitUserStyleLevel>(),
         alignment: align_of::<WebKitUserStyleLevel>(),
     }),
-    ("WebKitWebContext", Layout {
-        size: size_of::<WebKitWebContext>(),
-        alignment: align_of::<WebKitWebContext>(),
-    }),
     ("WebKitWebContextClass", Layout {
         size: size_of::<WebKitWebContextClass>(),
         alignment: align_of::<WebKitWebContextClass>(),
@@ -676,10 +516,6 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
     ("WebKitWebProcessTerminationReason", Layout {
         size: size_of::<WebKitWebProcessTerminationReason>(),
         alignment: align_of::<WebKitWebProcessTerminationReason>(),
-    }),
-    ("WebKitWebResource", Layout {
-        size: size_of::<WebKitWebResource>(),
-        alignment: align_of::<WebKitWebResource>(),
     }),
     ("WebKitWebResourceClass", Layout {
         size: size_of::<WebKitWebResourceClass>(),
@@ -693,17 +529,9 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitWebViewClass>(),
         alignment: align_of::<WebKitWebViewClass>(),
     }),
-    ("WebKitWebsiteDataAccessPermissionRequest", Layout {
-        size: size_of::<WebKitWebsiteDataAccessPermissionRequest>(),
-        alignment: align_of::<WebKitWebsiteDataAccessPermissionRequest>(),
-    }),
     ("WebKitWebsiteDataAccessPermissionRequestClass", Layout {
         size: size_of::<WebKitWebsiteDataAccessPermissionRequestClass>(),
         alignment: align_of::<WebKitWebsiteDataAccessPermissionRequestClass>(),
-    }),
-    ("WebKitWebsiteDataManager", Layout {
-        size: size_of::<WebKitWebsiteDataManager>(),
-        alignment: align_of::<WebKitWebsiteDataManager>(),
     }),
     ("WebKitWebsiteDataManagerClass", Layout {
         size: size_of::<WebKitWebsiteDataManagerClass>(),
@@ -713,17 +541,9 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WebKitWebsiteDataTypes>(),
         alignment: align_of::<WebKitWebsiteDataTypes>(),
     }),
-    ("WebKitWebsitePolicies", Layout {
-        size: size_of::<WebKitWebsitePolicies>(),
-        alignment: align_of::<WebKitWebsitePolicies>(),
-    }),
     ("WebKitWebsitePoliciesClass", Layout {
         size: size_of::<WebKitWebsitePoliciesClass>(),
         alignment: align_of::<WebKitWebsitePoliciesClass>(),
-    }),
-    ("WebKitWindowProperties", Layout {
-        size: size_of::<WebKitWindowProperties>(),
-        alignment: align_of::<WebKitWindowProperties>(),
     }),
     ("WebKitWindowPropertiesClass", Layout {
         size: size_of::<WebKitWindowPropertiesClass>(),
@@ -815,9 +635,6 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(guint) WEBKIT_EDITOR_TYPING_ATTRIBUTE_NONE", "2"),
     ("(guint) WEBKIT_EDITOR_TYPING_ATTRIBUTE_STRIKETHROUGH", "32"),
     ("(guint) WEBKIT_EDITOR_TYPING_ATTRIBUTE_UNDERLINE", "16"),
-    ("(gint) WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_NOT_FOUND", "1"),
-    ("(gint) WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_UNKNOWN", "2"),
-    ("(gint) WEBKIT_FAVICON_DATABASE_ERROR_NOT_INITIALIZED", "0"),
     ("(gint) WEBKIT_FEATURE_STATUS_DEVELOPER", "3"),
     ("(gint) WEBKIT_FEATURE_STATUS_EMBEDDER", "0"),
     ("(gint) WEBKIT_FEATURE_STATUS_INTERNAL", "2"),
@@ -866,6 +683,7 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) WEBKIT_MEDIA_CAPTURE_STATE_ACTIVE", "1"),
     ("(gint) WEBKIT_MEDIA_CAPTURE_STATE_MUTED", "2"),
     ("(gint) WEBKIT_MEDIA_CAPTURE_STATE_NONE", "0"),
+    ("(gint) WEBKIT_MEDIA_ERROR_WILL_HANDLE_LOAD", "204"),
     ("WEBKIT_MICRO_VERSION", "5"),
     ("WEBKIT_MINOR_VERSION", "42"),
     ("(gint) WEBKIT_NAVIGATION_TYPE_BACK_FORWARD", "2"),
@@ -885,12 +703,6 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) WEBKIT_PERMISSION_STATE_DENIED", "1"),
     ("(gint) WEBKIT_PERMISSION_STATE_GRANTED", "0"),
     ("(gint) WEBKIT_PERMISSION_STATE_PROMPT", "2"),
-    ("(gint) WEBKIT_PLUGIN_ERROR_CANNOT_FIND_PLUGIN", "200"),
-    ("(gint) WEBKIT_PLUGIN_ERROR_CANNOT_LOAD_PLUGIN", "201"),
-    ("(gint) WEBKIT_PLUGIN_ERROR_CONNECTION_CANCELLED", "203"),
-    ("(gint) WEBKIT_PLUGIN_ERROR_FAILED", "299"),
-    ("(gint) WEBKIT_PLUGIN_ERROR_JAVA_UNAVAILABLE", "202"),
-    ("(gint) WEBKIT_PLUGIN_ERROR_WILL_HANDLE_LOAD", "204"),
     ("(gint) WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION", "0"),
     ("(gint) WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION", "1"),
     ("(gint) WEBKIT_POLICY_DECISION_TYPE_RESPONSE", "2"),
@@ -899,8 +711,6 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) WEBKIT_POLICY_ERROR_CANNOT_USE_RESTRICTED_PORT", "103"),
     ("(gint) WEBKIT_POLICY_ERROR_FAILED", "199"),
     ("(gint) WEBKIT_POLICY_ERROR_FRAME_LOAD_INTERRUPTED_BY_POLICY_CHANGE", "102"),
-    ("(gint) WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES", "1"),
-    ("(gint) WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS", "0"),
     ("(gint) WEBKIT_SAVE_MODE_MHTML", "0"),
     ("(gint) WEBKIT_SCRIPT_DIALOG_ALERT", "0"),
     ("(gint) WEBKIT_SCRIPT_DIALOG_BEFORE_UNLOAD_CONFIRM", "3"),
@@ -918,21 +728,19 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START", "0"),
     ("(gint) WEBKIT_USER_STYLE_LEVEL_AUTHOR", "1"),
     ("(gint) WEBKIT_USER_STYLE_LEVEL_USER", "0"),
-    ("(guint) WEBKIT_WEBSITE_DATA_ALL", "16383"),
-    ("(guint) WEBKIT_WEBSITE_DATA_COOKIES", "256"),
-    ("(guint) WEBKIT_WEBSITE_DATA_DEVICE_ID_HASH_SALT", "512"),
+    ("(guint) WEBKIT_WEBSITE_DATA_ALL", "4095"),
+    ("(guint) WEBKIT_WEBSITE_DATA_COOKIES", "64"),
+    ("(guint) WEBKIT_WEBSITE_DATA_DEVICE_ID_HASH_SALT", "128"),
     ("(guint) WEBKIT_WEBSITE_DATA_DISK_CACHE", "2"),
-    ("(guint) WEBKIT_WEBSITE_DATA_DOM_CACHE", "8192"),
-    ("(guint) WEBKIT_WEBSITE_DATA_HSTS_CACHE", "1024"),
-    ("(guint) WEBKIT_WEBSITE_DATA_INDEXEDDB_DATABASES", "64"),
-    ("(guint) WEBKIT_WEBSITE_DATA_ITP", "2048"),
+    ("(guint) WEBKIT_WEBSITE_DATA_DOM_CACHE", "2048"),
+    ("(guint) WEBKIT_WEBSITE_DATA_HSTS_CACHE", "256"),
+    ("(guint) WEBKIT_WEBSITE_DATA_INDEXEDDB_DATABASES", "32"),
+    ("(guint) WEBKIT_WEBSITE_DATA_ITP", "512"),
     ("(guint) WEBKIT_WEBSITE_DATA_LOCAL_STORAGE", "16"),
     ("(guint) WEBKIT_WEBSITE_DATA_MEMORY_CACHE", "1"),
     ("(guint) WEBKIT_WEBSITE_DATA_OFFLINE_APPLICATION_CACHE", "4"),
-    ("(guint) WEBKIT_WEBSITE_DATA_PLUGIN_DATA", "128"),
-    ("(guint) WEBKIT_WEBSITE_DATA_SERVICE_WORKER_REGISTRATIONS", "4096"),
+    ("(guint) WEBKIT_WEBSITE_DATA_SERVICE_WORKER_REGISTRATIONS", "1024"),
     ("(guint) WEBKIT_WEBSITE_DATA_SESSION_STORAGE", "8"),
-    ("(guint) WEBKIT_WEBSITE_DATA_WEBSQL_DATABASES", "32"),
     ("(gint) WEBKIT_WEB_EXTENSION_MODE_MANIFESTV2", "1"),
     ("(gint) WEBKIT_WEB_EXTENSION_MODE_MANIFESTV3", "2"),
     ("(gint) WEBKIT_WEB_EXTENSION_MODE_NONE", "0"),

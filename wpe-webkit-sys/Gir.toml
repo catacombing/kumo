@@ -1,6 +1,6 @@
 [options]
 library = "WPEWebKit"
-version = "1.1"
+version = "2.0"
 min_cfg_version = "2.42"
 target_path = "."
 girs_directories = ["/usr/share/gir-1.0/", "../gir-files"]

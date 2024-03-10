@@ -99,21 +99,19 @@ pub type JSCOptionsFunc =
     Option<unsafe extern "C" fn(*const c_char, JSCOptionType, *const c_char, gpointer) -> gboolean>;
 
 // Records
+#[derive(Copy, Clone)]
 #[repr(C)]
-pub struct _JSCClassClass {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+pub struct JSCClassClass {
+    pub parent_class: gobject::GObjectClass,
 }
 
-pub type JSCClassClass = _JSCClassClass;
-
-#[repr(C)]
-pub struct _JSCClassPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+impl ::std::fmt::Debug for JSCClassClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("JSCClassClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
 }
-
-pub type JSCClassPrivate = _JSCClassPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -127,6 +125,10 @@ pub struct JSCClassVTable {
     pub _jsc_reserved1: Option<unsafe extern "C" fn()>,
     pub _jsc_reserved2: Option<unsafe extern "C" fn()>,
     pub _jsc_reserved3: Option<unsafe extern "C" fn()>,
+    pub _jsc_reserved4: Option<unsafe extern "C" fn()>,
+    pub _jsc_reserved5: Option<unsafe extern "C" fn()>,
+    pub _jsc_reserved6: Option<unsafe extern "C" fn()>,
+    pub _jsc_reserved7: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for JSCClassVTable {
@@ -141,6 +143,10 @@ impl ::std::fmt::Debug for JSCClassVTable {
             .field("_jsc_reserved1", &self._jsc_reserved1)
             .field("_jsc_reserved2", &self._jsc_reserved2)
             .field("_jsc_reserved3", &self._jsc_reserved3)
+            .field("_jsc_reserved4", &self._jsc_reserved4)
+            .field("_jsc_reserved5", &self._jsc_reserved5)
+            .field("_jsc_reserved6", &self._jsc_reserved6)
+            .field("_jsc_reserved7", &self._jsc_reserved7)
             .finish()
     }
 }
@@ -149,250 +155,146 @@ impl ::std::fmt::Debug for JSCClassVTable {
 #[repr(C)]
 pub struct JSCContextClass {
     pub parent_class: gobject::GObjectClass,
-    pub _jsc_reserved0: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved1: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved2: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for JSCContextClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("JSCContextClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_jsc_reserved0", &self._jsc_reserved0)
-            .field("_jsc_reserved1", &self._jsc_reserved1)
-            .field("_jsc_reserved2", &self._jsc_reserved2)
-            .field("_jsc_reserved3", &self._jsc_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _JSCContextPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type JSCContextPrivate = _JSCContextPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct JSCExceptionClass {
     pub parent_class: gobject::GObjectClass,
-    pub _jsc_reserved0: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved1: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved2: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for JSCExceptionClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("JSCExceptionClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_jsc_reserved0", &self._jsc_reserved0)
-            .field("_jsc_reserved1", &self._jsc_reserved1)
-            .field("_jsc_reserved2", &self._jsc_reserved2)
-            .field("_jsc_reserved3", &self._jsc_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _JSCExceptionPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type JSCExceptionPrivate = _JSCExceptionPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct JSCValueClass {
     pub parent_class: gobject::GObjectClass,
-    pub _jsc_reserved0: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved1: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved2: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for JSCValueClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("JSCValueClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_jsc_reserved0", &self._jsc_reserved0)
-            .field("_jsc_reserved1", &self._jsc_reserved1)
-            .field("_jsc_reserved2", &self._jsc_reserved2)
-            .field("_jsc_reserved3", &self._jsc_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _JSCValuePrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type JSCValuePrivate = _JSCValuePrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct JSCVirtualMachineClass {
     pub parent_class: gobject::GObjectClass,
-    pub _jsc_reserved0: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved1: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved2: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for JSCVirtualMachineClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("JSCVirtualMachineClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_jsc_reserved0", &self._jsc_reserved0)
-            .field("_jsc_reserved1", &self._jsc_reserved1)
-            .field("_jsc_reserved2", &self._jsc_reserved2)
-            .field("_jsc_reserved3", &self._jsc_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _JSCVirtualMachinePrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type JSCVirtualMachinePrivate = _JSCVirtualMachinePrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct JSCWeakValueClass {
     pub parent_class: gobject::GObjectClass,
-    pub _jsc_reserved0: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved1: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved2: Option<unsafe extern "C" fn()>,
-    pub _jsc_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for JSCWeakValueClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("JSCWeakValueClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_jsc_reserved0", &self._jsc_reserved0)
-            .field("_jsc_reserved1", &self._jsc_reserved1)
-            .field("_jsc_reserved2", &self._jsc_reserved2)
-            .field("_jsc_reserved3", &self._jsc_reserved3)
             .finish()
     }
 }
 
+// Classes
 #[repr(C)]
-pub struct _JSCWeakValuePrivate {
+pub struct JSCClass {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
-pub type JSCWeakValuePrivate = _JSCWeakValuePrivate;
-
-// Classes
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct JSCClass {
-    pub parent: gobject::GObject,
-    pub priv_: *mut JSCClassPrivate,
-}
-
 impl ::std::fmt::Debug for JSCClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("JSCClass @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("JSCClass @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct JSCContext {
-    pub parent: gobject::GObject,
-    pub priv_: *mut JSCContextPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for JSCContext {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("JSCContext @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("JSCContext @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct JSCException {
-    pub parent: gobject::GObject,
-    pub priv_: *mut JSCExceptionPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for JSCException {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("JSCException @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("JSCException @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct JSCValue {
-    pub parent: gobject::GObject,
-    pub priv_: *mut JSCValuePrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for JSCValue {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("JSCValue @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("JSCValue @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct JSCVirtualMachine {
-    pub parent: gobject::GObject,
-    pub priv_: *mut JSCVirtualMachinePrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for JSCVirtualMachine {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("JSCVirtualMachine @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("JSCVirtualMachine @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct JSCWeakValue {
-    pub parent: gobject::GObject,
-    pub priv_: *mut JSCWeakValuePrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for JSCWeakValue {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("JSCWeakValue @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("JSCWeakValue @ {self:p}")).finish()
     }
 }
 
-#[link(name = "WPEWebKit-1.1")]
+#[link(name = "WPEWebKit-2.0")]
 extern "C" {
 
     //=========================================================================

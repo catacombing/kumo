@@ -15,7 +15,7 @@ use std::{env, str};
 use tempfile::Builder;
 use wpe_jsc_sys::*;
 
-static PACKAGES: &[&str] = &["wpe-webkit-1.1"];
+static PACKAGES: &[&str] = &["wpe-webkit-2.0"];
 
 #[derive(Clone, Debug)]
 struct Compiler {
@@ -213,19 +213,17 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<JSCCheckSyntaxResult>(),
         alignment: align_of::<JSCCheckSyntaxResult>(),
     }),
-    ("JSCClass", Layout { size: size_of::<JSCClass>(), alignment: align_of::<JSCClass>() }),
+    ("JSCClassClass", Layout {
+        size: size_of::<JSCClassClass>(),
+        alignment: align_of::<JSCClassClass>(),
+    }),
     ("JSCClassVTable", Layout {
         size: size_of::<JSCClassVTable>(),
         alignment: align_of::<JSCClassVTable>(),
     }),
-    ("JSCContext", Layout { size: size_of::<JSCContext>(), alignment: align_of::<JSCContext>() }),
     ("JSCContextClass", Layout {
         size: size_of::<JSCContextClass>(),
         alignment: align_of::<JSCContextClass>(),
-    }),
-    ("JSCException", Layout {
-        size: size_of::<JSCException>(),
-        alignment: align_of::<JSCException>(),
     }),
     ("JSCExceptionClass", Layout {
         size: size_of::<JSCExceptionClass>(),
@@ -239,7 +237,6 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<JSCTypedArrayType>(),
         alignment: align_of::<JSCTypedArrayType>(),
     }),
-    ("JSCValue", Layout { size: size_of::<JSCValue>(), alignment: align_of::<JSCValue>() }),
     ("JSCValueClass", Layout {
         size: size_of::<JSCValueClass>(),
         alignment: align_of::<JSCValueClass>(),
@@ -248,17 +245,9 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<JSCValuePropertyFlags>(),
         alignment: align_of::<JSCValuePropertyFlags>(),
     }),
-    ("JSCVirtualMachine", Layout {
-        size: size_of::<JSCVirtualMachine>(),
-        alignment: align_of::<JSCVirtualMachine>(),
-    }),
     ("JSCVirtualMachineClass", Layout {
         size: size_of::<JSCVirtualMachineClass>(),
         alignment: align_of::<JSCVirtualMachineClass>(),
-    }),
-    ("JSCWeakValue", Layout {
-        size: size_of::<JSCWeakValue>(),
-        alignment: align_of::<JSCWeakValue>(),
     }),
     ("JSCWeakValueClass", Layout {
         size: size_of::<JSCWeakValueClass>(),

@@ -9,7 +9,6 @@ pub trait AuthenticationRequestExtManual: IsA<AuthenticationRequest> + 'static {
 }
 
 impl<O: IsA<AuthenticationRequest>> AuthenticationRequestExtManual for O {
-    #[doc(alias = "webkit_authentication_request_authenticate")]
     fn authenticate(&self, mut credential: Option<&mut Credential>) {
         unsafe {
             ffi::webkit_authentication_request_authenticate(

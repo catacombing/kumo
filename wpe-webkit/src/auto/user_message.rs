@@ -16,8 +16,6 @@ glib::wrapper! {
 }
 
 impl UserMessage {
-    pub const NONE: Option<&'static UserMessage> = None;
-
     #[doc(alias = "webkit_user_message_new")]
     pub fn new(name: &str, parameters: Option<&glib::Variant>) -> UserMessage {
         unsafe {
@@ -53,6 +51,31 @@ impl UserMessage {
     /// used to create [`UserMessage`] objects.
     pub fn builder() -> UserMessageBuilder {
         UserMessageBuilder::new()
+    }
+
+    #[doc(alias = "webkit_user_message_get_fd_list")]
+    #[doc(alias = "get_fd_list")]
+    pub fn fd_list(&self) -> Option<gio::UnixFDList> {
+        unsafe { from_glib_none(ffi::webkit_user_message_get_fd_list(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_user_message_get_name")]
+    #[doc(alias = "get_name")]
+    pub fn name(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_user_message_get_name(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_user_message_get_parameters")]
+    #[doc(alias = "get_parameters")]
+    pub fn parameters(&self) -> Option<glib::Variant> {
+        unsafe { from_glib_none(ffi::webkit_user_message_get_parameters(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_user_message_send_reply")]
+    pub fn send_reply(&self, reply: &UserMessage) {
+        unsafe {
+            ffi::webkit_user_message_send_reply(self.to_glib_none().0, reply.to_glib_none().0);
+        }
     }
 }
 
@@ -96,44 +119,3 @@ impl UserMessageBuilder {
         self.builder.build()
     }
 }
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::UserMessage>> Sealed for T {}
-}
-
-pub trait UserMessageExt: IsA<UserMessage> + sealed::Sealed + 'static {
-    #[doc(alias = "webkit_user_message_get_fd_list")]
-    #[doc(alias = "get_fd_list")]
-    fn fd_list(&self) -> Option<gio::UnixFDList> {
-        unsafe {
-            from_glib_none(ffi::webkit_user_message_get_fd_list(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_user_message_get_name")]
-    #[doc(alias = "get_name")]
-    fn name(&self) -> Option<glib::GString> {
-        unsafe { from_glib_none(ffi::webkit_user_message_get_name(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "webkit_user_message_get_parameters")]
-    #[doc(alias = "get_parameters")]
-    fn parameters(&self) -> Option<glib::Variant> {
-        unsafe {
-            from_glib_none(ffi::webkit_user_message_get_parameters(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_user_message_send_reply")]
-    fn send_reply(&self, reply: &impl IsA<UserMessage>) {
-        unsafe {
-            ffi::webkit_user_message_send_reply(
-                self.as_ref().to_glib_none().0,
-                reply.as_ref().to_glib_none().0,
-            );
-        }
-    }
-}
-
-impl<O: IsA<UserMessage>> UserMessageExt for O {}

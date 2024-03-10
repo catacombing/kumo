@@ -19,63 +19,52 @@ glib::wrapper! {
 }
 
 impl Notification {
-    pub const NONE: Option<&'static Notification> = None;
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Notification>> Sealed for T {}
-}
-
-pub trait NotificationExt: IsA<Notification> + sealed::Sealed + 'static {
     #[doc(alias = "webkit_notification_clicked")]
-    fn clicked(&self) {
+    pub fn clicked(&self) {
         unsafe {
-            ffi::webkit_notification_clicked(self.as_ref().to_glib_none().0);
+            ffi::webkit_notification_clicked(self.to_glib_none().0);
         }
     }
 
     #[doc(alias = "webkit_notification_close")]
-    fn close(&self) {
+    pub fn close(&self) {
         unsafe {
-            ffi::webkit_notification_close(self.as_ref().to_glib_none().0);
+            ffi::webkit_notification_close(self.to_glib_none().0);
         }
     }
 
     #[doc(alias = "webkit_notification_get_body")]
     #[doc(alias = "get_body")]
-    fn body(&self) -> Option<glib::GString> {
-        unsafe { from_glib_none(ffi::webkit_notification_get_body(self.as_ref().to_glib_none().0)) }
+    pub fn body(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_notification_get_body(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "webkit_notification_get_id")]
     #[doc(alias = "get_id")]
-    fn id(&self) -> u64 {
-        unsafe { ffi::webkit_notification_get_id(self.as_ref().to_glib_none().0) }
+    pub fn id(&self) -> u64 {
+        unsafe { ffi::webkit_notification_get_id(self.to_glib_none().0) }
     }
 
     #[doc(alias = "webkit_notification_get_tag")]
     #[doc(alias = "get_tag")]
-    fn tag(&self) -> Option<glib::GString> {
-        unsafe { from_glib_none(ffi::webkit_notification_get_tag(self.as_ref().to_glib_none().0)) }
+    pub fn tag(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_notification_get_tag(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "webkit_notification_get_title")]
     #[doc(alias = "get_title")]
-    fn title(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_notification_get_title(self.as_ref().to_glib_none().0))
-        }
+    pub fn title(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_notification_get_title(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "clicked")]
-    fn connect_clicked<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn clicked_trampoline<P: IsA<Notification>, F: Fn(&P) + 'static>(
+    pub fn connect_clicked<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn clicked_trampoline<F: Fn(&Notification) + 'static>(
             this: *mut ffi::WebKitNotification,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(Notification::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -83,7 +72,7 @@ pub trait NotificationExt: IsA<Notification> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"clicked\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    clicked_trampoline::<Self, F> as *const (),
+                    clicked_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -91,13 +80,13 @@ pub trait NotificationExt: IsA<Notification> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "closed")]
-    fn connect_closed<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn closed_trampoline<P: IsA<Notification>, F: Fn(&P) + 'static>(
+    pub fn connect_closed<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn closed_trampoline<F: Fn(&Notification) + 'static>(
             this: *mut ffi::WebKitNotification,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(Notification::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -105,7 +94,7 @@ pub trait NotificationExt: IsA<Notification> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"closed\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    closed_trampoline::<Self, F> as *const (),
+                    closed_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -113,14 +102,14 @@ pub trait NotificationExt: IsA<Notification> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "body")]
-    fn connect_body_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_body_trampoline<P: IsA<Notification>, F: Fn(&P) + 'static>(
+    pub fn connect_body_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_body_trampoline<F: Fn(&Notification) + 'static>(
             this: *mut ffi::WebKitNotification,
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(Notification::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -128,7 +117,7 @@ pub trait NotificationExt: IsA<Notification> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"notify::body\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_body_trampoline::<Self, F> as *const (),
+                    notify_body_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -136,14 +125,14 @@ pub trait NotificationExt: IsA<Notification> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "id")]
-    fn connect_id_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_id_trampoline<P: IsA<Notification>, F: Fn(&P) + 'static>(
+    pub fn connect_id_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_id_trampoline<F: Fn(&Notification) + 'static>(
             this: *mut ffi::WebKitNotification,
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(Notification::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -151,7 +140,7 @@ pub trait NotificationExt: IsA<Notification> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"notify::id\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_id_trampoline::<Self, F> as *const (),
+                    notify_id_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -159,14 +148,14 @@ pub trait NotificationExt: IsA<Notification> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "tag")]
-    fn connect_tag_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_tag_trampoline<P: IsA<Notification>, F: Fn(&P) + 'static>(
+    pub fn connect_tag_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_tag_trampoline<F: Fn(&Notification) + 'static>(
             this: *mut ffi::WebKitNotification,
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(Notification::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -174,7 +163,7 @@ pub trait NotificationExt: IsA<Notification> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"notify::tag\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_tag_trampoline::<Self, F> as *const (),
+                    notify_tag_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -182,14 +171,14 @@ pub trait NotificationExt: IsA<Notification> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "title")]
-    fn connect_title_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_title_trampoline<P: IsA<Notification>, F: Fn(&P) + 'static>(
+    pub fn connect_title_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_title_trampoline<F: Fn(&Notification) + 'static>(
             this: *mut ffi::WebKitNotification,
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(Notification::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -197,12 +186,10 @@ pub trait NotificationExt: IsA<Notification> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"notify::title\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_title_trampoline::<Self, F> as *const (),
+                    notify_title_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
         }
     }
 }
-
-impl<O: IsA<Notification>> NotificationExt for O {}

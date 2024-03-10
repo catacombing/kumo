@@ -8,7 +8,7 @@ use glib::translate::*;
 
 glib::wrapper! {
     #[doc(alias = "WebKitPermissionRequest")]
-    pub struct PermissionRequest(Interface<ffi::WebKitPermissionRequest, ffi::WebKitPermissionRequestIface>);
+    pub struct PermissionRequest(Interface<ffi::WebKitPermissionRequest, ffi::WebKitPermissionRequestInterface>);
 
     match fn {
         type_ => || ffi::webkit_permission_request_get_type(),

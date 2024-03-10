@@ -11,8 +11,8 @@ keywords = ["webkit", "wpe", "wpewebkit", "browser", "embedded"]
 edition = "2021"
 build = "build.rs"
 
-[package.metadata.system-deps.wpe_webkit_1_1]
-name = "wpe-webkit-1.1"
+[package.metadata.system-deps.wpe_webkit_2_0]
+name = "wpe-webkit-2.0"
 version = "2.42"
 
 [package.metadata.docs.rs]
@@ -44,3 +44,5 @@ system-deps = "6"
 [dev-dependencies]
 shell-words = "1.0.0"
 tempfile = "3"
+
+[features]

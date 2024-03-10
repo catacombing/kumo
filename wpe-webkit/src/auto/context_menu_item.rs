@@ -18,8 +18,6 @@ glib::wrapper! {
 }
 
 impl ContextMenuItem {
-    pub const NONE: Option<&'static ContextMenuItem> = None;
-
     #[doc(alias = "webkit_context_menu_item_new_from_gaction")]
     #[doc(alias = "new_from_gaction")]
     pub fn from_gaction(
@@ -62,68 +60,45 @@ impl ContextMenuItem {
 
     #[doc(alias = "webkit_context_menu_item_new_with_submenu")]
     #[doc(alias = "new_with_submenu")]
-    pub fn with_submenu(label: &str, submenu: &impl IsA<ContextMenu>) -> ContextMenuItem {
+    pub fn with_submenu(label: &str, submenu: &ContextMenu) -> ContextMenuItem {
         unsafe {
             from_glib_none(ffi::webkit_context_menu_item_new_with_submenu(
                 label.to_glib_none().0,
-                submenu.as_ref().to_glib_none().0,
+                submenu.to_glib_none().0,
             ))
         }
     }
-}
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::ContextMenuItem>> Sealed for T {}
-}
-
-pub trait ContextMenuItemExt: IsA<ContextMenuItem> + sealed::Sealed + 'static {
     #[doc(alias = "webkit_context_menu_item_get_gaction")]
     #[doc(alias = "get_gaction")]
-    fn gaction(&self) -> Option<gio::Action> {
-        unsafe {
-            from_glib_none(ffi::webkit_context_menu_item_get_gaction(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
+    pub fn gaction(&self) -> Option<gio::Action> {
+        unsafe { from_glib_none(ffi::webkit_context_menu_item_get_gaction(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "webkit_context_menu_item_get_stock_action")]
     #[doc(alias = "get_stock_action")]
-    fn stock_action(&self) -> ContextMenuAction {
-        unsafe {
-            from_glib(ffi::webkit_context_menu_item_get_stock_action(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
+    pub fn stock_action(&self) -> ContextMenuAction {
+        unsafe { from_glib(ffi::webkit_context_menu_item_get_stock_action(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "webkit_context_menu_item_get_submenu")]
     #[doc(alias = "get_submenu")]
-    fn submenu(&self) -> Option<ContextMenu> {
-        unsafe {
-            from_glib_none(ffi::webkit_context_menu_item_get_submenu(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
+    pub fn submenu(&self) -> Option<ContextMenu> {
+        unsafe { from_glib_none(ffi::webkit_context_menu_item_get_submenu(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "webkit_context_menu_item_is_separator")]
-    fn is_separator(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_context_menu_item_is_separator(self.as_ref().to_glib_none().0))
-        }
+    pub fn is_separator(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_context_menu_item_is_separator(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "webkit_context_menu_item_set_submenu")]
-    fn set_submenu(&self, submenu: Option<&impl IsA<ContextMenu>>) {
+    pub fn set_submenu(&self, submenu: Option<&ContextMenu>) {
         unsafe {
             ffi::webkit_context_menu_item_set_submenu(
-                self.as_ref().to_glib_none().0,
-                submenu.map(|p| p.as_ref()).to_glib_none().0,
+                self.to_glib_none().0,
+                submenu.to_glib_none().0,
             );
         }
     }
 }
-
-impl<O: IsA<ContextMenuItem>> ContextMenuItemExt for O {}

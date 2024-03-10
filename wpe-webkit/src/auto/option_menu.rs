@@ -21,58 +21,47 @@ glib::wrapper! {
 }
 
 impl OptionMenu {
-    pub const NONE: Option<&'static OptionMenu> = None;
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::OptionMenu>> Sealed for T {}
-}
-
-pub trait OptionMenuExt: IsA<OptionMenu> + sealed::Sealed + 'static {
     #[doc(alias = "webkit_option_menu_activate_item")]
-    fn activate_item(&self, index: u32) {
+    pub fn activate_item(&self, index: u32) {
         unsafe {
-            ffi::webkit_option_menu_activate_item(self.as_ref().to_glib_none().0, index);
+            ffi::webkit_option_menu_activate_item(self.to_glib_none().0, index);
         }
     }
 
     #[doc(alias = "webkit_option_menu_close")]
-    fn close(&self) {
+    pub fn close(&self) {
         unsafe {
-            ffi::webkit_option_menu_close(self.as_ref().to_glib_none().0);
+            ffi::webkit_option_menu_close(self.to_glib_none().0);
         }
     }
 
     #[doc(alias = "webkit_option_menu_get_item")]
     #[doc(alias = "get_item")]
-    fn item(&self, index: u32) -> Option<OptionMenuItem> {
-        unsafe {
-            from_glib_none(ffi::webkit_option_menu_get_item(self.as_ref().to_glib_none().0, index))
-        }
+    pub fn item(&self, index: u32) -> Option<OptionMenuItem> {
+        unsafe { from_glib_none(ffi::webkit_option_menu_get_item(self.to_glib_none().0, index)) }
     }
 
     #[doc(alias = "webkit_option_menu_get_n_items")]
     #[doc(alias = "get_n_items")]
-    fn n_items(&self) -> u32 {
-        unsafe { ffi::webkit_option_menu_get_n_items(self.as_ref().to_glib_none().0) }
+    pub fn n_items(&self) -> u32 {
+        unsafe { ffi::webkit_option_menu_get_n_items(self.to_glib_none().0) }
     }
 
     #[doc(alias = "webkit_option_menu_select_item")]
-    fn select_item(&self, index: u32) {
+    pub fn select_item(&self, index: u32) {
         unsafe {
-            ffi::webkit_option_menu_select_item(self.as_ref().to_glib_none().0, index);
+            ffi::webkit_option_menu_select_item(self.to_glib_none().0, index);
         }
     }
 
     #[doc(alias = "close")]
-    fn connect_close<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn close_trampoline<P: IsA<OptionMenu>, F: Fn(&P) + 'static>(
+    pub fn connect_close<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn close_trampoline<F: Fn(&OptionMenu) + 'static>(
             this: *mut ffi::WebKitOptionMenu,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(OptionMenu::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -80,12 +69,10 @@ pub trait OptionMenuExt: IsA<OptionMenu> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"close\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    close_trampoline::<Self, F> as *const (),
+                    close_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
         }
     }
 }
-
-impl<O: IsA<OptionMenu>> OptionMenuExt for O {}

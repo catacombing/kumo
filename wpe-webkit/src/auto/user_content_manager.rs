@@ -9,7 +9,7 @@ use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
 
-use crate::{JavascriptResult, ScriptMessageReply, UserContentFilter, UserScript, UserStyleSheet};
+use crate::{ScriptMessageReply, UserContentFilter, UserScript, UserStyleSheet};
 
 glib::wrapper! {
     #[doc(alias = "WebKitUserContentManager")]
@@ -21,71 +21,46 @@ glib::wrapper! {
 }
 
 impl UserContentManager {
-    pub const NONE: Option<&'static UserContentManager> = None;
-
     #[doc(alias = "webkit_user_content_manager_new")]
     pub fn new() -> UserContentManager {
         unsafe { from_glib_full(ffi::webkit_user_content_manager_new()) }
     }
-}
 
-impl Default for UserContentManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::UserContentManager>> Sealed for T {}
-}
-
-pub trait UserContentManagerExt: IsA<UserContentManager> + sealed::Sealed + 'static {
     #[doc(alias = "webkit_user_content_manager_add_filter")]
-    fn add_filter(&self, filter: &UserContentFilter) {
+    pub fn add_filter(&self, filter: &UserContentFilter) {
         unsafe {
             ffi::webkit_user_content_manager_add_filter(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 filter.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_user_content_manager_add_script")]
-    fn add_script(&self, script: &UserScript) {
+    pub fn add_script(&self, script: &UserScript) {
         unsafe {
             ffi::webkit_user_content_manager_add_script(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 script.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_user_content_manager_add_style_sheet")]
-    fn add_style_sheet(&self, stylesheet: &UserStyleSheet) {
+    pub fn add_style_sheet(&self, stylesheet: &UserStyleSheet) {
         unsafe {
             ffi::webkit_user_content_manager_add_style_sheet(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 stylesheet.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_user_content_manager_register_script_message_handler")]
-    fn register_script_message_handler(&self, name: &str) -> bool {
+    pub fn register_script_message_handler(&self, name: &str, world_name: Option<&str>) -> bool {
         unsafe {
             from_glib(ffi::webkit_user_content_manager_register_script_message_handler(
-                self.as_ref().to_glib_none().0,
-                name.to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_user_content_manager_register_script_message_handler_in_world")]
-    fn register_script_message_handler_in_world(&self, name: &str, world_name: &str) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_user_content_manager_register_script_message_handler_in_world(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 name.to_glib_none().0,
                 world_name.to_glib_none().0,
             ))
@@ -93,10 +68,10 @@ pub trait UserContentManagerExt: IsA<UserContentManager> + sealed::Sealed + 'sta
     }
 
     #[doc(alias = "webkit_user_content_manager_register_script_message_handler_with_reply")]
-    fn register_script_message_handler_with_reply(&self, name: &str, world_name: &str) -> bool {
+    pub fn register_script_message_handler_with_reply(&self, name: &str, world_name: &str) -> bool {
         unsafe {
             from_glib(ffi::webkit_user_content_manager_register_script_message_handler_with_reply(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 name.to_glib_none().0,
                 world_name.to_glib_none().0,
             ))
@@ -104,83 +79,71 @@ pub trait UserContentManagerExt: IsA<UserContentManager> + sealed::Sealed + 'sta
     }
 
     #[doc(alias = "webkit_user_content_manager_remove_all_filters")]
-    fn remove_all_filters(&self) {
+    pub fn remove_all_filters(&self) {
         unsafe {
-            ffi::webkit_user_content_manager_remove_all_filters(self.as_ref().to_glib_none().0);
+            ffi::webkit_user_content_manager_remove_all_filters(self.to_glib_none().0);
         }
     }
 
     #[doc(alias = "webkit_user_content_manager_remove_all_scripts")]
-    fn remove_all_scripts(&self) {
+    pub fn remove_all_scripts(&self) {
         unsafe {
-            ffi::webkit_user_content_manager_remove_all_scripts(self.as_ref().to_glib_none().0);
+            ffi::webkit_user_content_manager_remove_all_scripts(self.to_glib_none().0);
         }
     }
 
     #[doc(alias = "webkit_user_content_manager_remove_all_style_sheets")]
-    fn remove_all_style_sheets(&self) {
+    pub fn remove_all_style_sheets(&self) {
         unsafe {
-            ffi::webkit_user_content_manager_remove_all_style_sheets(
-                self.as_ref().to_glib_none().0,
-            );
+            ffi::webkit_user_content_manager_remove_all_style_sheets(self.to_glib_none().0);
         }
     }
 
     #[doc(alias = "webkit_user_content_manager_remove_filter")]
-    fn remove_filter(&self, filter: &UserContentFilter) {
+    pub fn remove_filter(&self, filter: &UserContentFilter) {
         unsafe {
             ffi::webkit_user_content_manager_remove_filter(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 filter.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_user_content_manager_remove_filter_by_id")]
-    fn remove_filter_by_id(&self, filter_id: &str) {
+    pub fn remove_filter_by_id(&self, filter_id: &str) {
         unsafe {
             ffi::webkit_user_content_manager_remove_filter_by_id(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 filter_id.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_user_content_manager_remove_script")]
-    fn remove_script(&self, script: &UserScript) {
+    pub fn remove_script(&self, script: &UserScript) {
         unsafe {
             ffi::webkit_user_content_manager_remove_script(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 script.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_user_content_manager_remove_style_sheet")]
-    fn remove_style_sheet(&self, stylesheet: &UserStyleSheet) {
+    pub fn remove_style_sheet(&self, stylesheet: &UserStyleSheet) {
         unsafe {
             ffi::webkit_user_content_manager_remove_style_sheet(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 stylesheet.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_user_content_manager_unregister_script_message_handler")]
-    fn unregister_script_message_handler(&self, name: &str) {
+    pub fn unregister_script_message_handler(&self, name: &str, world_name: Option<&str>) {
         unsafe {
             ffi::webkit_user_content_manager_unregister_script_message_handler(
-                self.as_ref().to_glib_none().0,
-                name.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_user_content_manager_unregister_script_message_handler_in_world")]
-    fn unregister_script_message_handler_in_world(&self, name: &str, world_name: &str) {
-        unsafe {
-            ffi::webkit_user_content_manager_unregister_script_message_handler_in_world(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 name.to_glib_none().0,
                 world_name.to_glib_none().0,
             );
@@ -188,24 +151,20 @@ pub trait UserContentManagerExt: IsA<UserContentManager> + sealed::Sealed + 'sta
     }
 
     #[doc(alias = "script-message-received")]
-    fn connect_script_message_received<F: Fn(&Self, &JavascriptResult) + 'static>(
+    pub fn connect_script_message_received<F: Fn(&Self, &wpe_java_script_core::Value) + 'static>(
         &self,
         detail: Option<&str>,
         f: F,
     ) -> SignalHandlerId {
         unsafe extern "C" fn script_message_received_trampoline<
-            P: IsA<UserContentManager>,
-            F: Fn(&P, &JavascriptResult) + 'static,
+            F: Fn(&UserContentManager, &wpe_java_script_core::Value) + 'static,
         >(
             this: *mut ffi::WebKitUserContentManager,
-            value: *mut ffi::WebKitJavascriptResult,
+            value: *mut wpe_java_script_core::ffi::JSCValue,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(
-                UserContentManager::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(value),
-            )
+            f(&from_glib_borrow(this), &from_glib_borrow(value))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -218,7 +177,7 @@ pub trait UserContentManagerExt: IsA<UserContentManager> + sealed::Sealed + 'sta
                 self.as_ptr() as *mut _,
                 signal_name.as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    script_message_received_trampoline::<Self, F> as *const (),
+                    script_message_received_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -226,7 +185,7 @@ pub trait UserContentManagerExt: IsA<UserContentManager> + sealed::Sealed + 'sta
     }
 
     #[doc(alias = "script-message-with-reply-received")]
-    fn connect_script_message_with_reply_received<
+    pub fn connect_script_message_with_reply_received<
         F: Fn(&Self, &wpe_java_script_core::Value, &ScriptMessageReply) -> bool + 'static,
     >(
         &self,
@@ -234,8 +193,8 @@ pub trait UserContentManagerExt: IsA<UserContentManager> + sealed::Sealed + 'sta
         f: F,
     ) -> SignalHandlerId {
         unsafe extern "C" fn script_message_with_reply_received_trampoline<
-            P: IsA<UserContentManager>,
-            F: Fn(&P, &wpe_java_script_core::Value, &ScriptMessageReply) -> bool + 'static,
+            F: Fn(&UserContentManager, &wpe_java_script_core::Value, &ScriptMessageReply) -> bool
+                + 'static,
         >(
             this: *mut ffi::WebKitUserContentManager,
             value: *mut wpe_java_script_core::ffi::JSCValue,
@@ -243,12 +202,8 @@ pub trait UserContentManagerExt: IsA<UserContentManager> + sealed::Sealed + 'sta
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
             let f: &F = &*(f as *const F);
-            f(
-                UserContentManager::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(value),
-                &from_glib_borrow(reply),
-            )
-            .into_glib()
+            f(&from_glib_borrow(this), &from_glib_borrow(value), &from_glib_borrow(reply))
+                .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -261,7 +216,7 @@ pub trait UserContentManagerExt: IsA<UserContentManager> + sealed::Sealed + 'sta
                 self.as_ptr() as *mut _,
                 signal_name.as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    script_message_with_reply_received_trampoline::<Self, F> as *const (),
+                    script_message_with_reply_received_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -269,4 +224,8 @@ pub trait UserContentManagerExt: IsA<UserContentManager> + sealed::Sealed + 'sta
     }
 }
 
-impl<O: IsA<UserContentManager>> UserContentManagerExt for O {}
+impl Default for UserContentManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}

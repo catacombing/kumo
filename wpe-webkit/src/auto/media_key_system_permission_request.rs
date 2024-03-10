@@ -14,6 +14,4 @@ glib::wrapper! {
     }
 }
 
-impl MediaKeySystemPermissionRequest {
-    pub const NONE: Option<&'static MediaKeySystemPermissionRequest> = None;
-}
+impl MediaKeySystemPermissionRequest {}

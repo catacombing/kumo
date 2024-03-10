@@ -117,11 +117,6 @@ pub const WEBKIT_DOWNLOAD_ERROR_NETWORK: WebKitDownloadError = 499;
 pub const WEBKIT_DOWNLOAD_ERROR_CANCELLED_BY_USER: WebKitDownloadError = 400;
 pub const WEBKIT_DOWNLOAD_ERROR_DESTINATION: WebKitDownloadError = 401;
 
-pub type WebKitFaviconDatabaseError = c_int;
-pub const WEBKIT_FAVICON_DATABASE_ERROR_NOT_INITIALIZED: WebKitFaviconDatabaseError = 0;
-pub const WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_NOT_FOUND: WebKitFaviconDatabaseError = 1;
-pub const WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_UNKNOWN: WebKitFaviconDatabaseError = 2;
-
 pub type WebKitFeatureStatus = c_int;
 pub const WEBKIT_FEATURE_STATUS_EMBEDDER: WebKitFeatureStatus = 0;
 pub const WEBKIT_FEATURE_STATUS_UNSTABLE: WebKitFeatureStatus = 1;
@@ -161,6 +156,9 @@ pub const WEBKIT_MEDIA_CAPTURE_STATE_NONE: WebKitMediaCaptureState = 0;
 pub const WEBKIT_MEDIA_CAPTURE_STATE_ACTIVE: WebKitMediaCaptureState = 1;
 pub const WEBKIT_MEDIA_CAPTURE_STATE_MUTED: WebKitMediaCaptureState = 2;
 
+pub type WebKitMediaError = c_int;
+pub const WEBKIT_MEDIA_ERROR_WILL_HANDLE_LOAD: WebKitMediaError = 204;
+
 pub type WebKitNavigationType = c_int;
 pub const WEBKIT_NAVIGATION_TYPE_LINK_CLICKED: WebKitNavigationType = 0;
 pub const WEBKIT_NAVIGATION_TYPE_FORM_SUBMITTED: WebKitNavigationType = 1;
@@ -186,14 +184,6 @@ pub const WEBKIT_PERMISSION_STATE_GRANTED: WebKitPermissionState = 0;
 pub const WEBKIT_PERMISSION_STATE_DENIED: WebKitPermissionState = 1;
 pub const WEBKIT_PERMISSION_STATE_PROMPT: WebKitPermissionState = 2;
 
-pub type WebKitPluginError = c_int;
-pub const WEBKIT_PLUGIN_ERROR_FAILED: WebKitPluginError = 299;
-pub const WEBKIT_PLUGIN_ERROR_CANNOT_FIND_PLUGIN: WebKitPluginError = 200;
-pub const WEBKIT_PLUGIN_ERROR_CANNOT_LOAD_PLUGIN: WebKitPluginError = 201;
-pub const WEBKIT_PLUGIN_ERROR_JAVA_UNAVAILABLE: WebKitPluginError = 202;
-pub const WEBKIT_PLUGIN_ERROR_CONNECTION_CANCELLED: WebKitPluginError = 203;
-pub const WEBKIT_PLUGIN_ERROR_WILL_HANDLE_LOAD: WebKitPluginError = 204;
-
 pub type WebKitPolicyDecisionType = c_int;
 pub const WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION: WebKitPolicyDecisionType = 0;
 pub const WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION: WebKitPolicyDecisionType = 1;
@@ -205,10 +195,6 @@ pub const WEBKIT_POLICY_ERROR_CANNOT_SHOW_MIME_TYPE: WebKitPolicyError = 100;
 pub const WEBKIT_POLICY_ERROR_CANNOT_SHOW_URI: WebKitPolicyError = 101;
 pub const WEBKIT_POLICY_ERROR_FRAME_LOAD_INTERRUPTED_BY_POLICY_CHANGE: WebKitPolicyError = 102;
 pub const WEBKIT_POLICY_ERROR_CANNOT_USE_RESTRICTED_PORT: WebKitPolicyError = 103;
-
-pub type WebKitProcessModel = c_int;
-pub const WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS: WebKitProcessModel = 0;
-pub const WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES: WebKitProcessModel = 1;
 
 pub type WebKitSaveMode = c_int;
 pub const WEBKIT_SAVE_MODE_MHTML: WebKitSaveMode = 0;
@@ -309,16 +295,14 @@ pub const WEBKIT_WEBSITE_DATA_DISK_CACHE: WebKitWebsiteDataTypes = 2;
 pub const WEBKIT_WEBSITE_DATA_OFFLINE_APPLICATION_CACHE: WebKitWebsiteDataTypes = 4;
 pub const WEBKIT_WEBSITE_DATA_SESSION_STORAGE: WebKitWebsiteDataTypes = 8;
 pub const WEBKIT_WEBSITE_DATA_LOCAL_STORAGE: WebKitWebsiteDataTypes = 16;
-pub const WEBKIT_WEBSITE_DATA_WEBSQL_DATABASES: WebKitWebsiteDataTypes = 32;
-pub const WEBKIT_WEBSITE_DATA_INDEXEDDB_DATABASES: WebKitWebsiteDataTypes = 64;
-pub const WEBKIT_WEBSITE_DATA_PLUGIN_DATA: WebKitWebsiteDataTypes = 128;
-pub const WEBKIT_WEBSITE_DATA_COOKIES: WebKitWebsiteDataTypes = 256;
-pub const WEBKIT_WEBSITE_DATA_DEVICE_ID_HASH_SALT: WebKitWebsiteDataTypes = 512;
-pub const WEBKIT_WEBSITE_DATA_HSTS_CACHE: WebKitWebsiteDataTypes = 1024;
-pub const WEBKIT_WEBSITE_DATA_ITP: WebKitWebsiteDataTypes = 2048;
-pub const WEBKIT_WEBSITE_DATA_SERVICE_WORKER_REGISTRATIONS: WebKitWebsiteDataTypes = 4096;
-pub const WEBKIT_WEBSITE_DATA_DOM_CACHE: WebKitWebsiteDataTypes = 8192;
-pub const WEBKIT_WEBSITE_DATA_ALL: WebKitWebsiteDataTypes = 16383;
+pub const WEBKIT_WEBSITE_DATA_INDEXEDDB_DATABASES: WebKitWebsiteDataTypes = 32;
+pub const WEBKIT_WEBSITE_DATA_COOKIES: WebKitWebsiteDataTypes = 64;
+pub const WEBKIT_WEBSITE_DATA_DEVICE_ID_HASH_SALT: WebKitWebsiteDataTypes = 128;
+pub const WEBKIT_WEBSITE_DATA_HSTS_CACHE: WebKitWebsiteDataTypes = 256;
+pub const WEBKIT_WEBSITE_DATA_ITP: WebKitWebsiteDataTypes = 512;
+pub const WEBKIT_WEBSITE_DATA_SERVICE_WORKER_REGISTRATIONS: WebKitWebsiteDataTypes = 1024;
+pub const WEBKIT_WEBSITE_DATA_DOM_CACHE: WebKitWebsiteDataTypes = 2048;
+pub const WEBKIT_WEBSITE_DATA_ALL: WebKitWebsiteDataTypes = 4095;
 
 // Callbacks
 pub type WebKitFrameDisplayedCallback = Option<unsafe extern "C" fn(*mut WebKitWebView, gpointer)>;
@@ -342,80 +326,40 @@ impl ::std::fmt::Debug for WebKitApplicationInfo {
 #[repr(C)]
 pub struct WebKitAuthenticationRequestClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitAuthenticationRequestClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitAuthenticationRequestClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitAuthenticationRequestPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitAuthenticationRequestPrivate = _WebKitAuthenticationRequestPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitAutomationSessionClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitAutomationSessionClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitAutomationSessionClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitAutomationSessionPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitAutomationSessionPrivate = _WebKitAutomationSessionPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitBackForwardListClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitBackForwardListClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitBackForwardListClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
@@ -424,39 +368,15 @@ impl ::std::fmt::Debug for WebKitBackForwardListClass {
 #[repr(C)]
 pub struct WebKitBackForwardListItemClass {
     pub parent_class: gobject::GInitiallyUnownedClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitBackForwardListItemClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitBackForwardListItemClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitBackForwardListItemPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitBackForwardListItemPrivate = _WebKitBackForwardListItemPrivate;
-
-#[repr(C)]
-pub struct _WebKitBackForwardListPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitBackForwardListPrivate = _WebKitBackForwardListPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -482,20 +402,12 @@ impl ::std::fmt::Debug for WebKitColor {
 #[repr(C)]
 pub struct WebKitContextMenuClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitContextMenuClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitContextMenuClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
@@ -504,69 +416,29 @@ impl ::std::fmt::Debug for WebKitContextMenuClass {
 #[repr(C)]
 pub struct WebKitContextMenuItemClass {
     pub parent_class: gobject::GInitiallyUnownedClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitContextMenuItemClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitContextMenuItemClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitContextMenuItemPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitContextMenuItemPrivate = _WebKitContextMenuItemPrivate;
-
-#[repr(C)]
-pub struct _WebKitContextMenuPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitContextMenuPrivate = _WebKitContextMenuPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitCookieManagerClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitCookieManagerClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitCookieManagerClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitCookieManagerPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitCookieManagerPrivate = _WebKitCookieManagerPrivate;
 
 #[repr(C)]
 pub struct WebKitCredential {
@@ -584,124 +456,43 @@ impl ::std::fmt::Debug for WebKitCredential {
 #[repr(C)]
 pub struct WebKitDeviceInfoPermissionRequestClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitDeviceInfoPermissionRequestClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitDeviceInfoPermissionRequestClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitDeviceInfoPermissionRequestPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitDeviceInfoPermissionRequestPrivate = _WebKitDeviceInfoPermissionRequestPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitDownloadClass {
     pub parent_class: gobject::GObjectClass,
-    pub decide_destination:
-        Option<unsafe extern "C" fn(*mut WebKitDownload, *const c_char) -> gboolean>,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitDownloadClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitDownloadClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("decide_destination", &self.decide_destination)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitDownloadPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitDownloadPrivate = _WebKitDownloadPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitEditorStateClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitEditorStateClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitEditorStateClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitEditorStatePrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitEditorStatePrivate = _WebKitEditorStatePrivate;
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct WebKitFaviconDatabaseClass {
-    pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
-}
-
-impl ::std::fmt::Debug for WebKitFaviconDatabaseClass {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitFaviconDatabaseClass @ {self:p}"))
-            .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
-            .finish()
-    }
-}
-
-#[repr(C)]
-pub struct _WebKitFaviconDatabasePrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitFaviconDatabasePrivate = _WebKitFaviconDatabasePrivate;
 
 #[repr(C)]
 pub struct WebKitFeature {
@@ -731,151 +522,71 @@ impl ::std::fmt::Debug for WebKitFeatureList {
 #[repr(C)]
 pub struct WebKitFileChooserRequestClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitFileChooserRequestClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitFileChooserRequestClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitFileChooserRequestPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitFileChooserRequestPrivate = _WebKitFileChooserRequestPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitFindControllerClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitFindControllerClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitFindControllerClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitFindControllerPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitFindControllerPrivate = _WebKitFindControllerPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitFormSubmissionRequestClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitFormSubmissionRequestClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitFormSubmissionRequestClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitFormSubmissionRequestPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitFormSubmissionRequestPrivate = _WebKitFormSubmissionRequestPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitGeolocationManagerClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitGeolocationManagerClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitGeolocationManagerClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitGeolocationManagerPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitGeolocationManagerPrivate = _WebKitGeolocationManagerPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitGeolocationPermissionRequestClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitGeolocationPermissionRequestClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitGeolocationPermissionRequestClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitGeolocationPermissionRequestPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitGeolocationPermissionRequestPrivate = _WebKitGeolocationPermissionRequestPrivate;
 
 #[repr(C)]
 pub struct WebKitGeolocationPosition {
@@ -893,31 +604,15 @@ impl ::std::fmt::Debug for WebKitGeolocationPosition {
 #[repr(C)]
 pub struct WebKitHitTestResultClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitHitTestResultClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitHitTestResultClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitHitTestResultPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitHitTestResultPrivate = _WebKitHitTestResultPrivate;
 
 #[repr(C)]
 pub struct WebKitITPFirstParty {
@@ -984,6 +679,14 @@ pub struct WebKitInputMethodContextClass {
     pub _webkit_reserved5: Option<unsafe extern "C" fn()>,
     pub _webkit_reserved6: Option<unsafe extern "C" fn()>,
     pub _webkit_reserved7: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved8: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved9: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved10: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved11: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved12: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved13: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved14: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved15: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitInputMethodContextClass {
@@ -1011,6 +714,14 @@ impl ::std::fmt::Debug for WebKitInputMethodContextClass {
             .field("_webkit_reserved5", &self._webkit_reserved5)
             .field("_webkit_reserved6", &self._webkit_reserved6)
             .field("_webkit_reserved7", &self._webkit_reserved7)
+            .field("_webkit_reserved8", &self._webkit_reserved8)
+            .field("_webkit_reserved9", &self._webkit_reserved9)
+            .field("_webkit_reserved10", &self._webkit_reserved10)
+            .field("_webkit_reserved11", &self._webkit_reserved11)
+            .field("_webkit_reserved12", &self._webkit_reserved12)
+            .field("_webkit_reserved13", &self._webkit_reserved13)
+            .field("_webkit_reserved14", &self._webkit_reserved14)
+            .field("_webkit_reserved15", &self._webkit_reserved15)
             .finish()
     }
 }
@@ -1037,79 +748,17 @@ impl ::std::fmt::Debug for WebKitInputMethodUnderline {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct WebKitInstallMissingMediaPluginsPermissionRequestClass {
-    pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
-}
-
-impl ::std::fmt::Debug for WebKitInstallMissingMediaPluginsPermissionRequestClass {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!(
-            "WebKitInstallMissingMediaPluginsPermissionRequestClass @ {self:p}"
-        ))
-        .field("parent_class", &self.parent_class)
-        .field("_webkit_reserved0", &self._webkit_reserved0)
-        .field("_webkit_reserved1", &self._webkit_reserved1)
-        .field("_webkit_reserved2", &self._webkit_reserved2)
-        .field("_webkit_reserved3", &self._webkit_reserved3)
-        .finish()
-    }
-}
-
-#[repr(C)]
-pub struct _WebKitInstallMissingMediaPluginsPermissionRequestPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitInstallMissingMediaPluginsPermissionRequestPrivate =
-    _WebKitInstallMissingMediaPluginsPermissionRequestPrivate;
-
-#[repr(C)]
-pub struct WebKitJavascriptResult {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-impl ::std::fmt::Debug for WebKitJavascriptResult {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitJavascriptResult @ {self:p}")).finish()
-    }
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct WebKitMediaKeySystemPermissionRequestClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitMediaKeySystemPermissionRequestClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitMediaKeySystemPermissionRequestClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitMediaKeySystemPermissionRequestPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitMediaKeySystemPermissionRequestPrivate =
-    _WebKitMediaKeySystemPermissionRequestPrivate;
 
 #[repr(C)]
 pub struct WebKitMemoryPressureSettings {
@@ -1120,18 +769,6 @@ pub struct WebKitMemoryPressureSettings {
 impl ::std::fmt::Debug for WebKitMemoryPressureSettings {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitMemoryPressureSettings @ {self:p}")).finish()
-    }
-}
-
-#[repr(C)]
-pub struct WebKitMimeInfo {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-impl ::std::fmt::Debug for WebKitMimeInfo {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitMimeInfo @ {self:p}")).finish()
     }
 }
 
@@ -1151,31 +788,15 @@ impl ::std::fmt::Debug for WebKitNavigationAction {
 #[repr(C)]
 pub struct WebKitNavigationPolicyDecisionClass {
     pub parent_class: WebKitPolicyDecisionClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitNavigationPolicyDecisionClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitNavigationPolicyDecisionClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitNavigationPolicyDecisionPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitNavigationPolicyDecisionPrivate = _WebKitNavigationPolicyDecisionPrivate;
 
 #[repr(C)]
 pub struct WebKitNetworkProxySettings {
@@ -1191,26 +812,28 @@ impl ::std::fmt::Debug for WebKitNetworkProxySettings {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct WebKitNetworkSessionClass {
+    pub parent_class: gobject::GObjectClass,
+}
+
+impl ::std::fmt::Debug for WebKitNetworkSessionClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitNetworkSessionClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct WebKitNotificationClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved4: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved5: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitNotificationClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitNotificationClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
-            .field("_webkit_reserved4", &self._webkit_reserved4)
-            .field("_webkit_reserved5", &self._webkit_reserved5)
             .finish()
     }
 }
@@ -1229,40 +852,16 @@ impl ::std::fmt::Debug for WebKitNotificationPermissionRequestClass {
     }
 }
 
-#[repr(C)]
-pub struct _WebKitNotificationPermissionRequestPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitNotificationPermissionRequestPrivate = _WebKitNotificationPermissionRequestPrivate;
-
-#[repr(C)]
-pub struct _WebKitNotificationPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitNotificationPrivate = _WebKitNotificationPrivate;
-
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitOptionMenuClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitOptionMenuClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitOptionMenuClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
@@ -1279,25 +878,17 @@ impl ::std::fmt::Debug for WebKitOptionMenuItem {
     }
 }
 
-#[repr(C)]
-pub struct _WebKitOptionMenuPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitOptionMenuPrivate = _WebKitOptionMenuPrivate;
-
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct WebKitPermissionRequestIface {
+pub struct WebKitPermissionRequestInterface {
     pub parent_interface: gobject::GTypeInterface,
     pub allow: Option<unsafe extern "C" fn(*mut WebKitPermissionRequest)>,
     pub deny: Option<unsafe extern "C" fn(*mut WebKitPermissionRequest)>,
 }
 
-impl ::std::fmt::Debug for WebKitPermissionRequestIface {
+impl ::std::fmt::Debug for WebKitPermissionRequestInterface {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitPermissionRequestIface @ {self:p}"))
+        f.debug_struct(&format!("WebKitPermissionRequestInterface @ {self:p}"))
             .field("parent_interface", &self.parent_interface)
             .field("allow", &self.allow)
             .field("deny", &self.deny)
@@ -1319,42 +910,16 @@ impl ::std::fmt::Debug for WebKitPermissionStateQuery {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct WebKitPluginClass {
-    pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
-}
-
-impl ::std::fmt::Debug for WebKitPluginClass {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitPluginClass @ {self:p}"))
-            .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
-            .finish()
-    }
-}
-
-#[repr(C)]
-pub struct _WebKitPluginPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitPluginPrivate = _WebKitPluginPrivate;
-
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct WebKitPolicyDecisionClass {
     pub parent_class: gobject::GObjectClass,
     pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
     pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
     pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
     pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved4: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved5: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved6: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved7: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitPolicyDecisionClass {
@@ -1365,6 +930,10 @@ impl ::std::fmt::Debug for WebKitPolicyDecisionClass {
             .field("_webkit_reserved1", &self._webkit_reserved1)
             .field("_webkit_reserved2", &self._webkit_reserved2)
             .field("_webkit_reserved3", &self._webkit_reserved3)
+            .field("_webkit_reserved4", &self._webkit_reserved4)
+            .field("_webkit_reserved5", &self._webkit_reserved5)
+            .field("_webkit_reserved6", &self._webkit_reserved6)
+            .field("_webkit_reserved7", &self._webkit_reserved7)
             .finish()
     }
 }
@@ -1409,31 +978,15 @@ impl ::std::fmt::Debug for WebKitRectangle {
 #[repr(C)]
 pub struct WebKitResponsePolicyDecisionClass {
     pub parent_class: WebKitPolicyDecisionClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitResponsePolicyDecisionClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitResponsePolicyDecisionClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitResponsePolicyDecisionPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitResponsePolicyDecisionPrivate = _WebKitResponsePolicyDecisionPrivate;
 
 #[repr(C)]
 pub struct WebKitScriptDialog {
@@ -1463,31 +1016,15 @@ impl ::std::fmt::Debug for WebKitScriptMessageReply {
 #[repr(C)]
 pub struct WebKitSecurityManagerClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitSecurityManagerClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitSecurityManagerClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitSecurityManagerPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitSecurityManagerPrivate = _WebKitSecurityManagerPrivate;
 
 #[repr(C)]
 pub struct WebKitSecurityOrigin {
@@ -1505,151 +1042,71 @@ impl ::std::fmt::Debug for WebKitSecurityOrigin {
 #[repr(C)]
 pub struct WebKitSettingsClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitSettingsClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitSettingsClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitSettingsPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitSettingsPrivate = _WebKitSettingsPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitURIRequestClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitURIRequestClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitURIRequestClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitURIRequestPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitURIRequestPrivate = _WebKitURIRequestPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitURIResponseClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitURIResponseClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitURIResponseClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitURIResponsePrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitURIResponsePrivate = _WebKitURIResponsePrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitURISchemeRequestClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitURISchemeRequestClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitURISchemeRequestClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitURISchemeRequestPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitURISchemeRequestPrivate = _WebKitURISchemeRequestPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitURISchemeResponseClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitURISchemeResponseClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitURISchemeResponseClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitURISchemeResponsePrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitURISchemeResponsePrivate = _WebKitURISchemeResponsePrivate;
 
 #[repr(C)]
 pub struct WebKitUserContentFilter {
@@ -1667,121 +1124,57 @@ impl ::std::fmt::Debug for WebKitUserContentFilter {
 #[repr(C)]
 pub struct WebKitUserContentFilterStoreClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitUserContentFilterStoreClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitUserContentFilterStoreClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitUserContentFilterStorePrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitUserContentFilterStorePrivate = _WebKitUserContentFilterStorePrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitUserContentManagerClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitUserContentManagerClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitUserContentManagerClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitUserContentManagerPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitUserContentManagerPrivate = _WebKitUserContentManagerPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitUserMediaPermissionRequestClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitUserMediaPermissionRequestClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitUserMediaPermissionRequestClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitUserMediaPermissionRequestPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitUserMediaPermissionRequestPrivate = _WebKitUserMediaPermissionRequestPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitUserMessageClass {
     pub parent_class: gobject::GInitiallyUnownedClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitUserMessageClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitUserMessageClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitUserMessagePrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitUserMessagePrivate = _WebKitUserMessagePrivate;
 
 #[repr(C)]
 pub struct WebKitUserScript {
@@ -1810,72 +1203,30 @@ impl ::std::fmt::Debug for WebKitUserStyleSheet {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitWebContextClass {
-    pub parent: gobject::GObjectClass,
-    pub download_started: Option<unsafe extern "C" fn(*mut WebKitWebContext, *mut WebKitDownload)>,
-    pub initialize_web_extensions: Option<unsafe extern "C" fn(*mut WebKitWebContext)>,
-    pub initialize_notification_permissions: Option<unsafe extern "C" fn(*mut WebKitWebContext)>,
-    pub automation_started:
-        Option<unsafe extern "C" fn(*mut WebKitWebContext, *mut WebKitAutomationSession)>,
-    pub user_message_received:
-        Option<unsafe extern "C" fn(*mut WebKitWebContext, *mut WebKitUserMessage) -> gboolean>,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
+    pub parent_class: gobject::GObjectClass,
 }
 
 impl ::std::fmt::Debug for WebKitWebContextClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitWebContextClass @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("download_started", &self.download_started)
-            .field("initialize_web_extensions", &self.initialize_web_extensions)
-            .field("initialize_notification_permissions", &self.initialize_notification_permissions)
-            .field("automation_started", &self.automation_started)
-            .field("user_message_received", &self.user_message_received)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
+            .field("parent_class", &self.parent_class)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitWebContextPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitWebContextPrivate = _WebKitWebContextPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitWebResourceClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitWebResourceClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitWebResourceClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitWebResourcePrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitWebResourcePrivate = _WebKitWebResourcePrivate;
 
 #[repr(C)]
 pub struct WebKitWebViewBackend {
@@ -1932,7 +1283,6 @@ pub struct WebKitWebViewClass {
         unsafe extern "C" fn(
             *mut WebKitWebView,
             *mut WebKitContextMenu,
-            *mut c_void,
             *mut WebKitHitTestResult,
         ) -> gboolean,
     >,
@@ -1974,6 +1324,32 @@ pub struct WebKitWebViewClass {
     pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
     pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
     pub _webkit_reserved4: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved5: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved6: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved7: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved8: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved9: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved10: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved11: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved12: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved13: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved14: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved15: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved16: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved17: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved18: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved19: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved20: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved21: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved22: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved23: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved24: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved25: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved26: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved27: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved28: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved29: Option<unsafe extern "C" fn()>,
+    pub _webkit_reserved30: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitWebViewClass {
@@ -2011,6 +1387,32 @@ impl ::std::fmt::Debug for WebKitWebViewClass {
             .field("_webkit_reserved2", &self._webkit_reserved2)
             .field("_webkit_reserved3", &self._webkit_reserved3)
             .field("_webkit_reserved4", &self._webkit_reserved4)
+            .field("_webkit_reserved5", &self._webkit_reserved5)
+            .field("_webkit_reserved6", &self._webkit_reserved6)
+            .field("_webkit_reserved7", &self._webkit_reserved7)
+            .field("_webkit_reserved8", &self._webkit_reserved8)
+            .field("_webkit_reserved9", &self._webkit_reserved9)
+            .field("_webkit_reserved10", &self._webkit_reserved10)
+            .field("_webkit_reserved11", &self._webkit_reserved11)
+            .field("_webkit_reserved12", &self._webkit_reserved12)
+            .field("_webkit_reserved13", &self._webkit_reserved13)
+            .field("_webkit_reserved14", &self._webkit_reserved14)
+            .field("_webkit_reserved15", &self._webkit_reserved15)
+            .field("_webkit_reserved16", &self._webkit_reserved16)
+            .field("_webkit_reserved17", &self._webkit_reserved17)
+            .field("_webkit_reserved18", &self._webkit_reserved18)
+            .field("_webkit_reserved19", &self._webkit_reserved19)
+            .field("_webkit_reserved20", &self._webkit_reserved20)
+            .field("_webkit_reserved21", &self._webkit_reserved21)
+            .field("_webkit_reserved22", &self._webkit_reserved22)
+            .field("_webkit_reserved23", &self._webkit_reserved23)
+            .field("_webkit_reserved24", &self._webkit_reserved24)
+            .field("_webkit_reserved25", &self._webkit_reserved25)
+            .field("_webkit_reserved26", &self._webkit_reserved26)
+            .field("_webkit_reserved27", &self._webkit_reserved27)
+            .field("_webkit_reserved28", &self._webkit_reserved28)
+            .field("_webkit_reserved29", &self._webkit_reserved29)
+            .field("_webkit_reserved30", &self._webkit_reserved30)
             .finish()
     }
 }
@@ -2051,821 +1453,572 @@ impl ::std::fmt::Debug for WebKitWebsiteData {
 #[repr(C)]
 pub struct WebKitWebsiteDataAccessPermissionRequestClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitWebsiteDataAccessPermissionRequestClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitWebsiteDataAccessPermissionRequestClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitWebsiteDataAccessPermissionRequestPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitWebsiteDataAccessPermissionRequestPrivate =
-    _WebKitWebsiteDataAccessPermissionRequestPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitWebsiteDataManagerClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitWebsiteDataManagerClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitWebsiteDataManagerClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitWebsiteDataManagerPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitWebsiteDataManagerPrivate = _WebKitWebsiteDataManagerPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitWebsitePoliciesClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitWebsitePoliciesClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitWebsitePoliciesClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
-
-#[repr(C)]
-pub struct _WebKitWebsitePoliciesPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WebKitWebsitePoliciesPrivate = _WebKitWebsitePoliciesPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitWindowPropertiesClass {
     pub parent_class: gobject::GObjectClass,
-    pub _webkit_reserved0: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved1: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved2: Option<unsafe extern "C" fn()>,
-    pub _webkit_reserved3: Option<unsafe extern "C" fn()>,
 }
 
 impl ::std::fmt::Debug for WebKitWindowPropertiesClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitWindowPropertiesClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
-            .field("_webkit_reserved0", &self._webkit_reserved0)
-            .field("_webkit_reserved1", &self._webkit_reserved1)
-            .field("_webkit_reserved2", &self._webkit_reserved2)
-            .field("_webkit_reserved3", &self._webkit_reserved3)
             .finish()
     }
 }
 
+// Classes
 #[repr(C)]
-pub struct _WebKitWindowPropertiesPrivate {
+pub struct WebKitAuthenticationRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
-pub type WebKitWindowPropertiesPrivate = _WebKitWindowPropertiesPrivate;
-
-// Classes
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct WebKitAuthenticationRequest {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitAuthenticationRequestPrivate,
-}
-
 impl ::std::fmt::Debug for WebKitAuthenticationRequest {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitAuthenticationRequest @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitAuthenticationRequest @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitAutomationSession {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitAutomationSessionPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitAutomationSession {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitAutomationSession @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitAutomationSession @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitBackForwardList {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitBackForwardListPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitBackForwardList {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitBackForwardList @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitBackForwardList @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitBackForwardListItem {
-    pub parent: gobject::GInitiallyUnowned,
-    pub priv_: *mut WebKitBackForwardListItemPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitBackForwardListItem {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitBackForwardListItem @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitBackForwardListItem @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitContextMenu {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitContextMenuPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitContextMenu {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitContextMenu @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitContextMenu @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitContextMenuItem {
-    pub parent: gobject::GInitiallyUnowned,
-    pub priv_: *mut WebKitContextMenuItemPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitContextMenuItem {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitContextMenuItem @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitContextMenuItem @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitCookieManager {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitCookieManagerPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitCookieManager {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitCookieManager @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitCookieManager @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitDeviceInfoPermissionRequest {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitDeviceInfoPermissionRequestPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitDeviceInfoPermissionRequest {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitDeviceInfoPermissionRequest @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitDeviceInfoPermissionRequest @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitDownload {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitDownloadPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitDownload {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitDownload @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitDownload @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitEditorState {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitEditorStatePrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitEditorState {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitEditorState @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitEditorState @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct WebKitFaviconDatabase {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitFaviconDatabasePrivate,
-}
-
-impl ::std::fmt::Debug for WebKitFaviconDatabase {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitFaviconDatabase @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
-    }
-}
-
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitFileChooserRequest {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitFileChooserRequestPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitFileChooserRequest {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitFileChooserRequest @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitFileChooserRequest @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitFindController {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitFindControllerPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitFindController {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitFindController @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitFindController @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitFormSubmissionRequest {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitFormSubmissionRequestPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitFormSubmissionRequest {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitFormSubmissionRequest @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitFormSubmissionRequest @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitGeolocationManager {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitGeolocationManagerPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitGeolocationManager {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitGeolocationManager @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitGeolocationManager @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitGeolocationPermissionRequest {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitGeolocationPermissionRequestPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitGeolocationPermissionRequest {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitGeolocationPermissionRequest @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitGeolocationPermissionRequest @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitHitTestResult {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitHitTestResultPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitHitTestResult {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitHitTestResult @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitHitTestResult @ {self:p}")).finish()
     }
 }
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitInputMethodContext {
-    pub parent: gobject::GObject,
+    pub parent_instance: gobject::GObject,
     pub priv_: *mut WebKitInputMethodContextPrivate,
 }
 
 impl ::std::fmt::Debug for WebKitInputMethodContext {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitInputMethodContext @ {self:p}"))
-            .field("parent", &self.parent)
+            .field("parent_instance", &self.parent_instance)
             .field("priv_", &self.priv_)
             .finish()
     }
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct WebKitInstallMissingMediaPluginsPermissionRequest {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitInstallMissingMediaPluginsPermissionRequestPrivate,
-}
-
-impl ::std::fmt::Debug for WebKitInstallMissingMediaPluginsPermissionRequest {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitInstallMissingMediaPluginsPermissionRequest @ {self:p}"))
-            .field("parent", &self.parent)
-            .finish()
-    }
-}
-
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitMediaKeySystemPermissionRequest {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitMediaKeySystemPermissionRequestPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitMediaKeySystemPermissionRequest {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitMediaKeySystemPermissionRequest @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitMediaKeySystemPermissionRequest @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitNavigationPolicyDecision {
-    pub parent: WebKitPolicyDecision,
-    pub priv_: *mut WebKitNavigationPolicyDecisionPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitNavigationPolicyDecision {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitNavigationPolicyDecision @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitNavigationPolicyDecision @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WebKitNetworkSession {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for WebKitNetworkSession {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitNetworkSession @ {self:p}")).finish()
+    }
+}
+
 #[repr(C)]
 pub struct WebKitNotification {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitNotificationPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitNotification {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitNotification @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitNotification @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitNotificationPermissionRequest {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitNotificationPermissionRequestPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitNotificationPermissionRequest {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitNotificationPermissionRequest @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitNotificationPermissionRequest @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitOptionMenu {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitOptionMenuPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitOptionMenu {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitOptionMenu @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
-    }
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct WebKitPlugin {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitPluginPrivate,
-}
-
-impl ::std::fmt::Debug for WebKitPlugin {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitPlugin @ {self:p}")).field("parent", &self.parent).finish()
+        f.debug_struct(&format!("WebKitOptionMenu @ {self:p}")).finish()
     }
 }
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitPolicyDecision {
-    pub parent: gobject::GObject,
+    pub parent_instance: gobject::GObject,
     pub priv_: *mut WebKitPolicyDecisionPrivate,
 }
 
 impl ::std::fmt::Debug for WebKitPolicyDecision {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitPolicyDecision @ {self:p}"))
-            .field("parent", &self.parent)
+            .field("parent_instance", &self.parent_instance)
             .field("priv_", &self.priv_)
             .finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitResponsePolicyDecision {
-    pub parent: WebKitPolicyDecision,
-    pub priv_: *mut WebKitResponsePolicyDecisionPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitResponsePolicyDecision {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitResponsePolicyDecision @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitResponsePolicyDecision @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitSecurityManager {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitSecurityManagerPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitSecurityManager {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitSecurityManager @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitSecurityManager @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitSettings {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitSettingsPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitSettings {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitSettings @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitSettings @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitURIRequest {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitURIRequestPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitURIRequest {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitURIRequest @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitURIRequest @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitURIResponse {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitURIResponsePrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitURIResponse {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitURIResponse @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitURIResponse @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitURISchemeRequest {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitURISchemeRequestPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitURISchemeRequest {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitURISchemeRequest @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitURISchemeRequest @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitURISchemeResponse {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitURISchemeResponsePrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitURISchemeResponse {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitURISchemeResponse @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitURISchemeResponse @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitUserContentFilterStore {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitUserContentFilterStorePrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitUserContentFilterStore {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitUserContentFilterStore @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitUserContentFilterStore @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitUserContentManager {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitUserContentManagerPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitUserContentManager {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitUserContentManager @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitUserContentManager @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitUserMediaPermissionRequest {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitUserMediaPermissionRequestPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitUserMediaPermissionRequest {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitUserMediaPermissionRequest @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitUserMediaPermissionRequest @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitUserMessage {
-    pub parent: gobject::GInitiallyUnowned,
-    pub priv_: *mut WebKitUserMessagePrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitUserMessage {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitUserMessage @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitUserMessage @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitWebContext {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitWebContextPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitWebContext {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitWebContext @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitWebContext @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitWebResource {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitWebResourcePrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitWebResource {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitWebResource @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitWebResource @ {self:p}")).finish()
     }
 }
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitWebView {
-    pub parent: gobject::GObject,
+    pub parent_instance: gobject::GObject,
     pub priv_: *mut WebKitWebViewPrivate,
 }
 
 impl ::std::fmt::Debug for WebKitWebView {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitWebView @ {self:p}"))
-            .field("parent", &self.parent)
+            .field("parent_instance", &self.parent_instance)
             .field("priv_", &self.priv_)
             .finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitWebsiteDataAccessPermissionRequest {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitWebsiteDataAccessPermissionRequestPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitWebsiteDataAccessPermissionRequest {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitWebsiteDataAccessPermissionRequest @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitWebsiteDataAccessPermissionRequest @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitWebsiteDataManager {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitWebsiteDataManagerPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitWebsiteDataManager {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitWebsiteDataManager @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitWebsiteDataManager @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitWebsitePolicies {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitWebsitePoliciesPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitWebsitePolicies {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitWebsitePolicies @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitWebsitePolicies @ {self:p}")).finish()
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WebKitWindowProperties {
-    pub parent: gobject::GObject,
-    pub priv_: *mut WebKitWindowPropertiesPrivate,
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
 impl ::std::fmt::Debug for WebKitWindowProperties {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WebKitWindowProperties @ {self:p}"))
-            .field("parent", &self.parent)
-            .field("priv_", &self.priv_)
-            .finish()
+        f.debug_struct(&format!("WebKitWindowProperties @ {self:p}")).finish()
     }
 }
 
@@ -2882,7 +2035,7 @@ impl ::std::fmt::Debug for WebKitPermissionRequest {
     }
 }
 
-#[link(name = "WPEWebKit-1.1")]
+#[link(name = "WPEWebKit-2.0")]
 extern "C" {
 
     //=========================================================================
@@ -2932,12 +2085,6 @@ extern "C" {
     pub fn webkit_download_error_quark() -> glib::GQuark;
 
     //=========================================================================
-    // WebKitFaviconDatabaseError
-    //=========================================================================
-    pub fn webkit_favicon_database_error_get_type() -> GType;
-    pub fn webkit_favicon_database_error_quark() -> glib::GQuark;
-
-    //=========================================================================
     // WebKitFeatureStatus
     //=========================================================================
     pub fn webkit_feature_status_get_type() -> GType;
@@ -2969,6 +2116,12 @@ extern "C" {
     pub fn webkit_media_capture_state_get_type() -> GType;
 
     //=========================================================================
+    // WebKitMediaError
+    //=========================================================================
+    pub fn webkit_media_error_get_type() -> GType;
+    pub fn webkit_media_error_quark() -> glib::GQuark;
+
+    //=========================================================================
     // WebKitNavigationType
     //=========================================================================
     pub fn webkit_navigation_type_get_type() -> GType;
@@ -2990,12 +2143,6 @@ extern "C" {
     pub fn webkit_permission_state_get_type() -> GType;
 
     //=========================================================================
-    // WebKitPluginError
-    //=========================================================================
-    pub fn webkit_plugin_error_get_type() -> GType;
-    pub fn webkit_plugin_error_quark() -> glib::GQuark;
-
-    //=========================================================================
     // WebKitPolicyDecisionType
     //=========================================================================
     pub fn webkit_policy_decision_type_get_type() -> GType;
@@ -3005,11 +2152,6 @@ extern "C" {
     //=========================================================================
     pub fn webkit_policy_error_get_type() -> GType;
     pub fn webkit_policy_error_quark() -> glib::GQuark;
-
-    //=========================================================================
-    // WebKitProcessModel
-    //=========================================================================
-    pub fn webkit_process_model_get_type() -> GType;
 
     //=========================================================================
     // WebKitSaveMode
@@ -3263,18 +2405,6 @@ extern "C" {
     );
 
     //=========================================================================
-    // WebKitJavascriptResult
-    //=========================================================================
-    pub fn webkit_javascript_result_get_type() -> GType;
-    pub fn webkit_javascript_result_get_js_value(
-        js_result: *mut WebKitJavascriptResult,
-    ) -> *mut wpe_java_script_core::JSCValue;
-    pub fn webkit_javascript_result_ref(
-        js_result: *mut WebKitJavascriptResult,
-    ) -> *mut WebKitJavascriptResult;
-    pub fn webkit_javascript_result_unref(js_result: *mut WebKitJavascriptResult);
-
-    //=========================================================================
     // WebKitMemoryPressureSettings
     //=========================================================================
     pub fn webkit_memory_pressure_settings_get_type() -> GType;
@@ -3318,16 +2448,6 @@ extern "C" {
         settings: *mut WebKitMemoryPressureSettings,
         value: c_double,
     );
-
-    //=========================================================================
-    // WebKitMimeInfo
-    //=========================================================================
-    pub fn webkit_mime_info_get_type() -> GType;
-    pub fn webkit_mime_info_get_description(info: *mut WebKitMimeInfo) -> *const c_char;
-    pub fn webkit_mime_info_get_extensions(info: *mut WebKitMimeInfo) -> *const *const c_char;
-    pub fn webkit_mime_info_get_mime_type(info: *mut WebKitMimeInfo) -> *const c_char;
-    pub fn webkit_mime_info_ref(info: *mut WebKitMimeInfo) -> *mut WebKitMimeInfo;
-    pub fn webkit_mime_info_unref(info: *mut WebKitMimeInfo);
 
     //=========================================================================
     // WebKitNavigationAction
@@ -3469,7 +2589,6 @@ extern "C" {
     pub fn webkit_security_origin_get_host(origin: *mut WebKitSecurityOrigin) -> *const c_char;
     pub fn webkit_security_origin_get_port(origin: *mut WebKitSecurityOrigin) -> u16;
     pub fn webkit_security_origin_get_protocol(origin: *mut WebKitSecurityOrigin) -> *const c_char;
-    pub fn webkit_security_origin_is_opaque(origin: *mut WebKitSecurityOrigin) -> gboolean;
     pub fn webkit_security_origin_ref(
         origin: *mut WebKitSecurityOrigin,
     ) -> *mut WebKitSecurityOrigin;
@@ -3890,16 +3009,6 @@ extern "C" {
     pub fn webkit_editor_state_is_undo_available(editor_state: *mut WebKitEditorState) -> gboolean;
 
     //=========================================================================
-    // WebKitFaviconDatabase
-    //=========================================================================
-    pub fn webkit_favicon_database_get_type() -> GType;
-    pub fn webkit_favicon_database_clear(database: *mut WebKitFaviconDatabase);
-    pub fn webkit_favicon_database_get_favicon_uri(
-        database: *mut WebKitFaviconDatabase,
-        page_uri: *const c_char,
-    ) -> *mut c_char;
-
-    //=========================================================================
     // WebKitFileChooserRequest
     //=========================================================================
     pub fn webkit_file_chooser_request_get_type() -> GType;
@@ -4070,14 +3179,6 @@ extern "C" {
     );
 
     //=========================================================================
-    // WebKitInstallMissingMediaPluginsPermissionRequest
-    //=========================================================================
-    pub fn webkit_install_missing_media_plugins_permission_request_get_type() -> GType;
-    pub fn webkit_install_missing_media_plugins_permission_request_get_description(
-        request: *mut WebKitInstallMissingMediaPluginsPermissionRequest,
-    ) -> *const c_char;
-
-    //=========================================================================
     // WebKitMediaKeySystemPermissionRequest
     //=========================================================================
     pub fn webkit_media_key_system_permission_request_get_type() -> GType;
@@ -4086,12 +3187,78 @@ extern "C" {
     // WebKitNavigationPolicyDecision
     //=========================================================================
     pub fn webkit_navigation_policy_decision_get_type() -> GType;
-    pub fn webkit_navigation_policy_decision_get_frame_name(
-        decision: *mut WebKitNavigationPolicyDecision,
-    ) -> *const c_char;
     pub fn webkit_navigation_policy_decision_get_navigation_action(
         decision: *mut WebKitNavigationPolicyDecision,
     ) -> *mut WebKitNavigationAction;
+
+    //=========================================================================
+    // WebKitNetworkSession
+    //=========================================================================
+    pub fn webkit_network_session_get_type() -> GType;
+    pub fn webkit_network_session_new(
+        data_directory: *const c_char,
+        cache_directory: *const c_char,
+    ) -> *mut WebKitNetworkSession;
+    pub fn webkit_network_session_new_ephemeral() -> *mut WebKitNetworkSession;
+    pub fn webkit_network_session_get_default() -> *mut WebKitNetworkSession;
+    pub fn webkit_network_session_set_memory_pressure_settings(
+        settings: *mut WebKitMemoryPressureSettings,
+    );
+    pub fn webkit_network_session_allow_tls_certificate_for_host(
+        session: *mut WebKitNetworkSession,
+        certificate: *mut gio::GTlsCertificate,
+        host: *const c_char,
+    );
+    pub fn webkit_network_session_download_uri(
+        session: *mut WebKitNetworkSession,
+        uri: *const c_char,
+    ) -> *mut WebKitDownload;
+    pub fn webkit_network_session_get_cookie_manager(
+        session: *mut WebKitNetworkSession,
+    ) -> *mut WebKitCookieManager;
+    pub fn webkit_network_session_get_itp_enabled(session: *mut WebKitNetworkSession) -> gboolean;
+    pub fn webkit_network_session_get_itp_summary(
+        session: *mut WebKitNetworkSession,
+        cancellable: *mut gio::GCancellable,
+        callback: gio::GAsyncReadyCallback,
+        user_data: gpointer,
+    );
+    pub fn webkit_network_session_get_itp_summary_finish(
+        session: *mut WebKitNetworkSession,
+        result: *mut gio::GAsyncResult,
+        error: *mut *mut glib::GError,
+    ) -> *mut glib::GList;
+    pub fn webkit_network_session_get_persistent_credential_storage_enabled(
+        session: *mut WebKitNetworkSession,
+    ) -> gboolean;
+    pub fn webkit_network_session_get_tls_errors_policy(
+        session: *mut WebKitNetworkSession,
+    ) -> WebKitTLSErrorsPolicy;
+    pub fn webkit_network_session_get_website_data_manager(
+        session: *mut WebKitNetworkSession,
+    ) -> *mut WebKitWebsiteDataManager;
+    pub fn webkit_network_session_is_ephemeral(session: *mut WebKitNetworkSession) -> gboolean;
+    pub fn webkit_network_session_prefetch_dns(
+        session: *mut WebKitNetworkSession,
+        hostname: *const c_char,
+    );
+    pub fn webkit_network_session_set_itp_enabled(
+        session: *mut WebKitNetworkSession,
+        enabled: gboolean,
+    );
+    pub fn webkit_network_session_set_persistent_credential_storage_enabled(
+        session: *mut WebKitNetworkSession,
+        enabled: gboolean,
+    );
+    pub fn webkit_network_session_set_proxy_settings(
+        session: *mut WebKitNetworkSession,
+        proxy_mode: WebKitNetworkProxyMode,
+        proxy_settings: *mut WebKitNetworkProxySettings,
+    );
+    pub fn webkit_network_session_set_tls_errors_policy(
+        session: *mut WebKitNetworkSession,
+        policy: WebKitTLSErrorsPolicy,
+    );
 
     //=========================================================================
     // WebKitNotification
@@ -4121,15 +3288,6 @@ extern "C" {
     ) -> *mut WebKitOptionMenuItem;
     pub fn webkit_option_menu_get_n_items(menu: *mut WebKitOptionMenu) -> c_uint;
     pub fn webkit_option_menu_select_item(menu: *mut WebKitOptionMenu, index: c_uint);
-
-    //=========================================================================
-    // WebKitPlugin
-    //=========================================================================
-    pub fn webkit_plugin_get_type() -> GType;
-    pub fn webkit_plugin_get_description(plugin: *mut WebKitPlugin) -> *const c_char;
-    pub fn webkit_plugin_get_mime_info_list(plugin: *mut WebKitPlugin) -> *mut glib::GList;
-    pub fn webkit_plugin_get_name(plugin: *mut WebKitPlugin) -> *const c_char;
-    pub fn webkit_plugin_get_path(plugin: *mut WebKitPlugin) -> *const c_char;
 
     //=========================================================================
     // WebKitPolicyDecision
@@ -4245,14 +3403,10 @@ extern "C" {
     pub fn webkit_settings_get_draw_compositing_indicators(
         settings: *mut WebKitSettings,
     ) -> gboolean;
-    pub fn webkit_settings_get_enable_accelerated_2d_canvas(
-        settings: *mut WebKitSettings,
-    ) -> gboolean;
     pub fn webkit_settings_get_enable_caret_browsing(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_developer_extras(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_dns_prefetching(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_encrypted_media(settings: *mut WebKitSettings) -> gboolean;
-    pub fn webkit_settings_get_enable_frame_flattening(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_fullscreen(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_html5_database(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_html5_local_storage(
@@ -4260,7 +3414,6 @@ extern "C" {
     ) -> gboolean;
     pub fn webkit_settings_get_enable_hyperlink_auditing(settings: *mut WebKitSettings)
         -> gboolean;
-    pub fn webkit_settings_get_enable_java(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_javascript(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_javascript_markup(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_media(settings: *mut WebKitSettings) -> gboolean;
@@ -4275,7 +3428,6 @@ extern "C" {
         settings: *mut WebKitSettings,
     ) -> gboolean;
     pub fn webkit_settings_get_enable_page_cache(settings: *mut WebKitSettings) -> gboolean;
-    pub fn webkit_settings_get_enable_plugins(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_resizable_text_areas(
         settings: *mut WebKitSettings,
     ) -> gboolean;
@@ -4292,7 +3444,6 @@ extern "C" {
     pub fn webkit_settings_get_enable_write_console_messages_to_stdout(
         settings: *mut WebKitSettings,
     ) -> gboolean;
-    pub fn webkit_settings_get_enable_xss_auditor(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_fantasy_font_family(settings: *mut WebKitSettings) -> *const c_char;
     pub fn webkit_settings_get_feature_enabled(
         settings: *mut WebKitSettings,
@@ -4372,10 +3523,6 @@ extern "C" {
         settings: *mut WebKitSettings,
         enabled: gboolean,
     );
-    pub fn webkit_settings_set_enable_accelerated_2d_canvas(
-        settings: *mut WebKitSettings,
-        enabled: gboolean,
-    );
     pub fn webkit_settings_set_enable_caret_browsing(
         settings: *mut WebKitSettings,
         enabled: gboolean,
@@ -4392,10 +3539,6 @@ extern "C" {
         settings: *mut WebKitSettings,
         enabled: gboolean,
     );
-    pub fn webkit_settings_set_enable_frame_flattening(
-        settings: *mut WebKitSettings,
-        enabled: gboolean,
-    );
     pub fn webkit_settings_set_enable_fullscreen(settings: *mut WebKitSettings, enabled: gboolean);
     pub fn webkit_settings_set_enable_html5_database(
         settings: *mut WebKitSettings,
@@ -4409,7 +3552,6 @@ extern "C" {
         settings: *mut WebKitSettings,
         enabled: gboolean,
     );
-    pub fn webkit_settings_set_enable_java(settings: *mut WebKitSettings, enabled: gboolean);
     pub fn webkit_settings_set_enable_javascript(settings: *mut WebKitSettings, enabled: gboolean);
     pub fn webkit_settings_set_enable_javascript_markup(
         settings: *mut WebKitSettings,
@@ -4434,7 +3576,6 @@ extern "C" {
         enabled: gboolean,
     );
     pub fn webkit_settings_set_enable_page_cache(settings: *mut WebKitSettings, enabled: gboolean);
-    pub fn webkit_settings_set_enable_plugins(settings: *mut WebKitSettings, enabled: gboolean);
     pub fn webkit_settings_set_enable_resizable_text_areas(
         settings: *mut WebKitSettings,
         enabled: gboolean,
@@ -4462,7 +3603,6 @@ extern "C" {
         settings: *mut WebKitSettings,
         enabled: gboolean,
     );
-    pub fn webkit_settings_set_enable_xss_auditor(settings: *mut WebKitSettings, enabled: gboolean);
     pub fn webkit_settings_set_fantasy_font_family(
         settings: *mut WebKitSettings,
         fantasy_font_family: *const c_char,
@@ -4707,10 +3847,6 @@ extern "C" {
     pub fn webkit_user_content_manager_register_script_message_handler(
         manager: *mut WebKitUserContentManager,
         name: *const c_char,
-    ) -> gboolean;
-    pub fn webkit_user_content_manager_register_script_message_handler_in_world(
-        manager: *mut WebKitUserContentManager,
-        name: *const c_char,
         world_name: *const c_char,
     ) -> gboolean;
     pub fn webkit_user_content_manager_register_script_message_handler_with_reply(
@@ -4740,10 +3876,6 @@ extern "C" {
         stylesheet: *mut WebKitUserStyleSheet,
     );
     pub fn webkit_user_content_manager_unregister_script_message_handler(
-        manager: *mut WebKitUserContentManager,
-        name: *const c_char,
-    );
-    pub fn webkit_user_content_manager_unregister_script_message_handler_in_world(
         manager: *mut WebKitUserContentManager,
         name: *const c_char,
         world_name: *const c_char,
@@ -4784,54 +3916,19 @@ extern "C" {
     //=========================================================================
     pub fn webkit_web_context_get_type() -> GType;
     pub fn webkit_web_context_new() -> *mut WebKitWebContext;
-    pub fn webkit_web_context_new_ephemeral() -> *mut WebKitWebContext;
-    pub fn webkit_web_context_new_with_website_data_manager(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> *mut WebKitWebContext;
     pub fn webkit_web_context_get_default() -> *mut WebKitWebContext;
     pub fn webkit_web_context_add_path_to_sandbox(
         context: *mut WebKitWebContext,
         path: *const c_char,
         read_only: gboolean,
     );
-    pub fn webkit_web_context_allow_tls_certificate_for_host(
-        context: *mut WebKitWebContext,
-        certificate: *mut gio::GTlsCertificate,
-        host: *const c_char,
-    );
-    pub fn webkit_web_context_clear_cache(context: *mut WebKitWebContext);
-    pub fn webkit_web_context_download_uri(
-        context: *mut WebKitWebContext,
-        uri: *const c_char,
-    ) -> *mut WebKitDownload;
     pub fn webkit_web_context_get_cache_model(context: *mut WebKitWebContext) -> WebKitCacheModel;
-    pub fn webkit_web_context_get_cookie_manager(
-        context: *mut WebKitWebContext,
-    ) -> *mut WebKitCookieManager;
-    pub fn webkit_web_context_get_favicon_database(
-        context: *mut WebKitWebContext,
-    ) -> *mut WebKitFaviconDatabase;
-    pub fn webkit_web_context_get_favicon_database_directory(
-        context: *mut WebKitWebContext,
-    ) -> *const c_char;
     pub fn webkit_web_context_get_geolocation_manager(
         context: *mut WebKitWebContext,
     ) -> *mut WebKitGeolocationManager;
-    pub fn webkit_web_context_get_plugins(
+    pub fn webkit_web_context_get_network_session_for_automation(
         context: *mut WebKitWebContext,
-        cancellable: *mut gio::GCancellable,
-        callback: gio::GAsyncReadyCallback,
-        user_data: gpointer,
-    );
-    pub fn webkit_web_context_get_plugins_finish(
-        context: *mut WebKitWebContext,
-        result: *mut gio::GAsyncResult,
-        error: *mut *mut glib::GError,
-    ) -> *mut glib::GList;
-    pub fn webkit_web_context_get_process_model(
-        context: *mut WebKitWebContext,
-    ) -> WebKitProcessModel;
-    pub fn webkit_web_context_get_sandbox_enabled(context: *mut WebKitWebContext) -> gboolean;
+    ) -> *mut WebKitNetworkSession;
     pub fn webkit_web_context_get_security_manager(
         context: *mut WebKitWebContext,
     ) -> *mut WebKitSecurityManager;
@@ -4844,22 +3941,12 @@ extern "C" {
     pub fn webkit_web_context_get_time_zone_override(
         context: *mut WebKitWebContext,
     ) -> *const c_char;
-    pub fn webkit_web_context_get_tls_errors_policy(
-        context: *mut WebKitWebContext,
-    ) -> WebKitTLSErrorsPolicy;
-    pub fn webkit_web_context_get_web_process_count_limit(context: *mut WebKitWebContext)
-        -> c_uint;
-    pub fn webkit_web_context_get_website_data_manager(
-        context: *mut WebKitWebContext,
-    ) -> *mut WebKitWebsiteDataManager;
     pub fn webkit_web_context_initialize_notification_permissions(
         context: *mut WebKitWebContext,
         allowed_origins: *mut glib::GList,
         disallowed_origins: *mut glib::GList,
     );
     pub fn webkit_web_context_is_automation_allowed(context: *mut WebKitWebContext) -> gboolean;
-    pub fn webkit_web_context_is_ephemeral(context: *mut WebKitWebContext) -> gboolean;
-    pub fn webkit_web_context_prefetch_dns(context: *mut WebKitWebContext, hostname: *const c_char);
     pub fn webkit_web_context_register_uri_scheme(
         context: *mut WebKitWebContext,
         scheme: *const c_char,
@@ -4871,10 +3958,6 @@ extern "C" {
         context: *mut WebKitWebContext,
         message: *mut WebKitUserMessage,
     );
-    pub fn webkit_web_context_set_additional_plugins_directory(
-        context: *mut WebKitWebContext,
-        directory: *const c_char,
-    );
     pub fn webkit_web_context_set_automation_allowed(
         context: *mut WebKitWebContext,
         allowed: gboolean,
@@ -4883,26 +3966,9 @@ extern "C" {
         context: *mut WebKitWebContext,
         cache_model: WebKitCacheModel,
     );
-    pub fn webkit_web_context_set_favicon_database_directory(
-        context: *mut WebKitWebContext,
-        path: *const c_char,
-    );
-    pub fn webkit_web_context_set_network_proxy_settings(
-        context: *mut WebKitWebContext,
-        proxy_mode: WebKitNetworkProxyMode,
-        proxy_settings: *mut WebKitNetworkProxySettings,
-    );
     pub fn webkit_web_context_set_preferred_languages(
         context: *mut WebKitWebContext,
         languages: *const *const c_char,
-    );
-    pub fn webkit_web_context_set_process_model(
-        context: *mut WebKitWebContext,
-        process_model: WebKitProcessModel,
-    );
-    pub fn webkit_web_context_set_sandbox_enabled(
-        context: *mut WebKitWebContext,
-        enabled: gboolean,
     );
     pub fn webkit_web_context_set_spell_checking_enabled(
         context: *mut WebKitWebContext,
@@ -4912,21 +3978,13 @@ extern "C" {
         context: *mut WebKitWebContext,
         languages: *const *const c_char,
     );
-    pub fn webkit_web_context_set_tls_errors_policy(
-        context: *mut WebKitWebContext,
-        policy: WebKitTLSErrorsPolicy,
-    );
-    pub fn webkit_web_context_set_web_extensions_directory(
+    pub fn webkit_web_context_set_web_process_extensions_directory(
         context: *mut WebKitWebContext,
         directory: *const c_char,
     );
-    pub fn webkit_web_context_set_web_extensions_initialization_user_data(
+    pub fn webkit_web_context_set_web_process_extensions_initialization_user_data(
         context: *mut WebKitWebContext,
         user_data: *mut glib::GVariant,
-    );
-    pub fn webkit_web_context_set_web_process_count_limit(
-        context: *mut WebKitWebContext,
-        limit: c_uint,
     );
 
     //=========================================================================
@@ -4955,22 +4013,6 @@ extern "C" {
     //=========================================================================
     pub fn webkit_web_view_get_type() -> GType;
     pub fn webkit_web_view_new(backend: *mut WebKitWebViewBackend) -> *mut WebKitWebView;
-    pub fn webkit_web_view_new_with_context(
-        backend: *mut WebKitWebViewBackend,
-        context: *mut WebKitWebContext,
-    ) -> *mut WebKitWebView;
-    pub fn webkit_web_view_new_with_related_view(
-        backend: *mut WebKitWebViewBackend,
-        web_view: *mut WebKitWebView,
-    ) -> *mut WebKitWebView;
-    pub fn webkit_web_view_new_with_settings(
-        backend: *mut WebKitWebViewBackend,
-        settings: *mut WebKitSettings,
-    ) -> *mut WebKitWebView;
-    pub fn webkit_web_view_new_with_user_content_manager(
-        backend: *mut WebKitWebViewBackend,
-        user_content_manager: *mut WebKitUserContentManager,
-    ) -> *mut WebKitWebView;
     pub fn webkit_web_view_add_frame_displayed_callback(
         web_view: *mut WebKitWebView,
         callback: WebKitFrameDisplayedCallback,
@@ -5078,6 +4120,9 @@ extern "C" {
     pub fn webkit_web_view_get_microphone_capture_state(
         web_view: *mut WebKitWebView,
     ) -> WebKitMediaCaptureState;
+    pub fn webkit_web_view_get_network_session(
+        web_view: *mut WebKitWebView,
+    ) -> *mut WebKitNetworkSession;
     pub fn webkit_web_view_get_page_id(web_view: *mut WebKitWebView) -> u64;
     pub fn webkit_web_view_get_session_state(
         web_view: *mut WebKitWebView,
@@ -5096,9 +4141,6 @@ extern "C" {
     pub fn webkit_web_view_get_web_extension_mode(
         web_view: *mut WebKitWebView,
     ) -> WebKitWebExtensionMode;
-    pub fn webkit_web_view_get_website_data_manager(
-        web_view: *mut WebKitWebView,
-    ) -> *mut WebKitWebsiteDataManager;
     pub fn webkit_web_view_get_website_policies(
         web_view: *mut WebKitWebView,
     ) -> *mut WebKitWebsitePolicies;
@@ -5114,7 +4156,6 @@ extern "C" {
     );
     pub fn webkit_web_view_is_controlled_by_automation(web_view: *mut WebKitWebView) -> gboolean;
     pub fn webkit_web_view_is_editable(web_view: *mut WebKitWebView) -> gboolean;
-    pub fn webkit_web_view_is_ephemeral(web_view: *mut WebKitWebView) -> gboolean;
     pub fn webkit_web_view_is_loading(web_view: *mut WebKitWebView) -> gboolean;
     pub fn webkit_web_view_is_playing_audio(web_view: *mut WebKitWebView) -> gboolean;
     pub fn webkit_web_view_load_alternate_html(
@@ -5151,52 +4192,6 @@ extern "C" {
         web_view: *mut WebKitWebView,
         state: *mut WebKitWebViewSessionState,
     );
-    pub fn webkit_web_view_run_async_javascript_function_in_world(
-        web_view: *mut WebKitWebView,
-        body: *const c_char,
-        arguments: *mut glib::GVariant,
-        world_name: *const c_char,
-        cancellable: *mut gio::GCancellable,
-        callback: gio::GAsyncReadyCallback,
-        user_data: gpointer,
-    );
-    pub fn webkit_web_view_run_javascript(
-        web_view: *mut WebKitWebView,
-        script: *const c_char,
-        cancellable: *mut gio::GCancellable,
-        callback: gio::GAsyncReadyCallback,
-        user_data: gpointer,
-    );
-    pub fn webkit_web_view_run_javascript_finish(
-        web_view: *mut WebKitWebView,
-        result: *mut gio::GAsyncResult,
-        error: *mut *mut glib::GError,
-    ) -> *mut WebKitJavascriptResult;
-    pub fn webkit_web_view_run_javascript_from_gresource(
-        web_view: *mut WebKitWebView,
-        resource: *const c_char,
-        cancellable: *mut gio::GCancellable,
-        callback: gio::GAsyncReadyCallback,
-        user_data: gpointer,
-    );
-    pub fn webkit_web_view_run_javascript_from_gresource_finish(
-        web_view: *mut WebKitWebView,
-        result: *mut gio::GAsyncResult,
-        error: *mut *mut glib::GError,
-    ) -> *mut WebKitJavascriptResult;
-    pub fn webkit_web_view_run_javascript_in_world(
-        web_view: *mut WebKitWebView,
-        script: *const c_char,
-        world_name: *const c_char,
-        cancellable: *mut gio::GCancellable,
-        callback: gio::GAsyncReadyCallback,
-        user_data: gpointer,
-    );
-    pub fn webkit_web_view_run_javascript_in_world_finish(
-        web_view: *mut WebKitWebView,
-        result: *mut gio::GAsyncResult,
-        error: *mut *mut glib::GError,
-    ) -> *mut WebKitJavascriptResult;
     pub fn webkit_web_view_save(
         web_view: *mut WebKitWebView,
         save_mode: WebKitSaveMode,
@@ -5285,14 +4280,6 @@ extern "C" {
     // WebKitWebsiteDataManager
     //=========================================================================
     pub fn webkit_website_data_manager_get_type() -> GType;
-    pub fn webkit_website_data_manager_new(
-        first_option_name: *const c_char,
-        ...
-    ) -> *mut WebKitWebsiteDataManager;
-    pub fn webkit_website_data_manager_new_ephemeral() -> *mut WebKitWebsiteDataManager;
-    pub fn webkit_website_data_manager_set_memory_pressure_settings(
-        settings: *mut WebKitMemoryPressureSettings,
-    );
     pub fn webkit_website_data_manager_clear(
         manager: *mut WebKitWebsiteDataManager,
         types: WebKitWebsiteDataTypes,
@@ -5324,27 +4311,6 @@ extern "C" {
     pub fn webkit_website_data_manager_get_base_data_directory(
         manager: *mut WebKitWebsiteDataManager,
     ) -> *const c_char;
-    pub fn webkit_website_data_manager_get_cookie_manager(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> *mut WebKitCookieManager;
-    pub fn webkit_website_data_manager_get_disk_cache_directory(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> *const c_char;
-    pub fn webkit_website_data_manager_get_dom_cache_directory(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> *const c_char;
-    pub fn webkit_website_data_manager_get_hsts_cache_directory(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> *const c_char;
-    pub fn webkit_website_data_manager_get_indexeddb_directory(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> *const c_char;
-    pub fn webkit_website_data_manager_get_itp_directory(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> *const c_char;
-    pub fn webkit_website_data_manager_get_itp_enabled(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> gboolean;
     pub fn webkit_website_data_manager_get_itp_summary(
         manager: *mut WebKitWebsiteDataManager,
         cancellable: *mut gio::GCancellable,
@@ -5356,24 +4322,6 @@ extern "C" {
         result: *mut gio::GAsyncResult,
         error: *mut *mut glib::GError,
     ) -> *mut glib::GList;
-    pub fn webkit_website_data_manager_get_local_storage_directory(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> *const c_char;
-    pub fn webkit_website_data_manager_get_offline_application_cache_directory(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> *const c_char;
-    pub fn webkit_website_data_manager_get_persistent_credential_storage_enabled(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> gboolean;
-    pub fn webkit_website_data_manager_get_service_worker_registrations_directory(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> *const c_char;
-    pub fn webkit_website_data_manager_get_tls_errors_policy(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> WebKitTLSErrorsPolicy;
-    pub fn webkit_website_data_manager_get_websql_directory(
-        manager: *mut WebKitWebsiteDataManager,
-    ) -> *const c_char;
     pub fn webkit_website_data_manager_is_ephemeral(
         manager: *mut WebKitWebsiteDataManager,
     ) -> gboolean;
@@ -5390,23 +4338,6 @@ extern "C" {
         result: *mut gio::GAsyncResult,
         error: *mut *mut glib::GError,
     ) -> gboolean;
-    pub fn webkit_website_data_manager_set_itp_enabled(
-        manager: *mut WebKitWebsiteDataManager,
-        enabled: gboolean,
-    );
-    pub fn webkit_website_data_manager_set_network_proxy_settings(
-        manager: *mut WebKitWebsiteDataManager,
-        proxy_mode: WebKitNetworkProxyMode,
-        proxy_settings: *mut WebKitNetworkProxySettings,
-    );
-    pub fn webkit_website_data_manager_set_persistent_credential_storage_enabled(
-        manager: *mut WebKitWebsiteDataManager,
-        enabled: gboolean,
-    );
-    pub fn webkit_website_data_manager_set_tls_errors_policy(
-        manager: *mut WebKitWebsiteDataManager,
-        policy: WebKitTLSErrorsPolicy,
-    );
 
     //=========================================================================
     // WebKitWebsitePolicies

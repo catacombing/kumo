@@ -3,7 +3,6 @@
 // from ../gir-files
 // DO NOT EDIT
 
-use glib::prelude::*;
 use glib::translate::*;
 
 glib::wrapper! {
@@ -16,22 +15,13 @@ glib::wrapper! {
 }
 
 impl FormSubmissionRequest {
-    pub const NONE: Option<&'static FormSubmissionRequest> = None;
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::FormSubmissionRequest>> Sealed for T {}
-}
-
-pub trait FormSubmissionRequestExt: IsA<FormSubmissionRequest> + sealed::Sealed + 'static {
     #[doc(alias = "webkit_form_submission_request_list_text_fields")]
-    fn list_text_fields(&self) -> Option<(Vec<glib::GString>, Vec<glib::GString>)> {
+    pub fn list_text_fields(&self) -> Option<(Vec<glib::GString>, Vec<glib::GString>)> {
         unsafe {
             let mut field_names = std::ptr::null_mut();
             let mut field_values = std::ptr::null_mut();
             let ret = from_glib(ffi::webkit_form_submission_request_list_text_fields(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 &mut field_names,
                 &mut field_values,
             ));
@@ -47,11 +37,9 @@ pub trait FormSubmissionRequestExt: IsA<FormSubmissionRequest> + sealed::Sealed 
     }
 
     #[doc(alias = "webkit_form_submission_request_submit")]
-    fn submit(&self) {
+    pub fn submit(&self) {
         unsafe {
-            ffi::webkit_form_submission_request_submit(self.as_ref().to_glib_none().0);
+            ffi::webkit_form_submission_request_submit(self.to_glib_none().0);
         }
     }
 }
-
-impl<O: IsA<FormSubmissionRequest>> FormSubmissionRequestExt for O {}

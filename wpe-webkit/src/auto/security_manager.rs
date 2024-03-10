@@ -3,7 +3,6 @@
 // from ../gir-files
 // DO NOT EDIT
 
-use glib::prelude::*;
 use glib::translate::*;
 
 glib::wrapper! {
@@ -16,134 +15,123 @@ glib::wrapper! {
 }
 
 impl SecurityManager {
-    pub const NONE: Option<&'static SecurityManager> = None;
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::SecurityManager>> Sealed for T {}
-}
-
-pub trait SecurityManagerExt: IsA<SecurityManager> + sealed::Sealed + 'static {
     #[doc(alias = "webkit_security_manager_register_uri_scheme_as_cors_enabled")]
-    fn register_uri_scheme_as_cors_enabled(&self, scheme: &str) {
+    pub fn register_uri_scheme_as_cors_enabled(&self, scheme: &str) {
         unsafe {
             ffi::webkit_security_manager_register_uri_scheme_as_cors_enabled(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 scheme.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_security_manager_register_uri_scheme_as_display_isolated")]
-    fn register_uri_scheme_as_display_isolated(&self, scheme: &str) {
+    pub fn register_uri_scheme_as_display_isolated(&self, scheme: &str) {
         unsafe {
             ffi::webkit_security_manager_register_uri_scheme_as_display_isolated(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 scheme.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_security_manager_register_uri_scheme_as_empty_document")]
-    fn register_uri_scheme_as_empty_document(&self, scheme: &str) {
+    pub fn register_uri_scheme_as_empty_document(&self, scheme: &str) {
         unsafe {
             ffi::webkit_security_manager_register_uri_scheme_as_empty_document(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 scheme.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_security_manager_register_uri_scheme_as_local")]
-    fn register_uri_scheme_as_local(&self, scheme: &str) {
+    pub fn register_uri_scheme_as_local(&self, scheme: &str) {
         unsafe {
             ffi::webkit_security_manager_register_uri_scheme_as_local(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 scheme.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_security_manager_register_uri_scheme_as_no_access")]
-    fn register_uri_scheme_as_no_access(&self, scheme: &str) {
+    pub fn register_uri_scheme_as_no_access(&self, scheme: &str) {
         unsafe {
             ffi::webkit_security_manager_register_uri_scheme_as_no_access(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 scheme.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_security_manager_register_uri_scheme_as_secure")]
-    fn register_uri_scheme_as_secure(&self, scheme: &str) {
+    pub fn register_uri_scheme_as_secure(&self, scheme: &str) {
         unsafe {
             ffi::webkit_security_manager_register_uri_scheme_as_secure(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 scheme.to_glib_none().0,
             );
         }
     }
 
     #[doc(alias = "webkit_security_manager_uri_scheme_is_cors_enabled")]
-    fn uri_scheme_is_cors_enabled(&self, scheme: &str) -> bool {
+    pub fn uri_scheme_is_cors_enabled(&self, scheme: &str) -> bool {
         unsafe {
             from_glib(ffi::webkit_security_manager_uri_scheme_is_cors_enabled(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 scheme.to_glib_none().0,
             ))
         }
     }
 
     #[doc(alias = "webkit_security_manager_uri_scheme_is_display_isolated")]
-    fn uri_scheme_is_display_isolated(&self, scheme: &str) -> bool {
+    pub fn uri_scheme_is_display_isolated(&self, scheme: &str) -> bool {
         unsafe {
             from_glib(ffi::webkit_security_manager_uri_scheme_is_display_isolated(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 scheme.to_glib_none().0,
             ))
         }
     }
 
     #[doc(alias = "webkit_security_manager_uri_scheme_is_empty_document")]
-    fn uri_scheme_is_empty_document(&self, scheme: &str) -> bool {
+    pub fn uri_scheme_is_empty_document(&self, scheme: &str) -> bool {
         unsafe {
             from_glib(ffi::webkit_security_manager_uri_scheme_is_empty_document(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 scheme.to_glib_none().0,
             ))
         }
     }
 
     #[doc(alias = "webkit_security_manager_uri_scheme_is_local")]
-    fn uri_scheme_is_local(&self, scheme: &str) -> bool {
+    pub fn uri_scheme_is_local(&self, scheme: &str) -> bool {
         unsafe {
             from_glib(ffi::webkit_security_manager_uri_scheme_is_local(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 scheme.to_glib_none().0,
             ))
         }
     }
 
     #[doc(alias = "webkit_security_manager_uri_scheme_is_no_access")]
-    fn uri_scheme_is_no_access(&self, scheme: &str) -> bool {
+    pub fn uri_scheme_is_no_access(&self, scheme: &str) -> bool {
         unsafe {
             from_glib(ffi::webkit_security_manager_uri_scheme_is_no_access(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 scheme.to_glib_none().0,
             ))
         }
     }
 
     #[doc(alias = "webkit_security_manager_uri_scheme_is_secure")]
-    fn uri_scheme_is_secure(&self, scheme: &str) -> bool {
+    pub fn uri_scheme_is_secure(&self, scheme: &str) -> bool {
         unsafe {
             from_glib(ffi::webkit_security_manager_uri_scheme_is_secure(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 scheme.to_glib_none().0,
             ))
         }
     }
 }
-
-impl<O: IsA<SecurityManager>> SecurityManagerExt for O {}

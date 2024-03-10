@@ -9,10 +9,7 @@ use std::pin::Pin;
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{
-    CookieManager, ITPThirdParty, MemoryPressureSettings, TLSErrorsPolicy, WebsiteData,
-    WebsiteDataTypes,
-};
+use crate::{ITPThirdParty, WebsiteData, WebsiteDataTypes};
 
 glib::wrapper! {
     #[doc(alias = "WebKitWebsiteDataManager")]
@@ -24,19 +21,6 @@ glib::wrapper! {
 }
 
 impl WebsiteDataManager {
-    pub const NONE: Option<&'static WebsiteDataManager> = None;
-
-    //#[doc(alias = "webkit_website_data_manager_new")]
-    // pub fn new(first_option_name: &str, : /*Unknown
-    // conversion*//*Unimplemented*/Basic: VarArgs) -> WebsiteDataManager {
-    //    unsafe { TODO: call ffi:webkit_website_data_manager_new() }
-    //}
-
-    #[doc(alias = "webkit_website_data_manager_new_ephemeral")]
-    pub fn new_ephemeral() -> WebsiteDataManager {
-        unsafe { from_glib_full(ffi::webkit_website_data_manager_new_ephemeral()) }
-    }
-
     // rustdoc-stripper-ignore-next
     /// Creates a new builder-pattern struct instance to construct
     /// [`WebsiteDataManager`] objects.
@@ -48,19 +32,158 @@ impl WebsiteDataManager {
         WebsiteDataManagerBuilder::new()
     }
 
-    #[doc(alias = "webkit_website_data_manager_set_memory_pressure_settings")]
-    pub fn set_memory_pressure_settings(settings: &mut MemoryPressureSettings) {
+    #[doc(alias = "webkit_website_data_manager_fetch")]
+    pub fn fetch<P: FnOnce(Result<Vec<WebsiteData>, glib::Error>) + 'static>(
+        &self,
+        types: WebsiteDataTypes,
+        cancellable: Option<&impl IsA<gio::Cancellable>>,
+        callback: P,
+    ) {
+        let main_context = glib::MainContext::ref_thread_default();
+        let is_main_context_owner = main_context.is_owner();
+        let has_acquired_main_context =
+            (!is_main_context_owner).then(|| main_context.acquire().ok()).flatten();
+        assert!(
+            is_main_context_owner || has_acquired_main_context.is_some(),
+            "Async operations only allowed if the thread is owning the MainContext"
+        );
+
+        let user_data: Box_<glib::thread_guard::ThreadGuard<P>> =
+            Box_::new(glib::thread_guard::ThreadGuard::new(callback));
+        unsafe extern "C" fn fetch_trampoline<
+            P: FnOnce(Result<Vec<WebsiteData>, glib::Error>) + 'static,
+        >(
+            _source_object: *mut glib::gobject_ffi::GObject,
+            res: *mut gio::ffi::GAsyncResult,
+            user_data: glib::ffi::gpointer,
+        ) {
+            let mut error = std::ptr::null_mut();
+            let ret = ffi::webkit_website_data_manager_fetch_finish(
+                _source_object as *mut _,
+                res,
+                &mut error,
+            );
+            let result = if error.is_null() {
+                Ok(FromGlibPtrContainer::from_glib_full(ret))
+            } else {
+                Err(from_glib_full(error))
+            };
+            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                Box_::from_raw(user_data as *mut _);
+            let callback: P = callback.into_inner();
+            callback(result);
+        }
+        let callback = fetch_trampoline::<P>;
         unsafe {
-            ffi::webkit_website_data_manager_set_memory_pressure_settings(
-                settings.to_glib_none_mut().0,
+            ffi::webkit_website_data_manager_fetch(
+                self.to_glib_none().0,
+                types.into_glib(),
+                cancellable.map(|p| p.as_ref()).to_glib_none().0,
+                Some(callback),
+                Box_::into_raw(user_data) as *mut _,
             );
         }
     }
-}
 
-impl Default for WebsiteDataManager {
-    fn default() -> Self {
-        glib::object::Object::new::<Self>()
+    pub fn fetch_future(
+        &self,
+        types: WebsiteDataTypes,
+    ) -> Pin<Box_<dyn std::future::Future<Output = Result<Vec<WebsiteData>, glib::Error>> + 'static>>
+    {
+        Box_::pin(gio::GioFuture::new(self, move |obj, cancellable, send| {
+            obj.fetch(types, Some(cancellable), move |res| {
+                send.resolve(res);
+            });
+        }))
+    }
+
+    #[doc(alias = "webkit_website_data_manager_get_base_cache_directory")]
+    #[doc(alias = "get_base_cache_directory")]
+    pub fn base_cache_directory(&self) -> Option<glib::GString> {
+        unsafe {
+            from_glib_none(ffi::webkit_website_data_manager_get_base_cache_directory(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_website_data_manager_get_base_data_directory")]
+    #[doc(alias = "get_base_data_directory")]
+    pub fn base_data_directory(&self) -> Option<glib::GString> {
+        unsafe {
+            from_glib_none(ffi::webkit_website_data_manager_get_base_data_directory(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_website_data_manager_get_itp_summary")]
+    #[doc(alias = "get_itp_summary")]
+    pub fn itp_summary<P: FnOnce(Result<Vec<ITPThirdParty>, glib::Error>) + 'static>(
+        &self,
+        cancellable: Option<&impl IsA<gio::Cancellable>>,
+        callback: P,
+    ) {
+        let main_context = glib::MainContext::ref_thread_default();
+        let is_main_context_owner = main_context.is_owner();
+        let has_acquired_main_context =
+            (!is_main_context_owner).then(|| main_context.acquire().ok()).flatten();
+        assert!(
+            is_main_context_owner || has_acquired_main_context.is_some(),
+            "Async operations only allowed if the thread is owning the MainContext"
+        );
+
+        let user_data: Box_<glib::thread_guard::ThreadGuard<P>> =
+            Box_::new(glib::thread_guard::ThreadGuard::new(callback));
+        unsafe extern "C" fn itp_summary_trampoline<
+            P: FnOnce(Result<Vec<ITPThirdParty>, glib::Error>) + 'static,
+        >(
+            _source_object: *mut glib::gobject_ffi::GObject,
+            res: *mut gio::ffi::GAsyncResult,
+            user_data: glib::ffi::gpointer,
+        ) {
+            let mut error = std::ptr::null_mut();
+            let ret = ffi::webkit_website_data_manager_get_itp_summary_finish(
+                _source_object as *mut _,
+                res,
+                &mut error,
+            );
+            let result = if error.is_null() {
+                Ok(FromGlibPtrContainer::from_glib_full(ret))
+            } else {
+                Err(from_glib_full(error))
+            };
+            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                Box_::from_raw(user_data as *mut _);
+            let callback: P = callback.into_inner();
+            callback(result);
+        }
+        let callback = itp_summary_trampoline::<P>;
+        unsafe {
+            ffi::webkit_website_data_manager_get_itp_summary(
+                self.to_glib_none().0,
+                cancellable.map(|p| p.as_ref()).to_glib_none().0,
+                Some(callback),
+                Box_::into_raw(user_data) as *mut _,
+            );
+        }
+    }
+
+    pub fn itp_summary_future(
+        &self,
+    ) -> Pin<
+        Box_<dyn std::future::Future<Output = Result<Vec<ITPThirdParty>, glib::Error>> + 'static>,
+    > {
+        Box_::pin(gio::GioFuture::new(self, move |obj, cancellable, send| {
+            obj.itp_summary(Some(cancellable), move |res| {
+                send.resolve(res);
+            });
+        }))
+    }
+
+    #[doc(alias = "webkit_website_data_manager_is_ephemeral")]
+    pub fn is_ephemeral(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_website_data_manager_is_ephemeral(self.to_glib_none().0)) }
     }
 }
 
@@ -106,238 +229,3 @@ impl WebsiteDataManagerBuilder {
         self.builder.build()
     }
 }
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::WebsiteDataManager>> Sealed for T {}
-}
-
-pub trait WebsiteDataManagerExt: IsA<WebsiteDataManager> + sealed::Sealed + 'static {
-    #[doc(alias = "webkit_website_data_manager_fetch")]
-    fn fetch<P: FnOnce(Result<Vec<WebsiteData>, glib::Error>) + 'static>(
-        &self,
-        types: WebsiteDataTypes,
-        cancellable: Option<&impl IsA<gio::Cancellable>>,
-        callback: P,
-    ) {
-        let main_context = glib::MainContext::ref_thread_default();
-        let is_main_context_owner = main_context.is_owner();
-        let has_acquired_main_context =
-            (!is_main_context_owner).then(|| main_context.acquire().ok()).flatten();
-        assert!(
-            is_main_context_owner || has_acquired_main_context.is_some(),
-            "Async operations only allowed if the thread is owning the MainContext"
-        );
-
-        let user_data: Box_<glib::thread_guard::ThreadGuard<P>> =
-            Box_::new(glib::thread_guard::ThreadGuard::new(callback));
-        unsafe extern "C" fn fetch_trampoline<
-            P: FnOnce(Result<Vec<WebsiteData>, glib::Error>) + 'static,
-        >(
-            _source_object: *mut glib::gobject_ffi::GObject,
-            res: *mut gio::ffi::GAsyncResult,
-            user_data: glib::ffi::gpointer,
-        ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::webkit_website_data_manager_fetch_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result = if error.is_null() {
-                Ok(FromGlibPtrContainer::from_glib_full(ret))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
-        }
-        let callback = fetch_trampoline::<P>;
-        unsafe {
-            ffi::webkit_website_data_manager_fetch(
-                self.as_ref().to_glib_none().0,
-                types.into_glib(),
-                cancellable.map(|p| p.as_ref()).to_glib_none().0,
-                Some(callback),
-                Box_::into_raw(user_data) as *mut _,
-            );
-        }
-    }
-
-    fn fetch_future(
-        &self,
-        types: WebsiteDataTypes,
-    ) -> Pin<Box_<dyn std::future::Future<Output = Result<Vec<WebsiteData>, glib::Error>> + 'static>>
-    {
-        Box_::pin(gio::GioFuture::new(self, move |obj, cancellable, send| {
-            obj.fetch(types, Some(cancellable), move |res| {
-                send.resolve(res);
-            });
-        }))
-    }
-
-    #[doc(alias = "webkit_website_data_manager_get_base_cache_directory")]
-    #[doc(alias = "get_base_cache_directory")]
-    fn base_cache_directory(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_website_data_manager_get_base_cache_directory(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_website_data_manager_get_base_data_directory")]
-    #[doc(alias = "get_base_data_directory")]
-    fn base_data_directory(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_website_data_manager_get_base_data_directory(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_website_data_manager_get_cookie_manager")]
-    #[doc(alias = "get_cookie_manager")]
-    fn cookie_manager(&self) -> Option<CookieManager> {
-        unsafe {
-            from_glib_none(ffi::webkit_website_data_manager_get_cookie_manager(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_website_data_manager_get_itp_enabled")]
-    #[doc(alias = "get_itp_enabled")]
-    fn is_itp_enabled(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_website_data_manager_get_itp_enabled(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_website_data_manager_get_itp_summary")]
-    #[doc(alias = "get_itp_summary")]
-    fn itp_summary<P: FnOnce(Result<Vec<ITPThirdParty>, glib::Error>) + 'static>(
-        &self,
-        cancellable: Option<&impl IsA<gio::Cancellable>>,
-        callback: P,
-    ) {
-        let main_context = glib::MainContext::ref_thread_default();
-        let is_main_context_owner = main_context.is_owner();
-        let has_acquired_main_context =
-            (!is_main_context_owner).then(|| main_context.acquire().ok()).flatten();
-        assert!(
-            is_main_context_owner || has_acquired_main_context.is_some(),
-            "Async operations only allowed if the thread is owning the MainContext"
-        );
-
-        let user_data: Box_<glib::thread_guard::ThreadGuard<P>> =
-            Box_::new(glib::thread_guard::ThreadGuard::new(callback));
-        unsafe extern "C" fn itp_summary_trampoline<
-            P: FnOnce(Result<Vec<ITPThirdParty>, glib::Error>) + 'static,
-        >(
-            _source_object: *mut glib::gobject_ffi::GObject,
-            res: *mut gio::ffi::GAsyncResult,
-            user_data: glib::ffi::gpointer,
-        ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::webkit_website_data_manager_get_itp_summary_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result = if error.is_null() {
-                Ok(FromGlibPtrContainer::from_glib_full(ret))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
-        }
-        let callback = itp_summary_trampoline::<P>;
-        unsafe {
-            ffi::webkit_website_data_manager_get_itp_summary(
-                self.as_ref().to_glib_none().0,
-                cancellable.map(|p| p.as_ref()).to_glib_none().0,
-                Some(callback),
-                Box_::into_raw(user_data) as *mut _,
-            );
-        }
-    }
-
-    fn itp_summary_future(
-        &self,
-    ) -> Pin<
-        Box_<dyn std::future::Future<Output = Result<Vec<ITPThirdParty>, glib::Error>> + 'static>,
-    > {
-        Box_::pin(gio::GioFuture::new(self, move |obj, cancellable, send| {
-            obj.itp_summary(Some(cancellable), move |res| {
-                send.resolve(res);
-            });
-        }))
-    }
-
-    #[doc(alias = "webkit_website_data_manager_get_persistent_credential_storage_enabled")]
-    #[doc(alias = "get_persistent_credential_storage_enabled")]
-    fn is_persistent_credential_storage_enabled(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_website_data_manager_get_persistent_credential_storage_enabled(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_website_data_manager_get_tls_errors_policy")]
-    #[doc(alias = "get_tls_errors_policy")]
-    fn tls_errors_policy(&self) -> TLSErrorsPolicy {
-        unsafe {
-            from_glib(ffi::webkit_website_data_manager_get_tls_errors_policy(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_website_data_manager_is_ephemeral")]
-    fn is_ephemeral(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_website_data_manager_is_ephemeral(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_website_data_manager_set_itp_enabled")]
-    fn set_itp_enabled(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_website_data_manager_set_itp_enabled(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_website_data_manager_set_persistent_credential_storage_enabled")]
-    fn set_persistent_credential_storage_enabled(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_website_data_manager_set_persistent_credential_storage_enabled(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_website_data_manager_set_tls_errors_policy")]
-    fn set_tls_errors_policy(&self, policy: TLSErrorsPolicy) {
-        unsafe {
-            ffi::webkit_website_data_manager_set_tls_errors_policy(
-                self.as_ref().to_glib_none().0,
-                policy.into_glib(),
-            );
-        }
-    }
-}
-
-impl<O: IsA<WebsiteDataManager>> WebsiteDataManagerExt for O {}

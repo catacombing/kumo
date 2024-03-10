@@ -33,9 +33,6 @@ pub use self::download::Download;
 mod editor_state;
 pub use self::editor_state::EditorState;
 
-mod favicon_database;
-pub use self::favicon_database::FaviconDatabase;
-
 mod file_chooser_request;
 pub use self::file_chooser_request::FileChooserRequest;
 
@@ -57,16 +54,14 @@ pub use self::hit_test_result::HitTestResult;
 mod input_method_context;
 pub use self::input_method_context::InputMethodContext;
 
-#[deprecated = "Since 2.40"]
-mod install_missing_media_plugins_permission_request;
-#[deprecated = "Since 2.40"]
-pub use self::install_missing_media_plugins_permission_request::InstallMissingMediaPluginsPermissionRequest;
-
 mod media_key_system_permission_request;
 pub use self::media_key_system_permission_request::MediaKeySystemPermissionRequest;
 
 mod navigation_policy_decision;
 pub use self::navigation_policy_decision::NavigationPolicyDecision;
+
+mod network_session;
+pub use self::network_session::NetworkSession;
 
 mod notification;
 pub use self::notification::Notification;
@@ -79,11 +74,6 @@ pub use self::option_menu::OptionMenu;
 
 mod permission_request;
 pub use self::permission_request::PermissionRequest;
-
-#[deprecated = "Since 2.32"]
-mod plugin;
-#[deprecated = "Since 2.32"]
-pub use self::plugin::Plugin;
 
 mod policy_decision;
 pub use self::policy_decision::PolicyDecision;
@@ -169,9 +159,6 @@ pub use self::itp_third_party::ITPThirdParty;
 mod input_method_underline;
 pub use self::input_method_underline::InputMethodUnderline;
 
-mod javascript_result;
-pub use self::javascript_result::JavascriptResult;
-
 mod memory_pressure_settings;
 pub use self::memory_pressure_settings::MemoryPressureSettings;
 
@@ -218,17 +205,14 @@ mod website_data;
 pub use self::website_data::WebsiteData;
 
 mod enums;
-#[allow(deprecated)]
-pub use self::enums::ProcessModel;
 pub use self::enums::{
     AuthenticationScheme, AutomationBrowsingContextPresentation, AutoplayPolicy, CacheModel,
     ContextMenuAction, CookieAcceptPolicy, CookiePersistentStorage, CredentialPersistence,
-    DownloadError, FaviconDatabaseError, FeatureStatus, InputPurpose, InsecureContentEvent,
-    JavascriptError, LoadEvent, MediaCaptureState, NavigationType, NetworkError, NetworkProxyMode,
-    PermissionState, PluginError, PolicyDecisionType, PolicyError, SaveMode, ScriptDialogType,
-    SnapshotError, TLSErrorsPolicy, UserContentFilterError, UserContentInjectedFrames,
-    UserMessageError, UserScriptInjectionTime, UserStyleLevel, WebExtensionMode,
-    WebProcessTerminationReason,
+    DownloadError, FeatureStatus, InputPurpose, InsecureContentEvent, JavascriptError, LoadEvent,
+    MediaCaptureState, MediaError, NavigationType, NetworkError, NetworkProxyMode, PermissionState,
+    PolicyDecisionType, PolicyError, SaveMode, ScriptDialogType, SnapshotError, TLSErrorsPolicy,
+    UserContentFilterError, UserContentInjectedFrames, UserMessageError, UserScriptInjectionTime,
+    UserStyleLevel, WebExtensionMode, WebProcessTerminationReason,
 };
 
 mod flags;
@@ -237,51 +221,17 @@ pub use self::flags::{
 };
 
 pub(crate) mod traits {
-    pub use super::authentication_request::AuthenticationRequestExt;
-    pub use super::automation_session::AutomationSessionExt;
-    pub use super::back_forward_list::BackForwardListExt;
-    pub use super::back_forward_list_item::BackForwardListItemExt;
-    pub use super::context_menu::ContextMenuExt;
-    pub use super::context_menu_item::ContextMenuItemExt;
-    pub use super::cookie_manager::CookieManagerExt;
-    pub use super::download::DownloadExt;
-    pub use super::editor_state::EditorStateExt;
-    pub use super::favicon_database::FaviconDatabaseExt;
-    pub use super::file_chooser_request::FileChooserRequestExt;
-    pub use super::find_controller::FindControllerExt;
-    pub use super::form_submission_request::FormSubmissionRequestExt;
-    pub use super::geolocation_manager::GeolocationManagerExt;
-    pub use super::hit_test_result::HitTestResultExt;
     pub use super::input_method_context::InputMethodContextExt;
-    pub use super::navigation_policy_decision::NavigationPolicyDecisionExt;
-    pub use super::notification::NotificationExt;
-    pub use super::option_menu::OptionMenuExt;
     pub use super::permission_request::PermissionRequestExt;
     pub use super::policy_decision::PolicyDecisionExt;
-    pub use super::response_policy_decision::ResponsePolicyDecisionExt;
-    pub use super::security_manager::SecurityManagerExt;
-    pub use super::settings::SettingsExt;
-    pub use super::uri_request::URIRequestExt;
-    pub use super::uri_response::URIResponseExt;
-    pub use super::uri_scheme_request::URISchemeRequestExt;
-    pub use super::uri_scheme_response::URISchemeResponseExt;
-    pub use super::user_content_filter_store::UserContentFilterStoreExt;
-    pub use super::user_content_manager::UserContentManagerExt;
-    pub use super::user_media_permission_request::UserMediaPermissionRequestExt;
-    pub use super::user_message::UserMessageExt;
-    pub use super::web_context::WebContextExt;
-    pub use super::web_resource::WebResourceExt;
     pub use super::web_view::WebViewExt;
-    pub use super::website_data_access_permission_request::WebsiteDataAccessPermissionRequestExt;
-    pub use super::website_data_manager::WebsiteDataManagerExt;
-    pub use super::website_policies::WebsitePoliciesExt;
-    pub use super::window_properties::WindowPropertiesExt;
 }
 pub(crate) mod builders {
     pub use super::automation_session::AutomationSessionBuilder;
     pub use super::download::DownloadBuilder;
     pub use super::find_controller::FindControllerBuilder;
     pub use super::hit_test_result::HitTestResultBuilder;
+    pub use super::network_session::NetworkSessionBuilder;
     pub use super::settings::SettingsBuilder;
     pub use super::uri_request::URIRequestBuilder;
     pub use super::uri_scheme_response::URISchemeResponseBuilder;

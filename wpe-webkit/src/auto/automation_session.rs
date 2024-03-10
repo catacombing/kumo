@@ -21,8 +21,6 @@ glib::wrapper! {
 }
 
 impl AutomationSession {
-    pub const NONE: Option<&'static AutomationSession> = None;
-
     // rustdoc-stripper-ignore-next
     /// Creates a new builder-pattern struct instance to construct
     /// [`AutomationSession`] objects.
@@ -32,6 +30,65 @@ impl AutomationSession {
     /// which can be used to create [`AutomationSession`] objects.
     pub fn builder() -> AutomationSessionBuilder {
         AutomationSessionBuilder::new()
+    }
+
+    #[doc(alias = "webkit_automation_session_get_application_info")]
+    #[doc(alias = "get_application_info")]
+    pub fn application_info(&self) -> Option<ApplicationInfo> {
+        unsafe {
+            from_glib_none(ffi::webkit_automation_session_get_application_info(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_automation_session_get_id")]
+    #[doc(alias = "get_id")]
+    pub fn id(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_automation_session_get_id(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_automation_session_set_application_info")]
+    pub fn set_application_info(&self, info: &ApplicationInfo) {
+        unsafe {
+            ffi::webkit_automation_session_set_application_info(
+                self.to_glib_none().0,
+                info.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "create-web-view")]
+    pub fn connect_create_web_view<F: Fn(&Self) -> WebView + 'static>(
+        &self,
+        detail: Option<&str>,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn create_web_view_trampoline<
+            F: Fn(&AutomationSession) -> WebView + 'static,
+        >(
+            this: *mut ffi::WebKitAutomationSession,
+            f: glib::ffi::gpointer,
+        ) -> *mut ffi::WebKitWebView {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this)) // Not checked
+                .to_glib_none()
+                .0
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            let detailed_signal_name = detail.map(|name| format!("create-web-view::{name}\0"));
+            let signal_name: &[u8] =
+                detailed_signal_name.as_ref().map_or(&b"create-web-view\0"[..], |n| n.as_bytes());
+            connect_raw(
+                self.as_ptr() as *mut _,
+                signal_name.as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    create_web_view_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
     }
 }
 
@@ -61,74 +118,3 @@ impl AutomationSessionBuilder {
         self.builder.build()
     }
 }
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::AutomationSession>> Sealed for T {}
-}
-
-pub trait AutomationSessionExt: IsA<AutomationSession> + sealed::Sealed + 'static {
-    #[doc(alias = "webkit_automation_session_get_application_info")]
-    #[doc(alias = "get_application_info")]
-    fn application_info(&self) -> Option<ApplicationInfo> {
-        unsafe {
-            from_glib_none(ffi::webkit_automation_session_get_application_info(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_automation_session_get_id")]
-    #[doc(alias = "get_id")]
-    fn id(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_automation_session_get_id(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_automation_session_set_application_info")]
-    fn set_application_info(&self, info: &ApplicationInfo) {
-        unsafe {
-            ffi::webkit_automation_session_set_application_info(
-                self.as_ref().to_glib_none().0,
-                info.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "create-web-view")]
-    fn connect_create_web_view<F: Fn(&Self) -> WebView + 'static>(
-        &self,
-        detail: Option<&str>,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn create_web_view_trampoline<
-            P: IsA<AutomationSession>,
-            F: Fn(&P) -> WebView + 'static,
-        >(
-            this: *mut ffi::WebKitAutomationSession,
-            f: glib::ffi::gpointer,
-        ) -> *mut ffi::WebKitWebView {
-            let f: &F = &*(f as *const F);
-            f(AutomationSession::from_glib_borrow(this).unsafe_cast_ref()) // Not checked
-                .to_glib_none()
-                .0
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            let detailed_signal_name = detail.map(|name| format!("create-web-view::{name}\0"));
-            let signal_name: &[u8] =
-                detailed_signal_name.as_ref().map_or(&b"create-web-view\0"[..], |n| n.as_bytes());
-            connect_raw(
-                self.as_ptr() as *mut _,
-                signal_name.as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    create_web_view_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-}
-
-impl<O: IsA<AutomationSession>> AutomationSessionExt for O {}

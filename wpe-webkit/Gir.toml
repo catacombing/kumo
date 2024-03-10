@@ -1,6 +1,6 @@
 [options]
 library = "WPEWebKit"
-version = "1.1"
+version = "2.0"
 min_cfg_version = "2.42"
 target_path = "."
 girs_directories = ["/usr/share/gir-1.0/", "../gir-files"]
@@ -57,6 +57,7 @@ generate = [
     "WPEWebKit.JavascriptResult",
     "WPEWebKit.LoadEvent",
     "WPEWebKit.MediaCaptureState",
+    "WPEWebKit.MediaError",
     "WPEWebKit.MediaKeySystemPermissionRequest",
     "WPEWebKit.MemoryPressureSettings",
     # "WPEWebKit.MimeInfo",
@@ -160,7 +161,6 @@ status = "generate"
 function = [
     { name = "remove", manual = true },
     { name = "clear", manual = true },
-    { name = "set_network_proxy_settings", manual = true },
 ]
 
 [[object]]
@@ -183,4 +183,11 @@ status = "generate"
 function = [
     { name = "new", manual = true },
     { name = "get_wpe_backend", manual = true },
+]
+
+[[object]]
+name = "WPEWebKit.NetworkSession"
+status = "generate"
+function = [
+    { name = "set_proxy_settings", manual = true },
 ]

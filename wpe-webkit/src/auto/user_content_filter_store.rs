@@ -21,8 +21,6 @@ glib::wrapper! {
 }
 
 impl UserContentFilterStore {
-    pub const NONE: Option<&'static UserContentFilterStore> = None;
-
     #[doc(alias = "webkit_user_content_filter_store_new")]
     pub fn new(storage_path: &str) -> UserContentFilterStore {
         unsafe {
@@ -40,61 +38,17 @@ impl UserContentFilterStore {
     pub fn builder() -> UserContentFilterStoreBuilder {
         UserContentFilterStoreBuilder::new()
     }
-}
 
-impl Default for UserContentFilterStore {
-    fn default() -> Self {
-        glib::object::Object::new::<Self>()
-    }
-}
-
-// rustdoc-stripper-ignore-next
-/// A [builder-pattern] type to construct [`UserContentFilterStore`] objects.
-///
-/// [builder-pattern]: https://doc.rust-lang.org/1.0.0/style/ownership/builders.html
-#[must_use = "The builder must be built to be used"]
-pub struct UserContentFilterStoreBuilder {
-    builder: glib::object::ObjectBuilder<'static, UserContentFilterStore>,
-}
-
-impl UserContentFilterStoreBuilder {
-    fn new() -> Self {
-        Self { builder: glib::object::Object::builder() }
-    }
-
-    pub fn path(self, path: impl Into<glib::GString>) -> Self {
-        Self { builder: self.builder.property("path", path.into()) }
-    }
-
-    // rustdoc-stripper-ignore-next
-    /// Build the [`UserContentFilterStore`].
-    #[must_use = "Building the object from the builder is usually expensive and is not expected to \
-                  have side effects"]
-    pub fn build(self) -> UserContentFilterStore {
-        self.builder.build()
-    }
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::UserContentFilterStore>> Sealed for T {}
-}
-
-pub trait UserContentFilterStoreExt:
-    IsA<UserContentFilterStore> + sealed::Sealed + 'static
-{
     #[doc(alias = "webkit_user_content_filter_store_get_path")]
     #[doc(alias = "get_path")]
-    fn path(&self) -> Option<glib::GString> {
+    pub fn path(&self) -> Option<glib::GString> {
         unsafe {
-            from_glib_none(ffi::webkit_user_content_filter_store_get_path(
-                self.as_ref().to_glib_none().0,
-            ))
+            from_glib_none(ffi::webkit_user_content_filter_store_get_path(self.to_glib_none().0))
         }
     }
 
     #[doc(alias = "webkit_user_content_filter_store_load")]
-    fn load<P: FnOnce(Result<UserContentFilter, glib::Error>) + 'static>(
+    pub fn load<P: FnOnce(Result<UserContentFilter, glib::Error>) + 'static>(
         &self,
         identifier: &str,
         cancellable: Option<&impl IsA<gio::Cancellable>>,
@@ -134,7 +88,7 @@ pub trait UserContentFilterStoreExt:
         let callback = load_trampoline::<P>;
         unsafe {
             ffi::webkit_user_content_filter_store_load(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 identifier.to_glib_none().0,
                 cancellable.map(|p| p.as_ref()).to_glib_none().0,
                 Some(callback),
@@ -143,7 +97,7 @@ pub trait UserContentFilterStoreExt:
         }
     }
 
-    fn load_future(
+    pub fn load_future(
         &self,
         identifier: &str,
     ) -> Pin<Box_<dyn std::future::Future<Output = Result<UserContentFilter, glib::Error>> + 'static>>
@@ -157,7 +111,7 @@ pub trait UserContentFilterStoreExt:
     }
 
     #[doc(alias = "webkit_user_content_filter_store_remove")]
-    fn remove<P: FnOnce(Result<(), glib::Error>) + 'static>(
+    pub fn remove<P: FnOnce(Result<(), glib::Error>) + 'static>(
         &self,
         identifier: &str,
         cancellable: Option<&impl IsA<gio::Cancellable>>,
@@ -194,7 +148,7 @@ pub trait UserContentFilterStoreExt:
         let callback = remove_trampoline::<P>;
         unsafe {
             ffi::webkit_user_content_filter_store_remove(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 identifier.to_glib_none().0,
                 cancellable.map(|p| p.as_ref()).to_glib_none().0,
                 Some(callback),
@@ -203,7 +157,7 @@ pub trait UserContentFilterStoreExt:
         }
     }
 
-    fn remove_future(
+    pub fn remove_future(
         &self,
         identifier: &str,
     ) -> Pin<Box_<dyn std::future::Future<Output = Result<(), glib::Error>> + 'static>> {
@@ -216,7 +170,7 @@ pub trait UserContentFilterStoreExt:
     }
 
     #[doc(alias = "webkit_user_content_filter_store_save")]
-    fn save<P: FnOnce(Result<UserContentFilter, glib::Error>) + 'static>(
+    pub fn save<P: FnOnce(Result<UserContentFilter, glib::Error>) + 'static>(
         &self,
         identifier: &str,
         source: &glib::Bytes,
@@ -257,7 +211,7 @@ pub trait UserContentFilterStoreExt:
         let callback = save_trampoline::<P>;
         unsafe {
             ffi::webkit_user_content_filter_store_save(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 identifier.to_glib_none().0,
                 source.to_glib_none().0,
                 cancellable.map(|p| p.as_ref()).to_glib_none().0,
@@ -267,7 +221,7 @@ pub trait UserContentFilterStoreExt:
         }
     }
 
-    fn save_future(
+    pub fn save_future(
         &self,
         identifier: &str,
         source: &glib::Bytes,
@@ -283,7 +237,7 @@ pub trait UserContentFilterStoreExt:
     }
 
     #[doc(alias = "webkit_user_content_filter_store_save_from_file")]
-    fn save_from_file<P: FnOnce(Result<UserContentFilter, glib::Error>) + 'static>(
+    pub fn save_from_file<P: FnOnce(Result<UserContentFilter, glib::Error>) + 'static>(
         &self,
         identifier: &str,
         file: &impl IsA<gio::File>,
@@ -324,7 +278,7 @@ pub trait UserContentFilterStoreExt:
         let callback = save_from_file_trampoline::<P>;
         unsafe {
             ffi::webkit_user_content_filter_store_save_from_file(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 identifier.to_glib_none().0,
                 file.as_ref().to_glib_none().0,
                 cancellable.map(|p| p.as_ref()).to_glib_none().0,
@@ -334,7 +288,7 @@ pub trait UserContentFilterStoreExt:
         }
     }
 
-    fn save_from_file_future(
+    pub fn save_from_file_future(
         &self,
         identifier: &str,
         file: &(impl IsA<gio::File> + Clone + 'static),
@@ -350,4 +304,35 @@ pub trait UserContentFilterStoreExt:
     }
 }
 
-impl<O: IsA<UserContentFilterStore>> UserContentFilterStoreExt for O {}
+impl Default for UserContentFilterStore {
+    fn default() -> Self {
+        glib::object::Object::new::<Self>()
+    }
+}
+
+// rustdoc-stripper-ignore-next
+/// A [builder-pattern] type to construct [`UserContentFilterStore`] objects.
+///
+/// [builder-pattern]: https://doc.rust-lang.org/1.0.0/style/ownership/builders.html
+#[must_use = "The builder must be built to be used"]
+pub struct UserContentFilterStoreBuilder {
+    builder: glib::object::ObjectBuilder<'static, UserContentFilterStore>,
+}
+
+impl UserContentFilterStoreBuilder {
+    fn new() -> Self {
+        Self { builder: glib::object::Object::builder() }
+    }
+
+    pub fn path(self, path: impl Into<glib::GString>) -> Self {
+        Self { builder: self.builder.property("path", path.into()) }
+    }
+
+    // rustdoc-stripper-ignore-next
+    /// Build the [`UserContentFilterStore`].
+    #[must_use = "Building the object from the builder is usually expensive and is not expected to \
+                  have side effects"]
+    pub fn build(self) -> UserContentFilterStore {
+        self.builder.build()
+    }
+}

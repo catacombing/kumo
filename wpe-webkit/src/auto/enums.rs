@@ -1091,135 +1091,6 @@ impl From<DownloadError> for glib::Value {
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
-#[doc(alias = "WebKitFaviconDatabaseError")]
-pub enum FaviconDatabaseError {
-    #[doc(alias = "WEBKIT_FAVICON_DATABASE_ERROR_NOT_INITIALIZED")]
-    NotInitialized,
-    #[doc(alias = "WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_NOT_FOUND")]
-    FaviconNotFound,
-    #[doc(alias = "WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_UNKNOWN")]
-    FaviconUnknown,
-    #[doc(hidden)]
-    __Unknown(i32),
-}
-
-impl FaviconDatabaseError {
-    #[doc(alias = "webkit_favicon_database_error_quark")]
-    pub fn quark() -> glib::Quark {
-        unsafe { from_glib(ffi::webkit_favicon_database_error_quark()) }
-    }
-}
-
-#[doc(hidden)]
-impl IntoGlib for FaviconDatabaseError {
-    type GlibType = ffi::WebKitFaviconDatabaseError;
-
-    #[inline]
-    fn into_glib(self) -> ffi::WebKitFaviconDatabaseError {
-        match self {
-            Self::NotInitialized => ffi::WEBKIT_FAVICON_DATABASE_ERROR_NOT_INITIALIZED,
-            Self::FaviconNotFound => ffi::WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_NOT_FOUND,
-            Self::FaviconUnknown => ffi::WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_UNKNOWN,
-            Self::__Unknown(value) => value,
-        }
-    }
-}
-
-#[doc(hidden)]
-impl FromGlib<ffi::WebKitFaviconDatabaseError> for FaviconDatabaseError {
-    #[inline]
-    unsafe fn from_glib(value: ffi::WebKitFaviconDatabaseError) -> Self {
-        match value {
-            ffi::WEBKIT_FAVICON_DATABASE_ERROR_NOT_INITIALIZED => Self::NotInitialized,
-            ffi::WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_NOT_FOUND => Self::FaviconNotFound,
-            ffi::WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_UNKNOWN => Self::FaviconUnknown,
-            value => Self::__Unknown(value),
-        }
-    }
-}
-
-impl glib::error::ErrorDomain for FaviconDatabaseError {
-    #[inline]
-    fn domain() -> glib::Quark {
-        static QUARK: ::std::sync::OnceLock<glib::ffi::GQuark> = ::std::sync::OnceLock::new();
-        let quark = *QUARK.get_or_init(|| unsafe {
-            glib::ffi::g_quark_from_static_string(
-                b"WebKitFaviconDatabaseError\0".as_ptr() as *const _
-            )
-        });
-        unsafe { from_glib(quark) }
-    }
-
-    #[inline]
-    fn code(self) -> i32 {
-        self.into_glib()
-    }
-
-    #[inline]
-    #[allow(clippy::match_single_binding)]
-    fn from(code: i32) -> Option<Self> {
-        match unsafe { from_glib(code) } {
-            value => Some(value),
-        }
-    }
-}
-
-impl StaticType for FaviconDatabaseError {
-    #[inline]
-    #[doc(alias = "webkit_favicon_database_error_get_type")]
-    fn static_type() -> glib::Type {
-        unsafe { from_glib(ffi::webkit_favicon_database_error_get_type()) }
-    }
-}
-
-impl glib::HasParamSpec for FaviconDatabaseError {
-    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
-    type ParamSpec = glib::ParamSpecEnum;
-    type SetValue = Self;
-
-    fn param_spec_builder() -> Self::BuilderFn {
-        Self::ParamSpec::builder_with_default
-    }
-}
-
-impl glib::value::ValueType for FaviconDatabaseError {
-    type Type = Self;
-}
-
-unsafe impl<'a> glib::value::FromValue<'a> for FaviconDatabaseError {
-    type Checker = glib::value::GenericValueTypeChecker<Self>;
-
-    #[inline]
-    unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
-    }
-}
-
-impl ToValue for FaviconDatabaseError {
-    #[inline]
-    fn to_value(&self) -> glib::Value {
-        let mut value = glib::Value::for_value_type::<Self>();
-        unsafe {
-            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
-        }
-        value
-    }
-
-    #[inline]
-    fn value_type(&self) -> glib::Type {
-        Self::static_type()
-    }
-}
-
-impl From<FaviconDatabaseError> for glib::Value {
-    #[inline]
-    fn from(v: FaviconDatabaseError) -> Self {
-        ToValue::to_value(&v)
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
-#[non_exhaustive]
 #[doc(alias = "WebKitFeatureStatus")]
 pub enum FeatureStatus {
     #[doc(alias = "WEBKIT_FEATURE_STATUS_EMBEDDER")]
@@ -1863,6 +1734,125 @@ impl From<MediaCaptureState> for glib::Value {
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
+#[doc(alias = "WebKitMediaError")]
+pub enum MediaError {
+    #[doc(alias = "WEBKIT_MEDIA_ERROR_WILL_HANDLE_LOAD")]
+    Load,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+impl MediaError {
+    #[doc(alias = "webkit_media_error_quark")]
+    pub fn quark() -> glib::Quark {
+        unsafe { from_glib(ffi::webkit_media_error_quark()) }
+    }
+}
+
+#[doc(hidden)]
+impl IntoGlib for MediaError {
+    type GlibType = ffi::WebKitMediaError;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WebKitMediaError {
+        match self {
+            Self::Load => ffi::WEBKIT_MEDIA_ERROR_WILL_HANDLE_LOAD,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WebKitMediaError> for MediaError {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WebKitMediaError) -> Self {
+        match value {
+            ffi::WEBKIT_MEDIA_ERROR_WILL_HANDLE_LOAD => Self::Load,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+impl glib::error::ErrorDomain for MediaError {
+    #[inline]
+    fn domain() -> glib::Quark {
+        static QUARK: ::std::sync::OnceLock<glib::ffi::GQuark> = ::std::sync::OnceLock::new();
+        let quark = *QUARK.get_or_init(|| unsafe {
+            glib::ffi::g_quark_from_static_string(b"WebKitMediaError\0".as_ptr() as *const _)
+        });
+        unsafe { from_glib(quark) }
+    }
+
+    #[inline]
+    fn code(self) -> i32 {
+        self.into_glib()
+    }
+
+    #[inline]
+    #[allow(clippy::match_single_binding)]
+    fn from(code: i32) -> Option<Self> {
+        match unsafe { from_glib(code) } {
+            value => Some(value),
+        }
+    }
+}
+
+impl StaticType for MediaError {
+    #[inline]
+    #[doc(alias = "webkit_media_error_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::webkit_media_error_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for MediaError {
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+impl glib::value::ValueType for MediaError {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for MediaError {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+    }
+}
+
+impl ToValue for MediaError {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<MediaError> for glib::Value {
+    #[inline]
+    fn from(v: MediaError) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
 #[doc(alias = "WebKitNavigationType")]
 pub enum NavigationType {
     #[doc(alias = "WEBKIT_NAVIGATION_TYPE_LINK_CLICKED")]
@@ -2299,146 +2289,6 @@ impl From<PermissionState> for glib::Value {
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
-#[doc(alias = "WebKitPluginError")]
-pub enum PluginError {
-    #[doc(alias = "WEBKIT_PLUGIN_ERROR_FAILED")]
-    Failed,
-    #[doc(alias = "WEBKIT_PLUGIN_ERROR_CANNOT_FIND_PLUGIN")]
-    CannotFindPlugin,
-    #[doc(alias = "WEBKIT_PLUGIN_ERROR_CANNOT_LOAD_PLUGIN")]
-    CannotLoadPlugin,
-    #[doc(alias = "WEBKIT_PLUGIN_ERROR_JAVA_UNAVAILABLE")]
-    JavaUnavailable,
-    #[doc(alias = "WEBKIT_PLUGIN_ERROR_CONNECTION_CANCELLED")]
-    ConnectionCancelled,
-    #[doc(alias = "WEBKIT_PLUGIN_ERROR_WILL_HANDLE_LOAD")]
-    WillHandleLoad,
-    #[doc(hidden)]
-    __Unknown(i32),
-}
-
-impl PluginError {
-    #[doc(alias = "webkit_plugin_error_quark")]
-    pub fn quark() -> glib::Quark {
-        unsafe { from_glib(ffi::webkit_plugin_error_quark()) }
-    }
-}
-
-#[doc(hidden)]
-impl IntoGlib for PluginError {
-    type GlibType = ffi::WebKitPluginError;
-
-    #[inline]
-    fn into_glib(self) -> ffi::WebKitPluginError {
-        match self {
-            Self::Failed => ffi::WEBKIT_PLUGIN_ERROR_FAILED,
-            Self::CannotFindPlugin => ffi::WEBKIT_PLUGIN_ERROR_CANNOT_FIND_PLUGIN,
-            Self::CannotLoadPlugin => ffi::WEBKIT_PLUGIN_ERROR_CANNOT_LOAD_PLUGIN,
-            Self::JavaUnavailable => ffi::WEBKIT_PLUGIN_ERROR_JAVA_UNAVAILABLE,
-            Self::ConnectionCancelled => ffi::WEBKIT_PLUGIN_ERROR_CONNECTION_CANCELLED,
-            Self::WillHandleLoad => ffi::WEBKIT_PLUGIN_ERROR_WILL_HANDLE_LOAD,
-            Self::__Unknown(value) => value,
-        }
-    }
-}
-
-#[doc(hidden)]
-impl FromGlib<ffi::WebKitPluginError> for PluginError {
-    #[inline]
-    unsafe fn from_glib(value: ffi::WebKitPluginError) -> Self {
-        match value {
-            ffi::WEBKIT_PLUGIN_ERROR_FAILED => Self::Failed,
-            ffi::WEBKIT_PLUGIN_ERROR_CANNOT_FIND_PLUGIN => Self::CannotFindPlugin,
-            ffi::WEBKIT_PLUGIN_ERROR_CANNOT_LOAD_PLUGIN => Self::CannotLoadPlugin,
-            ffi::WEBKIT_PLUGIN_ERROR_JAVA_UNAVAILABLE => Self::JavaUnavailable,
-            ffi::WEBKIT_PLUGIN_ERROR_CONNECTION_CANCELLED => Self::ConnectionCancelled,
-            ffi::WEBKIT_PLUGIN_ERROR_WILL_HANDLE_LOAD => Self::WillHandleLoad,
-            value => Self::__Unknown(value),
-        }
-    }
-}
-
-impl glib::error::ErrorDomain for PluginError {
-    #[inline]
-    fn domain() -> glib::Quark {
-        static QUARK: ::std::sync::OnceLock<glib::ffi::GQuark> = ::std::sync::OnceLock::new();
-        let quark = *QUARK.get_or_init(|| unsafe {
-            glib::ffi::g_quark_from_static_string(b"WebKitPluginError\0".as_ptr() as *const _)
-        });
-        unsafe { from_glib(quark) }
-    }
-
-    #[inline]
-    fn code(self) -> i32 {
-        self.into_glib()
-    }
-
-    #[inline]
-    #[allow(clippy::match_single_binding)]
-    fn from(code: i32) -> Option<Self> {
-        match unsafe { from_glib(code) } {
-            Self::__Unknown(_) => Some(Self::Failed),
-            value => Some(value),
-        }
-    }
-}
-
-impl StaticType for PluginError {
-    #[inline]
-    #[doc(alias = "webkit_plugin_error_get_type")]
-    fn static_type() -> glib::Type {
-        unsafe { from_glib(ffi::webkit_plugin_error_get_type()) }
-    }
-}
-
-impl glib::HasParamSpec for PluginError {
-    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
-    type ParamSpec = glib::ParamSpecEnum;
-    type SetValue = Self;
-
-    fn param_spec_builder() -> Self::BuilderFn {
-        Self::ParamSpec::builder_with_default
-    }
-}
-
-impl glib::value::ValueType for PluginError {
-    type Type = Self;
-}
-
-unsafe impl<'a> glib::value::FromValue<'a> for PluginError {
-    type Checker = glib::value::GenericValueTypeChecker<Self>;
-
-    #[inline]
-    unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
-    }
-}
-
-impl ToValue for PluginError {
-    #[inline]
-    fn to_value(&self) -> glib::Value {
-        let mut value = glib::Value::for_value_type::<Self>();
-        unsafe {
-            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
-        }
-        value
-    }
-
-    #[inline]
-    fn value_type(&self) -> glib::Type {
-        Self::static_type()
-    }
-}
-
-impl From<PluginError> for glib::Value {
-    #[inline]
-    fn from(v: PluginError) -> Self {
-        ToValue::to_value(&v)
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
-#[non_exhaustive]
 #[doc(alias = "WebKitPolicyDecisionType")]
 pub enum PolicyDecisionType {
     #[doc(alias = "WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION")]
@@ -2669,111 +2519,6 @@ impl ToValue for PolicyError {
 impl From<PolicyError> for glib::Value {
     #[inline]
     fn from(v: PolicyError) -> Self {
-        ToValue::to_value(&v)
-    }
-}
-
-#[deprecated = "Since 2.40"]
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
-#[non_exhaustive]
-#[doc(alias = "WebKitProcessModel")]
-pub enum ProcessModel {
-    #[doc(alias = "WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS")]
-    SharedSecondaryProcess,
-    #[doc(alias = "WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES")]
-    MultipleSecondaryProcesses,
-    #[doc(hidden)]
-    __Unknown(i32),
-}
-
-#[allow(deprecated)]
-#[doc(hidden)]
-impl IntoGlib for ProcessModel {
-    type GlibType = ffi::WebKitProcessModel;
-
-    #[inline]
-    fn into_glib(self) -> ffi::WebKitProcessModel {
-        match self {
-            Self::SharedSecondaryProcess => ffi::WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS,
-            Self::MultipleSecondaryProcesses => {
-                ffi::WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES
-            },
-            Self::__Unknown(value) => value,
-        }
-    }
-}
-
-#[allow(deprecated)]
-#[doc(hidden)]
-impl FromGlib<ffi::WebKitProcessModel> for ProcessModel {
-    #[inline]
-    unsafe fn from_glib(value: ffi::WebKitProcessModel) -> Self {
-        match value {
-            ffi::WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS => Self::SharedSecondaryProcess,
-            ffi::WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES => {
-                Self::MultipleSecondaryProcesses
-            },
-            value => Self::__Unknown(value),
-        }
-    }
-}
-
-#[allow(deprecated)]
-impl StaticType for ProcessModel {
-    #[inline]
-    #[doc(alias = "webkit_process_model_get_type")]
-    fn static_type() -> glib::Type {
-        unsafe { from_glib(ffi::webkit_process_model_get_type()) }
-    }
-}
-
-#[allow(deprecated)]
-impl glib::HasParamSpec for ProcessModel {
-    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
-    type ParamSpec = glib::ParamSpecEnum;
-    type SetValue = Self;
-
-    fn param_spec_builder() -> Self::BuilderFn {
-        Self::ParamSpec::builder_with_default
-    }
-}
-
-#[allow(deprecated)]
-impl glib::value::ValueType for ProcessModel {
-    type Type = Self;
-}
-
-#[allow(deprecated)]
-unsafe impl<'a> glib::value::FromValue<'a> for ProcessModel {
-    type Checker = glib::value::GenericValueTypeChecker<Self>;
-
-    #[inline]
-    unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
-    }
-}
-
-#[allow(deprecated)]
-impl ToValue for ProcessModel {
-    #[inline]
-    fn to_value(&self) -> glib::Value {
-        let mut value = glib::Value::for_value_type::<Self>();
-        unsafe {
-            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
-        }
-        value
-    }
-
-    #[inline]
-    fn value_type(&self) -> glib::Type {
-        Self::static_type()
-    }
-}
-
-#[allow(deprecated)]
-impl From<ProcessModel> for glib::Value {
-    #[inline]
-    fn from(v: ProcessModel) -> Self {
         ToValue::to_value(&v)
     }
 }

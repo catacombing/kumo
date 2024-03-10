@@ -19,8 +19,6 @@ glib::wrapper! {
 }
 
 impl URIRequest {
-    pub const NONE: Option<&'static URIRequest> = None;
-
     #[doc(alias = "webkit_uri_request_new")]
     pub fn new(uri: &str) -> URIRequest {
         unsafe { from_glib_full(ffi::webkit_uri_request_new(uri.to_glib_none().0)) }
@@ -35,6 +33,54 @@ impl URIRequest {
     /// used to create [`URIRequest`] objects.
     pub fn builder() -> URIRequestBuilder {
         URIRequestBuilder::new()
+    }
+
+    #[doc(alias = "webkit_uri_request_get_http_headers")]
+    #[doc(alias = "get_http_headers")]
+    pub fn http_headers(&self) -> Option<soup::MessageHeaders> {
+        unsafe { from_glib_none(ffi::webkit_uri_request_get_http_headers(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_uri_request_get_http_method")]
+    #[doc(alias = "get_http_method")]
+    pub fn http_method(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_uri_request_get_http_method(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_uri_request_get_uri")]
+    #[doc(alias = "get_uri")]
+    pub fn uri(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_uri_request_get_uri(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_uri_request_set_uri")]
+    pub fn set_uri(&self, uri: &str) {
+        unsafe {
+            ffi::webkit_uri_request_set_uri(self.to_glib_none().0, uri.to_glib_none().0);
+        }
+    }
+
+    #[doc(alias = "uri")]
+    pub fn connect_uri_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_uri_trampoline<F: Fn(&URIRequest) + 'static>(
+            this: *mut ffi::WebKitURIRequest,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::uri\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_uri_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
     }
 }
 
@@ -70,64 +116,3 @@ impl URIRequestBuilder {
         self.builder.build()
     }
 }
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::URIRequest>> Sealed for T {}
-}
-
-pub trait URIRequestExt: IsA<URIRequest> + sealed::Sealed + 'static {
-    #[doc(alias = "webkit_uri_request_get_http_headers")]
-    #[doc(alias = "get_http_headers")]
-    fn http_headers(&self) -> Option<soup::MessageHeaders> {
-        unsafe {
-            from_glib_none(ffi::webkit_uri_request_get_http_headers(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_uri_request_get_http_method")]
-    #[doc(alias = "get_http_method")]
-    fn http_method(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_uri_request_get_http_method(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_uri_request_get_uri")]
-    #[doc(alias = "get_uri")]
-    fn uri(&self) -> Option<glib::GString> {
-        unsafe { from_glib_none(ffi::webkit_uri_request_get_uri(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "webkit_uri_request_set_uri")]
-    fn set_uri(&self, uri: &str) {
-        unsafe {
-            ffi::webkit_uri_request_set_uri(self.as_ref().to_glib_none().0, uri.to_glib_none().0);
-        }
-    }
-
-    #[doc(alias = "uri")]
-    fn connect_uri_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_uri_trampoline<P: IsA<URIRequest>, F: Fn(&P) + 'static>(
-            this: *mut ffi::WebKitURIRequest,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(URIRequest::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::uri\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_uri_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-}
-
-impl<O: IsA<URIRequest>> URIRequestExt for O {}

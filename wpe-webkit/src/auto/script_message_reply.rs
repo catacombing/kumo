@@ -3,7 +3,6 @@
 // from ../gir-files
 // DO NOT EDIT
 
-use glib::prelude::*;
 use glib::translate::*;
 
 glib::wrapper! {
@@ -29,11 +28,11 @@ impl ScriptMessageReply {
     }
 
     #[doc(alias = "webkit_script_message_reply_return_value")]
-    pub fn return_value(&self, reply_value: &impl IsA<wpe_java_script_core::Value>) {
+    pub fn return_value(&self, reply_value: &wpe_java_script_core::Value) {
         unsafe {
             ffi::webkit_script_message_reply_return_value(
                 self.to_glib_none().0,
-                reply_value.as_ref().to_glib_none().0,
+                reply_value.to_glib_none().0,
             );
         }
     }

@@ -21,8 +21,6 @@ glib::wrapper! {
 }
 
 impl Settings {
-    pub const NONE: Option<&'static Settings> = None;
-
     #[doc(alias = "webkit_settings_new")]
     pub fn new() -> Settings {
         unsafe { from_glib_full(ffi::webkit_settings_new()) }
@@ -46,6 +44,908 @@ impl Settings {
         SettingsBuilder::new()
     }
 
+    #[doc(alias = "webkit_settings_get_allow_file_access_from_file_urls")]
+    #[doc(alias = "get_allow_file_access_from_file_urls")]
+    pub fn allows_file_access_from_file_urls(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_allow_file_access_from_file_urls(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_allow_modal_dialogs")]
+    #[doc(alias = "get_allow_modal_dialogs")]
+    pub fn allows_modal_dialogs(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_allow_modal_dialogs(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_allow_top_navigation_to_data_urls")]
+    #[doc(alias = "get_allow_top_navigation_to_data_urls")]
+    pub fn allows_top_navigation_to_data_urls(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_allow_top_navigation_to_data_urls(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_allow_universal_access_from_file_urls")]
+    #[doc(alias = "get_allow_universal_access_from_file_urls")]
+    pub fn allows_universal_access_from_file_urls(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_allow_universal_access_from_file_urls(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_auto_load_images")]
+    #[doc(alias = "get_auto_load_images")]
+    pub fn is_auto_load_images(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_auto_load_images(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_cursive_font_family")]
+    #[doc(alias = "get_cursive_font_family")]
+    pub fn cursive_font_family(&self) -> Option<glib::GString> {
+        unsafe {
+            from_glib_none(ffi::webkit_settings_get_cursive_font_family(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_default_charset")]
+    #[doc(alias = "get_default_charset")]
+    pub fn default_charset(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_settings_get_default_charset(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_default_font_family")]
+    #[doc(alias = "get_default_font_family")]
+    pub fn default_font_family(&self) -> Option<glib::GString> {
+        unsafe {
+            from_glib_none(ffi::webkit_settings_get_default_font_family(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_default_font_size")]
+    #[doc(alias = "get_default_font_size")]
+    pub fn default_font_size(&self) -> u32 {
+        unsafe { ffi::webkit_settings_get_default_font_size(self.to_glib_none().0) }
+    }
+
+    #[doc(alias = "webkit_settings_get_default_monospace_font_size")]
+    #[doc(alias = "get_default_monospace_font_size")]
+    pub fn default_monospace_font_size(&self) -> u32 {
+        unsafe { ffi::webkit_settings_get_default_monospace_font_size(self.to_glib_none().0) }
+    }
+
+    #[doc(alias = "webkit_settings_get_disable_web_security")]
+    #[doc(alias = "get_disable_web_security")]
+    pub fn is_disable_web_security(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_disable_web_security(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_draw_compositing_indicators")]
+    #[doc(alias = "get_draw_compositing_indicators")]
+    pub fn draws_compositing_indicators(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_draw_compositing_indicators(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_caret_browsing")]
+    #[doc(alias = "get_enable_caret_browsing")]
+    pub fn enables_caret_browsing(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_caret_browsing(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_developer_extras")]
+    #[doc(alias = "get_enable_developer_extras")]
+    pub fn enables_developer_extras(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_enable_developer_extras(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_dns_prefetching")]
+    #[doc(alias = "get_enable_dns_prefetching")]
+    pub fn enables_dns_prefetching(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_dns_prefetching(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_encrypted_media")]
+    #[doc(alias = "get_enable_encrypted_media")]
+    pub fn enables_encrypted_media(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_encrypted_media(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_fullscreen")]
+    #[doc(alias = "get_enable_fullscreen")]
+    pub fn enables_fullscreen(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_fullscreen(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_html5_database")]
+    #[doc(alias = "get_enable_html5_database")]
+    pub fn enables_html5_database(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_html5_database(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_html5_local_storage")]
+    #[doc(alias = "get_enable_html5_local_storage")]
+    pub fn enables_html5_local_storage(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_enable_html5_local_storage(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_hyperlink_auditing")]
+    #[doc(alias = "get_enable_hyperlink_auditing")]
+    pub fn enables_hyperlink_auditing(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_enable_hyperlink_auditing(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_javascript")]
+    #[doc(alias = "get_enable_javascript")]
+    pub fn enables_javascript(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_javascript(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_javascript_markup")]
+    #[doc(alias = "get_enable_javascript_markup")]
+    pub fn enables_javascript_markup(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_enable_javascript_markup(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_media")]
+    #[doc(alias = "get_enable_media")]
+    pub fn enables_media(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_media(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_media_capabilities")]
+    #[doc(alias = "get_enable_media_capabilities")]
+    pub fn enables_media_capabilities(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_enable_media_capabilities(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_media_stream")]
+    #[doc(alias = "get_enable_media_stream")]
+    pub fn enables_media_stream(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_media_stream(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_mediasource")]
+    #[doc(alias = "get_enable_mediasource")]
+    pub fn enables_mediasource(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_mediasource(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_mock_capture_devices")]
+    #[doc(alias = "get_enable_mock_capture_devices")]
+    pub fn enables_mock_capture_devices(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_enable_mock_capture_devices(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_offline_web_application_cache")]
+    #[doc(alias = "get_enable_offline_web_application_cache")]
+    pub fn enables_offline_web_application_cache(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_enable_offline_web_application_cache(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_page_cache")]
+    #[doc(alias = "get_enable_page_cache")]
+    pub fn enables_page_cache(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_page_cache(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_resizable_text_areas")]
+    #[doc(alias = "get_enable_resizable_text_areas")]
+    pub fn enables_resizable_text_areas(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_enable_resizable_text_areas(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_site_specific_quirks")]
+    #[doc(alias = "get_enable_site_specific_quirks")]
+    pub fn enables_site_specific_quirks(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_enable_site_specific_quirks(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_smooth_scrolling")]
+    #[doc(alias = "get_enable_smooth_scrolling")]
+    pub fn enables_smooth_scrolling(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_enable_smooth_scrolling(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_spatial_navigation")]
+    #[doc(alias = "get_enable_spatial_navigation")]
+    pub fn enables_spatial_navigation(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_enable_spatial_navigation(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_tabs_to_links")]
+    #[doc(alias = "get_enable_tabs_to_links")]
+    pub fn enables_tabs_to_links(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_tabs_to_links(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_webaudio")]
+    #[doc(alias = "get_enable_webaudio")]
+    pub fn enables_webaudio(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_webaudio(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_webgl")]
+    #[doc(alias = "get_enable_webgl")]
+    pub fn enables_webgl(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_webgl(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_webrtc")]
+    #[doc(alias = "get_enable_webrtc")]
+    pub fn enables_webrtc(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_enable_webrtc(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_enable_write_console_messages_to_stdout")]
+    #[doc(alias = "get_enable_write_console_messages_to_stdout")]
+    pub fn enables_write_console_messages_to_stdout(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_enable_write_console_messages_to_stdout(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_fantasy_font_family")]
+    #[doc(alias = "get_fantasy_font_family")]
+    pub fn fantasy_font_family(&self) -> Option<glib::GString> {
+        unsafe {
+            from_glib_none(ffi::webkit_settings_get_fantasy_font_family(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_feature_enabled")]
+    #[doc(alias = "get_feature_enabled")]
+    pub fn is_feature_enabled(&self, feature: &Feature) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_feature_enabled(
+                self.to_glib_none().0,
+                feature.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_javascript_can_access_clipboard")]
+    #[doc(alias = "get_javascript_can_access_clipboard")]
+    pub fn is_javascript_can_access_clipboard(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_javascript_can_access_clipboard(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_javascript_can_open_windows_automatically")]
+    #[doc(alias = "get_javascript_can_open_windows_automatically")]
+    pub fn is_javascript_can_open_windows_automatically(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_javascript_can_open_windows_automatically(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_media_content_types_requiring_hardware_support")]
+    #[doc(alias = "get_media_content_types_requiring_hardware_support")]
+    pub fn media_content_types_requiring_hardware_support(&self) -> Option<glib::GString> {
+        unsafe {
+            from_glib_none(ffi::webkit_settings_get_media_content_types_requiring_hardware_support(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_media_playback_allows_inline")]
+    #[doc(alias = "get_media_playback_allows_inline")]
+    pub fn is_media_playback_allows_inline(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_media_playback_allows_inline(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_media_playback_requires_user_gesture")]
+    #[doc(alias = "get_media_playback_requires_user_gesture")]
+    pub fn is_media_playback_requires_user_gesture(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_settings_get_media_playback_requires_user_gesture(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_minimum_font_size")]
+    #[doc(alias = "get_minimum_font_size")]
+    pub fn minimum_font_size(&self) -> u32 {
+        unsafe { ffi::webkit_settings_get_minimum_font_size(self.to_glib_none().0) }
+    }
+
+    #[doc(alias = "webkit_settings_get_monospace_font_family")]
+    #[doc(alias = "get_monospace_font_family")]
+    pub fn monospace_font_family(&self) -> Option<glib::GString> {
+        unsafe {
+            from_glib_none(ffi::webkit_settings_get_monospace_font_family(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_pictograph_font_family")]
+    #[doc(alias = "get_pictograph_font_family")]
+    pub fn pictograph_font_family(&self) -> Option<glib::GString> {
+        unsafe {
+            from_glib_none(ffi::webkit_settings_get_pictograph_font_family(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_print_backgrounds")]
+    #[doc(alias = "get_print_backgrounds")]
+    pub fn is_print_backgrounds(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_print_backgrounds(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_sans_serif_font_family")]
+    #[doc(alias = "get_sans_serif_font_family")]
+    pub fn sans_serif_font_family(&self) -> Option<glib::GString> {
+        unsafe {
+            from_glib_none(ffi::webkit_settings_get_sans_serif_font_family(self.to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "webkit_settings_get_serif_font_family")]
+    #[doc(alias = "get_serif_font_family")]
+    pub fn serif_font_family(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_settings_get_serif_font_family(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_user_agent")]
+    #[doc(alias = "get_user_agent")]
+    pub fn user_agent(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_settings_get_user_agent(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_get_zoom_text_only")]
+    #[doc(alias = "get_zoom_text_only")]
+    pub fn is_zoom_text_only(&self) -> bool {
+        unsafe { from_glib(ffi::webkit_settings_get_zoom_text_only(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_settings_set_allow_file_access_from_file_urls")]
+    pub fn set_allow_file_access_from_file_urls(&self, allowed: bool) {
+        unsafe {
+            ffi::webkit_settings_set_allow_file_access_from_file_urls(
+                self.to_glib_none().0,
+                allowed.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_allow_modal_dialogs")]
+    pub fn set_allow_modal_dialogs(&self, allowed: bool) {
+        unsafe {
+            ffi::webkit_settings_set_allow_modal_dialogs(
+                self.to_glib_none().0,
+                allowed.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_allow_top_navigation_to_data_urls")]
+    pub fn set_allow_top_navigation_to_data_urls(&self, allowed: bool) {
+        unsafe {
+            ffi::webkit_settings_set_allow_top_navigation_to_data_urls(
+                self.to_glib_none().0,
+                allowed.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_allow_universal_access_from_file_urls")]
+    pub fn set_allow_universal_access_from_file_urls(&self, allowed: bool) {
+        unsafe {
+            ffi::webkit_settings_set_allow_universal_access_from_file_urls(
+                self.to_glib_none().0,
+                allowed.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_auto_load_images")]
+    pub fn set_auto_load_images(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_auto_load_images(self.to_glib_none().0, enabled.into_glib());
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_cursive_font_family")]
+    pub fn set_cursive_font_family(&self, cursive_font_family: &str) {
+        unsafe {
+            ffi::webkit_settings_set_cursive_font_family(
+                self.to_glib_none().0,
+                cursive_font_family.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_default_charset")]
+    pub fn set_default_charset(&self, default_charset: &str) {
+        unsafe {
+            ffi::webkit_settings_set_default_charset(
+                self.to_glib_none().0,
+                default_charset.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_default_font_family")]
+    pub fn set_default_font_family(&self, default_font_family: &str) {
+        unsafe {
+            ffi::webkit_settings_set_default_font_family(
+                self.to_glib_none().0,
+                default_font_family.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_default_font_size")]
+    pub fn set_default_font_size(&self, font_size: u32) {
+        unsafe {
+            ffi::webkit_settings_set_default_font_size(self.to_glib_none().0, font_size);
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_default_monospace_font_size")]
+    pub fn set_default_monospace_font_size(&self, font_size: u32) {
+        unsafe {
+            ffi::webkit_settings_set_default_monospace_font_size(self.to_glib_none().0, font_size);
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_disable_web_security")]
+    pub fn set_disable_web_security(&self, disabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_disable_web_security(
+                self.to_glib_none().0,
+                disabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_draw_compositing_indicators")]
+    pub fn set_draw_compositing_indicators(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_draw_compositing_indicators(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_caret_browsing")]
+    pub fn set_enable_caret_browsing(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_caret_browsing(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_developer_extras")]
+    pub fn set_enable_developer_extras(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_developer_extras(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_dns_prefetching")]
+    pub fn set_enable_dns_prefetching(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_dns_prefetching(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_encrypted_media")]
+    pub fn set_enable_encrypted_media(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_encrypted_media(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_fullscreen")]
+    pub fn set_enable_fullscreen(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_fullscreen(self.to_glib_none().0, enabled.into_glib());
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_html5_database")]
+    pub fn set_enable_html5_database(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_html5_database(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_html5_local_storage")]
+    pub fn set_enable_html5_local_storage(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_html5_local_storage(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_hyperlink_auditing")]
+    pub fn set_enable_hyperlink_auditing(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_hyperlink_auditing(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_javascript")]
+    pub fn set_enable_javascript(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_javascript(self.to_glib_none().0, enabled.into_glib());
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_javascript_markup")]
+    pub fn set_enable_javascript_markup(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_javascript_markup(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_media")]
+    pub fn set_enable_media(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_media(self.to_glib_none().0, enabled.into_glib());
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_media_capabilities")]
+    pub fn set_enable_media_capabilities(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_media_capabilities(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_media_stream")]
+    pub fn set_enable_media_stream(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_media_stream(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_mediasource")]
+    pub fn set_enable_mediasource(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_mediasource(self.to_glib_none().0, enabled.into_glib());
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_mock_capture_devices")]
+    pub fn set_enable_mock_capture_devices(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_mock_capture_devices(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_offline_web_application_cache")]
+    pub fn set_enable_offline_web_application_cache(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_offline_web_application_cache(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_page_cache")]
+    pub fn set_enable_page_cache(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_page_cache(self.to_glib_none().0, enabled.into_glib());
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_resizable_text_areas")]
+    pub fn set_enable_resizable_text_areas(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_resizable_text_areas(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_site_specific_quirks")]
+    pub fn set_enable_site_specific_quirks(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_site_specific_quirks(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_smooth_scrolling")]
+    pub fn set_enable_smooth_scrolling(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_smooth_scrolling(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_spatial_navigation")]
+    pub fn set_enable_spatial_navigation(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_spatial_navigation(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_tabs_to_links")]
+    pub fn set_enable_tabs_to_links(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_tabs_to_links(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_webaudio")]
+    pub fn set_enable_webaudio(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_webaudio(self.to_glib_none().0, enabled.into_glib());
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_webgl")]
+    pub fn set_enable_webgl(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_webgl(self.to_glib_none().0, enabled.into_glib());
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_webrtc")]
+    pub fn set_enable_webrtc(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_webrtc(self.to_glib_none().0, enabled.into_glib());
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_enable_write_console_messages_to_stdout")]
+    pub fn set_enable_write_console_messages_to_stdout(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_enable_write_console_messages_to_stdout(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_fantasy_font_family")]
+    pub fn set_fantasy_font_family(&self, fantasy_font_family: &str) {
+        unsafe {
+            ffi::webkit_settings_set_fantasy_font_family(
+                self.to_glib_none().0,
+                fantasy_font_family.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_feature_enabled")]
+    pub fn set_feature_enabled(&self, feature: &Feature, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_feature_enabled(
+                self.to_glib_none().0,
+                feature.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_javascript_can_access_clipboard")]
+    pub fn set_javascript_can_access_clipboard(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_javascript_can_access_clipboard(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_javascript_can_open_windows_automatically")]
+    pub fn set_javascript_can_open_windows_automatically(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_javascript_can_open_windows_automatically(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_media_content_types_requiring_hardware_support")]
+    pub fn set_media_content_types_requiring_hardware_support(&self, content_types: Option<&str>) {
+        unsafe {
+            ffi::webkit_settings_set_media_content_types_requiring_hardware_support(
+                self.to_glib_none().0,
+                content_types.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_media_playback_allows_inline")]
+    pub fn set_media_playback_allows_inline(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_media_playback_allows_inline(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_media_playback_requires_user_gesture")]
+    pub fn set_media_playback_requires_user_gesture(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_settings_set_media_playback_requires_user_gesture(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_minimum_font_size")]
+    pub fn set_minimum_font_size(&self, font_size: u32) {
+        unsafe {
+            ffi::webkit_settings_set_minimum_font_size(self.to_glib_none().0, font_size);
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_monospace_font_family")]
+    pub fn set_monospace_font_family(&self, monospace_font_family: &str) {
+        unsafe {
+            ffi::webkit_settings_set_monospace_font_family(
+                self.to_glib_none().0,
+                monospace_font_family.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_pictograph_font_family")]
+    pub fn set_pictograph_font_family(&self, pictograph_font_family: &str) {
+        unsafe {
+            ffi::webkit_settings_set_pictograph_font_family(
+                self.to_glib_none().0,
+                pictograph_font_family.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_print_backgrounds")]
+    pub fn set_print_backgrounds(&self, print_backgrounds: bool) {
+        unsafe {
+            ffi::webkit_settings_set_print_backgrounds(
+                self.to_glib_none().0,
+                print_backgrounds.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_sans_serif_font_family")]
+    pub fn set_sans_serif_font_family(&self, sans_serif_font_family: &str) {
+        unsafe {
+            ffi::webkit_settings_set_sans_serif_font_family(
+                self.to_glib_none().0,
+                sans_serif_font_family.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_serif_font_family")]
+    pub fn set_serif_font_family(&self, serif_font_family: &str) {
+        unsafe {
+            ffi::webkit_settings_set_serif_font_family(
+                self.to_glib_none().0,
+                serif_font_family.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_user_agent")]
+    pub fn set_user_agent(&self, user_agent: Option<&str>) {
+        unsafe {
+            ffi::webkit_settings_set_user_agent(self.to_glib_none().0, user_agent.to_glib_none().0);
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_user_agent_with_application_details")]
+    pub fn set_user_agent_with_application_details(
+        &self,
+        application_name: Option<&str>,
+        application_version: Option<&str>,
+    ) {
+        unsafe {
+            ffi::webkit_settings_set_user_agent_with_application_details(
+                self.to_glib_none().0,
+                application_name.to_glib_none().0,
+                application_version.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "webkit_settings_set_zoom_text_only")]
+    pub fn set_zoom_text_only(&self, zoom_text_only: bool) {
+        unsafe {
+            ffi::webkit_settings_set_zoom_text_only(
+                self.to_glib_none().0,
+                zoom_text_only.into_glib(),
+            );
+        }
+    }
+
     #[doc(alias = "webkit_settings_get_all_features")]
     #[doc(alias = "get_all_features")]
     pub fn all_features() -> Option<FeatureList> {
@@ -62,6 +962,1387 @@ impl Settings {
     #[doc(alias = "get_experimental_features")]
     pub fn experimental_features() -> Option<FeatureList> {
         unsafe { from_glib_full(ffi::webkit_settings_get_experimental_features()) }
+    }
+
+    #[doc(alias = "allow-file-access-from-file-urls")]
+    pub fn connect_allow_file_access_from_file_urls_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_allow_file_access_from_file_urls_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::allow-file-access-from-file-urls\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_allow_file_access_from_file_urls_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "allow-modal-dialogs")]
+    pub fn connect_allow_modal_dialogs_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_allow_modal_dialogs_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::allow-modal-dialogs\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_allow_modal_dialogs_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "allow-top-navigation-to-data-urls")]
+    pub fn connect_allow_top_navigation_to_data_urls_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_allow_top_navigation_to_data_urls_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::allow-top-navigation-to-data-urls\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_allow_top_navigation_to_data_urls_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "allow-universal-access-from-file-urls")]
+    pub fn connect_allow_universal_access_from_file_urls_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_allow_universal_access_from_file_urls_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::allow-universal-access-from-file-urls\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_allow_universal_access_from_file_urls_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "auto-load-images")]
+    pub fn connect_auto_load_images_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_auto_load_images_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::auto-load-images\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_auto_load_images_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "cursive-font-family")]
+    pub fn connect_cursive_font_family_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_cursive_font_family_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::cursive-font-family\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_cursive_font_family_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "default-charset")]
+    pub fn connect_default_charset_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_default_charset_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::default-charset\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_default_charset_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "default-font-family")]
+    pub fn connect_default_font_family_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_default_font_family_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::default-font-family\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_default_font_family_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "default-font-size")]
+    pub fn connect_default_font_size_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_default_font_size_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::default-font-size\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_default_font_size_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "default-monospace-font-size")]
+    pub fn connect_default_monospace_font_size_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_default_monospace_font_size_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::default-monospace-font-size\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_default_monospace_font_size_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "disable-web-security")]
+    pub fn connect_disable_web_security_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_disable_web_security_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::disable-web-security\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_disable_web_security_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "draw-compositing-indicators")]
+    pub fn connect_draw_compositing_indicators_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_draw_compositing_indicators_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::draw-compositing-indicators\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_draw_compositing_indicators_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-caret-browsing")]
+    pub fn connect_enable_caret_browsing_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_caret_browsing_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-caret-browsing\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_caret_browsing_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-developer-extras")]
+    pub fn connect_enable_developer_extras_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_developer_extras_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-developer-extras\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_developer_extras_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-dns-prefetching")]
+    pub fn connect_enable_dns_prefetching_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_dns_prefetching_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-dns-prefetching\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_dns_prefetching_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-encrypted-media")]
+    pub fn connect_enable_encrypted_media_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_encrypted_media_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-encrypted-media\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_encrypted_media_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-fullscreen")]
+    pub fn connect_enable_fullscreen_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_fullscreen_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-fullscreen\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_fullscreen_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-html5-database")]
+    pub fn connect_enable_html5_database_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_html5_database_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-html5-database\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_html5_database_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-html5-local-storage")]
+    pub fn connect_enable_html5_local_storage_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_html5_local_storage_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-html5-local-storage\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_html5_local_storage_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-hyperlink-auditing")]
+    pub fn connect_enable_hyperlink_auditing_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_hyperlink_auditing_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-hyperlink-auditing\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_hyperlink_auditing_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-javascript")]
+    pub fn connect_enable_javascript_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_javascript_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-javascript\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_javascript_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-javascript-markup")]
+    pub fn connect_enable_javascript_markup_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_javascript_markup_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-javascript-markup\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_javascript_markup_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-media")]
+    pub fn connect_enable_media_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_media_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-media\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_media_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-media-capabilities")]
+    pub fn connect_enable_media_capabilities_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_media_capabilities_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-media-capabilities\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_media_capabilities_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-media-stream")]
+    pub fn connect_enable_media_stream_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_media_stream_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-media-stream\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_media_stream_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-mediasource")]
+    pub fn connect_enable_mediasource_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_mediasource_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-mediasource\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_mediasource_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-mock-capture-devices")]
+    pub fn connect_enable_mock_capture_devices_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_mock_capture_devices_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-mock-capture-devices\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_mock_capture_devices_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-offline-web-application-cache")]
+    pub fn connect_enable_offline_web_application_cache_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_offline_web_application_cache_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-offline-web-application-cache\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_offline_web_application_cache_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-page-cache")]
+    pub fn connect_enable_page_cache_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_page_cache_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-page-cache\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_page_cache_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-resizable-text-areas")]
+    pub fn connect_enable_resizable_text_areas_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_resizable_text_areas_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-resizable-text-areas\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_resizable_text_areas_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-site-specific-quirks")]
+    pub fn connect_enable_site_specific_quirks_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_site_specific_quirks_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-site-specific-quirks\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_site_specific_quirks_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-smooth-scrolling")]
+    pub fn connect_enable_smooth_scrolling_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_smooth_scrolling_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-smooth-scrolling\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_smooth_scrolling_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-spatial-navigation")]
+    pub fn connect_enable_spatial_navigation_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_spatial_navigation_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-spatial-navigation\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_spatial_navigation_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-tabs-to-links")]
+    pub fn connect_enable_tabs_to_links_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_tabs_to_links_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-tabs-to-links\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_tabs_to_links_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-webaudio")]
+    pub fn connect_enable_webaudio_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_webaudio_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-webaudio\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_webaudio_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-webgl")]
+    pub fn connect_enable_webgl_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_webgl_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-webgl\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_webgl_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-webrtc")]
+    pub fn connect_enable_webrtc_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_webrtc_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-webrtc\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_webrtc_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "enable-write-console-messages-to-stdout")]
+    pub fn connect_enable_write_console_messages_to_stdout_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_enable_write_console_messages_to_stdout_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::enable-write-console-messages-to-stdout\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_enable_write_console_messages_to_stdout_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "fantasy-font-family")]
+    pub fn connect_fantasy_font_family_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_fantasy_font_family_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::fantasy-font-family\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_fantasy_font_family_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "javascript-can-access-clipboard")]
+    pub fn connect_javascript_can_access_clipboard_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_javascript_can_access_clipboard_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::javascript-can-access-clipboard\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_javascript_can_access_clipboard_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "javascript-can-open-windows-automatically")]
+    pub fn connect_javascript_can_open_windows_automatically_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_javascript_can_open_windows_automatically_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::javascript-can-open-windows-automatically\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_javascript_can_open_windows_automatically_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "media-content-types-requiring-hardware-support")]
+    pub fn connect_media_content_types_requiring_hardware_support_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_media_content_types_requiring_hardware_support_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::media-content-types-requiring-hardware-support\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_media_content_types_requiring_hardware_support_trampoline::<F>
+                        as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "media-playback-allows-inline")]
+    pub fn connect_media_playback_allows_inline_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_media_playback_allows_inline_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::media-playback-allows-inline\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_media_playback_allows_inline_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "media-playback-requires-user-gesture")]
+    pub fn connect_media_playback_requires_user_gesture_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_media_playback_requires_user_gesture_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::media-playback-requires-user-gesture\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_media_playback_requires_user_gesture_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "minimum-font-size")]
+    pub fn connect_minimum_font_size_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_minimum_font_size_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::minimum-font-size\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_minimum_font_size_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "monospace-font-family")]
+    pub fn connect_monospace_font_family_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_monospace_font_family_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::monospace-font-family\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_monospace_font_family_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "pictograph-font-family")]
+    pub fn connect_pictograph_font_family_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_pictograph_font_family_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::pictograph-font-family\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_pictograph_font_family_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "print-backgrounds")]
+    pub fn connect_print_backgrounds_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_print_backgrounds_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::print-backgrounds\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_print_backgrounds_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "sans-serif-font-family")]
+    pub fn connect_sans_serif_font_family_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_sans_serif_font_family_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::sans-serif-font-family\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_sans_serif_font_family_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "serif-font-family")]
+    pub fn connect_serif_font_family_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_serif_font_family_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::serif-font-family\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_serif_font_family_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "user-agent")]
+    pub fn connect_user_agent_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_user_agent_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::user-agent\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_user_agent_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "zoom-text-only")]
+    pub fn connect_zoom_text_only_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_zoom_text_only_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"notify::zoom-text-only\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    notify_zoom_text_only_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
     }
 }
 
@@ -406,2472 +2687,3 @@ impl SettingsBuilder {
         self.builder.build()
     }
 }
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Settings>> Sealed for T {}
-}
-
-pub trait SettingsExt: IsA<Settings> + sealed::Sealed + 'static {
-    #[doc(alias = "webkit_settings_get_allow_file_access_from_file_urls")]
-    #[doc(alias = "get_allow_file_access_from_file_urls")]
-    fn allows_file_access_from_file_urls(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_allow_file_access_from_file_urls(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_allow_modal_dialogs")]
-    #[doc(alias = "get_allow_modal_dialogs")]
-    fn allows_modal_dialogs(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_allow_modal_dialogs(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_allow_top_navigation_to_data_urls")]
-    #[doc(alias = "get_allow_top_navigation_to_data_urls")]
-    fn allows_top_navigation_to_data_urls(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_allow_top_navigation_to_data_urls(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_allow_universal_access_from_file_urls")]
-    #[doc(alias = "get_allow_universal_access_from_file_urls")]
-    fn allows_universal_access_from_file_urls(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_allow_universal_access_from_file_urls(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_auto_load_images")]
-    #[doc(alias = "get_auto_load_images")]
-    fn is_auto_load_images(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_auto_load_images(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_cursive_font_family")]
-    #[doc(alias = "get_cursive_font_family")]
-    fn cursive_font_family(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_settings_get_cursive_font_family(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_default_charset")]
-    #[doc(alias = "get_default_charset")]
-    fn default_charset(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_settings_get_default_charset(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_default_font_family")]
-    #[doc(alias = "get_default_font_family")]
-    fn default_font_family(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_settings_get_default_font_family(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_default_font_size")]
-    #[doc(alias = "get_default_font_size")]
-    fn default_font_size(&self) -> u32 {
-        unsafe { ffi::webkit_settings_get_default_font_size(self.as_ref().to_glib_none().0) }
-    }
-
-    #[doc(alias = "webkit_settings_get_default_monospace_font_size")]
-    #[doc(alias = "get_default_monospace_font_size")]
-    fn default_monospace_font_size(&self) -> u32 {
-        unsafe {
-            ffi::webkit_settings_get_default_monospace_font_size(self.as_ref().to_glib_none().0)
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_disable_web_security")]
-    #[doc(alias = "get_disable_web_security")]
-    fn is_disable_web_security(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_disable_web_security(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_draw_compositing_indicators")]
-    #[doc(alias = "get_draw_compositing_indicators")]
-    fn draws_compositing_indicators(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_draw_compositing_indicators(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_caret_browsing")]
-    #[doc(alias = "get_enable_caret_browsing")]
-    fn enables_caret_browsing(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_caret_browsing(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_developer_extras")]
-    #[doc(alias = "get_enable_developer_extras")]
-    fn enables_developer_extras(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_developer_extras(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_dns_prefetching")]
-    #[doc(alias = "get_enable_dns_prefetching")]
-    fn enables_dns_prefetching(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_dns_prefetching(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_encrypted_media")]
-    #[doc(alias = "get_enable_encrypted_media")]
-    fn enables_encrypted_media(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_encrypted_media(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_fullscreen")]
-    #[doc(alias = "get_enable_fullscreen")]
-    fn enables_fullscreen(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_fullscreen(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_html5_database")]
-    #[doc(alias = "get_enable_html5_database")]
-    fn enables_html5_database(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_html5_database(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_html5_local_storage")]
-    #[doc(alias = "get_enable_html5_local_storage")]
-    fn enables_html5_local_storage(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_html5_local_storage(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_hyperlink_auditing")]
-    #[doc(alias = "get_enable_hyperlink_auditing")]
-    fn enables_hyperlink_auditing(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_hyperlink_auditing(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_javascript")]
-    #[doc(alias = "get_enable_javascript")]
-    fn enables_javascript(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_javascript(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_javascript_markup")]
-    #[doc(alias = "get_enable_javascript_markup")]
-    fn enables_javascript_markup(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_javascript_markup(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_media")]
-    #[doc(alias = "get_enable_media")]
-    fn enables_media(&self) -> bool {
-        unsafe { from_glib(ffi::webkit_settings_get_enable_media(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_media_capabilities")]
-    #[doc(alias = "get_enable_media_capabilities")]
-    fn enables_media_capabilities(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_media_capabilities(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_media_stream")]
-    #[doc(alias = "get_enable_media_stream")]
-    fn enables_media_stream(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_media_stream(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_mediasource")]
-    #[doc(alias = "get_enable_mediasource")]
-    fn enables_mediasource(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_mediasource(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_mock_capture_devices")]
-    #[doc(alias = "get_enable_mock_capture_devices")]
-    fn enables_mock_capture_devices(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_mock_capture_devices(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_offline_web_application_cache")]
-    #[doc(alias = "get_enable_offline_web_application_cache")]
-    fn enables_offline_web_application_cache(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_offline_web_application_cache(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_page_cache")]
-    #[doc(alias = "get_enable_page_cache")]
-    fn enables_page_cache(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_page_cache(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_resizable_text_areas")]
-    #[doc(alias = "get_enable_resizable_text_areas")]
-    fn enables_resizable_text_areas(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_resizable_text_areas(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_site_specific_quirks")]
-    #[doc(alias = "get_enable_site_specific_quirks")]
-    fn enables_site_specific_quirks(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_site_specific_quirks(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_smooth_scrolling")]
-    #[doc(alias = "get_enable_smooth_scrolling")]
-    fn enables_smooth_scrolling(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_smooth_scrolling(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_spatial_navigation")]
-    #[doc(alias = "get_enable_spatial_navigation")]
-    fn enables_spatial_navigation(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_spatial_navigation(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_tabs_to_links")]
-    #[doc(alias = "get_enable_tabs_to_links")]
-    fn enables_tabs_to_links(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_tabs_to_links(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_webaudio")]
-    #[doc(alias = "get_enable_webaudio")]
-    fn enables_webaudio(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_webaudio(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_webgl")]
-    #[doc(alias = "get_enable_webgl")]
-    fn enables_webgl(&self) -> bool {
-        unsafe { from_glib(ffi::webkit_settings_get_enable_webgl(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_webrtc")]
-    #[doc(alias = "get_enable_webrtc")]
-    fn enables_webrtc(&self) -> bool {
-        unsafe { from_glib(ffi::webkit_settings_get_enable_webrtc(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "webkit_settings_get_enable_write_console_messages_to_stdout")]
-    #[doc(alias = "get_enable_write_console_messages_to_stdout")]
-    fn enables_write_console_messages_to_stdout(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_write_console_messages_to_stdout(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_fantasy_font_family")]
-    #[doc(alias = "get_fantasy_font_family")]
-    fn fantasy_font_family(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_settings_get_fantasy_font_family(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_feature_enabled")]
-    #[doc(alias = "get_feature_enabled")]
-    fn is_feature_enabled(&self, feature: &Feature) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_feature_enabled(
-                self.as_ref().to_glib_none().0,
-                feature.to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_javascript_can_access_clipboard")]
-    #[doc(alias = "get_javascript_can_access_clipboard")]
-    fn is_javascript_can_access_clipboard(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_javascript_can_access_clipboard(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_javascript_can_open_windows_automatically")]
-    #[doc(alias = "get_javascript_can_open_windows_automatically")]
-    fn is_javascript_can_open_windows_automatically(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_javascript_can_open_windows_automatically(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_media_content_types_requiring_hardware_support")]
-    #[doc(alias = "get_media_content_types_requiring_hardware_support")]
-    fn media_content_types_requiring_hardware_support(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_settings_get_media_content_types_requiring_hardware_support(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_media_playback_allows_inline")]
-    #[doc(alias = "get_media_playback_allows_inline")]
-    fn is_media_playback_allows_inline(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_media_playback_allows_inline(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_media_playback_requires_user_gesture")]
-    #[doc(alias = "get_media_playback_requires_user_gesture")]
-    fn is_media_playback_requires_user_gesture(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_media_playback_requires_user_gesture(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_minimum_font_size")]
-    #[doc(alias = "get_minimum_font_size")]
-    fn minimum_font_size(&self) -> u32 {
-        unsafe { ffi::webkit_settings_get_minimum_font_size(self.as_ref().to_glib_none().0) }
-    }
-
-    #[doc(alias = "webkit_settings_get_monospace_font_family")]
-    #[doc(alias = "get_monospace_font_family")]
-    fn monospace_font_family(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_settings_get_monospace_font_family(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_pictograph_font_family")]
-    #[doc(alias = "get_pictograph_font_family")]
-    fn pictograph_font_family(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_settings_get_pictograph_font_family(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_print_backgrounds")]
-    #[doc(alias = "get_print_backgrounds")]
-    fn is_print_backgrounds(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_print_backgrounds(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_sans_serif_font_family")]
-    #[doc(alias = "get_sans_serif_font_family")]
-    fn sans_serif_font_family(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_settings_get_sans_serif_font_family(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_serif_font_family")]
-    #[doc(alias = "get_serif_font_family")]
-    fn serif_font_family(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_settings_get_serif_font_family(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_user_agent")]
-    #[doc(alias = "get_user_agent")]
-    fn user_agent(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::webkit_settings_get_user_agent(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_get_zoom_text_only")]
-    #[doc(alias = "get_zoom_text_only")]
-    fn is_zoom_text_only(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_zoom_text_only(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_allow_file_access_from_file_urls")]
-    fn set_allow_file_access_from_file_urls(&self, allowed: bool) {
-        unsafe {
-            ffi::webkit_settings_set_allow_file_access_from_file_urls(
-                self.as_ref().to_glib_none().0,
-                allowed.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_allow_modal_dialogs")]
-    fn set_allow_modal_dialogs(&self, allowed: bool) {
-        unsafe {
-            ffi::webkit_settings_set_allow_modal_dialogs(
-                self.as_ref().to_glib_none().0,
-                allowed.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_allow_top_navigation_to_data_urls")]
-    fn set_allow_top_navigation_to_data_urls(&self, allowed: bool) {
-        unsafe {
-            ffi::webkit_settings_set_allow_top_navigation_to_data_urls(
-                self.as_ref().to_glib_none().0,
-                allowed.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_allow_universal_access_from_file_urls")]
-    fn set_allow_universal_access_from_file_urls(&self, allowed: bool) {
-        unsafe {
-            ffi::webkit_settings_set_allow_universal_access_from_file_urls(
-                self.as_ref().to_glib_none().0,
-                allowed.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_auto_load_images")]
-    fn set_auto_load_images(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_auto_load_images(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_cursive_font_family")]
-    fn set_cursive_font_family(&self, cursive_font_family: &str) {
-        unsafe {
-            ffi::webkit_settings_set_cursive_font_family(
-                self.as_ref().to_glib_none().0,
-                cursive_font_family.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_default_charset")]
-    fn set_default_charset(&self, default_charset: &str) {
-        unsafe {
-            ffi::webkit_settings_set_default_charset(
-                self.as_ref().to_glib_none().0,
-                default_charset.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_default_font_family")]
-    fn set_default_font_family(&self, default_font_family: &str) {
-        unsafe {
-            ffi::webkit_settings_set_default_font_family(
-                self.as_ref().to_glib_none().0,
-                default_font_family.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_default_font_size")]
-    fn set_default_font_size(&self, font_size: u32) {
-        unsafe {
-            ffi::webkit_settings_set_default_font_size(self.as_ref().to_glib_none().0, font_size);
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_default_monospace_font_size")]
-    fn set_default_monospace_font_size(&self, font_size: u32) {
-        unsafe {
-            ffi::webkit_settings_set_default_monospace_font_size(
-                self.as_ref().to_glib_none().0,
-                font_size,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_disable_web_security")]
-    fn set_disable_web_security(&self, disabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_disable_web_security(
-                self.as_ref().to_glib_none().0,
-                disabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_draw_compositing_indicators")]
-    fn set_draw_compositing_indicators(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_draw_compositing_indicators(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_caret_browsing")]
-    fn set_enable_caret_browsing(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_caret_browsing(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_developer_extras")]
-    fn set_enable_developer_extras(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_developer_extras(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_dns_prefetching")]
-    fn set_enable_dns_prefetching(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_dns_prefetching(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_encrypted_media")]
-    fn set_enable_encrypted_media(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_encrypted_media(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_fullscreen")]
-    fn set_enable_fullscreen(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_fullscreen(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_html5_database")]
-    fn set_enable_html5_database(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_html5_database(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_html5_local_storage")]
-    fn set_enable_html5_local_storage(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_html5_local_storage(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_hyperlink_auditing")]
-    fn set_enable_hyperlink_auditing(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_hyperlink_auditing(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_javascript")]
-    fn set_enable_javascript(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_javascript(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_javascript_markup")]
-    fn set_enable_javascript_markup(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_javascript_markup(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_media")]
-    fn set_enable_media(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_media(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_media_capabilities")]
-    fn set_enable_media_capabilities(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_media_capabilities(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_media_stream")]
-    fn set_enable_media_stream(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_media_stream(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_mediasource")]
-    fn set_enable_mediasource(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_mediasource(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_mock_capture_devices")]
-    fn set_enable_mock_capture_devices(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_mock_capture_devices(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_offline_web_application_cache")]
-    fn set_enable_offline_web_application_cache(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_offline_web_application_cache(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_page_cache")]
-    fn set_enable_page_cache(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_page_cache(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_resizable_text_areas")]
-    fn set_enable_resizable_text_areas(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_resizable_text_areas(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_site_specific_quirks")]
-    fn set_enable_site_specific_quirks(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_site_specific_quirks(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_smooth_scrolling")]
-    fn set_enable_smooth_scrolling(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_smooth_scrolling(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_spatial_navigation")]
-    fn set_enable_spatial_navigation(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_spatial_navigation(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_tabs_to_links")]
-    fn set_enable_tabs_to_links(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_tabs_to_links(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_webaudio")]
-    fn set_enable_webaudio(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_webaudio(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_webgl")]
-    fn set_enable_webgl(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_webgl(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_webrtc")]
-    fn set_enable_webrtc(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_webrtc(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_enable_write_console_messages_to_stdout")]
-    fn set_enable_write_console_messages_to_stdout(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_write_console_messages_to_stdout(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_fantasy_font_family")]
-    fn set_fantasy_font_family(&self, fantasy_font_family: &str) {
-        unsafe {
-            ffi::webkit_settings_set_fantasy_font_family(
-                self.as_ref().to_glib_none().0,
-                fantasy_font_family.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_feature_enabled")]
-    fn set_feature_enabled(&self, feature: &Feature, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_feature_enabled(
-                self.as_ref().to_glib_none().0,
-                feature.to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_javascript_can_access_clipboard")]
-    fn set_javascript_can_access_clipboard(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_javascript_can_access_clipboard(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_javascript_can_open_windows_automatically")]
-    fn set_javascript_can_open_windows_automatically(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_javascript_can_open_windows_automatically(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_media_content_types_requiring_hardware_support")]
-    fn set_media_content_types_requiring_hardware_support(&self, content_types: Option<&str>) {
-        unsafe {
-            ffi::webkit_settings_set_media_content_types_requiring_hardware_support(
-                self.as_ref().to_glib_none().0,
-                content_types.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_media_playback_allows_inline")]
-    fn set_media_playback_allows_inline(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_media_playback_allows_inline(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_media_playback_requires_user_gesture")]
-    fn set_media_playback_requires_user_gesture(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_media_playback_requires_user_gesture(
-                self.as_ref().to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_minimum_font_size")]
-    fn set_minimum_font_size(&self, font_size: u32) {
-        unsafe {
-            ffi::webkit_settings_set_minimum_font_size(self.as_ref().to_glib_none().0, font_size);
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_monospace_font_family")]
-    fn set_monospace_font_family(&self, monospace_font_family: &str) {
-        unsafe {
-            ffi::webkit_settings_set_monospace_font_family(
-                self.as_ref().to_glib_none().0,
-                monospace_font_family.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_pictograph_font_family")]
-    fn set_pictograph_font_family(&self, pictograph_font_family: &str) {
-        unsafe {
-            ffi::webkit_settings_set_pictograph_font_family(
-                self.as_ref().to_glib_none().0,
-                pictograph_font_family.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_print_backgrounds")]
-    fn set_print_backgrounds(&self, print_backgrounds: bool) {
-        unsafe {
-            ffi::webkit_settings_set_print_backgrounds(
-                self.as_ref().to_glib_none().0,
-                print_backgrounds.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_sans_serif_font_family")]
-    fn set_sans_serif_font_family(&self, sans_serif_font_family: &str) {
-        unsafe {
-            ffi::webkit_settings_set_sans_serif_font_family(
-                self.as_ref().to_glib_none().0,
-                sans_serif_font_family.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_serif_font_family")]
-    fn set_serif_font_family(&self, serif_font_family: &str) {
-        unsafe {
-            ffi::webkit_settings_set_serif_font_family(
-                self.as_ref().to_glib_none().0,
-                serif_font_family.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_user_agent")]
-    fn set_user_agent(&self, user_agent: Option<&str>) {
-        unsafe {
-            ffi::webkit_settings_set_user_agent(
-                self.as_ref().to_glib_none().0,
-                user_agent.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_user_agent_with_application_details")]
-    fn set_user_agent_with_application_details(
-        &self,
-        application_name: Option<&str>,
-        application_version: Option<&str>,
-    ) {
-        unsafe {
-            ffi::webkit_settings_set_user_agent_with_application_details(
-                self.as_ref().to_glib_none().0,
-                application_name.to_glib_none().0,
-                application_version.to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "webkit_settings_set_zoom_text_only")]
-    fn set_zoom_text_only(&self, zoom_text_only: bool) {
-        unsafe {
-            ffi::webkit_settings_set_zoom_text_only(
-                self.as_ref().to_glib_none().0,
-                zoom_text_only.into_glib(),
-            );
-        }
-    }
-
-    #[doc(alias = "allow-file-access-from-file-urls")]
-    fn connect_allow_file_access_from_file_urls_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_allow_file_access_from_file_urls_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::allow-file-access-from-file-urls\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_allow_file_access_from_file_urls_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "allow-modal-dialogs")]
-    fn connect_allow_modal_dialogs_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_allow_modal_dialogs_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::allow-modal-dialogs\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_allow_modal_dialogs_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "allow-top-navigation-to-data-urls")]
-    fn connect_allow_top_navigation_to_data_urls_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_allow_top_navigation_to_data_urls_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::allow-top-navigation-to-data-urls\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_allow_top_navigation_to_data_urls_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "allow-universal-access-from-file-urls")]
-    fn connect_allow_universal_access_from_file_urls_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_allow_universal_access_from_file_urls_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::allow-universal-access-from-file-urls\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_allow_universal_access_from_file_urls_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "auto-load-images")]
-    fn connect_auto_load_images_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_auto_load_images_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::auto-load-images\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_auto_load_images_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "cursive-font-family")]
-    fn connect_cursive_font_family_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_cursive_font_family_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::cursive-font-family\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_cursive_font_family_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "default-charset")]
-    fn connect_default_charset_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_default_charset_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::default-charset\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_default_charset_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "default-font-family")]
-    fn connect_default_font_family_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_default_font_family_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::default-font-family\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_default_font_family_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "default-font-size")]
-    fn connect_default_font_size_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_default_font_size_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::default-font-size\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_default_font_size_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "default-monospace-font-size")]
-    fn connect_default_monospace_font_size_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_default_monospace_font_size_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::default-monospace-font-size\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_default_monospace_font_size_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "disable-web-security")]
-    fn connect_disable_web_security_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_disable_web_security_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::disable-web-security\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_disable_web_security_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "draw-compositing-indicators")]
-    fn connect_draw_compositing_indicators_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_draw_compositing_indicators_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::draw-compositing-indicators\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_draw_compositing_indicators_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-caret-browsing")]
-    fn connect_enable_caret_browsing_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_caret_browsing_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-caret-browsing\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_caret_browsing_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-developer-extras")]
-    fn connect_enable_developer_extras_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_developer_extras_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-developer-extras\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_developer_extras_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-dns-prefetching")]
-    fn connect_enable_dns_prefetching_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_dns_prefetching_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-dns-prefetching\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_dns_prefetching_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-encrypted-media")]
-    fn connect_enable_encrypted_media_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_encrypted_media_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-encrypted-media\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_encrypted_media_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-fullscreen")]
-    fn connect_enable_fullscreen_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_fullscreen_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-fullscreen\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_fullscreen_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-html5-database")]
-    fn connect_enable_html5_database_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_html5_database_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-html5-database\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_html5_database_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-html5-local-storage")]
-    fn connect_enable_html5_local_storage_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_html5_local_storage_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-html5-local-storage\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_html5_local_storage_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-hyperlink-auditing")]
-    fn connect_enable_hyperlink_auditing_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_hyperlink_auditing_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-hyperlink-auditing\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_hyperlink_auditing_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-javascript")]
-    fn connect_enable_javascript_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_javascript_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-javascript\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_javascript_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-javascript-markup")]
-    fn connect_enable_javascript_markup_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_javascript_markup_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-javascript-markup\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_javascript_markup_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-media")]
-    fn connect_enable_media_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_media_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-media\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_media_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-media-capabilities")]
-    fn connect_enable_media_capabilities_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_media_capabilities_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-media-capabilities\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_media_capabilities_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-media-stream")]
-    fn connect_enable_media_stream_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_media_stream_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-media-stream\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_media_stream_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-mediasource")]
-    fn connect_enable_mediasource_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_mediasource_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-mediasource\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_mediasource_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-mock-capture-devices")]
-    fn connect_enable_mock_capture_devices_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_mock_capture_devices_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-mock-capture-devices\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_mock_capture_devices_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-offline-web-application-cache")]
-    fn connect_enable_offline_web_application_cache_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_offline_web_application_cache_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-offline-web-application-cache\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_offline_web_application_cache_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-page-cache")]
-    fn connect_enable_page_cache_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_page_cache_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-page-cache\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_page_cache_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-resizable-text-areas")]
-    fn connect_enable_resizable_text_areas_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_resizable_text_areas_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-resizable-text-areas\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_resizable_text_areas_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-site-specific-quirks")]
-    fn connect_enable_site_specific_quirks_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_site_specific_quirks_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-site-specific-quirks\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_site_specific_quirks_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-smooth-scrolling")]
-    fn connect_enable_smooth_scrolling_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_smooth_scrolling_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-smooth-scrolling\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_smooth_scrolling_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-spatial-navigation")]
-    fn connect_enable_spatial_navigation_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_spatial_navigation_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-spatial-navigation\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_spatial_navigation_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-tabs-to-links")]
-    fn connect_enable_tabs_to_links_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_tabs_to_links_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-tabs-to-links\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_tabs_to_links_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-webaudio")]
-    fn connect_enable_webaudio_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_webaudio_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-webaudio\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_webaudio_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-webgl")]
-    fn connect_enable_webgl_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_webgl_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-webgl\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_webgl_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-webrtc")]
-    fn connect_enable_webrtc_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_webrtc_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-webrtc\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_webrtc_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "enable-write-console-messages-to-stdout")]
-    fn connect_enable_write_console_messages_to_stdout_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_write_console_messages_to_stdout_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::enable-write-console-messages-to-stdout\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_enable_write_console_messages_to_stdout_trampoline::<Self, F>
-                        as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "fantasy-font-family")]
-    fn connect_fantasy_font_family_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_fantasy_font_family_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::fantasy-font-family\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_fantasy_font_family_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "javascript-can-access-clipboard")]
-    fn connect_javascript_can_access_clipboard_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_javascript_can_access_clipboard_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::javascript-can-access-clipboard\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_javascript_can_access_clipboard_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "javascript-can-open-windows-automatically")]
-    fn connect_javascript_can_open_windows_automatically_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_javascript_can_open_windows_automatically_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::javascript-can-open-windows-automatically\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_javascript_can_open_windows_automatically_trampoline::<Self, F>
-                        as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "media-content-types-requiring-hardware-support")]
-    fn connect_media_content_types_requiring_hardware_support_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_media_content_types_requiring_hardware_support_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::media-content-types-requiring-hardware-support\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_media_content_types_requiring_hardware_support_trampoline::<Self, F>
-                        as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "media-playback-allows-inline")]
-    fn connect_media_playback_allows_inline_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_media_playback_allows_inline_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::media-playback-allows-inline\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_media_playback_allows_inline_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "media-playback-requires-user-gesture")]
-    fn connect_media_playback_requires_user_gesture_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_media_playback_requires_user_gesture_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::media-playback-requires-user-gesture\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_media_playback_requires_user_gesture_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "minimum-font-size")]
-    fn connect_minimum_font_size_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_minimum_font_size_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::minimum-font-size\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_minimum_font_size_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "monospace-font-family")]
-    fn connect_monospace_font_family_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_monospace_font_family_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::monospace-font-family\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_monospace_font_family_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "pictograph-font-family")]
-    fn connect_pictograph_font_family_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_pictograph_font_family_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::pictograph-font-family\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_pictograph_font_family_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "print-backgrounds")]
-    fn connect_print_backgrounds_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_print_backgrounds_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::print-backgrounds\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_print_backgrounds_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "sans-serif-font-family")]
-    fn connect_sans_serif_font_family_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_sans_serif_font_family_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::sans-serif-font-family\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_sans_serif_font_family_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "serif-font-family")]
-    fn connect_serif_font_family_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_serif_font_family_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::serif-font-family\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_serif_font_family_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "user-agent")]
-    fn connect_user_agent_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_user_agent_trampoline<P: IsA<Settings>, F: Fn(&P) + 'static>(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::user-agent\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_user_agent_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "zoom-text-only")]
-    fn connect_zoom_text_only_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_zoom_text_only_trampoline<
-            P: IsA<Settings>,
-            F: Fn(&P) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::zoom-text-only\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_zoom_text_only_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-}
-
-impl<O: IsA<Settings>> SettingsExt for O {}

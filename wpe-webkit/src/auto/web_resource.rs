@@ -22,18 +22,9 @@ glib::wrapper! {
 }
 
 impl WebResource {
-    pub const NONE: Option<&'static WebResource> = None;
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::WebResource>> Sealed for T {}
-}
-
-pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
     #[doc(alias = "webkit_web_resource_get_data")]
     #[doc(alias = "get_data")]
-    fn data<P: FnOnce(Result<Vec<u8>, glib::Error>) + 'static>(
+    pub fn data<P: FnOnce(Result<Vec<u8>, glib::Error>) + 'static>(
         &self,
         cancellable: Option<&impl IsA<gio::Cancellable>>,
         callback: P,
@@ -75,7 +66,7 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
         let callback = data_trampoline::<P>;
         unsafe {
             ffi::webkit_web_resource_get_data(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 cancellable.map(|p| p.as_ref()).to_glib_none().0,
                 Some(callback),
                 Box_::into_raw(user_data) as *mut _,
@@ -83,7 +74,7 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
         }
     }
 
-    fn data_future(
+    pub fn data_future(
         &self,
     ) -> Pin<Box_<dyn std::future::Future<Output = Result<Vec<u8>, glib::Error>> + 'static>> {
         Box_::pin(gio::GioFuture::new(self, move |obj, cancellable, send| {
@@ -95,30 +86,25 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
 
     #[doc(alias = "webkit_web_resource_get_response")]
     #[doc(alias = "get_response")]
-    fn response(&self) -> Option<URIResponse> {
-        unsafe {
-            from_glib_none(ffi::webkit_web_resource_get_response(self.as_ref().to_glib_none().0))
-        }
+    pub fn response(&self) -> Option<URIResponse> {
+        unsafe { from_glib_none(ffi::webkit_web_resource_get_response(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "webkit_web_resource_get_uri")]
     #[doc(alias = "get_uri")]
-    fn uri(&self) -> Option<glib::GString> {
-        unsafe { from_glib_none(ffi::webkit_web_resource_get_uri(self.as_ref().to_glib_none().0)) }
+    pub fn uri(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_web_resource_get_uri(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "failed")]
-    fn connect_failed<F: Fn(&Self, &glib::Error) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn failed_trampoline<
-            P: IsA<WebResource>,
-            F: Fn(&P, &glib::Error) + 'static,
-        >(
+    pub fn connect_failed<F: Fn(&Self, &glib::Error) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn failed_trampoline<F: Fn(&WebResource, &glib::Error) + 'static>(
             this: *mut ffi::WebKitWebResource,
             error: *mut glib::ffi::GError,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(WebResource::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(error))
+            f(&from_glib_borrow(this), &from_glib_borrow(error))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -126,7 +112,7 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"failed\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    failed_trampoline::<Self, F> as *const (),
+                    failed_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -134,15 +120,14 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "failed-with-tls-errors")]
-    fn connect_failed_with_tls_errors<
+    pub fn connect_failed_with_tls_errors<
         F: Fn(&Self, &gio::TlsCertificate, gio::TlsCertificateFlags) + 'static,
     >(
         &self,
         f: F,
     ) -> SignalHandlerId {
         unsafe extern "C" fn failed_with_tls_errors_trampoline<
-            P: IsA<WebResource>,
-            F: Fn(&P, &gio::TlsCertificate, gio::TlsCertificateFlags) + 'static,
+            F: Fn(&WebResource, &gio::TlsCertificate, gio::TlsCertificateFlags) + 'static,
         >(
             this: *mut ffi::WebKitWebResource,
             certificate: *mut gio::ffi::GTlsCertificate,
@@ -150,11 +135,7 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(
-                WebResource::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(certificate),
-                from_glib(errors),
-            )
+            f(&from_glib_borrow(this), &from_glib_borrow(certificate), from_glib(errors))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -162,7 +143,7 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"failed-with-tls-errors\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    failed_with_tls_errors_trampoline::<Self, F> as *const (),
+                    failed_with_tls_errors_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -170,13 +151,13 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "finished")]
-    fn connect_finished<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn finished_trampoline<P: IsA<WebResource>, F: Fn(&P) + 'static>(
+    pub fn connect_finished<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn finished_trampoline<F: Fn(&WebResource) + 'static>(
             this: *mut ffi::WebKitWebResource,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(WebResource::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -184,7 +165,7 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"finished\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    finished_trampoline::<Self, F> as *const (),
+                    finished_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -192,13 +173,12 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "sent-request")]
-    fn connect_sent_request<F: Fn(&Self, &URIRequest, &URIResponse) + 'static>(
+    pub fn connect_sent_request<F: Fn(&Self, &URIRequest, &URIResponse) + 'static>(
         &self,
         f: F,
     ) -> SignalHandlerId {
         unsafe extern "C" fn sent_request_trampoline<
-            P: IsA<WebResource>,
-            F: Fn(&P, &URIRequest, &URIResponse) + 'static,
+            F: Fn(&WebResource, &URIRequest, &URIResponse) + 'static,
         >(
             this: *mut ffi::WebKitWebResource,
             request: *mut ffi::WebKitURIRequest,
@@ -207,7 +187,7 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
         ) {
             let f: &F = &*(f as *const F);
             f(
-                WebResource::from_glib_borrow(this).unsafe_cast_ref(),
+                &from_glib_borrow(this),
                 &from_glib_borrow(request),
                 &from_glib_borrow(redirected_response),
             )
@@ -218,7 +198,7 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"sent-request\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    sent_request_trampoline::<Self, F> as *const (),
+                    sent_request_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -226,17 +206,14 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "response")]
-    fn connect_response_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_response_trampoline<
-            P: IsA<WebResource>,
-            F: Fn(&P) + 'static,
-        >(
+    pub fn connect_response_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_response_trampoline<F: Fn(&WebResource) + 'static>(
             this: *mut ffi::WebKitWebResource,
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(WebResource::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -244,7 +221,7 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"notify::response\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_response_trampoline::<Self, F> as *const (),
+                    notify_response_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -252,14 +229,14 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "uri")]
-    fn connect_uri_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_uri_trampoline<P: IsA<WebResource>, F: Fn(&P) + 'static>(
+    pub fn connect_uri_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_uri_trampoline<F: Fn(&WebResource) + 'static>(
             this: *mut ffi::WebKitWebResource,
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(WebResource::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -267,12 +244,10 @@ pub trait WebResourceExt: IsA<WebResource> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"notify::uri\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_uri_trampoline::<Self, F> as *const (),
+                    notify_uri_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
         }
     }
 }
-
-impl<O: IsA<WebResource>> WebResourceExt for O {}

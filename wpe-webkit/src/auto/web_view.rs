@@ -12,13 +12,13 @@ use glib::translate::*;
 
 use crate::{
     AuthenticationRequest, AutomationBrowsingContextPresentation, BackForwardList,
-    BackForwardListItem, Color, Download, EditorState, FileChooserRequest, FindController,
-    FormSubmissionRequest, HitTestResult, InputMethodContext, InsecureContentEvent, LoadEvent,
-    MediaCaptureState, NavigationAction, Notification, OptionMenu, PermissionRequest,
-    PermissionStateQuery, PolicyDecision, PolicyDecisionType, Rectangle, SaveMode, ScriptDialog,
-    Settings, URIRequest, UserContentManager, UserMessage, WebContext, WebExtensionMode,
-    WebProcessTerminationReason, WebResource, WebViewBackend, WebViewSessionState,
-    WebsiteDataManager, WebsitePolicies, WindowProperties,
+    BackForwardListItem, Color, ContextMenu, Download, EditorState, FileChooserRequest,
+    FindController, FormSubmissionRequest, HitTestResult, InputMethodContext, InsecureContentEvent,
+    LoadEvent, MediaCaptureState, NavigationAction, NetworkSession, Notification, OptionMenu,
+    PermissionRequest, PermissionStateQuery, PolicyDecision, PolicyDecisionType, Rectangle,
+    SaveMode, ScriptDialog, Settings, URIRequest, UserContentManager, UserMessage, WebContext,
+    WebExtensionMode, WebProcessTerminationReason, WebResource, WebViewBackend,
+    WebViewSessionState, WebsitePolicies, WindowProperties,
 };
 
 glib::wrapper! {
@@ -36,56 +36,6 @@ impl WebView {
     #[doc(alias = "webkit_web_view_new")]
     pub fn new(backend: &mut WebViewBackend) -> WebView {
         unsafe { from_glib_full(ffi::webkit_web_view_new(backend.to_glib_none_mut().0)) }
-    }
-
-    #[doc(alias = "webkit_web_view_new_with_context")]
-    #[doc(alias = "new_with_context")]
-    pub fn with_context(backend: &mut WebViewBackend, context: &impl IsA<WebContext>) -> WebView {
-        unsafe {
-            from_glib_full(ffi::webkit_web_view_new_with_context(
-                backend.to_glib_none_mut().0,
-                context.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_web_view_new_with_related_view")]
-    #[doc(alias = "new_with_related_view")]
-    pub fn with_related_view(
-        backend: &mut WebViewBackend,
-        web_view: &impl IsA<WebView>,
-    ) -> WebView {
-        unsafe {
-            from_glib_full(ffi::webkit_web_view_new_with_related_view(
-                backend.to_glib_none_mut().0,
-                web_view.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_web_view_new_with_settings")]
-    #[doc(alias = "new_with_settings")]
-    pub fn with_settings(backend: &mut WebViewBackend, settings: &impl IsA<Settings>) -> WebView {
-        unsafe {
-            from_glib_full(ffi::webkit_web_view_new_with_settings(
-                backend.to_glib_none_mut().0,
-                settings.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "webkit_web_view_new_with_user_content_manager")]
-    #[doc(alias = "new_with_user_content_manager")]
-    pub fn with_user_content_manager(
-        backend: &mut WebViewBackend,
-        user_content_manager: &impl IsA<UserContentManager>,
-    ) -> WebView {
-        unsafe {
-            from_glib_full(ffi::webkit_web_view_new_with_user_content_manager(
-                backend.to_glib_none_mut().0,
-                user_content_manager.as_ref().to_glib_none().0,
-            ))
-        }
     }
 
     // rustdoc-stripper-ignore-next
@@ -167,10 +117,6 @@ impl WebViewBuilder {
         }
     }
 
-    pub fn is_ephemeral(self, is_ephemeral: bool) -> Self {
-        Self { builder: self.builder.property("is-ephemeral", is_ephemeral) }
-    }
-
     pub fn is_muted(self, is_muted: bool) -> Self {
         Self { builder: self.builder.property("is-muted", is_muted) }
     }
@@ -181,34 +127,34 @@ impl WebViewBuilder {
         }
     }
 
+    pub fn network_session(self, network_session: &NetworkSession) -> Self {
+        Self { builder: self.builder.property("network-session", network_session.clone()) }
+    }
+
     pub fn related_view(self, related_view: &impl IsA<WebView>) -> Self {
         Self { builder: self.builder.property("related-view", related_view.clone().upcast()) }
     }
 
-    pub fn settings(self, settings: &impl IsA<Settings>) -> Self {
-        Self { builder: self.builder.property("settings", settings.clone().upcast()) }
+    pub fn settings(self, settings: &Settings) -> Self {
+        Self { builder: self.builder.property("settings", settings.clone()) }
     }
 
-    pub fn user_content_manager(self, user_content_manager: &impl IsA<UserContentManager>) -> Self {
+    pub fn user_content_manager(self, user_content_manager: &UserContentManager) -> Self {
         Self {
-            builder: self
-                .builder
-                .property("user-content-manager", user_content_manager.clone().upcast()),
+            builder: self.builder.property("user-content-manager", user_content_manager.clone()),
         }
     }
 
-    pub fn web_context(self, web_context: &impl IsA<WebContext>) -> Self {
-        Self { builder: self.builder.property("web-context", web_context.clone().upcast()) }
+    pub fn web_context(self, web_context: &WebContext) -> Self {
+        Self { builder: self.builder.property("web-context", web_context.clone()) }
     }
 
     pub fn web_extension_mode(self, web_extension_mode: WebExtensionMode) -> Self {
         Self { builder: self.builder.property("web-extension-mode", web_extension_mode) }
     }
 
-    pub fn website_policies(self, website_policies: &impl IsA<WebsitePolicies>) -> Self {
-        Self {
-            builder: self.builder.property("website-policies", website_policies.clone().upcast()),
-        }
+    pub fn website_policies(self, website_policies: &WebsitePolicies) -> Self {
+        Self { builder: self.builder.property("website-policies", website_policies.clone()) }
     }
 
     pub fn zoom_level(self, zoom_level: f64) -> Self {
@@ -693,6 +639,14 @@ pub trait WebViewExt: IsA<WebView> + sealed::Sealed + 'static {
         }
     }
 
+    #[doc(alias = "webkit_web_view_get_network_session")]
+    #[doc(alias = "get_network_session")]
+    fn network_session(&self) -> Option<NetworkSession> {
+        unsafe {
+            from_glib_none(ffi::webkit_web_view_get_network_session(self.as_ref().to_glib_none().0))
+        }
+    }
+
     #[doc(alias = "webkit_web_view_get_page_id")]
     #[doc(alias = "get_page_id")]
     fn page_id(&self) -> u64 {
@@ -762,16 +716,6 @@ pub trait WebViewExt: IsA<WebView> + sealed::Sealed + 'static {
         }
     }
 
-    #[doc(alias = "webkit_web_view_get_website_data_manager")]
-    #[doc(alias = "get_website_data_manager")]
-    fn website_data_manager(&self) -> Option<WebsiteDataManager> {
-        unsafe {
-            from_glib_none(ffi::webkit_web_view_get_website_data_manager(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
     #[doc(alias = "webkit_web_view_get_website_policies")]
     #[doc(alias = "get_website_policies")]
     fn website_policies(&self) -> Option<WebsitePolicies> {
@@ -813,11 +757,11 @@ pub trait WebViewExt: IsA<WebView> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "webkit_web_view_go_to_back_forward_list_item")]
-    fn go_to_back_forward_list_item(&self, list_item: &impl IsA<BackForwardListItem>) {
+    fn go_to_back_forward_list_item(&self, list_item: &BackForwardListItem) {
         unsafe {
             ffi::webkit_web_view_go_to_back_forward_list_item(
                 self.as_ref().to_glib_none().0,
-                list_item.as_ref().to_glib_none().0,
+                list_item.to_glib_none().0,
             );
         }
     }
@@ -834,11 +778,6 @@ pub trait WebViewExt: IsA<WebView> + sealed::Sealed + 'static {
     #[doc(alias = "webkit_web_view_is_editable")]
     fn is_editable(&self) -> bool {
         unsafe { from_glib(ffi::webkit_web_view_is_editable(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "webkit_web_view_is_ephemeral")]
-    fn is_ephemeral(&self) -> bool {
-        unsafe { from_glib(ffi::webkit_web_view_is_ephemeral(self.as_ref().to_glib_none().0)) }
     }
 
     #[doc(alias = "webkit_web_view_is_loading")]
@@ -904,11 +843,11 @@ pub trait WebViewExt: IsA<WebView> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "webkit_web_view_load_request")]
-    fn load_request(&self, request: &impl IsA<URIRequest>) {
+    fn load_request(&self, request: &URIRequest) {
         unsafe {
             ffi::webkit_web_view_load_request(
                 self.as_ref().to_glib_none().0,
-                request.as_ref().to_glib_none().0,
+                request.to_glib_none().0,
             );
         }
     }
@@ -1076,7 +1015,7 @@ pub trait WebViewExt: IsA<WebView> + sealed::Sealed + 'static {
     #[doc(alias = "webkit_web_view_send_message_to_page")]
     fn send_message_to_page<P: FnOnce(Result<UserMessage, glib::Error>) + 'static>(
         &self,
-        message: &impl IsA<UserMessage>,
+        message: &UserMessage,
         cancellable: Option<&impl IsA<gio::Cancellable>>,
         callback: P,
     ) {
@@ -1115,7 +1054,7 @@ pub trait WebViewExt: IsA<WebView> + sealed::Sealed + 'static {
         unsafe {
             ffi::webkit_web_view_send_message_to_page(
                 self.as_ref().to_glib_none().0,
-                message.as_ref().to_glib_none().0,
+                message.to_glib_none().0,
                 cancellable.map(|p| p.as_ref()).to_glib_none().0,
                 Some(callback),
                 Box_::into_raw(user_data) as *mut _,
@@ -1125,7 +1064,7 @@ pub trait WebViewExt: IsA<WebView> + sealed::Sealed + 'static {
 
     fn send_message_to_page_future(
         &self,
-        message: &(impl IsA<UserMessage> + Clone + 'static),
+        message: &UserMessage,
     ) -> Pin<Box_<dyn std::future::Future<Output = Result<UserMessage, glib::Error>> + 'static>>
     {
         let message = message.clone();
@@ -1221,11 +1160,11 @@ pub trait WebViewExt: IsA<WebView> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "webkit_web_view_set_settings")]
-    fn set_settings(&self, settings: &impl IsA<Settings>) {
+    fn set_settings(&self, settings: &Settings) {
         unsafe {
             ffi::webkit_web_view_set_settings(
                 self.as_ref().to_glib_none().0,
-                settings.as_ref().to_glib_none().0,
+                settings.to_glib_none().0,
             );
         }
     }
@@ -1315,10 +1254,40 @@ pub trait WebViewExt: IsA<WebView> + sealed::Sealed + 'static {
         }
     }
 
-    //#[doc(alias = "context-menu")]
-    // fn connect_context_menu<Unsupported or ignored types>(&self, f: F) ->
-    // SignalHandlerId {    Unimplemented p0: *.Pointer
-    //}
+    #[doc(alias = "context-menu")]
+    fn connect_context_menu<F: Fn(&Self, &ContextMenu, &HitTestResult) -> bool + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn context_menu_trampoline<
+            P: IsA<WebView>,
+            F: Fn(&P, &ContextMenu, &HitTestResult) -> bool + 'static,
+        >(
+            this: *mut ffi::WebKitWebView,
+            object: *mut ffi::WebKitContextMenu,
+            p0: *mut ffi::WebKitHitTestResult,
+            f: glib::ffi::gpointer,
+        ) -> glib::ffi::gboolean {
+            let f: &F = &*(f as *const F);
+            f(
+                WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                &from_glib_borrow(object),
+                &from_glib_borrow(p0),
+            )
+            .into_glib()
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"context-menu\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                    context_menu_trampoline::<Self, F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
 
     #[doc(alias = "context-menu-dismissed")]
     fn connect_context_menu_dismissed<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {

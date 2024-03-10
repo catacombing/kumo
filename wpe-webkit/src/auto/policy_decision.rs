@@ -50,11 +50,11 @@ pub trait PolicyDecisionExt: IsA<PolicyDecision> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "webkit_policy_decision_use_with_policies")]
-    fn use_with_policies(&self, policies: &impl IsA<WebsitePolicies>) {
+    fn use_with_policies(&self, policies: &WebsitePolicies) {
         unsafe {
             ffi::webkit_policy_decision_use_with_policies(
                 self.as_ref().to_glib_none().0,
-                policies.as_ref().to_glib_none().0,
+                policies.to_glib_none().0,
             );
         }
     }

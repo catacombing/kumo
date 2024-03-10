@@ -22,17 +22,8 @@ glib::wrapper! {
 }
 
 impl CookieManager {
-    pub const NONE: Option<&'static CookieManager> = None;
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::CookieManager>> Sealed for T {}
-}
-
-pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
     #[doc(alias = "webkit_cookie_manager_add_cookie")]
-    fn add_cookie<P: FnOnce(Result<(), glib::Error>) + 'static>(
+    pub fn add_cookie<P: FnOnce(Result<(), glib::Error>) + 'static>(
         &self,
         cookie: &soup::Cookie,
         cancellable: Option<&impl IsA<gio::Cancellable>>,
@@ -69,7 +60,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
         let callback = add_cookie_trampoline::<P>;
         unsafe {
             ffi::webkit_cookie_manager_add_cookie(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 mut_override(cookie.to_glib_none().0),
                 cancellable.map(|p| p.as_ref()).to_glib_none().0,
                 Some(callback),
@@ -78,7 +69,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
         }
     }
 
-    fn add_cookie_future(
+    pub fn add_cookie_future(
         &self,
         cookie: &soup::Cookie,
     ) -> Pin<Box_<dyn std::future::Future<Output = Result<(), glib::Error>> + 'static>> {
@@ -91,7 +82,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "webkit_cookie_manager_delete_cookie")]
-    fn delete_cookie<P: FnOnce(Result<(), glib::Error>) + 'static>(
+    pub fn delete_cookie<P: FnOnce(Result<(), glib::Error>) + 'static>(
         &self,
         cookie: &soup::Cookie,
         cancellable: Option<&impl IsA<gio::Cancellable>>,
@@ -130,7 +121,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
         let callback = delete_cookie_trampoline::<P>;
         unsafe {
             ffi::webkit_cookie_manager_delete_cookie(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 mut_override(cookie.to_glib_none().0),
                 cancellable.map(|p| p.as_ref()).to_glib_none().0,
                 Some(callback),
@@ -139,7 +130,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
         }
     }
 
-    fn delete_cookie_future(
+    pub fn delete_cookie_future(
         &self,
         cookie: &soup::Cookie,
     ) -> Pin<Box_<dyn std::future::Future<Output = Result<(), glib::Error>> + 'static>> {
@@ -153,7 +144,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
 
     #[doc(alias = "webkit_cookie_manager_get_accept_policy")]
     #[doc(alias = "get_accept_policy")]
-    fn accept_policy<P: FnOnce(Result<CookieAcceptPolicy, glib::Error>) + 'static>(
+    pub fn accept_policy<P: FnOnce(Result<CookieAcceptPolicy, glib::Error>) + 'static>(
         &self,
         cancellable: Option<&impl IsA<gio::Cancellable>>,
         callback: P,
@@ -192,7 +183,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
         let callback = accept_policy_trampoline::<P>;
         unsafe {
             ffi::webkit_cookie_manager_get_accept_policy(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 cancellable.map(|p| p.as_ref()).to_glib_none().0,
                 Some(callback),
                 Box_::into_raw(user_data) as *mut _,
@@ -200,7 +191,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
         }
     }
 
-    fn accept_policy_future(
+    pub fn accept_policy_future(
         &self,
     ) -> Pin<
         Box_<dyn std::future::Future<Output = Result<CookieAcceptPolicy, glib::Error>> + 'static>,
@@ -214,7 +205,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
 
     #[doc(alias = "webkit_cookie_manager_get_all_cookies")]
     #[doc(alias = "get_all_cookies")]
-    fn all_cookies<P: FnOnce(Result<Vec<soup::Cookie>, glib::Error>) + 'static>(
+    pub fn all_cookies<P: FnOnce(Result<Vec<soup::Cookie>, glib::Error>) + 'static>(
         &self,
         cancellable: Option<&impl IsA<gio::Cancellable>>,
         callback: P,
@@ -256,7 +247,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
         let callback = all_cookies_trampoline::<P>;
         unsafe {
             ffi::webkit_cookie_manager_get_all_cookies(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 cancellable.map(|p| p.as_ref()).to_glib_none().0,
                 Some(callback),
                 Box_::into_raw(user_data) as *mut _,
@@ -264,7 +255,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
         }
     }
 
-    fn all_cookies_future(
+    pub fn all_cookies_future(
         &self,
     ) -> Pin<Box_<dyn std::future::Future<Output = Result<Vec<soup::Cookie>, glib::Error>> + 'static>>
     {
@@ -277,7 +268,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
 
     #[doc(alias = "webkit_cookie_manager_get_cookies")]
     #[doc(alias = "get_cookies")]
-    fn cookies<P: FnOnce(Result<Vec<soup::Cookie>, glib::Error>) + 'static>(
+    pub fn cookies<P: FnOnce(Result<Vec<soup::Cookie>, glib::Error>) + 'static>(
         &self,
         uri: &str,
         cancellable: Option<&impl IsA<gio::Cancellable>>,
@@ -320,7 +311,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
         let callback = cookies_trampoline::<P>;
         unsafe {
             ffi::webkit_cookie_manager_get_cookies(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 uri.to_glib_none().0,
                 cancellable.map(|p| p.as_ref()).to_glib_none().0,
                 Some(callback),
@@ -329,7 +320,7 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
         }
     }
 
-    fn cookies_future(
+    pub fn cookies_future(
         &self,
         uri: &str,
     ) -> Pin<Box_<dyn std::future::Future<Output = Result<Vec<soup::Cookie>, glib::Error>> + 'static>>
@@ -343,20 +334,17 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "webkit_cookie_manager_set_accept_policy")]
-    fn set_accept_policy(&self, policy: CookieAcceptPolicy) {
+    pub fn set_accept_policy(&self, policy: CookieAcceptPolicy) {
         unsafe {
-            ffi::webkit_cookie_manager_set_accept_policy(
-                self.as_ref().to_glib_none().0,
-                policy.into_glib(),
-            );
+            ffi::webkit_cookie_manager_set_accept_policy(self.to_glib_none().0, policy.into_glib());
         }
     }
 
     #[doc(alias = "webkit_cookie_manager_set_persistent_storage")]
-    fn set_persistent_storage(&self, filename: &str, storage: CookiePersistentStorage) {
+    pub fn set_persistent_storage(&self, filename: &str, storage: CookiePersistentStorage) {
         unsafe {
             ffi::webkit_cookie_manager_set_persistent_storage(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
                 filename.to_glib_none().0,
                 storage.into_glib(),
             );
@@ -364,13 +352,13 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
     }
 
     #[doc(alias = "changed")]
-    fn connect_changed<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn changed_trampoline<P: IsA<CookieManager>, F: Fn(&P) + 'static>(
+    pub fn connect_changed<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn changed_trampoline<F: Fn(&CookieManager) + 'static>(
             this: *mut ffi::WebKitCookieManager,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(CookieManager::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -378,12 +366,10 @@ pub trait CookieManagerExt: IsA<CookieManager> + sealed::Sealed + 'static {
                 self.as_ptr() as *mut _,
                 b"changed\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    changed_trampoline::<Self, F> as *const (),
+                    changed_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
         }
     }
 }
-
-impl<O: IsA<CookieManager>> CookieManagerExt for O {}

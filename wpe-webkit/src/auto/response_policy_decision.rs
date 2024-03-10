@@ -21,67 +21,49 @@ glib::wrapper! {
 }
 
 impl ResponsePolicyDecision {
-    pub const NONE: Option<&'static ResponsePolicyDecision> = None;
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::ResponsePolicyDecision>> Sealed for T {}
-}
-
-pub trait ResponsePolicyDecisionExt:
-    IsA<ResponsePolicyDecision> + sealed::Sealed + 'static
-{
     #[doc(alias = "webkit_response_policy_decision_get_request")]
     #[doc(alias = "get_request")]
-    fn request(&self) -> Option<URIRequest> {
+    pub fn request(&self) -> Option<URIRequest> {
         unsafe {
-            from_glib_none(ffi::webkit_response_policy_decision_get_request(
-                self.as_ref().to_glib_none().0,
-            ))
+            from_glib_none(ffi::webkit_response_policy_decision_get_request(self.to_glib_none().0))
         }
     }
 
     #[doc(alias = "webkit_response_policy_decision_get_response")]
     #[doc(alias = "get_response")]
-    fn response(&self) -> Option<URIResponse> {
+    pub fn response(&self) -> Option<URIResponse> {
         unsafe {
-            from_glib_none(ffi::webkit_response_policy_decision_get_response(
-                self.as_ref().to_glib_none().0,
-            ))
+            from_glib_none(ffi::webkit_response_policy_decision_get_response(self.to_glib_none().0))
         }
     }
 
     #[doc(alias = "webkit_response_policy_decision_is_main_frame_main_resource")]
-    fn is_main_frame_main_resource(&self) -> bool {
+    pub fn is_main_frame_main_resource(&self) -> bool {
         unsafe {
             from_glib(ffi::webkit_response_policy_decision_is_main_frame_main_resource(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
             ))
         }
     }
 
     #[doc(alias = "webkit_response_policy_decision_is_mime_type_supported")]
-    fn is_mime_type_supported(&self) -> bool {
+    pub fn is_mime_type_supported(&self) -> bool {
         unsafe {
             from_glib(ffi::webkit_response_policy_decision_is_mime_type_supported(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
             ))
         }
     }
 
     #[doc(alias = "request")]
-    fn connect_request_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_request_trampoline<
-            P: IsA<ResponsePolicyDecision>,
-            F: Fn(&P) + 'static,
-        >(
+    pub fn connect_request_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_request_trampoline<F: Fn(&ResponsePolicyDecision) + 'static>(
             this: *mut ffi::WebKitResponsePolicyDecision,
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(ResponsePolicyDecision::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -89,7 +71,7 @@ pub trait ResponsePolicyDecisionExt:
                 self.as_ptr() as *mut _,
                 b"notify::request\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_request_trampoline::<Self, F> as *const (),
+                    notify_request_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -97,17 +79,16 @@ pub trait ResponsePolicyDecisionExt:
     }
 
     #[doc(alias = "response")]
-    fn connect_response_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+    pub fn connect_response_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
         unsafe extern "C" fn notify_response_trampoline<
-            P: IsA<ResponsePolicyDecision>,
-            F: Fn(&P) + 'static,
+            F: Fn(&ResponsePolicyDecision) + 'static,
         >(
             this: *mut ffi::WebKitResponsePolicyDecision,
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(ResponsePolicyDecision::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -115,12 +96,10 @@ pub trait ResponsePolicyDecisionExt:
                 self.as_ptr() as *mut _,
                 b"notify::response\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_response_trampoline::<Self, F> as *const (),
+                    notify_response_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
         }
     }
 }
-
-impl<O: IsA<ResponsePolicyDecision>> ResponsePolicyDecisionExt for O {}

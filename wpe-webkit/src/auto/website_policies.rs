@@ -18,8 +18,6 @@ glib::wrapper! {
 }
 
 impl WebsitePolicies {
-    pub const NONE: Option<&'static WebsitePolicies> = None;
-
     #[doc(alias = "webkit_website_policies_new")]
     pub fn new() -> WebsitePolicies {
         unsafe { from_glib_full(ffi::webkit_website_policies_new()) }
@@ -41,6 +39,18 @@ impl WebsitePolicies {
     /// which can be used to create [`WebsitePolicies`] objects.
     pub fn builder() -> WebsitePoliciesBuilder {
         WebsitePoliciesBuilder::new()
+    }
+
+    #[doc(alias = "webkit_website_policies_get_autoplay_policy")]
+    #[doc(alias = "get_autoplay_policy")]
+    pub fn autoplay_policy(&self) -> AutoplayPolicy {
+        unsafe {
+            from_glib(ffi::webkit_website_policies_get_autoplay_policy(self.to_glib_none().0))
+        }
+    }
+
+    pub fn autoplay(&self) -> AutoplayPolicy {
+        ObjectExt::property(self, "autoplay")
     }
 }
 
@@ -76,26 +86,3 @@ impl WebsitePoliciesBuilder {
         self.builder.build()
     }
 }
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::WebsitePolicies>> Sealed for T {}
-}
-
-pub trait WebsitePoliciesExt: IsA<WebsitePolicies> + sealed::Sealed + 'static {
-    #[doc(alias = "webkit_website_policies_get_autoplay_policy")]
-    #[doc(alias = "get_autoplay_policy")]
-    fn autoplay_policy(&self) -> AutoplayPolicy {
-        unsafe {
-            from_glib(ffi::webkit_website_policies_get_autoplay_policy(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    fn autoplay(&self) -> AutoplayPolicy {
-        ObjectExt::property(self.as_ref(), "autoplay")
-    }
-}
-
-impl<O: IsA<WebsitePolicies>> WebsitePoliciesExt for O {}

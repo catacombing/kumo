@@ -3,18 +3,9 @@ use std::ptr;
 use glib::object::IsA;
 use glib::translate::*;
 
-use crate::{
-    NetworkProxyMode, NetworkProxySettings, WebsiteData, WebsiteDataManager, WebsiteDataTypes,
-};
+use crate::{WebsiteData, WebsiteDataManager, WebsiteDataTypes};
 
 pub trait WebsiteDataManagerExtManual: 'static {
-    #[doc(alias = "webkit_website_data_manager_set_network_proxy_settings")]
-    fn set_network_proxy_settings(
-        &self,
-        proxy_mode: NetworkProxyMode,
-        proxy_settings: Option<&mut NetworkProxySettings>,
-    );
-
     #[doc(alias = "webkit_website_data_manager_clear")]
     fn clear<P: FnOnce(Result<(), glib::Error>) + Send + 'static>(
         &self,
@@ -35,20 +26,6 @@ pub trait WebsiteDataManagerExtManual: 'static {
 }
 
 impl<O: IsA<WebsiteDataManager>> WebsiteDataManagerExtManual for O {
-    fn set_network_proxy_settings(
-        &self,
-        proxy_mode: NetworkProxyMode,
-        mut proxy_settings: Option<&mut NetworkProxySettings>,
-    ) {
-        unsafe {
-            ffi::webkit_website_data_manager_set_network_proxy_settings(
-                self.as_ref().to_glib_none().0,
-                proxy_mode.into_glib(),
-                proxy_settings.to_glib_none_mut().0,
-            );
-        }
-    }
-
     fn clear<P: FnOnce(Result<(), glib::Error>) + Send + 'static>(
         &self,
         types: WebsiteDataTypes,

@@ -21,39 +21,30 @@ glib::wrapper! {
 }
 
 impl NavigationPolicyDecision {
-    pub const NONE: Option<&'static NavigationPolicyDecision> = None;
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::NavigationPolicyDecision>> Sealed for T {}
-}
-
-pub trait NavigationPolicyDecisionExt:
-    IsA<NavigationPolicyDecision> + sealed::Sealed + 'static
-{
     #[doc(alias = "webkit_navigation_policy_decision_get_navigation_action")]
     #[doc(alias = "get_navigation_action")]
-    fn navigation_action(&self) -> Option<NavigationAction> {
+    pub fn navigation_action(&self) -> Option<NavigationAction> {
         unsafe {
             from_glib_none(ffi::webkit_navigation_policy_decision_get_navigation_action(
-                self.as_ref().to_glib_none().0,
+                self.to_glib_none().0,
             ))
         }
     }
 
     #[doc(alias = "navigation-action")]
-    fn connect_navigation_action_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+    pub fn connect_navigation_action_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
         unsafe extern "C" fn notify_navigation_action_trampoline<
-            P: IsA<NavigationPolicyDecision>,
-            F: Fn(&P) + 'static,
+            F: Fn(&NavigationPolicyDecision) + 'static,
         >(
             this: *mut ffi::WebKitNavigationPolicyDecision,
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
-            f(NavigationPolicyDecision::from_glib_borrow(this).unsafe_cast_ref())
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -61,12 +52,10 @@ pub trait NavigationPolicyDecisionExt:
                 self.as_ptr() as *mut _,
                 b"notify::navigation-action\0".as_ptr() as *const _,
                 Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    notify_navigation_action_trampoline::<Self, F> as *const (),
+                    notify_navigation_action_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
         }
     }
 }
-
-impl<O: IsA<NavigationPolicyDecision>> NavigationPolicyDecisionExt for O {}

@@ -32,3 +32,6 @@ wpe-backend-fdo-sys = { path = "./wpe-backend-fdo-sys" }
 wpe-webkit = { path = "./wpe-webkit" }
 glib = "0.19.2"
 gio = "0.19.2"
+
+[build-dependencies]
+gl_generator = "0.14.0"

@@ -19,10 +19,11 @@ use smithay_client_toolkit::seat::touch::TouchHandler;
 use smithay_client_toolkit::seat::{Capability, SeatHandler, SeatState};
 use smithay_client_toolkit::shell::xdg::window::{Window, WindowConfigure, WindowHandler};
 use smithay_client_toolkit::shell::xdg::XdgShell;
-use smithay_client_toolkit::shell::WaylandSurface;
+use smithay_client_toolkit::subcompositor::SubcompositorState;
 use smithay_client_toolkit::{
     delegate_compositor, delegate_keyboard, delegate_output, delegate_pointer, delegate_registry,
-    delegate_seat, delegate_touch, delegate_xdg_shell, delegate_xdg_window, registry_handlers,
+    delegate_seat, delegate_subcompositor, delegate_touch, delegate_xdg_shell, delegate_xdg_window,
+    registry_handlers,
 };
 
 use crate::wayland::protocols::fractional_scale::{FractionalScaleHandler, FractionalScaleManager};
@@ -35,6 +36,7 @@ pub mod viewporter;
 #[derive(Debug)]
 pub struct ProtocolStates {
     pub fractional_scale: FractionalScaleManager,
+    pub subcompositor: SubcompositorState,
     pub compositor: CompositorState,
     pub registry: RegistryState,
     pub viewporter: Viewporter,
@@ -44,16 +46,27 @@ pub struct ProtocolStates {
 }
 
 impl ProtocolStates {
-    pub fn new(globals: &GlobalList, wayland_queue: &QueueHandle<State>) -> Self {
+    pub fn new(globals: &GlobalList, queue: &QueueHandle<State>) -> Self {
         let registry = RegistryState::new(globals);
-        let fractional_scale = FractionalScaleManager::new(globals, wayland_queue).unwrap();
-        let compositor = CompositorState::bind(globals, wayland_queue).unwrap();
-        let viewporter = Viewporter::new(globals, wayland_queue).unwrap();
-        let xdg_shell = XdgShell::bind(globals, wayland_queue).unwrap();
-        let output = OutputState::new(globals, wayland_queue);
-        let seat = SeatState::new(globals, wayland_queue);
+        let compositor = CompositorState::bind(globals, queue).unwrap();
+        let wl_compositor = compositor.wl_compositor().clone();
+        let fractional_scale = FractionalScaleManager::new(globals, queue).unwrap();
+        let subcompositor = SubcompositorState::bind(wl_compositor, globals, queue).unwrap();
+        let viewporter = Viewporter::new(globals, queue).unwrap();
+        let xdg_shell = XdgShell::bind(globals, queue).unwrap();
+        let output = OutputState::new(globals, queue);
+        let seat = SeatState::new(globals, queue);
 
-        Self { fractional_scale, viewporter, registry, compositor, xdg_shell, output, seat }
+        Self {
+            fractional_scale,
+            subcompositor,
+            compositor,
+            viewporter,
+            xdg_shell,
+            registry,
+            output,
+            seat,
+        }
     }
 }
 
@@ -84,13 +97,14 @@ impl CompositorHandler for State {
         surface: &WlSurface,
         _serial: u32,
     ) {
-        let window = self.windows.values_mut().find(|window| window.xdg.wl_surface() == surface);
+        let window = self.windows.values_mut().find(|window| window.owns_surface(surface));
         if let Some(window) = window {
-            window.draw(queue, &self.engines);
+            window.draw(queue, &mut self.engines);
         }
     }
 }
 delegate_compositor!(State);
+delegate_subcompositor!(State);
 
 impl OutputHandler for State {
     fn output_state(&mut self) -> &mut OutputState {
@@ -123,7 +137,7 @@ impl WindowHandler for State {
             // Update window dimensions.
             let width = configure.new_size.0.map(|w| w.get()).unwrap_or(window.width);
             let height = configure.new_size.1.map(|h| h.get()).unwrap_or(window.height);
-            window.set_size(&mut self.engines, width, height);
+            window.set_size(&self.egl_display, &mut self.engines, width, height);
         }
     }
 }
@@ -138,7 +152,7 @@ impl FractionalScaleHandler for State {
         surface: &WlSurface,
         scale: f64,
     ) {
-        let window = self.windows.values_mut().find(|w| w.xdg.wl_surface() == surface);
+        let window = self.windows.values_mut().find(|w| w.owns_surface(surface));
         if let Some(window) = window {
             window.set_scale(&mut self.engines, scale);
         }
@@ -213,7 +227,7 @@ impl KeyboardHandler for State {
         _keysyms: &[Keysym],
     ) {
         // Update window with keyboard focus.
-        let window = match self.windows.values_mut().find(|win| win.xdg.wl_surface() == surface) {
+        let window = match self.windows.values_mut().find(|window| window.owns_surface(surface)) {
             Some(window) => window,
             None => return,
         };
@@ -256,8 +270,8 @@ impl KeyboardHandler for State {
 
         // Update pressed keys.
         let window = match self.keyboard_focus.and_then(|focus| self.windows.get(&focus)) {
-            Some(window) => window,
-            _ => return,
+            Some(focus) => focus,
+            None => return,
         };
         window.press_key(&mut self.engines, event.raw_code, event.keysym, keyboard_state.modifiers);
     }
@@ -278,15 +292,11 @@ impl KeyboardHandler for State {
 
         // Update pressed keys.
         let window = match self.keyboard_focus.and_then(|focus| self.windows.get(&focus)) {
-            Some(window) => window,
-            _ => return,
+            Some(focus) => focus,
+            None => return,
         };
-        window.release_key(
-            &mut self.engines,
-            event.raw_code,
-            event.keysym,
-            keyboard_state.modifiers,
-        );
+        let modifiers = keyboard_state.modifiers;
+        window.release_key(&mut self.engines, event.raw_code, event.keysym, modifiers);
     }
 
     fn update_modifiers(
@@ -367,18 +377,18 @@ impl TouchHandler for State {
         position: (f64, f64),
     ) {
         // Update window with touch focus.
-        let window = match self.windows.values_mut().find(|win| win.xdg.wl_surface() == &surface) {
+        let window = match self.windows.values_mut().find(|win| win.owns_surface(&surface)) {
             Some(window) => window,
             None => return,
         };
-        self.touch_focus = Some(window.id);
+        self.touch_focus = Some((window.id, surface.clone()));
 
         let modifiers = match &self.keyboard {
             Some(keyboard_state) => keyboard_state.modifiers,
             None => Modifiers::default(),
         };
 
-        window.touch_down(&mut self.engines, time, id, position.0, position.1, modifiers);
+        window.touch_down(&mut self.engines, &surface, time, id, position.0, position.1, modifiers);
     }
 
     fn up(
@@ -390,9 +400,13 @@ impl TouchHandler for State {
         time: u32,
         id: i32,
     ) {
-        let window = match self.touch_focus.and_then(|focus| self.windows.get_mut(&focus)) {
+        let (window_id, surface) = match self.touch_focus.as_ref() {
+            Some(focus) => focus,
+            None => return,
+        };
+        let window = match self.windows.get_mut(window_id) {
             Some(window) => window,
-            _ => return,
+            None => return,
         };
 
         let modifiers = match &self.keyboard {
@@ -400,7 +414,7 @@ impl TouchHandler for State {
             None => Modifiers::default(),
         };
 
-        window.touch_up(&mut self.engines, time, id, modifiers);
+        window.touch_up(&mut self.engines, surface, time, id, modifiers);
     }
 
     fn motion(
@@ -410,11 +424,15 @@ impl TouchHandler for State {
         _touch: &WlTouch,
         time: u32,
         id: i32,
-        position: (f64, f64),
+        (x, y): (f64, f64),
     ) {
-        let window = match self.touch_focus.and_then(|focus| self.windows.get_mut(&focus)) {
+        let (window_id, surface) = match self.touch_focus.as_ref() {
+            Some(focus) => focus,
+            None => return,
+        };
+        let window = match self.windows.get_mut(window_id) {
             Some(window) => window,
-            _ => return,
+            None => return,
         };
 
         let modifiers = match &self.keyboard {
@@ -422,7 +440,7 @@ impl TouchHandler for State {
             None => Modifiers::default(),
         };
 
-        window.touch_motion(&mut self.engines, time, id, position.0, position.1, modifiers);
+        window.touch_motion(&mut self.engines, surface, time, id, x, y, modifiers);
     }
 
     fn cancel(&mut self, _connection: &Connection, _queue: &QueueHandle<Self>, _touch: &WlTouch) {}
@@ -461,7 +479,7 @@ impl PointerHandler for State {
         for event in events {
             // Find target window.
             let mut windows = self.windows.values();
-            let window = match windows.find(|window| window.xdg.wl_surface() == &event.surface) {
+            let window = match windows.find(|window| window.owns_surface(&event.surface)) {
                 Some(window) => window,
                 None => continue,
             };
@@ -474,26 +492,21 @@ impl PointerHandler for State {
             };
 
             // Dispatch event to the window.
+            let engines = &mut self.engines;
+            let surface = &event.surface;
             match event.kind {
                 PointerEventKind::Enter { .. } | PointerEventKind::Leave { .. } => (),
                 PointerEventKind::Motion { time } => {
-                    window.pointer_motion(&mut self.engines, time, x, y, modifiers)
+                    window.pointer_motion(engines, surface, time, x, y, modifiers)
                 },
                 PointerEventKind::Press { time, button, .. } => {
-                    window.pointer_button(&mut self.engines, time, x, y, button, 1, modifiers)
+                    window.pointer_button(engines, surface, time, x, y, button, 1, modifiers)
                 },
                 PointerEventKind::Release { time, button, .. } => {
-                    window.pointer_button(&mut self.engines, time, x, y, button, 0, modifiers)
+                    window.pointer_button(engines, surface, time, x, y, button, 0, modifiers)
                 },
-                PointerEventKind::Axis { time, horizontal, vertical, .. } => window.pointer_axis(
-                    &mut self.engines,
-                    time,
-                    x,
-                    y,
-                    horizontal,
-                    vertical,
-                    modifiers,
-                ),
+                PointerEventKind::Axis { time, horizontal, vertical, .. } => window
+                    .pointer_axis(engines, surface, time, x, y, horizontal, vertical, modifiers),
             }
         }
     }

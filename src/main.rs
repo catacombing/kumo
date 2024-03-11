@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ffi::CString;
 use std::io;
 use std::os::fd::{AsFd, AsRawFd};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -7,11 +8,12 @@ use std::time::Duration;
 use funq::{MtQueueHandle, Queue, StQueueHandle};
 use glib::source::SourceId;
 use glib::{source, ControlFlow, IOCondition, MainLoop};
-use glutin::display::{Display, DisplayApiPreference};
+use glutin::display::{Display, DisplayApiPreference, GlDisplay};
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
 use smithay_client_toolkit::reexports::client::globals::{self, GlobalError};
 use smithay_client_toolkit::reexports::client::protocol::wl_keyboard::WlKeyboard;
 use smithay_client_toolkit::reexports::client::protocol::wl_pointer::WlPointer;
+use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::protocol::wl_touch::WlTouch;
 use smithay_client_toolkit::reexports::client::{
     ConnectError, Connection, EventQueue, QueueHandle,
@@ -24,6 +26,7 @@ use smithay_client_toolkit::shell::WaylandSurface;
 
 use crate::engine::webkit::{WebKitEngine, WebKitError};
 use crate::engine::{Engine, EngineId};
+use crate::ui::{Ui, UI_HEIGHT};
 use crate::wayland::protocols::{KeyRepeat, ProtocolStates};
 use crate::wayland::WaylandDispatch;
 
@@ -32,7 +35,13 @@ const DEFAULT_WIDTH: u32 = 1280;
 const DEFAULT_HEIGHT: u32 = 720;
 
 mod engine;
+mod ui;
 mod wayland;
+
+mod gl {
+    #![allow(clippy::all)]
+    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
+}
 
 #[derive(thiserror::Error, Debug)]
 enum Error {
@@ -98,7 +107,7 @@ pub struct State {
 
     windows: HashMap<WindowId, Window>,
     keyboard_focus: Option<WindowId>,
-    touch_focus: Option<WindowId>,
+    touch_focus: Option<(WindowId, WlSurface)>,
 
     queue: StQueueHandle<Self>,
 }
@@ -115,6 +124,12 @@ impl State {
         wayland_display.display = connection.backend().display_ptr().cast();
         let raw_display = RawDisplayHandle::Wayland(wayland_display);
         let egl_display = unsafe { Display::new(raw_display, DisplayApiPreference::Egl)? };
+
+        // Setup OpenGL symbol loader.
+        gl::load_with(|symbol| {
+            let symbol = CString::new(symbol).unwrap();
+            egl_display.get_proc_address(symbol.as_c_str()).cast()
+        });
 
         Ok(Self {
             protocol_states,
@@ -136,7 +151,8 @@ impl State {
     /// Create a new browser window.
     fn create_window(&mut self) -> Result<(), WebKitError> {
         // Setup new window.
-        let mut window = Window::new(&self.protocol_states, &self.wayland_queue());
+        let mut window =
+            Window::new(&self.protocol_states, &self.egl_display, &self.wayland_queue());
 
         // Add initial tab.
         let engine_id = self.create_engine(window.id)?;
@@ -182,23 +198,32 @@ struct Window {
     scale: f64,
     width: u32,
     height: u32,
-    initial_commit_done: bool,
+    stalled: bool,
+
+    ui: Ui,
 
     // Touch point position tracking.
     touch_points: HashMap<i32, (f64, f64)>,
-
-    dirty: bool,
 }
 
 impl Window {
-    fn new(protocol_states: &ProtocolStates, queue: &QueueHandle<State>) -> Self {
+    fn new(
+        protocol_states: &ProtocolStates,
+        display: &Display,
+        queue: &QueueHandle<State>,
+    ) -> Self {
         let surface = protocol_states.compositor.create_surface(queue);
 
         // Enable fractional scaling.
         protocol_states.fractional_scale.fractional_scaling(queue, &surface);
 
-        // Enable viewporter.
+        // Enable viewporter for the browser surface.
         let viewport = protocol_states.viewporter.viewport(queue, &surface);
+
+        // Create UI renderer.
+        let ui_surface = protocol_states.subcompositor.create_subsurface(surface.clone(), queue);
+        let ui_viewport = protocol_states.viewporter.viewport(queue, &ui_surface.1);
+        let ui = Ui::new(display, ui_surface, ui_viewport);
 
         // Create XDG window.
         let decorations = WindowDecorations::RequestServer;
@@ -207,19 +232,17 @@ impl Window {
         xdg.set_app_id("Kumo");
         xdg.commit();
 
-        let id = WindowId::new();
-
         Self {
             viewport,
             xdg,
-            id,
+            ui,
             height: DEFAULT_HEIGHT,
             width: DEFAULT_WIDTH,
+            id: WindowId::new(),
+            stalled: true,
             scale: 1.,
-            initial_commit_done: Default::default(),
             touch_points: Default::default(),
             active_tab: Default::default(),
-            dirty: Default::default(),
             tabs: Default::default(),
         }
     }
@@ -233,58 +256,63 @@ impl Window {
     fn draw(
         &mut self,
         wayland_queue: &QueueHandle<State>,
-        engines: &HashMap<EngineId, Box<dyn Engine>>,
+        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
     ) {
-        if !self.dirty {
-            let surface = self.xdg.wl_surface();
-            surface.frame(wayland_queue, surface.clone());
-            surface.commit();
-            return;
+        let surface = self.xdg.wl_surface();
+
+        // Mark window as stalled if no rendering is performed.
+        self.stalled = true;
+
+        // Redraw the active browser engine.
+        let engine = engines.get_mut(&self.active_tab()).unwrap();
+        if let Some(buffer) = engine.wl_buffer().filter(|_| engine.dirty()) {
+            // Attach engine buffer to primary surface.
+            surface.attach(Some(buffer), 0, 0);
+            surface.damage(0, 0, self.width as i32, (self.height - UI_HEIGHT) as i32);
+
+            // Request new engine frame.
+            engine.frame_done();
+
+            self.stalled = false;
         }
 
-        let engine = engines.get(&self.active_tab()).unwrap();
-        let buffer = match engine.wl_buffer() {
-            Some(buffer) => buffer,
-            None => return,
-        };
+        // Attach new UI buffers.
+        let ui_rendered = self.ui.draw();
+        self.stalled &= !ui_rendered;
 
-        self.dirty = false;
+        // Request a new frame if this frame was dirty.
+        if !self.stalled {
+            surface.frame(wayland_queue, surface.clone());
+        }
 
-        // Submit a new frame.
-        let surface = self.xdg.wl_surface();
-        surface.attach(Some(buffer), 0, 0);
-        surface.damage(0, 0, self.width as i32, self.height as i32);
-        surface.frame(wayland_queue, surface.clone());
+        // Submit the new frame.
         surface.commit();
-
-        // Request next frame from engine.
-        engine.frame_done();
     }
 
-    /// Notify window about an engine's buffer update.
-    fn mark_engine_dirty(
+    /// Unstall the renderer.
+    ///
+    /// This will render a new frame if there currently is no frame request
+    /// pending.
+    fn unstall(
         &mut self,
         connection: &Connection,
         wayland_queue: &QueueHandle<State>,
-        engines: &HashMap<EngineId, Box<dyn Engine>>,
-        engine_id: EngineId,
+        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
     ) {
-        // Mark window as dirty if active tab changed.
-        if engine_id == self.active_tab() {
-            self.dirty = true;
+        // Ignore while rendering is performed every frame.
+        if !self.stalled {
+            return;
         }
 
-        // Perform initial draw if necessary.
-        if !self.initial_commit_done {
-            self.draw(wayland_queue, engines);
-            self.initial_commit_done = true;
-            let _ = connection.flush();
-        }
+        // Redraw immediately to unstall rendering.
+        self.draw(wayland_queue, engines);
+        let _ = connection.flush();
     }
 
     /// Update surface size.
     fn set_size(
         &mut self,
+        display: &Display,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
         width: u32,
         height: u32,
@@ -293,17 +321,22 @@ impl Window {
         self.width = width;
         self.height = height;
 
-        // Update viewporter logical render size.
-        self.viewport.set_destination(self.width as i32, self.height as i32);
-
         // Resize window's browser engines.
         for engine_id in &mut self.tabs {
             let engine = match engines.get_mut(engine_id) {
                 Some(engine) => engine,
                 None => continue,
             };
-            engine.set_size(self.width, self.height);
+
+            let engine_height = self.height - UI_HEIGHT;
+            engine.set_size(self.width, engine_height);
+
+            // Update browser's viewporter logical render size.
+            self.viewport.set_destination(self.width as i32, engine_height as i32);
         }
+
+        // Resize UI element surface.
+        self.ui.set_geometry(display, 0, (self.height - UI_HEIGHT) as i32, self.width, UI_HEIGHT);
     }
 
     /// Update surface scale.
@@ -319,6 +352,9 @@ impl Window {
             };
             engine.set_scale(scale);
         }
+
+        // Resize UI.
+        self.ui.set_scale(scale);
     }
 
     /// Handle new key press.
@@ -355,6 +391,7 @@ impl Window {
     fn pointer_axis(
         &self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        surface: &WlSurface,
         time: u32,
         x: f64,
         y: f64,
@@ -362,9 +399,13 @@ impl Window {
         vertical: AxisScroll,
         modifiers: Modifiers,
     ) {
-        // Forward event to browser engine.
-        if let Some(engine) = engines.get_mut(&self.active_tab()) {
-            engine.pointer_axis(time, x, y, horizontal, vertical, modifiers);
+        if self.xdg.wl_surface() == surface {
+            // Forward event to browser engine.
+            if let Some(engine) = engines.get_mut(&self.active_tab()) {
+                engine.pointer_axis(time, x, y, horizontal, vertical, modifiers);
+            }
+        } else {
+            self.ui.pointer_axis(time, x, y, horizontal, vertical, modifiers);
         }
     }
 
@@ -373,6 +414,7 @@ impl Window {
     fn pointer_button(
         &self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        surface: &WlSurface,
         time: u32,
         x: f64,
         y: f64,
@@ -380,9 +422,14 @@ impl Window {
         state: u32,
         modifiers: Modifiers,
     ) {
-        // Forward event to browser engine.
-        if let Some(engine) = engines.get_mut(&self.active_tab()) {
-            engine.pointer_button(time, x, y, button, state, modifiers);
+        if self.xdg.wl_surface() == surface {
+            // Forward event to browser engine.
+            if let Some(engine) = engines.get_mut(&self.active_tab()) {
+                engine.pointer_button(time, x, y, button, state, modifiers);
+            }
+        } else {
+            println!("CLICK ON UI");
+            self.ui.pointer_button(time, x, y, button, state, modifiers);
         }
     }
 
@@ -390,21 +437,28 @@ impl Window {
     fn pointer_motion(
         &self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        surface: &WlSurface,
         time: u32,
         x: f64,
         y: f64,
         modifiers: Modifiers,
     ) {
-        // Forward event to browser engine.
-        if let Some(engine) = engines.get_mut(&self.active_tab()) {
-            engine.pointer_motion(time, x, y, modifiers);
+        if self.xdg.wl_surface() == surface {
+            // Forward event to browser engine.
+            if let Some(engine) = engines.get_mut(&self.active_tab()) {
+                engine.pointer_motion(time, x, y, modifiers);
+            }
+        } else {
+            self.ui.pointer_motion(time, x, y, modifiers);
         }
     }
 
     /// Handle touch press events.
+    #[allow(clippy::too_many_arguments)]
     fn touch_down(
         &mut self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        surface: &WlSurface,
         time: u32,
         id: i32,
         x: f64,
@@ -413,9 +467,13 @@ impl Window {
     ) {
         self.touch_points.insert(id, (x, y));
 
-        // Forward event to browser engine.
-        if let Some(engine) = engines.get_mut(&self.active_tab()) {
-            engine.touch_down(&self.touch_points, time, id, modifiers);
+        if self.xdg.wl_surface() == surface {
+            // Forward event to browser engine.
+            if let Some(engine) = engines.get_mut(&self.active_tab()) {
+                engine.touch_down(&self.touch_points, time, id, modifiers);
+            }
+        } else {
+            self.ui.touch_down(time, id, x, y, modifiers);
         }
     }
 
@@ -423,13 +481,18 @@ impl Window {
     fn touch_up(
         &mut self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        surface: &WlSurface,
         time: u32,
         id: i32,
         modifiers: Modifiers,
     ) {
-        // Forward event to browser engine.
-        if let Some(engine) = engines.get_mut(&self.active_tab()) {
-            engine.touch_up(&self.touch_points, time, id, modifiers);
+        if self.xdg.wl_surface() == surface {
+            // Forward event to browser engine.
+            if let Some(engine) = engines.get_mut(&self.active_tab()) {
+                engine.touch_up(&self.touch_points, time, id, modifiers);
+            }
+        } else {
+            self.ui.touch_up(time, id, modifiers);
         }
 
         // Remove touch point from all future events.
@@ -437,9 +500,11 @@ impl Window {
     }
 
     /// Handle touch motion events.
+    #[allow(clippy::too_many_arguments)]
     fn touch_motion(
         &mut self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        surface: &WlSurface,
         time: u32,
         id: i32,
         x: f64,
@@ -448,10 +513,19 @@ impl Window {
     ) {
         self.touch_points.insert(id, (x, y));
 
-        // Forward event to browser engine.
-        if let Some(engine) = engines.get_mut(&self.active_tab()) {
-            engine.touch_motion(&self.touch_points, time, id, modifiers);
+        if self.xdg.wl_surface() == surface {
+            // Forward event to browser engine.
+            if let Some(engine) = engines.get_mut(&self.active_tab()) {
+                engine.touch_motion(&self.touch_points, time, id, modifiers);
+            }
+        } else {
+            self.ui.touch_motion(time, id, x, y, modifiers);
         }
+    }
+
+    /// Check whether a surface is owned by this window.
+    fn owns_surface(&self, surface: &WlSurface) -> bool {
+        self.xdg.wl_surface() == surface || self.ui.owns_surface(surface)
     }
 
     /// Get the engine ID for the current tab.

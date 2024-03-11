@@ -404,6 +404,7 @@ version = "0.1.0"
 dependencies = [
  "funq",
  "gio",
+ "gl_generator",
  "glib",
  "glutin",
  "glutin_egl_sys",

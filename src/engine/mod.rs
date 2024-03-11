@@ -17,8 +17,11 @@ pub trait Engine {
     /// Get the Wayland buffer for rendering the engine's current content.
     fn wl_buffer(&self) -> Option<&WlBuffer>;
 
+    /// Check if the engine requires a redraw.
+    fn dirty(&self) -> bool;
+
     /// Notify engine that the frame was completed.
-    fn frame_done(&self);
+    fn frame_done(&mut self);
 
     /// Update the browser engine's size.
     fn set_size(&mut self, width: u32, height: u32);

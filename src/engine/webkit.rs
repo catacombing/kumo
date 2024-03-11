@@ -98,7 +98,7 @@ impl WebKitHandler for State {
         // Offer new WlBuffer to window.
         let window_id = engine_id.window_id();
         if let Some(window) = self.windows.get_mut(&window_id) {
-            window.mark_engine_dirty(&self.connection, &wayland_queue, &self.engines, engine_id);
+            window.unstall(&self.connection, &wayland_queue, &mut self.engines);
         }
     }
 }
@@ -117,6 +117,8 @@ pub struct WebKitEngine {
     width: u32,
     height: u32,
     scale: f32,
+
+    dirty: bool,
 }
 
 impl Drop for WebKitEngine {
@@ -175,6 +177,7 @@ impl WebKitEngine {
             id: engine_id,
             scale: 1.0,
             buffer: Default::default(),
+            dirty: Default::default(),
         })
     }
 
@@ -185,6 +188,9 @@ impl WebKitEngine {
         egl_display: &Display,
         image: *mut wpe_fdo_egl_exported_image,
     ) {
+        // Require redraw.
+        self.dirty = true;
+
         // Free previous image.
         if !self.image.is_null() {
             unsafe {
@@ -261,7 +267,13 @@ impl Engine for WebKitEngine {
         self.buffer.as_ref()
     }
 
-    fn frame_done(&self) {
+    fn dirty(&self) -> bool {
+        self.dirty
+    }
+
+    fn frame_done(&mut self) {
+        self.dirty = false;
+
         unsafe {
             wpe_view_backend_exportable_fdo_dispatch_frame_complete(self.exportable);
         }

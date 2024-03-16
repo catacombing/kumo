@@ -28,7 +28,7 @@ use smithay_client_toolkit::{
 
 use crate::wayland::protocols::fractional_scale::{FractionalScaleHandler, FractionalScaleManager};
 use crate::wayland::protocols::viewporter::Viewporter;
-use crate::{KeyboardState, State};
+use crate::{KeyboardState, Size, State};
 
 pub mod fractional_scale;
 pub mod viewporter;
@@ -135,9 +135,9 @@ impl WindowHandler for State {
         let window = self.windows.values_mut().find(|w| &w.xdg == window);
         if let Some(window) = window {
             // Update window dimensions.
-            let width = configure.new_size.0.map(|w| w.get()).unwrap_or(window.width);
-            let height = configure.new_size.1.map(|h| h.get()).unwrap_or(window.height);
-            window.set_size(&self.egl_display, &mut self.engines, width, height);
+            let width = configure.new_size.0.map(|w| w.get()).unwrap_or(window.size.width);
+            let height = configure.new_size.1.map(|h| h.get()).unwrap_or(window.size.height);
+            window.set_size(&self.egl_display, &mut self.engines, Size { width, height });
         }
     }
 }
@@ -388,7 +388,7 @@ impl TouchHandler for State {
             None => Modifiers::default(),
         };
 
-        window.touch_down(&mut self.engines, &surface, time, id, position.0, position.1, modifiers);
+        window.touch_down(&mut self.engines, &surface, time, id, position.into(), modifiers);
     }
 
     fn up(
@@ -424,7 +424,7 @@ impl TouchHandler for State {
         _touch: &WlTouch,
         time: u32,
         id: i32,
-        (x, y): (f64, f64),
+        position: (f64, f64),
     ) {
         let (window_id, surface) = match self.touch_focus.as_ref() {
             Some(focus) => focus,
@@ -440,7 +440,7 @@ impl TouchHandler for State {
             None => Modifiers::default(),
         };
 
-        window.touch_motion(&mut self.engines, surface, time, id, x, y, modifiers);
+        window.touch_motion(&mut self.engines, surface, time, id, position.into(), modifiers);
     }
 
     fn cancel(&mut self, _connection: &Connection, _queue: &QueueHandle<Self>, _touch: &WlTouch) {}
@@ -485,7 +485,7 @@ impl PointerHandler for State {
             };
 
             // Get shared event attributes.
-            let (x, y) = event.position;
+            let position = event.position.into();
             let modifiers = match &self.keyboard {
                 Some(keyboard_state) => keyboard_state.modifiers,
                 None => Modifiers::default(),
@@ -497,16 +497,17 @@ impl PointerHandler for State {
             match event.kind {
                 PointerEventKind::Enter { .. } | PointerEventKind::Leave { .. } => (),
                 PointerEventKind::Motion { time } => {
-                    window.pointer_motion(engines, surface, time, x, y, modifiers)
+                    window.pointer_motion(engines, surface, time, position, modifiers)
                 },
                 PointerEventKind::Press { time, button, .. } => {
-                    window.pointer_button(engines, surface, time, x, y, button, 1, modifiers)
+                    window.pointer_button(engines, surface, time, position, button, 1, modifiers)
                 },
                 PointerEventKind::Release { time, button, .. } => {
-                    window.pointer_button(engines, surface, time, x, y, button, 0, modifiers)
+                    window.pointer_button(engines, surface, time, position, button, 0, modifiers)
                 },
-                PointerEventKind::Axis { time, horizontal, vertical, .. } => window
-                    .pointer_axis(engines, surface, time, x, y, horizontal, vertical, modifiers),
+                PointerEventKind::Axis { time, horizontal, vertical, .. } => window.pointer_axis(
+                    engines, surface, time, position, horizontal, vertical, modifiers,
+                ),
             }
         }
     }

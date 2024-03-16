@@ -6,14 +6,11 @@ use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
 
-use crate::WindowId;
+use crate::{Position, Size, WindowId};
 
 pub mod webkit;
 
 pub trait Engine {
-    /// Get unique engine ID.
-    fn id(&self) -> EngineId;
-
     /// Get the Wayland buffer for rendering the engine's current content.
     fn wl_buffer(&self) -> Option<&WlBuffer>;
 
@@ -24,10 +21,13 @@ pub trait Engine {
     fn frame_done(&mut self);
 
     /// Update the browser engine's size.
-    fn set_size(&mut self, width: u32, height: u32);
+    fn set_size(&mut self, size: Size);
 
     /// Update the browser engine's scale.
     fn set_scale(&mut self, scale: f64);
+
+    /// Get the current URI.
+    fn uri(&self) -> String;
 
     /// Handle key down.
     fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers);
@@ -39,8 +39,7 @@ pub trait Engine {
     fn pointer_axis(
         &mut self,
         time: u32,
-        x: f64,
-        y: f64,
+        position: Position<f64>,
         horizontal: AxisScroll,
         vertical: AxisScroll,
         modifiers: Modifiers,
@@ -50,20 +49,19 @@ pub trait Engine {
     fn pointer_button(
         &mut self,
         time: u32,
-        x: f64,
-        y: f64,
+        position: Position<f64>,
         button: u32,
         state: u32,
         modifiers: Modifiers,
     );
 
     /// Handle pointer motion.
-    fn pointer_motion(&mut self, time: u32, x: f64, y: f64, modifiers: Modifiers);
+    fn pointer_motion(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers);
 
     /// Handle touch press.
     fn touch_up(
         &mut self,
-        touch_points: &HashMap<i32, (f64, f64)>,
+        touch_points: &HashMap<i32, Position<f64>>,
         time: u32,
         id: i32,
         modifiers: Modifiers,
@@ -72,7 +70,7 @@ pub trait Engine {
     /// Handle touch release.
     fn touch_down(
         &mut self,
-        touch_points: &HashMap<i32, (f64, f64)>,
+        touch_points: &HashMap<i32, Position<f64>>,
         time: u32,
         id: i32,
         modifiers: Modifiers,
@@ -81,7 +79,7 @@ pub trait Engine {
     /// Handle touch motion.
     fn touch_motion(
         &mut self,
-        touch_points: &HashMap<i32, (f64, f64)>,
+        touch_points: &HashMap<i32, Position<f64>>,
         time: u32,
         id: i32,
         modifiers: Modifiers,

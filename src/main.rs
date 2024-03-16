@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::ffi::CString;
 use std::io;
+use std::ops::Mul;
 use std::os::fd::{AsFd, AsRawFd};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
@@ -8,7 +8,7 @@ use std::time::Duration;
 use funq::{MtQueueHandle, Queue, StQueueHandle};
 use glib::source::SourceId;
 use glib::{source, ControlFlow, IOCondition, MainLoop};
-use glutin::display::{Display, DisplayApiPreference, GlDisplay};
+use glutin::display::{Display, DisplayApiPreference};
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
 use smithay_client_toolkit::reexports::client::globals::{self, GlobalError};
 use smithay_client_toolkit::reexports::client::protocol::wl_keyboard::WlKeyboard;
@@ -65,7 +65,7 @@ fn main() -> Result<(), Error> {
     // Create our initial window.
     state.create_window()?;
 
-    // TODO: Temporary testing url input.
+    // TODO: Temporary testing uri input.
     let uri = std::env::args().nth(1).expect("USAGE: kumo <URI>");
     for engine in state.engines.values() {
         engine.load_uri(&uri);
@@ -125,12 +125,6 @@ impl State {
         let raw_display = RawDisplayHandle::Wayland(wayland_display);
         let egl_display = unsafe { Display::new(raw_display, DisplayApiPreference::Egl)? };
 
-        // Setup OpenGL symbol loader.
-        gl::load_with(|symbol| {
-            let symbol = CString::new(symbol).unwrap();
-            egl_display.get_proc_address(symbol.as_c_str()).cast()
-        });
-
         Ok(Self {
             protocol_states,
             egl_display,
@@ -151,8 +145,7 @@ impl State {
     /// Create a new browser window.
     fn create_window(&mut self) -> Result<(), WebKitError> {
         // Setup new window.
-        let mut window =
-            Window::new(&self.protocol_states, &self.egl_display, &self.wayland_queue());
+        let mut window = Window::new(&self.protocol_states, &self.wayland_queue());
 
         // Add initial tab.
         let engine_id = self.create_engine(window.id)?;
@@ -168,14 +161,9 @@ impl State {
 
     /// Create a new WebKit browser engine.
     fn create_engine(&mut self, window_id: WindowId) -> Result<EngineId, WebKitError> {
+        let size = Size::new(DEFAULT_WIDTH, DEFAULT_HEIGHT);
         let engine_id = EngineId::new(window_id);
-        let engine = WebKitEngine::new(
-            &self.egl_display,
-            self.queue.clone(),
-            engine_id,
-            DEFAULT_WIDTH,
-            DEFAULT_HEIGHT,
-        )?;
+        let engine = WebKitEngine::new(&self.egl_display, self.queue.clone(), engine_id, size)?;
         self.engines.insert(engine_id, Box::new(engine));
         Ok(engine_id)
     }
@@ -196,22 +184,17 @@ struct Window {
     xdg: XdgWindow,
     viewport: WpViewport,
     scale: f64,
-    width: u32,
-    height: u32,
+    size: Size,
     stalled: bool,
 
     ui: Ui,
 
     // Touch point position tracking.
-    touch_points: HashMap<i32, (f64, f64)>,
+    touch_points: HashMap<i32, Position<f64>>,
 }
 
 impl Window {
-    fn new(
-        protocol_states: &ProtocolStates,
-        display: &Display,
-        queue: &QueueHandle<State>,
-    ) -> Self {
+    fn new(protocol_states: &ProtocolStates, queue: &QueueHandle<State>) -> Self {
         let surface = protocol_states.compositor.create_surface(queue);
 
         // Enable fractional scaling.
@@ -223,7 +206,7 @@ impl Window {
         // Create UI renderer.
         let ui_surface = protocol_states.subcompositor.create_subsurface(surface.clone(), queue);
         let ui_viewport = protocol_states.viewporter.viewport(queue, &ui_surface.1);
-        let ui = Ui::new(display, ui_surface, ui_viewport);
+        let ui = Ui::new(ui_surface, ui_viewport);
 
         // Create XDG window.
         let decorations = WindowDecorations::RequestServer;
@@ -232,12 +215,13 @@ impl Window {
         xdg.set_app_id("Kumo");
         xdg.commit();
 
+        let size = Size::new(DEFAULT_WIDTH, DEFAULT_HEIGHT);
+
         Self {
             viewport,
+            size,
             xdg,
             ui,
-            height: DEFAULT_HEIGHT,
-            width: DEFAULT_WIDTH,
             id: WindowId::new(),
             stalled: true,
             scale: 1.,
@@ -258,17 +242,26 @@ impl Window {
         wayland_queue: &QueueHandle<State>,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
     ) {
-        let surface = self.xdg.wl_surface();
+        // Ignore rendering until engine has a buffer.
+        //
+        // This automatically ensures we keep trying to redraw until the first commit
+        // has a buffer attached.
+        let engine = engines.get_mut(&self.active_tab()).unwrap();
+        let engine_buffer = match engine.wl_buffer() {
+            Some(engine_buffer) => engine_buffer,
+            None => return,
+        };
 
         // Mark window as stalled if no rendering is performed.
         self.stalled = true;
 
+        let surface = self.xdg.wl_surface();
+
         // Redraw the active browser engine.
-        let engine = engines.get_mut(&self.active_tab()).unwrap();
-        if let Some(buffer) = engine.wl_buffer().filter(|_| engine.dirty()) {
+        if engine.dirty() {
             // Attach engine buffer to primary surface.
-            surface.attach(Some(buffer), 0, 0);
-            surface.damage(0, 0, self.width as i32, (self.height - UI_HEIGHT) as i32);
+            surface.attach(Some(engine_buffer), 0, 0);
+            surface.damage(0, 0, self.size.width as i32, (self.size.height - UI_HEIGHT) as i32);
 
             // Request new engine frame.
             engine.frame_done();
@@ -277,7 +270,7 @@ impl Window {
         }
 
         // Attach new UI buffers.
-        let ui_rendered = self.ui.draw();
+        let ui_rendered = self.ui.draw(engine.as_ref());
         self.stalled &= !ui_rendered;
 
         // Request a new frame if this frame was dirty.
@@ -298,9 +291,10 @@ impl Window {
         connection: &Connection,
         wayland_queue: &QueueHandle<State>,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        engine_id: EngineId,
     ) {
-        // Ignore while rendering is performed every frame.
-        if !self.stalled {
+        // Ignore if unstalled or request came from background engine.
+        if !self.stalled || self.active_tab() != engine_id {
             return;
         }
 
@@ -314,12 +308,10 @@ impl Window {
         &mut self,
         display: &Display,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
-        width: u32,
-        height: u32,
+        size: Size,
     ) {
         // Update window dimensions.
-        self.width = width;
-        self.height = height;
+        self.size = size;
 
         // Resize window's browser engines.
         for engine_id in &mut self.tabs {
@@ -328,15 +320,17 @@ impl Window {
                 None => continue,
             };
 
-            let engine_height = self.height - UI_HEIGHT;
-            engine.set_size(self.width, engine_height);
+            let engine_size = Size::new(self.size.width, self.size.height - UI_HEIGHT);
+            engine.set_size(engine_size);
 
             // Update browser's viewporter logical render size.
-            self.viewport.set_destination(self.width as i32, engine_height as i32);
+            self.viewport.set_destination(engine_size.width as i32, engine_size.height as i32);
         }
 
         // Resize UI element surface.
-        self.ui.set_geometry(display, 0, (self.height - UI_HEIGHT) as i32, self.width, UI_HEIGHT);
+        let ui_pos = Position::new(0, (self.size.height - UI_HEIGHT) as i32);
+        let ui_size = Size::new(self.size.width, UI_HEIGHT);
+        self.ui.set_geometry(display, ui_pos, ui_size);
     }
 
     /// Update surface scale.
@@ -393,8 +387,7 @@ impl Window {
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
         surface: &WlSurface,
         time: u32,
-        x: f64,
-        y: f64,
+        position: Position<f64>,
         horizontal: AxisScroll,
         vertical: AxisScroll,
         modifiers: Modifiers,
@@ -402,10 +395,10 @@ impl Window {
         if self.xdg.wl_surface() == surface {
             // Forward event to browser engine.
             if let Some(engine) = engines.get_mut(&self.active_tab()) {
-                engine.pointer_axis(time, x, y, horizontal, vertical, modifiers);
+                engine.pointer_axis(time, position, horizontal, vertical, modifiers);
             }
         } else {
-            self.ui.pointer_axis(time, x, y, horizontal, vertical, modifiers);
+            self.ui.pointer_axis(time, position, horizontal, vertical, modifiers);
         }
     }
 
@@ -416,8 +409,7 @@ impl Window {
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
         surface: &WlSurface,
         time: u32,
-        x: f64,
-        y: f64,
+        position: Position<f64>,
         button: u32,
         state: u32,
         modifiers: Modifiers,
@@ -425,11 +417,10 @@ impl Window {
         if self.xdg.wl_surface() == surface {
             // Forward event to browser engine.
             if let Some(engine) = engines.get_mut(&self.active_tab()) {
-                engine.pointer_button(time, x, y, button, state, modifiers);
+                engine.pointer_button(time, position, button, state, modifiers);
             }
         } else {
-            println!("CLICK ON UI");
-            self.ui.pointer_button(time, x, y, button, state, modifiers);
+            self.ui.pointer_button(time, position, button, state, modifiers);
         }
     }
 
@@ -439,17 +430,16 @@ impl Window {
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
         surface: &WlSurface,
         time: u32,
-        x: f64,
-        y: f64,
+        position: Position<f64>,
         modifiers: Modifiers,
     ) {
         if self.xdg.wl_surface() == surface {
             // Forward event to browser engine.
             if let Some(engine) = engines.get_mut(&self.active_tab()) {
-                engine.pointer_motion(time, x, y, modifiers);
+                engine.pointer_motion(time, position, modifiers);
             }
         } else {
-            self.ui.pointer_motion(time, x, y, modifiers);
+            self.ui.pointer_motion(time, position, modifiers);
         }
     }
 
@@ -461,11 +451,10 @@ impl Window {
         surface: &WlSurface,
         time: u32,
         id: i32,
-        x: f64,
-        y: f64,
+        position: Position<f64>,
         modifiers: Modifiers,
     ) {
-        self.touch_points.insert(id, (x, y));
+        self.touch_points.insert(id, position);
 
         if self.xdg.wl_surface() == surface {
             // Forward event to browser engine.
@@ -473,7 +462,7 @@ impl Window {
                 engine.touch_down(&self.touch_points, time, id, modifiers);
             }
         } else {
-            self.ui.touch_down(time, id, x, y, modifiers);
+            self.ui.touch_down(time, id, position, modifiers);
         }
     }
 
@@ -500,18 +489,16 @@ impl Window {
     }
 
     /// Handle touch motion events.
-    #[allow(clippy::too_many_arguments)]
     fn touch_motion(
         &mut self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
         surface: &WlSurface,
         time: u32,
         id: i32,
-        x: f64,
-        y: f64,
+        position: Position<f64>,
         modifiers: Modifiers,
     ) {
-        self.touch_points.insert(id, (x, y));
+        self.touch_points.insert(id, position);
 
         if self.xdg.wl_surface() == surface {
             // Forward event to browser engine.
@@ -519,7 +506,7 @@ impl Window {
                 engine.touch_motion(&self.touch_points, time, id, modifiers);
             }
         } else {
-            self.ui.touch_motion(time, id, x, y, modifiers);
+            self.ui.touch_motion(time, id, position, modifiers);
         }
     }
 
@@ -627,5 +614,87 @@ impl WindowId {
 impl Default for WindowId {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// 2D object position.
+#[derive(Copy, Clone, Default, Debug)]
+pub struct Position<T = i32> {
+    pub x: T,
+    pub y: T,
+}
+
+impl<T> Position<T> {
+    fn new(x: T, y: T) -> Self {
+        Self { x, y }
+    }
+}
+
+impl<T> From<(T, T)> for Position<T> {
+    fn from((x, y): (T, T)) -> Self {
+        Self { x, y }
+    }
+}
+
+impl From<Position> for Position<f32> {
+    fn from(position: Position) -> Self {
+        Self { x: position.x as f32, y: position.y as f32 }
+    }
+}
+
+impl Mul<f64> for Position {
+    type Output = Self;
+
+    fn mul(mut self, scale: f64) -> Self {
+        self.x = (self.x as f64 * scale) as i32;
+        self.y = (self.y as f64 * scale) as i32;
+        self
+    }
+}
+
+/// 2D object size.
+#[derive(Copy, Clone, Default, Debug)]
+pub struct Size<T = u32> {
+    pub width: T,
+    pub height: T,
+}
+
+impl<T> Size<T> {
+    fn new(width: T, height: T) -> Self {
+        Self { width, height }
+    }
+}
+
+impl<T> From<(T, T)> for Size<T> {
+    fn from((width, height): (T, T)) -> Self {
+        Self { width, height }
+    }
+}
+
+impl From<Size<i32>> for Size<f32> {
+    fn from(size: Size<i32>) -> Self {
+        Self { width: size.width as f32, height: size.height as f32 }
+    }
+}
+
+impl From<Size> for Size<i32> {
+    fn from(size: Size) -> Self {
+        Self { width: size.width as i32, height: size.height as i32 }
+    }
+}
+
+impl From<Size> for Size<f32> {
+    fn from(size: Size) -> Self {
+        Self { width: size.width as f32, height: size.height as f32 }
+    }
+}
+
+impl Mul<f64> for Size {
+    type Output = Self;
+
+    fn mul(mut self, scale: f64) -> Self {
+        self.width = (self.width as f64 * scale) as u32;
+        self.height = (self.height as f64 * scale) as u32;
+        self
     }
 }

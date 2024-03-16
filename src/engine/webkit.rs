@@ -40,7 +40,7 @@ use wpe_backend_fdo_sys::{
 use wpe_webkit::{WebView, WebViewBackend, WebViewExt};
 
 use crate::engine::{Engine, EngineId};
-use crate::State;
+use crate::{Position, Size, State};
 
 // Once for calling FDO initialization methods.
 static FDO_INIT: Once = Once::new();
@@ -58,13 +58,15 @@ pub enum WebKitError {
 
 #[funq::callbacks(State, thread_local)]
 trait WebKitHandler {
+    /// Update the engine's underlying EGL image.
     fn set_egl_image(&mut self, engine_id: EngineId, image: *mut wpe_fdo_egl_exported_image);
+
+    /// Unstall the renderer for this engine.
+    fn unstall(&mut self, engine_id: EngineId);
 }
 
 impl WebKitHandler for State {
     fn set_egl_image(&mut self, engine_id: EngineId, image: *mut wpe_fdo_egl_exported_image) {
-        let wayland_queue = self.wayland_queue();
-
         let engine = match self.engines.get_mut(&engine_id) {
             Some(engine) => engine,
             None => return,
@@ -79,8 +81,10 @@ impl WebKitHandler for State {
         unsafe {
             let width = wpe_fdo_egl_exported_image_get_width(image);
             let height = wpe_fdo_egl_exported_image_get_height(image);
-            let desired_width = (webkit_engine.width as f32 * webkit_engine.scale).round() as u32;
-            let desired_height = (webkit_engine.height as f32 * webkit_engine.scale).round() as u32;
+            let desired_width =
+                (webkit_engine.size.width as f32 * webkit_engine.scale).round() as u32;
+            let desired_height =
+                (webkit_engine.size.height as f32 * webkit_engine.scale).round() as u32;
 
             if desired_width != width || desired_height != height {
                 webkit_engine.frame_done();
@@ -96,17 +100,21 @@ impl WebKitHandler for State {
         webkit_engine.import_image(&self.connection, &self.egl_display, image);
 
         // Offer new WlBuffer to window.
+        WebKitHandler::unstall(self, engine_id);
+    }
+
+    fn unstall(&mut self, engine_id: EngineId) {
+        let wayland_queue = self.wayland_queue();
         let window_id = engine_id.window_id();
+
         if let Some(window) = self.windows.get_mut(&window_id) {
-            window.unstall(&self.connection, &wayland_queue, &mut self.engines);
+            window.unstall(&self.connection, &wayland_queue, &mut self.engines, engine_id);
         }
     }
 }
 
 /// WebKit browser engine.
 pub struct WebKitEngine {
-    id: EngineId,
-
     backend: WebViewBackend,
     web_view: WebView,
 
@@ -114,8 +122,7 @@ pub struct WebKitEngine {
     image: *mut wpe_fdo_egl_exported_image,
     buffer: Option<WlBuffer>,
 
-    width: u32,
-    height: u32,
+    size: Size,
     scale: f32,
 
     dirty: bool,
@@ -140,8 +147,7 @@ impl WebKitEngine {
         display: &Display,
         queue: StQueueHandle<State>,
         engine_id: EngineId,
-        width: u32,
-        height: u32,
+        size: Size,
     ) -> Result<Self, WebKitError> {
         // Ensure FDO is initialized.
         let mut result = Ok(());
@@ -149,9 +155,10 @@ impl WebKitEngine {
         result?;
 
         // Create web view backend.
+        let backend_queue = queue.clone();
         let (mut backend, exportable) = unsafe {
             // Create EGL FDO backend.
-            let exportable = create_exportable_backend(engine_id, queue, width, height);
+            let exportable = create_exportable_backend(engine_id, backend_queue, size);
             let egl_backend = wpe_view_backend_exportable_fdo_get_view_backend(exportable);
             if egl_backend.is_null() {
                 return Err(WebKitError::BackendCreation);
@@ -167,14 +174,15 @@ impl WebKitEngine {
         let web_view = WebView::new(&mut backend);
         web_view.load_uri("about:blank");
 
+        // Notify UI about URI updates.
+        web_view.connect_uri_notify(move |_| queue.clone().unstall(engine_id));
+
         Ok(Self {
             exportable,
             web_view,
             backend,
-            width,
-            height,
+            size,
             image: ptr::null_mut(),
-            id: engine_id,
             scale: 1.0,
             buffer: Default::default(),
             dirty: Default::default(),
@@ -259,10 +267,6 @@ impl WebKitEngine {
 }
 
 impl Engine for WebKitEngine {
-    fn id(&self) -> EngineId {
-        self.id
-    }
-
     fn wl_buffer(&self) -> Option<&WlBuffer> {
         self.buffer.as_ref()
     }
@@ -279,13 +283,12 @@ impl Engine for WebKitEngine {
         }
     }
 
-    fn set_size(&mut self, width: u32, height: u32) {
-        self.width = width;
-        self.height = height;
+    fn set_size(&mut self, size: Size) {
+        self.size = size;
 
         unsafe {
             let wpe_backend = self.backend.wpe_backend();
-            wpe_view_backend_dispatch_set_size(wpe_backend, width, height);
+            wpe_view_backend_dispatch_set_size(wpe_backend, size.width, size.height);
         }
     }
 
@@ -299,6 +302,10 @@ impl Engine for WebKitEngine {
             let wpe_backend = self.backend.wpe_backend();
             wpe_view_backend_dispatch_set_device_scale_factor(wpe_backend, self.scale);
         }
+    }
+
+    fn uri(&self) -> String {
+        self.web_view.uri().unwrap_or_default().to_string()
     }
 
     fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
@@ -320,8 +327,7 @@ impl Engine for WebKitEngine {
     fn pointer_axis(
         &mut self,
         time: u32,
-        x: f64,
-        y: f64,
+        position: Position<f64>,
         horizontal: AxisScroll,
         vertical: AxisScroll,
         modifiers: Modifiers,
@@ -333,8 +339,8 @@ impl Engine for WebKitEngine {
             base: wpe_input_axis_event {
                 type_,
                 time,
-                x: (x * self.scale as f64).round() as i32,
-                y: (y * self.scale as f64).round() as i32,
+                x: (position.x * self.scale as f64).round() as i32,
+                y: (position.y * self.scale as f64).round() as i32,
                 modifiers: wpe_modifiers(modifiers),
                 axis: 0,
                 value: 0,
@@ -352,8 +358,7 @@ impl Engine for WebKitEngine {
     fn pointer_button(
         &mut self,
         time: u32,
-        x: f64,
-        y: f64,
+        position: Position<f64>,
         button: u32,
         state: u32,
         modifiers: Modifiers,
@@ -363,8 +368,8 @@ impl Engine for WebKitEngine {
             state,
             time,
             type_: wpe_input_pointer_event_type_wpe_input_pointer_event_type_button,
-            x: (x * self.scale as f64).round() as i32,
-            y: (y * self.scale as f64).round() as i32,
+            x: (position.x * self.scale as f64).round() as i32,
+            y: (position.y * self.scale as f64).round() as i32,
             modifiers: wpe_modifiers(modifiers),
         };
 
@@ -374,14 +379,14 @@ impl Engine for WebKitEngine {
         }
     }
 
-    fn pointer_motion(&mut self, time: u32, x: f64, y: f64, modifiers: Modifiers) {
+    fn pointer_motion(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
         let mut event = wpe_input_pointer_event {
             time,
             type_: wpe_input_pointer_event_type_wpe_input_pointer_event_type_motion,
             button: 0,
             state: 0,
-            x: (x * self.scale as f64).round() as i32,
-            y: (y * self.scale as f64).round() as i32,
+            x: (position.x * self.scale as f64).round() as i32,
+            y: (position.y * self.scale as f64).round() as i32,
             modifiers: wpe_modifiers(modifiers),
         };
 
@@ -393,7 +398,7 @@ impl Engine for WebKitEngine {
 
     fn touch_down(
         &mut self,
-        touch_points: &HashMap<i32, (f64, f64)>,
+        touch_points: &HashMap<i32, Position<f64>>,
         time: u32,
         id: i32,
         modifiers: Modifiers,
@@ -405,7 +410,7 @@ impl Engine for WebKitEngine {
 
     fn touch_up(
         &mut self,
-        touch_points: &HashMap<i32, (f64, f64)>,
+        touch_points: &HashMap<i32, Position<f64>>,
         time: u32,
         id: i32,
         modifiers: Modifiers,
@@ -417,7 +422,7 @@ impl Engine for WebKitEngine {
 
     fn touch_motion(
         &mut self,
-        touch_points: &HashMap<i32, (f64, f64)>,
+        touch_points: &HashMap<i32, Position<f64>>,
         time: u32,
         id: i32,
         modifiers: Modifiers,
@@ -476,7 +481,7 @@ fn wpe_modifiers(modifiers: Modifiers) -> u32 {
 
 /// Convert touch points to WPE touch events.
 fn wpe_touch_points(
-    touch_points: &HashMap<i32, (f64, f64)>,
+    touch_points: &HashMap<i32, Position<f64>>,
     scale: f32,
     time: u32,
     main_id: i32,
@@ -484,7 +489,7 @@ fn wpe_touch_points(
 ) -> Vec<wpe_input_touch_event_raw> {
     touch_points
         .iter()
-        .map(|(&point_id, &(x, y))| {
+        .map(|(&point_id, Position { x, y })| {
             // Pretend all existing touch points just moved in place.
             let type_ = if main_id == point_id {
                 main_type
@@ -510,8 +515,7 @@ struct ExportableSharedState {
 unsafe fn create_exportable_backend(
     engine_id: EngineId,
     queue: StQueueHandle<State>,
-    width: u32,
-    height: u32,
+    size: Size,
 ) -> *mut wpe_view_backend_exportable_fdo {
     let client = wpe_view_backend_exportable_fdo_egl_client {
         export_fdo_egl_image: Some(on_egl_image_export),
@@ -523,7 +527,7 @@ unsafe fn create_exportable_backend(
 
     let client = Box::into_raw(Box::new(client));
     let state = Box::into_raw(Box::new(ExportableSharedState { engine_id, queue }));
-    wpe_view_backend_exportable_fdo_egl_create(client, state.cast(), width, height)
+    wpe_view_backend_exportable_fdo_egl_create(client, state.cast(), size.width, size.height)
 }
 
 /// Handle EGL backend image export.

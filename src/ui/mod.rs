@@ -1,20 +1,22 @@
 //! Non-browser UI.
 
+use funq::MtQueueHandle;
 use glutin::display::Display;
+use pangocairo::cairo::{Context, Format, ImageSurface};
+use pangocairo::pango::Layout;
 use smithay_client_toolkit::reexports::client::protocol::wl_subsurface::WlSubsurface;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
-use smithay_client_toolkit::seat::keyboard::Modifiers;
+use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
 
-use crate::engine::Engine;
-use crate::ui::renderer::{Renderer, Texture, TextureBuilder};
-use crate::{gl, Position, Size};
+use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
+use crate::{gl, Position, Size, State, WindowId};
 
 mod renderer;
 
 /// Logical height of the UI surface.
-pub const UI_HEIGHT: u32 = 35;
+pub const UI_HEIGHT: u32 = 50;
 
 /// Logical height of the UI/content separator.
 const SEPARATOR_HEIGHT: f64 = 1.5;
@@ -25,7 +27,7 @@ const SEPARATOR_COLOR: [u8; 4] = [117, 42, 42, 255];
 /// URI bar width percentage from UI.
 const URIBAR_WIDTH_PERCENTAGE: f64 = 0.80;
 /// URI bar height percentage from UI.
-const URIBAR_HEIGHT_PERCENTAGE: f64 = 0.75;
+const URIBAR_HEIGHT_PERCENTAGE: f64 = 0.60;
 
 /// URI bar text color.
 const URIBAR_FG: [f64; 3] = [1., 1., 1.];
@@ -34,6 +36,21 @@ const URIBAR_BG: [f64; 3] = [0.15, 0.15, 0.15];
 
 /// URI bar padding to left window edge.
 const URIBAR_X_PADDING: f64 = 10.;
+
+#[funq::callbacks(State)]
+trait UiHandler {
+    fn load_uri(&mut self, window: WindowId, uri: String);
+}
+
+impl UiHandler for State {
+    fn load_uri(&mut self, window_id: WindowId, uri: String) {
+        if let Some(window) = self.windows.get(&window_id) {
+            if let Some(engine) = self.engines.get(&window.active_tab()) {
+                engine.load_uri(&uri);
+            }
+        }
+    }
+}
 
 pub struct Ui {
     renderer: Option<Renderer>,
@@ -48,19 +65,27 @@ pub struct Ui {
     separator: Separator,
     uribar: Uribar,
 
+    keyboard_focus: Option<KeyboardInputElement>,
+
     dirty: bool,
 }
 
 impl Ui {
-    pub fn new((subsurface, surface): (WlSubsurface, WlSurface), viewport: WpViewport) -> Self {
+    pub fn new(
+        window: WindowId,
+        queue: MtQueueHandle<State>,
+        (subsurface, surface): (WlSubsurface, WlSurface),
+        viewport: WpViewport,
+    ) -> Self {
         Self {
             subsurface,
             viewport,
             surface,
+            uribar: Uribar::new(window, queue),
             scale: 1.0,
+            keyboard_focus: Default::default(),
             separator: Default::default(),
             renderer: Default::default(),
-            uribar: Default::default(),
             dirty: Default::default(),
             size: Default::default(),
         }
@@ -103,10 +128,7 @@ impl Ui {
     /// Render current UI state.
     ///
     /// Returns `true` if rendering was performed.
-    pub fn draw(&mut self, engine: &dyn Engine) -> bool {
-        // Ensure URI is up to date.
-        self.uribar.set_uri(engine.uri());
-
+    pub fn draw(&mut self) -> bool {
         // Abort early if UI is up to date.
         let dirty = self.dirty();
         let renderer = match &self.renderer {
@@ -145,6 +167,11 @@ impl Ui {
         true
     }
 
+    /// Check if the keyboard focus is on a UI input element.
+    pub fn has_keyboard_focus(&self) -> bool {
+        self.keyboard_focus.is_some()
+    }
+
     /// Check whether a surface is owned by this UI.
     pub fn owns_surface(&self, surface: &WlSurface) -> bool {
         &self.surface == surface
@@ -163,14 +190,38 @@ impl Ui {
 
     /// Handle pointer button events.
     pub fn pointer_button(
-        &self,
+        &mut self,
         _time: u32,
-        _position: Position<f64>,
+        position: Position<f64>,
         _button: u32,
         _state: u32,
         _modifiers: Modifiers,
     ) {
+        // Convert position to physical space.
+        let position = position * self.scale;
+
+        // Forward URI input clicks.
+        let uribar_position: Position<f64> = self.uribar_position(self.uribar.size).into();
+        let uribar_size: Size<f64> = (self.uribar.size * self.scale).into();
+        let uri_x_range = uribar_position.x..uribar_position.x + uribar_size.width;
+        let uri_y_range = uribar_position.y..uribar_position.y + uribar_size.height;
+        if uri_x_range.contains(&position.x) && uri_y_range.contains(&position.y) {
+            self.keyboard_focus = Some(KeyboardInputElement::UriBar);
+            return;
+        }
+
+        self.keyboard_focus = None;
     }
+
+    /// Handle new key press.
+    pub fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
+        if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
+            self.uribar.text_input.press_key(raw, keysym, modifiers)
+        }
+    }
+
+    /// Handle key release.
+    pub fn release_key(&self, _raw: u32, _keysym: Keysym, _modifiers: Modifiers) {}
 
     /// Handle pointer motion events.
     pub fn pointer_motion(&self, _time: u32, _position: Position<f64>, _modifiers: Modifiers) {}
@@ -198,8 +249,13 @@ impl Ui {
     ) {
     }
 
+    /// Update the URI bar's content.
+    pub fn set_uri(&mut self, uri: &str) {
+        self.uribar.set_uri(uri);
+    }
+
     /// Check whether UI needs redraw.
-    fn dirty(&self) -> bool {
+    pub fn dirty(&self) -> bool {
         self.dirty || self.uribar.dirty()
     }
 
@@ -222,19 +278,18 @@ impl Ui {
 /// URI input UI.
 struct Uribar {
     texture: Option<Texture>,
-    uri: String,
+    text_input: TextInput,
     size: Size,
     scale: f64,
 }
 
 impl Uribar {
-    fn new() -> Self {
-        Self {
-            scale: 1.,
-            texture: Default::default(),
-            size: Default::default(),
-            uri: Default::default(),
-        }
+    fn new(window: WindowId, mut queue: MtQueueHandle<State>) -> Self {
+        // Setup text input with submission handling.
+        let mut text_input = TextInput::new();
+        text_input.set_submit_handler(Box::new(move |uri| queue.load_uri(window, uri)));
+
+        Self { text_input, scale: 1., texture: Default::default(), size: Default::default() }
     }
 
     /// Update the output texture size.
@@ -254,11 +309,11 @@ impl Uribar {
     }
 
     /// Update the URI bar's content.
-    fn set_uri(&mut self, uri: String) {
-        if uri == self.uri {
+    fn set_uri(&mut self, uri: &str) {
+        if uri == self.text_input.text() {
             return;
         }
-        self.uri = uri;
+        self.text_input.set_text(uri);
 
         // Force redraw.
         self.texture = None;
@@ -266,14 +321,15 @@ impl Uribar {
 
     /// Check if URI bar needs redraw.
     fn dirty(&self) -> bool {
-        self.texture.is_none()
+        self.texture.is_none() || self.text_input.dirty
     }
 
     /// Get the OpenGL texture.
     fn texture(&mut self) -> &Texture {
         // Ensure texture is up to date.
-        if self.texture.is_none() {
+        if self.texture.is_none() || self.text_input.dirty {
             self.texture = Some(self.draw());
+            self.text_input.dirty = false;
         }
 
         self.texture.as_ref().unwrap()
@@ -289,22 +345,23 @@ impl Uribar {
 
     /// Draw the URI bar into an OpenGL texture.
     fn draw(&self) -> Texture {
+        // Draw background color.
         let physical_size = self.size * self.scale;
         let builder = TextureBuilder::new(physical_size.into(), self.scale);
         builder.clear(URIBAR_BG);
 
+        // Draw URI text.
         let position = Position::new(URIBAR_X_PADDING * self.scale, 0.);
         let width = physical_size.width - 2 * position.x.round() as u32;
         let size = Size::new(width, physical_size.height);
-        builder.rasterize(&self.uri, URIBAR_FG, position, size.into());
+        let mut text_options = TextOptions::new();
+        text_options.position(position);
+        text_options.size(size.into());
+        text_options.text_color(URIBAR_FG);
+        text_options.show_cursor(self.text_input.cursor_index());
+        builder.rasterize(self.text_input.layout(), text_options);
 
         builder.build()
-    }
-}
-
-impl Default for Uribar {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -322,5 +379,150 @@ impl Separator {
         }
 
         self.texture.as_ref().unwrap()
+    }
+}
+
+/// Elements accepting keyboard focus.
+enum KeyboardInputElement {
+    UriBar,
+}
+
+/// Text input field.
+struct TextInput {
+    submit_handler: Box<dyn FnMut(String)>,
+    layout: Layout,
+    cursor_index: i32,
+    cursor_offset: i32,
+    dirty: bool,
+}
+
+impl TextInput {
+    fn new() -> Self {
+        // Create pango layout.
+        let image_surface = ImageSurface::create(Format::ARgb32, 0, 0).unwrap();
+        let context = Context::new(&image_surface).unwrap();
+        let layout = pangocairo::functions::create_layout(&context);
+
+        Self {
+            layout,
+            submit_handler: Box::new(|_| {}),
+            cursor_offset: Default::default(),
+            cursor_index: Default::default(),
+            dirty: Default::default(),
+        }
+    }
+
+    /// Update return key handler.
+    fn set_submit_handler(&mut self, handler: Box<dyn FnMut(String)>) {
+        self.submit_handler = handler;
+    }
+
+    /// Update the field's text.
+    ///
+    /// This automatically positions the cursor at the end of the text.
+    fn set_text(&mut self, text: &str) {
+        self.layout.set_text(text);
+
+        // Move cursor to the beginning.
+        if text.is_empty() {
+            self.cursor_index = 0;
+            self.cursor_offset = 0;
+        } else {
+            self.cursor_index = text.len() as i32 - 1;
+            self.cursor_offset = 1;
+        }
+
+        self.dirty = true;
+    }
+
+    /// Get current text content.
+    fn text(&self) -> String {
+        self.layout.text().to_string()
+    }
+
+    /// Get underlying pango layout.
+    fn layout(&self) -> &Layout {
+        &self.layout
+    }
+
+    /// Handle new key press.
+    pub fn press_key(&mut self, _raw: u32, keysym: Keysym, modifiers: Modifiers) {
+        // Ignore input with logo/alt key held.
+        if modifiers.logo || modifiers.alt {
+            return;
+        }
+
+        match (keysym, modifiers.shift, modifiers.ctrl) {
+            (Keysym::Left, false, false) => {
+                self.move_cursor(-1);
+                self.dirty = true;
+            },
+            (Keysym::Right, false, false) => {
+                self.move_cursor(1);
+                self.dirty = true;
+            },
+            (Keysym::BackSpace, false, false) => {
+                // Find byte index of character after the cursor.
+                let end_index = self.cursor_index();
+
+                // Find byte index of character before the cursor and update the cursor.
+                self.move_cursor(-1);
+                let start_index = self.cursor_index();
+
+                // Remove all bytes in the range from the text.
+                let mut text = self.text();
+                for index in (start_index..end_index).rev() {
+                    text.remove(index as usize);
+                }
+                self.set_text(&text);
+
+                self.dirty = true;
+            },
+            (Keysym::Return, false, false) => {
+                let text = self.text();
+                (self.submit_handler)(text);
+            },
+            (keysym, _, false) => {
+                if let Some(key_char) = keysym.key_char() {
+                    // Add character to text.
+                    let index = self.cursor_index() as usize;
+                    let mut text = self.text();
+                    text.insert(index, key_char);
+                    self.set_text(&text);
+
+                    // Move cursor behind the new character.
+                    self.move_cursor(1);
+
+                    self.dirty = true;
+                }
+            },
+            _ => (),
+        }
+    }
+
+    /// Move the text input cursor.
+    fn move_cursor(&mut self, positions: i32) {
+        let (cursor, offset) = self.layout.move_cursor_visually(
+            true,
+            self.cursor_index,
+            self.cursor_offset,
+            positions,
+        );
+
+        if (0..i32::MAX).contains(&cursor) {
+            self.cursor_index = cursor;
+            self.cursor_offset = offset;
+        }
+    }
+
+    /// Get current cursor's byte offset.
+    fn cursor_index(&self) -> i32 {
+        self.cursor_index + self.cursor_offset
+    }
+}
+
+impl Default for TextInput {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io;
-use std::ops::Mul;
+use std::ops::{Mul, Sub};
 use std::os::fd::{AsFd, AsRawFd};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
@@ -145,7 +145,13 @@ impl State {
     /// Create a new browser window.
     fn create_window(&mut self) -> Result<(), WebKitError> {
         // Setup new window.
-        let mut window = Window::new(&self.protocol_states, &self.wayland_queue());
+        let connection = self.connection.clone();
+        let mut window = Window::new(
+            &self.protocol_states,
+            connection,
+            self.queue.handle(),
+            self.wayland_queue(),
+        );
 
         // Add initial tab.
         let engine_id = self.create_engine(window.id)?;
@@ -181,6 +187,8 @@ struct Window {
     tabs: Vec<EngineId>,
     active_tab: usize,
 
+    wayland_queue: QueueHandle<State>,
+    connection: Connection,
     xdg: XdgWindow,
     viewport: WpViewport,
     scale: f64,
@@ -188,29 +196,37 @@ struct Window {
     stalled: bool,
 
     ui: Ui,
+    ui_keyboard_focus: bool,
 
     // Touch point position tracking.
     touch_points: HashMap<i32, Position<f64>>,
 }
 
 impl Window {
-    fn new(protocol_states: &ProtocolStates, queue: &QueueHandle<State>) -> Self {
-        let surface = protocol_states.compositor.create_surface(queue);
+    fn new(
+        protocol_states: &ProtocolStates,
+        connection: Connection,
+        queue: MtQueueHandle<State>,
+        wayland_queue: QueueHandle<State>,
+    ) -> Self {
+        let surface = protocol_states.compositor.create_surface(&wayland_queue);
 
         // Enable fractional scaling.
-        protocol_states.fractional_scale.fractional_scaling(queue, &surface);
+        protocol_states.fractional_scale.fractional_scaling(&wayland_queue, &surface);
 
         // Enable viewporter for the browser surface.
-        let viewport = protocol_states.viewporter.viewport(queue, &surface);
+        let viewport = protocol_states.viewporter.viewport(&wayland_queue, &surface);
 
         // Create UI renderer.
-        let ui_surface = protocol_states.subcompositor.create_subsurface(surface.clone(), queue);
-        let ui_viewport = protocol_states.viewporter.viewport(queue, &ui_surface.1);
-        let ui = Ui::new(ui_surface, ui_viewport);
+        let id = WindowId::new();
+        let ui_surface =
+            protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
+        let ui_viewport = protocol_states.viewporter.viewport(&wayland_queue, &ui_surface.1);
+        let ui = Ui::new(id, queue, ui_surface, ui_viewport);
 
         // Create XDG window.
         let decorations = WindowDecorations::RequestServer;
-        let xdg = protocol_states.xdg_shell.create_window(surface, decorations, queue);
+        let xdg = protocol_states.xdg_shell.create_window(surface, decorations, &wayland_queue);
         xdg.set_title("Kumo");
         xdg.set_app_id("Kumo");
         xdg.commit();
@@ -218,13 +234,16 @@ impl Window {
         let size = Size::new(DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
         Self {
+            wayland_queue,
+            connection,
             viewport,
             size,
             xdg,
             ui,
-            id: WindowId::new(),
+            id,
             stalled: true,
             scale: 1.,
+            ui_keyboard_focus: Default::default(),
             touch_points: Default::default(),
             active_tab: Default::default(),
             tabs: Default::default(),
@@ -237,11 +256,7 @@ impl Window {
     }
 
     /// Redraw the window.
-    fn draw(
-        &mut self,
-        wayland_queue: &QueueHandle<State>,
-        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
-    ) {
+    fn draw(&mut self, engines: &mut HashMap<EngineId, Box<dyn Engine>>) {
         // Ignore rendering until engine has a buffer.
         //
         // This automatically ensures we keep trying to redraw until the first commit
@@ -270,12 +285,12 @@ impl Window {
         }
 
         // Attach new UI buffers.
-        let ui_rendered = self.ui.draw(engine.as_ref());
+        let ui_rendered = self.ui.draw();
         self.stalled &= !ui_rendered;
 
         // Request a new frame if this frame was dirty.
         if !self.stalled {
-            surface.frame(wayland_queue, surface.clone());
+            surface.frame(&self.wayland_queue, surface.clone());
         }
 
         // Submit the new frame.
@@ -286,21 +301,15 @@ impl Window {
     ///
     /// This will render a new frame if there currently is no frame request
     /// pending.
-    fn unstall(
-        &mut self,
-        connection: &Connection,
-        wayland_queue: &QueueHandle<State>,
-        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
-        engine_id: EngineId,
-    ) {
+    fn unstall(&mut self, engines: &mut HashMap<EngineId, Box<dyn Engine>>) {
         // Ignore if unstalled or request came from background engine.
-        if !self.stalled || self.active_tab() != engine_id {
+        if !self.stalled {
             return;
         }
 
         // Redraw immediately to unstall rendering.
-        self.draw(wayland_queue, engines);
-        let _ = connection.flush();
+        self.draw(engines);
+        let _ = self.connection.flush();
     }
 
     /// Update surface size.
@@ -349,41 +358,64 @@ impl Window {
 
         // Resize UI.
         self.ui.set_scale(scale);
+
+        // NOTE: We wait for engine's frame, rather than explicit unstall here.
     }
 
     /// Handle new key press.
     fn press_key(
-        &self,
+        &mut self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
         raw: u32,
         keysym: Keysym,
         modifiers: Modifiers,
     ) {
-        let engine = match engines.get_mut(&self.active_tab()) {
-            Some(engine) => engine,
-            None => return,
-        };
-        engine.press_key(raw, keysym, modifiers);
+        if self.ui_keyboard_focus && self.ui.has_keyboard_focus() {
+            // Handle keyboard event in UI.
+            self.ui.press_key(raw, keysym, modifiers);
+
+            // Unstall if UI changed.
+            if self.ui.dirty() {
+                self.unstall(engines);
+            }
+        } else {
+            // Forward keyboard event to browser engine.
+            let engine = match engines.get_mut(&self.active_tab()) {
+                Some(engine) => engine,
+                None => return,
+            };
+            engine.press_key(raw, keysym, modifiers);
+        }
     }
 
-    /// Handle new key release.
+    /// Handle key release.
     fn release_key(
-        &self,
+        &mut self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
         raw: u32,
         keysym: Keysym,
         modifiers: Modifiers,
     ) {
-        // Forward keyboard event to browser engine.
-        if let Some(engine) = engines.get_mut(&self.active_tab()) {
-            engine.release_key(raw, keysym, modifiers);
+        if self.ui_keyboard_focus && self.ui.has_keyboard_focus() {
+            // Forward event to UI.
+            self.ui.release_key(raw, keysym, modifiers);
+
+            // Unstall if UI changed.
+            if self.ui.dirty() {
+                self.unstall(engines);
+            }
+        } else {
+            // Forward keyboard event to browser engine.
+            if let Some(engine) = engines.get_mut(&self.active_tab()) {
+                engine.release_key(raw, keysym, modifiers);
+            }
         }
     }
 
     /// Handle scroll axis events.
     #[allow(clippy::too_many_arguments)]
     fn pointer_axis(
-        &self,
+        &mut self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
         surface: &WlSurface,
         time: u32,
@@ -398,14 +430,20 @@ impl Window {
                 engine.pointer_axis(time, position, horizontal, vertical, modifiers);
             }
         } else {
+            // Forward event to UI.
             self.ui.pointer_axis(time, position, horizontal, vertical, modifiers);
+
+            // Unstall if UI changed.
+            if self.ui.dirty() {
+                self.unstall(engines);
+            }
         }
     }
 
     /// Handle pointer button events.
     #[allow(clippy::too_many_arguments)]
     fn pointer_button(
-        &self,
+        &mut self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
         surface: &WlSurface,
         time: u32,
@@ -414,19 +452,26 @@ impl Window {
         state: u32,
         modifiers: Modifiers,
     ) {
-        if self.xdg.wl_surface() == surface {
+        self.ui_keyboard_focus = self.xdg.wl_surface() != surface;
+        if self.ui_keyboard_focus {
+            // Forward event to UI.
+            self.ui.pointer_button(time, position, button, state, modifiers);
+
+            // Unstall if UI changed.
+            if self.ui.dirty() {
+                self.unstall(engines);
+            }
+        } else {
             // Forward event to browser engine.
             if let Some(engine) = engines.get_mut(&self.active_tab()) {
                 engine.pointer_button(time, position, button, state, modifiers);
             }
-        } else {
-            self.ui.pointer_button(time, position, button, state, modifiers);
         }
     }
 
     /// Handle pointer motion events.
     fn pointer_motion(
-        &self,
+        &mut self,
         engines: &mut HashMap<EngineId, Box<dyn Engine>>,
         surface: &WlSurface,
         time: u32,
@@ -439,7 +484,13 @@ impl Window {
                 engine.pointer_motion(time, position, modifiers);
             }
         } else {
+            // Forward event to UI.
             self.ui.pointer_motion(time, position, modifiers);
+
+            // Unstall if UI changed.
+            if self.ui.dirty() {
+                self.unstall(engines);
+            }
         }
     }
 
@@ -456,13 +507,18 @@ impl Window {
     ) {
         self.touch_points.insert(id, position);
 
-        if self.xdg.wl_surface() == surface {
-            // Forward event to browser engine.
-            if let Some(engine) = engines.get_mut(&self.active_tab()) {
-                engine.touch_down(&self.touch_points, time, id, modifiers);
-            }
-        } else {
+        self.ui_keyboard_focus = self.xdg.wl_surface() != surface;
+        if self.ui_keyboard_focus {
+            // Forward event to UI.
             self.ui.touch_down(time, id, position, modifiers);
+
+            // Unstall if UI changed.
+            if self.ui.dirty() {
+                self.unstall(engines);
+            }
+        } else if let Some(engine) = engines.get_mut(&self.active_tab()) {
+            // Forward event to browser engine.
+            engine.touch_down(&self.touch_points, time, id, modifiers);
         }
     }
 
@@ -482,6 +538,11 @@ impl Window {
             }
         } else {
             self.ui.touch_up(time, id, modifiers);
+
+            // Unstall if UI changed.
+            if self.ui.dirty() {
+                self.unstall(engines);
+            }
         }
 
         // Remove touch point from all future events.
@@ -507,6 +568,32 @@ impl Window {
             }
         } else {
             self.ui.touch_motion(time, id, position, modifiers);
+
+            // Unstall if UI changed.
+            if self.ui.dirty() {
+                self.unstall(engines);
+            }
+        }
+    }
+
+    /// Update the URI displayed by the UI.
+    fn set_display_uri(
+        &mut self,
+        engines: &mut HashMap<EngineId, Box<dyn Engine>>,
+        engine_id: EngineId,
+        uri: &str,
+    ) {
+        // Ignore URI change for background engines.
+        if engine_id != self.active_tab() {
+            return;
+        }
+
+        // Update the URI.
+        self.ui.set_uri(uri);
+
+        // Unstall if UI changed.
+        if self.ui.dirty() {
+            self.unstall(engines);
         }
     }
 
@@ -636,6 +723,12 @@ impl<T> From<(T, T)> for Position<T> {
     }
 }
 
+impl From<Position> for Position<f64> {
+    fn from(position: Position) -> Self {
+        Self { x: position.x as f64, y: position.y as f64 }
+    }
+}
+
 impl From<Position> for Position<f32> {
     fn from(position: Position) -> Self {
         Self { x: position.x as f32, y: position.y as f32 }
@@ -648,6 +741,26 @@ impl Mul<f64> for Position {
     fn mul(mut self, scale: f64) -> Self {
         self.x = (self.x as f64 * scale) as i32;
         self.y = (self.y as f64 * scale) as i32;
+        self
+    }
+}
+
+impl Mul<f64> for Position<f64> {
+    type Output = Self;
+
+    fn mul(mut self, scale: f64) -> Self {
+        self.x *= scale;
+        self.y *= scale;
+        self
+    }
+}
+
+impl Sub<Position<f64>> for Position<f64> {
+    type Output = Self;
+
+    fn sub(mut self, rhs: Position<f64>) -> Self {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
         self
     }
 }
@@ -680,6 +793,12 @@ impl From<Size<i32>> for Size<f32> {
 impl From<Size> for Size<i32> {
     fn from(size: Size) -> Self {
         Self { width: size.width as i32, height: size.height as i32 }
+    }
+}
+
+impl From<Size> for Size<f64> {
+    fn from(size: Size) -> Self {
+        Self { width: size.width as f64, height: size.height as f64 }
     }
 }
 

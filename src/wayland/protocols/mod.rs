@@ -93,13 +93,13 @@ impl CompositorHandler for State {
     fn frame(
         &mut self,
         _connection: &Connection,
-        queue: &QueueHandle<Self>,
+        _queue: &QueueHandle<Self>,
         surface: &WlSurface,
         _serial: u32,
     ) {
         let window = self.windows.values_mut().find(|window| window.owns_surface(surface));
         if let Some(window) = window {
-            window.draw(queue, &mut self.engines);
+            window.draw(&mut self.engines);
         }
     }
 }
@@ -269,7 +269,7 @@ impl KeyboardHandler for State {
         keyboard_state.press_key(event.raw_code, event.keysym);
 
         // Update pressed keys.
-        let window = match self.keyboard_focus.and_then(|focus| self.windows.get(&focus)) {
+        let window = match self.keyboard_focus.and_then(|focus| self.windows.get_mut(&focus)) {
             Some(focus) => focus,
             None => return,
         };
@@ -291,7 +291,7 @@ impl KeyboardHandler for State {
         keyboard_state.release_key(event.raw_code);
 
         // Update pressed keys.
-        let window = match self.keyboard_focus.and_then(|focus| self.windows.get(&focus)) {
+        let window = match self.keyboard_focus.and_then(|focus| self.windows.get_mut(&focus)) {
             Some(focus) => focus,
             None => return,
         };
@@ -355,7 +355,7 @@ impl KeyRepeat for State {
         keyboard_state.current_repeat.take();
 
         // Update pressed keys.
-        if let Some(window) = self.keyboard_focus.and_then(|focus| self.windows.get(&focus)) {
+        if let Some(window) = self.keyboard_focus.and_then(|focus| self.windows.get_mut(&focus)) {
             window.press_key(&mut self.engines, raw, keysym, modifiers);
         }
 
@@ -478,7 +478,7 @@ impl PointerHandler for State {
     ) {
         for event in events {
             // Find target window.
-            let mut windows = self.windows.values();
+            let mut windows = self.windows.values_mut();
             let window = match windows.find(|window| window.owns_surface(&event.surface)) {
                 Some(window) => window,
                 None => continue,

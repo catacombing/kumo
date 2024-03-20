@@ -26,9 +26,6 @@ pub trait Engine {
     /// Update the browser engine's scale.
     fn set_scale(&mut self, scale: f64);
 
-    /// Get the current URI.
-    fn uri(&self) -> String;
-
     /// Handle key down.
     fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers);
 

@@ -61,8 +61,8 @@ trait WebKitHandler {
     /// Update the engine's underlying EGL image.
     fn set_egl_image(&mut self, engine_id: EngineId, image: *mut wpe_fdo_egl_exported_image);
 
-    /// Unstall the renderer for this engine.
-    fn unstall(&mut self, engine_id: EngineId);
+    /// Update the engine's URI.
+    fn set_display_uri(&mut self, engine_id: EngineId, uri: String);
 }
 
 impl WebKitHandler for State {
@@ -100,15 +100,20 @@ impl WebKitHandler for State {
         webkit_engine.import_image(&self.connection, &self.egl_display, image);
 
         // Offer new WlBuffer to window.
-        WebKitHandler::unstall(self, engine_id);
+        let window_id = engine_id.window_id();
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            if window.active_tab() == engine_id {
+                window.unstall(&mut self.engines);
+            }
+        }
     }
 
-    fn unstall(&mut self, engine_id: EngineId) {
-        let wayland_queue = self.wayland_queue();
+    /// Update the engine's URI.
+    fn set_display_uri(&mut self, engine_id: EngineId, uri: String) {
         let window_id = engine_id.window_id();
 
         if let Some(window) = self.windows.get_mut(&window_id) {
-            window.unstall(&self.connection, &wayland_queue, &mut self.engines, engine_id);
+            window.set_display_uri(&mut self.engines, engine_id, &uri);
         }
     }
 }
@@ -175,7 +180,10 @@ impl WebKitEngine {
         web_view.load_uri("about:blank");
 
         // Notify UI about URI updates.
-        web_view.connect_uri_notify(move |_| queue.clone().unstall(engine_id));
+        web_view.connect_uri_notify(move |web_view| {
+            let uri = web_view.uri().unwrap_or_default().to_string();
+            queue.clone().set_display_uri(engine_id, uri);
+        });
 
         Ok(Self {
             exportable,
@@ -302,10 +310,6 @@ impl Engine for WebKitEngine {
             let wpe_backend = self.backend.wpe_backend();
             wpe_view_backend_dispatch_set_device_scale_factor(wpe_backend, self.scale);
         }
-    }
-
-    fn uri(&self) -> String {
-        self.web_view.uri().unwrap_or_default().to_string()
     }
 
     fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {

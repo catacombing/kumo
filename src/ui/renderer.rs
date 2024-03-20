@@ -10,7 +10,7 @@ use glutin::display::Display;
 use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, SwapInterval, WindowSurface};
 use pangocairo::cairo::{Context, Format, ImageSurface};
-use pangocairo::pango::{Alignment, EllipsizeMode, FontDescription};
+use pangocairo::pango::{Alignment, EllipsizeMode, FontDescription, Layout};
 use raw_window_handle::{RawWindowHandle, WaylandWindowHandle};
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::Proxy;
@@ -301,21 +301,23 @@ impl TextureBuilder {
     }
 
     /// Draw text within the specified bounds.
-    pub fn rasterize(
-        &self,
-        text: &str,
-        color: [f64; 3],
-        position: Position<f64>,
-        mut size: Size<i32>,
-    ) {
-        let layout = pangocairo::functions::create_layout(&self.context);
+    pub fn rasterize(&self, layout: &Layout, text_options: TextOptions) {
         layout.set_font_description(Some(&self.font));
 
-        layout.set_text(text);
-
         // Limit text size to builder limits.
-        size.width = cmp::min(size.width, self.size.width - position.x.round() as i32);
-        size.height = cmp::min(size.height, self.size.height - position.y.round() as i32);
+        let position = text_options.position;
+        let size = match text_options.size {
+            Some(mut size) => {
+                size.width = cmp::min(size.width, self.size.width - position.x.round() as i32);
+                size.height = cmp::min(size.height, self.size.height - position.y.round() as i32);
+                size
+            },
+            None => {
+                let width = self.size.width - position.x.round() as i32;
+                let height = self.size.height - position.y.round() as i32;
+                Size::new(width, height)
+            },
+        };
 
         // Truncate text beyond specified bounds.
         layout.set_width(size.width * pangocairo::pango::SCALE);
@@ -328,8 +330,25 @@ impl TextureBuilder {
         let y = position.y + size.height as f64 / 2. - text_height as f64 / 2.;
         self.context.move_to(position.x, y);
 
+        // Set foreground color.
+        let color = text_options.text_color;
         self.context.set_source_rgb(color[0], color[1], color[2]);
-        pangocairo::functions::show_layout(&self.context, &layout);
+
+        pangocairo::functions::show_layout(&self.context, layout);
+
+        // Draw text input cursor.
+        if (0..i32::MAX).contains(&text_options.cursor_pos) {
+            // Get cursor rect and convert it from pango coordinates.
+            let (cursor_rect, _) = layout.cursor_pos(text_options.cursor_pos);
+            let cursor_x = position.x + cursor_rect.x() as f64 / pangocairo::pango::SCALE as f64;
+            let cursor_y = y + cursor_rect.y() as f64 / pangocairo::pango::SCALE as f64;
+            let cursor_height = cursor_rect.height() as f64 / pangocairo::pango::SCALE as f64;
+
+            // Draw cursor line.
+            self.context.move_to(cursor_x, cursor_y);
+            self.context.line_to(cursor_x, cursor_y + cursor_height);
+            self.context.stroke_preserve().unwrap();
+        }
     }
 
     /// Finalize the output texture.
@@ -340,5 +359,50 @@ impl TextureBuilder {
         let height = self.image_surface.height() as usize;
         let data = self.image_surface.take_data().unwrap();
         Texture::new(&data, width, height)
+    }
+}
+
+/// Options for text rendering.
+pub struct TextOptions {
+    text_color: [f64; 3],
+    position: Position<f64>,
+    size: Option<Size<i32>>,
+    cursor_pos: i32,
+}
+
+impl TextOptions {
+    pub fn new() -> Self {
+        Self {
+            text_color: [1.; 3],
+            cursor_pos: -1,
+            position: Default::default(),
+            size: Default::default(),
+        }
+    }
+
+    /// Set text color.
+    pub fn text_color(&mut self, color: [f64; 3]) {
+        self.text_color = color;
+    }
+
+    /// Set text position.
+    pub fn position(&mut self, position: Position<f64>) {
+        self.position = position;
+    }
+
+    /// Set text size.
+    pub fn size(&mut self, size: Size<i32>) {
+        self.size = Some(size);
+    }
+
+    /// Show text input cursor.
+    pub fn show_cursor(&mut self, pos: i32) {
+        self.cursor_pos = pos;
+    }
+}
+
+impl Default for TextOptions {
+    fn default() -> Self {
+        Self::new()
     }
 }

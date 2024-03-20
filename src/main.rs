@@ -6,8 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use funq::{MtQueueHandle, Queue, StQueueHandle};
-use glib::source::SourceId;
-use glib::{source, ControlFlow, IOCondition, MainLoop};
+use glib::{source, ControlFlow, IOCondition, MainLoop, Priority, Source};
 use glutin::display::{Display, DisplayApiPreference};
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
 use smithay_client_toolkit::reexports::client::globals::{self, GlobalError};
@@ -615,7 +614,7 @@ pub struct KeyboardState {
     modifiers: Modifiers,
 
     queue: MtQueueHandle<State>,
-    current_repeat: Option<(SourceId, u32, Keysym)>,
+    current_repeat: Option<(Source, u32, Keysym)>,
 }
 
 impl Drop for KeyboardState {
@@ -668,15 +667,19 @@ impl KeyboardState {
         } else {
             Duration::from_millis(1000 / rate.get() as u64)
         };
-        let source_id = source::timeout_add_once(delay, move || queue.repeat_key());
+        let source = source::timeout_source_new(delay, None, Priority::DEFAULT, move || {
+            queue.repeat_key();
+            ControlFlow::Break
+        });
+        source.attach(None);
 
-        self.current_repeat = Some((source_id, raw, keysym));
+        self.current_repeat = Some((source, raw, keysym));
     }
 
     /// Cancel currently staged key repetition.
     fn cancel_repeat(&mut self) {
-        if let Some((source_id, ..)) = self.current_repeat.take() {
-            source_id.remove();
+        if let Some((source, ..)) = self.current_repeat.take() {
+            source.destroy();
         }
     }
 

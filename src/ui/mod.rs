@@ -77,13 +77,18 @@ impl Ui {
         (subsurface, surface): (WlSubsurface, WlSurface),
         viewport: WpViewport,
     ) -> Self {
+        // Focus URI bar on window creation.
+        let keyboard_focus = Some(KeyboardInputElement::UriBar);
+        let mut uribar = Uribar::new(window, queue);
+        uribar.set_focused(true);
+
         Self {
+            keyboard_focus,
             subsurface,
             viewport,
             surface,
-            uribar: Uribar::new(window, queue),
+            uribar,
             scale: 1.0,
-            keyboard_focus: Default::default(),
             separator: Default::default(),
             renderer: Default::default(),
             dirty: Default::default(),
@@ -207,10 +212,11 @@ impl Ui {
         let uri_y_range = uribar_position.y..uribar_position.y + uribar_size.height;
         if uri_x_range.contains(&position.x) && uri_y_range.contains(&position.y) {
             self.keyboard_focus = Some(KeyboardInputElement::UriBar);
+            self.uribar.set_focused(true);
             return;
         }
 
-        self.keyboard_focus = None;
+        self.clear_focus();
     }
 
     /// Handle new key press.
@@ -254,6 +260,12 @@ impl Ui {
         self.uribar.set_uri(uri);
     }
 
+    /// Clear UI keyboard focus.
+    pub fn clear_focus(&mut self) {
+        self.uribar.set_focused(false);
+        self.keyboard_focus = None;
+    }
+
     /// Check whether UI needs redraw.
     pub fn dirty(&self) -> bool {
         self.dirty || self.uribar.dirty()
@@ -279,6 +291,7 @@ impl Ui {
 struct Uribar {
     texture: Option<Texture>,
     text_input: TextInput,
+    focused: bool,
     size: Size,
     scale: f64,
 }
@@ -289,7 +302,13 @@ impl Uribar {
         let mut text_input = TextInput::new();
         text_input.set_submit_handler(Box::new(move |uri| queue.load_uri(window, uri)));
 
-        Self { text_input, scale: 1., texture: Default::default(), size: Default::default() }
+        Self {
+            text_input,
+            scale: 1.,
+            focused: Default::default(),
+            texture: Default::default(),
+            size: Default::default(),
+        }
     }
 
     /// Update the output texture size.
@@ -317,6 +336,12 @@ impl Uribar {
 
         // Force redraw.
         self.texture = None;
+    }
+
+    /// Set URI bar input focus.
+    fn set_focused(&mut self, focused: bool) {
+        self.text_input.dirty |= self.focused != focused;
+        self.focused = focused;
     }
 
     /// Check if URI bar needs redraw.
@@ -350,7 +375,7 @@ impl Uribar {
         let builder = TextureBuilder::new(physical_size.into(), self.scale);
         builder.clear(URIBAR_BG);
 
-        // Draw URI text.
+        // Set text rendering options.
         let position = Position::new(URIBAR_X_PADDING * self.scale, 0.);
         let width = physical_size.width - 2 * position.x.round() as u32;
         let size = Size::new(width, physical_size.height);
@@ -358,9 +383,16 @@ impl Uribar {
         text_options.position(position);
         text_options.size(size.into());
         text_options.text_color(URIBAR_FG);
-        text_options.show_cursor(self.text_input.cursor_index());
+
+        // Show cursor when focused.
+        if self.focused {
+            text_options.show_cursor(self.text_input.cursor_index());
+        }
+
+        // Draw URI bar.
         builder.rasterize(self.text_input.layout(), text_options);
 
+        // Convert cairo buffer to texture.
         builder.build()
     }
 }

@@ -64,12 +64,6 @@ fn main() -> Result<(), Error> {
     // Create our initial window.
     state.create_window()?;
 
-    // TODO: Temporary testing uri input.
-    let uri = std::env::args().nth(1).expect("USAGE: kumo <URI>");
-    for engine in state.engines.values() {
-        engine.load_uri(&uri);
-    }
-
     // Register Wayland socket with GLib event loop.
     let mut queue_handle = queue.handle();
     let wayland_fd = state.connection.as_fd().as_raw_fd();
@@ -240,9 +234,9 @@ impl Window {
             xdg,
             ui,
             id,
+            ui_keyboard_focus: true,
             stalled: true,
             scale: 1.,
-            ui_keyboard_focus: Default::default(),
             touch_points: Default::default(),
             active_tab: Default::default(),
             tabs: Default::default(),
@@ -455,16 +449,19 @@ impl Window {
         if self.ui_keyboard_focus {
             // Forward event to UI.
             self.ui.pointer_button(time, position, button, state, modifiers);
-
-            // Unstall if UI changed.
-            if self.ui.dirty() {
-                self.unstall(engines);
-            }
         } else {
+            // Clear UI keyboard focus.
+            self.ui.clear_focus();
+
             // Forward event to browser engine.
             if let Some(engine) = engines.get_mut(&self.active_tab()) {
                 engine.pointer_button(time, position, button, state, modifiers);
             }
+        }
+
+        // Unstall if UI changed.
+        if self.ui.dirty() {
+            self.unstall(engines);
         }
     }
 
@@ -510,14 +507,17 @@ impl Window {
         if self.ui_keyboard_focus {
             // Forward event to UI.
             self.ui.touch_down(time, id, position, modifiers);
-
-            // Unstall if UI changed.
-            if self.ui.dirty() {
-                self.unstall(engines);
-            }
         } else if let Some(engine) = engines.get_mut(&self.active_tab()) {
+            // Clear UI keyboard focus.
+            self.ui.clear_focus();
+
             // Forward event to browser engine.
             engine.touch_down(&self.touch_points, time, id, modifiers);
+        }
+
+        // Unstall if UI changed.
+        if self.ui.dirty() {
+            self.unstall(engines);
         }
     }
 

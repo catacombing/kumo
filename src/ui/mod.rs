@@ -8,7 +8,7 @@ use smithay_client_toolkit::reexports::client::protocol::wl_subsurface::WlSubsur
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
-use smithay_client_toolkit::seat::pointer::AxisScroll;
+use smithay_client_toolkit::seat::pointer::{AxisScroll, BTN_LEFT};
 
 use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
 use crate::{gl, Position, Size, State, WindowId};
@@ -66,6 +66,7 @@ pub struct Ui {
     uribar: Uribar,
 
     keyboard_focus: Option<KeyboardInputElement>,
+    touch_point: Option<(i32, Position<f64>)>,
 
     dirty: bool,
 }
@@ -89,6 +90,7 @@ impl Ui {
             surface,
             uribar,
             scale: 1.0,
+            touch_point: Default::default(),
             separator: Default::default(),
             renderer: Default::default(),
             dirty: Default::default(),
@@ -182,6 +184,16 @@ impl Ui {
         &self.surface == surface
     }
 
+    /// Handle new key press.
+    pub fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
+        if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
+            self.uribar.text_input.press_key(raw, keysym, modifiers)
+        }
+    }
+
+    /// Handle key release.
+    pub fn release_key(&self, _raw: u32, _keysym: Keysym, _modifiers: Modifiers) {}
+
     /// Handle scroll axis events.
     pub fn pointer_axis(
         &self,
@@ -196,38 +208,19 @@ impl Ui {
     /// Handle pointer button events.
     pub fn pointer_button(
         &mut self,
-        _time: u32,
+        time: u32,
         position: Position<f64>,
-        _button: u32,
-        _state: u32,
-        _modifiers: Modifiers,
+        button: u32,
+        state: u32,
+        modifiers: Modifiers,
     ) {
-        // Convert position to physical space.
-        let position = position * self.scale;
-
-        // Forward URI input clicks.
-        let uribar_position: Position<f64> = self.uribar_position(self.uribar.size).into();
-        let uribar_size: Size<f64> = (self.uribar.size * self.scale).into();
-        let uri_x_range = uribar_position.x..uribar_position.x + uribar_size.width;
-        let uri_y_range = uribar_position.y..uribar_position.y + uribar_size.height;
-        if uri_x_range.contains(&position.x) && uri_y_range.contains(&position.y) {
-            self.keyboard_focus = Some(KeyboardInputElement::UriBar);
-            self.uribar.set_focused(true);
-            return;
-        }
-
-        self.clear_focus();
-    }
-
-    /// Handle new key press.
-    pub fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
-        if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
-            self.uribar.text_input.press_key(raw, keysym, modifiers)
+        // Emulate touch input using touch point `-1`.
+        match state {
+            0 if button == BTN_LEFT => self.touch_up(time, -1, modifiers),
+            1 if button == BTN_LEFT => self.touch_down(time, -1, position, modifiers),
+            _ => (),
         }
     }
-
-    /// Handle key release.
-    pub fn release_key(&self, _raw: u32, _keysym: Keysym, _modifiers: Modifiers) {}
 
     /// Handle pointer motion events.
     pub fn pointer_motion(&self, _time: u32, _position: Position<f64>, _modifiers: Modifiers) {}
@@ -236,14 +229,46 @@ impl Ui {
     pub fn touch_down(
         &mut self,
         _time: u32,
-        _id: i32,
-        _position: Position<f64>,
+        id: i32,
+        position: Position<f64>,
         _modifiers: Modifiers,
     ) {
+        // Only accept a single touch point in the UI.
+        if self.touch_point.is_some() {
+            return;
+        }
+
+        self.touch_point = Some((id, position));
     }
 
     /// Handle touch release events.
-    pub fn touch_up(&mut self, _time: u32, _id: i32, _modifiers: Modifiers) {}
+    pub fn touch_up(&mut self, _time: u32, id: i32, modifiers: Modifiers) {
+        // Ignore all unknown touch points.
+        let position = match self.touch_point {
+            Some((ui_id, position)) if ui_id == id => position,
+            _ => return,
+        };
+        self.touch_point = None;
+
+        // Convert position to physical space.
+        let position = position * self.scale;
+
+        // Forward URI input clicks.
+        let uribar_position = position - self.uribar_position(self.uribar.size).into();
+        let uribar_size: Size<f64> = (self.uribar.size * self.scale).into();
+        if (0.0..uribar_size.width).contains(&uribar_position.x)
+            && (0.0..uribar_size.height).contains(&uribar_position.y)
+        {
+            self.keyboard_focus = Some(KeyboardInputElement::UriBar);
+
+            // Forward mouse button.
+            self.uribar.touch_up(uribar_position, modifiers);
+
+            return;
+        }
+
+        self.clear_focus();
+    }
 
     /// Handle touch motion events.
     pub fn touch_motion(
@@ -395,6 +420,16 @@ impl Uribar {
         // Convert cairo buffer to texture.
         builder.build()
     }
+
+    /// Handle touch release events.
+    pub fn touch_up(&mut self, position: Position<f64>, modifiers: Modifiers) {
+        self.set_focused(true);
+
+        // Forward event to text input.
+        let mut relative_position = position;
+        relative_position.x -= URIBAR_X_PADDING * self.scale;
+        self.text_input.touch_up(relative_position, modifiers);
+    }
 }
 
 /// Separator between UI and browser content.
@@ -506,7 +541,7 @@ impl TextInput {
                 for index in (start_index..end_index).rev() {
                     text.remove(index as usize);
                 }
-                self.set_text(&text);
+                self.layout.set_text(&text);
 
                 self.dirty = true;
             },
@@ -520,7 +555,7 @@ impl TextInput {
                     let index = self.cursor_index() as usize;
                     let mut text = self.text();
                     text.insert(index, key_char);
-                    self.set_text(&text);
+                    self.layout.set_text(&text);
 
                     // Move cursor behind the new character.
                     self.move_cursor(1);
@@ -530,6 +565,23 @@ impl TextInput {
             },
             _ => (),
         }
+    }
+
+    /// Handle touch release events.
+    pub fn touch_up(&mut self, position: Position<f64>, modifiers: Modifiers) {
+        if modifiers.logo || modifiers.shift {
+            return;
+        }
+
+        // Get byte offset from X/Y position.
+        let x = (position.x * pangocairo::pango::SCALE as f64).round() as i32;
+        let y = (position.y * pangocairo::pango::SCALE as f64).round() as i32;
+        let (_, index, offset) = self.layout.xy_to_index(x, y);
+
+        // Update cursor index.
+        self.cursor_index = index;
+        self.cursor_offset = offset;
+        self.dirty = true;
     }
 
     /// Move the text input cursor.

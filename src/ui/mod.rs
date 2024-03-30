@@ -1,4 +1,6 @@
-//! Non-browser UI.
+//! Non-engine UI.
+
+use std::ops::{Bound, Range, RangeBounds};
 
 use funq::MtQueueHandle;
 use glutin::display::Display;
@@ -36,6 +38,9 @@ const URIBAR_BG: [f64; 3] = [0.15, 0.15, 0.15];
 
 /// URI bar padding to left window edge.
 const URIBAR_X_PADDING: f64 = 10.;
+
+/// Maximum interval between taps to be considered a double/trible-tap.
+const MAX_MULTI_TAP_MILLIS: u32 = 300;
 
 #[funq::callbacks(State)]
 trait UiHandler {
@@ -242,7 +247,7 @@ impl Ui {
     }
 
     /// Handle touch release events.
-    pub fn touch_up(&mut self, _time: u32, id: i32, modifiers: Modifiers) {
+    pub fn touch_up(&mut self, time: u32, id: i32, modifiers: Modifiers) {
         // Ignore all unknown touch points.
         let position = match self.touch_point {
             Some((ui_id, position)) if ui_id == id => position,
@@ -262,7 +267,7 @@ impl Ui {
             self.keyboard_focus = Some(KeyboardInputElement::UriBar);
 
             // Forward mouse button.
-            self.uribar.touch_up(uribar_position, modifiers);
+            self.uribar.touch_up(time, uribar_position, modifiers);
 
             return;
         }
@@ -316,7 +321,6 @@ impl Ui {
 struct Uribar {
     texture: Option<Texture>,
     text_input: TextInput,
-    focused: bool,
     size: Size,
     scale: f64,
 }
@@ -327,13 +331,7 @@ impl Uribar {
         let mut text_input = TextInput::new();
         text_input.set_submit_handler(Box::new(move |uri| queue.load_uri(window, uri)));
 
-        Self {
-            text_input,
-            scale: 1.,
-            focused: Default::default(),
-            texture: Default::default(),
-            size: Default::default(),
-        }
+        Self { text_input, scale: 1., texture: Default::default(), size: Default::default() }
     }
 
     /// Update the output texture size.
@@ -365,8 +363,7 @@ impl Uribar {
 
     /// Set URI bar input focus.
     fn set_focused(&mut self, focused: bool) {
-        self.text_input.dirty |= self.focused != focused;
-        self.focused = focused;
+        self.text_input.set_focus(focused);
     }
 
     /// Check if URI bar needs redraw.
@@ -409,9 +406,13 @@ impl Uribar {
         text_options.size(size.into());
         text_options.text_color(URIBAR_FG);
 
-        // Show cursor when focused.
-        if self.focused {
-            text_options.show_cursor(self.text_input.cursor_index());
+        // Show cursor or selection when focused.
+        if self.text_input.focused {
+            if self.text_input.selection.is_some() {
+                text_options.selection(self.text_input.selection.clone());
+            } else {
+                text_options.show_cursor(self.text_input.cursor_index());
+            }
         }
 
         // Draw URI bar.
@@ -422,13 +423,11 @@ impl Uribar {
     }
 
     /// Handle touch release events.
-    pub fn touch_up(&mut self, position: Position<f64>, modifiers: Modifiers) {
-        self.set_focused(true);
-
+    pub fn touch_up(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
         // Forward event to text input.
         let mut relative_position = position;
         relative_position.x -= URIBAR_X_PADDING * self.scale;
-        self.text_input.touch_up(relative_position, modifiers);
+        self.text_input.touch_up(time, relative_position, modifiers);
     }
 }
 
@@ -456,10 +455,13 @@ enum KeyboardInputElement {
 
 /// Text input field.
 struct TextInput {
+    selection: Option<Range<i32>>,
     submit_handler: Box<dyn FnMut(String)>,
+    last_touch: TouchHistory,
     layout: Layout,
     cursor_index: i32,
     cursor_offset: i32,
+    focused: bool,
     dirty: bool,
 }
 
@@ -475,6 +477,9 @@ impl TextInput {
             submit_handler: Box::new(|_| {}),
             cursor_offset: Default::default(),
             cursor_index: Default::default(),
+            last_touch: Default::default(),
+            selection: Default::default(),
+            focused: Default::default(),
             dirty: Default::default(),
         }
     }
@@ -499,6 +504,9 @@ impl TextInput {
             self.cursor_offset = 1;
         }
 
+        // Clear selection.
+        self.selection = None;
+
         self.dirty = true;
     }
 
@@ -512,6 +520,38 @@ impl TextInput {
         &self.layout
     }
 
+    /// Modify text selection.
+    pub fn select<R>(&mut self, range: R)
+    where
+        R: RangeBounds<i32>,
+    {
+        let mut start = match range.start_bound() {
+            Bound::Included(start) => *start,
+            Bound::Excluded(start) => *start + 1,
+            Bound::Unbounded => i32::MIN,
+        };
+        start = start.max(0);
+        let mut end = match range.end_bound() {
+            Bound::Included(end) => *end + 1,
+            Bound::Excluded(end) => *end,
+            Bound::Unbounded => i32::MAX,
+        };
+        end = end.min(self.text().len() as i32);
+
+        if start < end {
+            self.selection = Some(start..end);
+            self.dirty = true;
+        } else {
+            self.clear_selection();
+        }
+    }
+
+    /// Clear text selection.
+    pub fn clear_selection(&mut self) {
+        self.selection = None;
+        self.dirty = true;
+    }
+
     /// Handle new key press.
     pub fn press_key(&mut self, _raw: u32, keysym: Keysym, modifiers: Modifiers) {
         // Ignore input with logo/alt key held.
@@ -520,36 +560,93 @@ impl TextInput {
         }
 
         match (keysym, modifiers.shift, modifiers.ctrl) {
-            (Keysym::Left, false, false) => {
-                self.move_cursor(-1);
-                self.dirty = true;
-            },
-            (Keysym::Right, false, false) => {
-                self.move_cursor(1);
-                self.dirty = true;
-            },
-            (Keysym::BackSpace, false, false) => {
-                // Find byte index of character after the cursor.
-                let end_index = self.cursor_index();
-
-                // Find byte index of character before the cursor and update the cursor.
-                self.move_cursor(-1);
-                let start_index = self.cursor_index();
-
-                // Remove all bytes in the range from the text.
-                let mut text = self.text();
-                for index in (start_index..end_index).rev() {
-                    text.remove(index as usize);
-                }
-                self.layout.set_text(&text);
-
-                self.dirty = true;
-            },
             (Keysym::Return, false, false) => {
                 let text = self.text();
                 (self.submit_handler)(text);
+
+                self.set_focus(false);
+            },
+            (Keysym::Left, false, false) => {
+                match self.selection.take() {
+                    Some(selection) => {
+                        self.cursor_index = selection.start;
+                        self.cursor_offset = 0;
+                    },
+                    None => self.move_cursor(-1),
+                }
+                self.dirty = true;
+            },
+            (Keysym::Right, false, false) => {
+                match self.selection.take() {
+                    Some(selection) => {
+                        let text_len = self.text().len() as i32;
+                        if selection.end >= text_len {
+                            self.cursor_index = text_len - 1;
+                            self.cursor_offset = 1;
+                        } else {
+                            self.cursor_index = selection.end;
+                            self.cursor_offset = 0;
+                        }
+                    },
+                    None => self.move_cursor(1),
+                }
+                self.dirty = true;
+            },
+            (Keysym::BackSpace, false, false) => {
+                match self.selection.take() {
+                    Some(selection) => self.delete_selected(selection),
+                    None => {
+                        // Find byte index of character after the cursor.
+                        let end_index = self.cursor_index() as usize;
+
+                        // Find byte index of character before the cursor and update the cursor.
+                        self.move_cursor(-1);
+                        let start_index = self.cursor_index() as usize;
+
+                        // Remove all bytes in the range from the text.
+                        let mut text = self.text();
+                        text.drain(start_index..end_index);
+                        self.layout.set_text(&text);
+                    },
+                }
+
+                self.dirty = true;
+            },
+            (Keysym::Delete, false, false) => {
+                match self.selection.take() {
+                    Some(selection) => self.delete_selected(selection),
+                    None => {
+                        // Ignore DEL if cursor is the end of the input.
+                        let mut text = self.text();
+                        if text.len() as i32 == self.cursor_index + self.cursor_offset {
+                            return;
+                        }
+
+                        // Find byte index of character after the cursor.
+                        let start_index = self.cursor_index() as usize;
+
+                        // Find byte index of end of the character after the cursor.
+                        //
+                        // We use cursor motion here to ensure grapheme clusters are handled
+                        // appropriately.
+                        self.move_cursor(1);
+                        let end_index = self.cursor_index() as usize;
+                        self.move_cursor(-1);
+
+                        // Remove all bytes in the range from the text.
+                        text.drain(start_index..end_index);
+                        self.layout.set_text(&text);
+                    },
+                }
+
+                self.dirty = true;
             },
             (keysym, _, false) => {
+                // Delete selection before writing new text.
+                if let Some(selection) = self.selection.take() {
+                    self.delete_selected(selection);
+                }
+
                 if let Some(key_char) = keysym.key_char() {
                     // Add character to text.
                     let index = self.cursor_index() as usize;
@@ -567,21 +664,89 @@ impl TextInput {
         }
     }
 
+    /// Delete the selected text.
+    ///
+    /// This automatically places the cursor at the start of the selection.
+    pub fn delete_selected(&mut self, selection: Range<i32>) {
+        // Remove selected text from input.
+        let range = selection.start as usize..selection.end as usize;
+        let mut text = self.text().to_string();
+        text.drain(range);
+        self.layout.set_text(&text);
+
+        // Update cursor.
+        if selection.start > 0 && selection.start == text.len() as i32 {
+            self.cursor_index = selection.start - 1;
+            self.cursor_offset = 1;
+        } else {
+            self.cursor_index = selection.start;
+            self.cursor_offset = 0;
+        }
+    }
+
     /// Handle touch release events.
-    pub fn touch_up(&mut self, position: Position<f64>, modifiers: Modifiers) {
+    pub fn touch_up(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
         if modifiers.logo || modifiers.shift {
             return;
         }
+
+        // Clear selection when moving cursor.
+        self.selection = None;
 
         // Get byte offset from X/Y position.
         let x = (position.x * pangocairo::pango::SCALE as f64).round() as i32;
         let y = (position.y * pangocairo::pango::SCALE as f64).round() as i32;
         let (_, index, offset) = self.layout.xy_to_index(x, y);
 
-        // Update cursor index.
-        self.cursor_index = index;
-        self.cursor_offset = offset;
+        // Update touch history.
+        let multi_taps = self.last_touch.push(time, index + offset);
+
+        // Handle single/double/triple-taps.
+        match multi_taps {
+            0 => {
+                // Update cursor index.
+                self.cursor_index = index;
+                self.cursor_offset = offset;
+            },
+            1 => {
+                // Select entire word at touch location.
+                let text = self.text();
+                let mut word_start = 0;
+                let mut word_end = text.len() as i32;
+                for (i, c) in text.char_indices() {
+                    let i = i as i32;
+                    if i + 1 < index + offset && !c.is_alphanumeric() {
+                        word_start = i + 1;
+                    } else if i > index + offset && !c.is_alphanumeric() {
+                        word_end = i;
+                        break;
+                    }
+                }
+                self.select(word_start..word_end);
+            },
+            2 => {
+                // Select everything.
+                self.select(..);
+            },
+            _ => unreachable!(),
+        }
+
+        // Ensure focus when receiving touch input.
+        self.set_focus(true);
+
         self.dirty = true;
+    }
+
+    /// Set input focus.
+    fn set_focus(&mut self, focused: bool) {
+        // Update selection on focus change.
+        if focused && !self.focused {
+            self.select(..);
+        } else if !focused && self.focused {
+            self.clear_selection();
+        }
+
+        self.focused = focused;
     }
 
     /// Move the text input cursor.
@@ -608,5 +773,34 @@ impl TextInput {
 impl Default for TextInput {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Simplified touch history for double/triple-tap tracking.
+#[derive(Default)]
+struct TouchHistory {
+    last_touch: u32,
+    cursor_index: i32,
+    repeats: usize,
+}
+
+impl TouchHistory {
+    /// Add a new touch event.
+    ///
+    /// This returns the number of times consecutive taps (0-2).
+    pub fn push(&mut self, time: u32, cursor_index: i32) -> usize {
+        if self.repeats < 2
+            && self.last_touch + MAX_MULTI_TAP_MILLIS >= time
+            && cursor_index == self.cursor_index
+        {
+            self.repeats += 1;
+        } else {
+            self.cursor_index = cursor_index;
+            self.repeats = 0;
+        }
+
+        self.last_touch = time;
+
+        self.repeats
     }
 }

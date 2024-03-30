@@ -2,6 +2,7 @@
 
 use std::ffi::{CStr, CString};
 use std::num::NonZeroU32;
+use std::ops::Range;
 use std::{cmp, mem, ptr};
 
 use glutin::config::{Api, ConfigTemplateBuilder};
@@ -10,7 +11,7 @@ use glutin::display::Display;
 use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, SwapInterval, WindowSurface};
 use pangocairo::cairo::{Context, Format, ImageSurface};
-use pangocairo::pango::{Alignment, EllipsizeMode, FontDescription, Layout};
+use pangocairo::pango::{Alignment, AttrColor, AttrList, EllipsizeMode, FontDescription, Layout};
 use raw_window_handle::{RawWindowHandle, WaylandWindowHandle};
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::Proxy;
@@ -21,6 +22,10 @@ use crate::{gl, Position, Size};
 // OpenGL shader programs.
 const VERTEX_SHADER: &str = include_str!("../../shaders/vertex.glsl");
 const FRAGMENT_SHADER: &str = include_str!("../../shaders/fragment.glsl");
+
+// Colors for text selection.
+const SELECTION_BG: [u16; 3] = [29952, 10752, 10752];
+const SELECTION_FG: [u16; 3] = [0; 3];
 
 /// OpenGL renderer.
 #[derive(Debug)]
@@ -330,6 +335,25 @@ impl TextureBuilder {
         let y = position.y + size.height as f64 / 2. - text_height as f64 / 2.;
         self.context.move_to(position.x, y);
 
+        // Change color of selected text.
+        if let Some(selection) = text_options.selection {
+            let text_attributes = AttrList::new();
+
+            let mut bg_attr =
+                AttrColor::new_background(SELECTION_BG[0], SELECTION_BG[1], SELECTION_BG[2]);
+            bg_attr.set_start_index(selection.start as u32);
+            bg_attr.set_end_index(selection.end as u32);
+            text_attributes.insert(bg_attr);
+
+            let mut fg_attr =
+                AttrColor::new_foreground(SELECTION_FG[0], SELECTION_FG[1], SELECTION_FG[2]);
+            fg_attr.set_start_index(selection.start as u32);
+            fg_attr.set_end_index(selection.end as u32);
+            text_attributes.insert(fg_attr);
+
+            layout.set_attributes(Some(&text_attributes));
+        }
+
         // Set foreground color.
         let color = text_options.text_color;
         self.context.set_source_rgb(color[0], color[1], color[2]);
@@ -349,21 +373,30 @@ impl TextureBuilder {
             self.context.line_to(cursor_x, cursor_y + cursor_height);
             self.context.stroke_preserve().unwrap();
         }
+
+        // Clear selection markup attributes after rendering.
+        layout.set_attributes(None);
     }
 
     /// Finalize the output texture.
     pub fn build(self) -> Texture {
         drop(self.context);
 
+        // Transform cairo buffer from RGBA to BGRA.
         let width = self.image_surface.width() as usize;
         let height = self.image_surface.height() as usize;
-        let data = self.image_surface.take_data().unwrap();
+        let mut data = self.image_surface.take_data().unwrap();
+        for chunk in data.chunks_mut(4) {
+            chunk.swap(2, 0);
+        }
+
         Texture::new(&data, width, height)
     }
 }
 
 /// Options for text rendering.
 pub struct TextOptions {
+    selection: Option<Range<i32>>,
     text_color: [f64; 3],
     position: Position<f64>,
     size: Option<Size<i32>>,
@@ -375,6 +408,7 @@ impl TextOptions {
         Self {
             text_color: [1.; 3],
             cursor_pos: -1,
+            selection: Default::default(),
             position: Default::default(),
             size: Default::default(),
         }
@@ -398,6 +432,11 @@ impl TextOptions {
     /// Show text input cursor.
     pub fn show_cursor(&mut self, pos: i32) {
         self.cursor_pos = pos;
+    }
+
+    /// Text selection range.
+    pub fn selection(&mut self, selection: Option<Range<i32>>) {
+        self.selection = selection;
     }
 }
 

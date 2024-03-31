@@ -1,5 +1,6 @@
 //! Non-engine UI.
 
+use std::mem;
 use std::ops::{Bound, Range, RangeBounds};
 
 use funq::MtQueueHandle;
@@ -71,7 +72,7 @@ pub struct Ui {
     uribar: Uribar,
 
     keyboard_focus: Option<KeyboardInputElement>,
-    touch_point: Option<(i32, Position<f64>)>,
+    touch_point: Option<i32>,
 
     dirty: bool,
 }
@@ -228,37 +229,27 @@ impl Ui {
     }
 
     /// Handle pointer motion events.
-    pub fn pointer_motion(&self, _time: u32, _position: Position<f64>, _modifiers: Modifiers) {}
+    pub fn pointer_motion(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
+        self.touch_motion(time, -1, position, modifiers);
+    }
 
     /// Handle touch press events.
     pub fn touch_down(
         &mut self,
-        _time: u32,
+        time: u32,
         id: i32,
         position: Position<f64>,
-        _modifiers: Modifiers,
+        modifiers: Modifiers,
     ) {
         // Only accept a single touch point in the UI.
         if self.touch_point.is_some() {
             return;
         }
-
-        self.touch_point = Some((id, position));
-    }
-
-    /// Handle touch release events.
-    pub fn touch_up(&mut self, time: u32, id: i32, modifiers: Modifiers) {
-        // Ignore all unknown touch points.
-        let position = match self.touch_point {
-            Some((ui_id, position)) if ui_id == id => position,
-            _ => return,
-        };
-        self.touch_point = None;
+        self.touch_point = Some(id);
 
         // Convert position to physical space.
         let position = position * self.scale;
 
-        // Forward URI input clicks.
         let uribar_position = position - self.uribar_position(self.uribar.size).into();
         let uribar_size: Size<f64> = (self.uribar.size * self.scale).into();
         if (0.0..uribar_size.width).contains(&uribar_position.x)
@@ -266,8 +257,8 @@ impl Ui {
         {
             self.keyboard_focus = Some(KeyboardInputElement::UriBar);
 
-            // Forward mouse button.
-            self.uribar.touch_up(time, uribar_position, modifiers);
+            // Forward touch event.
+            self.uribar.touch_down(time, uribar_position, modifiers);
 
             return;
         }
@@ -279,10 +270,37 @@ impl Ui {
     pub fn touch_motion(
         &mut self,
         _time: u32,
-        _id: i32,
-        _position: Position<f64>,
+        id: i32,
+        position: Position<f64>,
         _modifiers: Modifiers,
     ) {
+        // Ignore all unknown touch points.
+        if self.touch_point != Some(id) {
+            return;
+        }
+
+        // Convert position to physical space.
+        let position = position * self.scale;
+
+        if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
+            // Forward touch event.
+            let uribar_position = position - self.uribar_position(self.uribar.size).into();
+            self.uribar.touch_motion(uribar_position);
+        }
+    }
+
+    /// Handle touch release events.
+    pub fn touch_up(&mut self, _time: u32, id: i32, _modifiers: Modifiers) {
+        // Ignore all unknown touch points.
+        if self.touch_point != Some(id) {
+            return;
+        }
+        self.touch_point = None;
+
+        if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
+            // Forward touch event.
+            self.uribar.touch_up();
+        }
     }
 
     /// Update the URI bar's content.
@@ -422,12 +440,26 @@ impl Uribar {
         builder.build()
     }
 
-    /// Handle touch release events.
-    pub fn touch_up(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
+    /// Handle touch press events.
+    pub fn touch_down(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
         // Forward event to text input.
         let mut relative_position = position;
         relative_position.x -= URIBAR_X_PADDING * self.scale;
-        self.text_input.touch_up(time, relative_position, modifiers);
+        self.text_input.touch_down(time, relative_position, modifiers);
+    }
+
+    /// Handle touch motion events.
+    pub fn touch_motion(&mut self, position: Position<f64>) {
+        // Forward event to text input.
+        let mut relative_position = position;
+        relative_position.x -= URIBAR_X_PADDING * self.scale;
+        self.text_input.touch_motion(relative_position);
+    }
+
+    /// Handle touch release events.
+    pub fn touch_up(&mut self) {
+        // Forward event to text input.
+        self.text_input.touch_up();
     }
 }
 
@@ -684,14 +716,11 @@ impl TextInput {
         }
     }
 
-    /// Handle touch release events.
-    pub fn touch_up(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
+    /// Handle touch press events.
+    pub fn touch_down(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
         if modifiers.logo || modifiers.shift {
             return;
         }
-
-        // Clear selection when moving cursor.
-        self.selection = None;
 
         // Get byte offset from X/Y position.
         let x = (position.x * pangocairo::pango::SCALE as f64).round() as i32;
@@ -699,14 +728,26 @@ impl TextInput {
         let (_, index, offset) = self.layout.xy_to_index(x, y);
 
         // Update touch history.
-        let multi_taps = self.last_touch.push(time, index + offset);
+        let multi_taps = self.last_touch.push(time, index, offset);
 
         // Handle single/double/triple-taps.
         match multi_taps {
             0 => {
-                // Update cursor index.
-                self.cursor_index = index;
-                self.cursor_offset = offset;
+                // Whether touch is modifying one of the selection boundaries.
+                if let Some(selection) = self.selection.as_ref() {
+                    self.last_touch.moving_selection_start = selection.start == index + offset;
+                    self.last_touch.moving_selection_end = selection.end == index + offset;
+                }
+
+                if !self.last_touch.moving_selection_start && !self.last_touch.moving_selection_end
+                {
+                    // Update cursor index.
+                    self.cursor_index = index;
+                    self.cursor_offset = offset;
+
+                    // Clear selection.
+                    self.selection = None;
+                }
             },
             1 => {
                 // Select entire word at touch location.
@@ -734,6 +775,47 @@ impl TextInput {
         // Ensure focus when receiving touch input.
         self.set_focus(true);
 
+        self.dirty = true;
+    }
+
+    /// Handle touch motion events.
+    pub fn touch_motion(&mut self, position: Position<f64>) {
+        let selection = match &mut self.selection {
+            Some(selection)
+                if self.last_touch.moving_selection_start
+                    || self.last_touch.moving_selection_end =>
+            {
+                selection
+            },
+            _ => return,
+        };
+
+        // Get byte offset from X/Y position.
+        let x = (position.x * pangocairo::pango::SCALE as f64).round() as i32;
+        let y = (position.y * pangocairo::pango::SCALE as f64).round() as i32;
+        let (_, index, offset) = self.layout.xy_to_index(x, y);
+
+        // Update selection if it is at least one character wide.
+        if self.last_touch.moving_selection_start && index + offset != selection.end {
+            selection.start = index + offset;
+        } else if self.last_touch.moving_selection_end && index + offset != selection.start {
+            selection.end = index + offset;
+        }
+
+        // Swap modified side when input carets "overtake" each other.
+        if selection.start > selection.end {
+            mem::swap(&mut selection.start, &mut selection.end);
+            mem::swap(
+                &mut self.last_touch.moving_selection_start,
+                &mut self.last_touch.moving_selection_end,
+            );
+        }
+
+        self.dirty = true;
+    }
+
+    /// Handle touch release events.
+    pub fn touch_up(&mut self) {
         self.dirty = true;
     }
 
@@ -781,14 +863,17 @@ impl Default for TextInput {
 struct TouchHistory {
     last_touch: u32,
     cursor_index: i32,
+    cursor_offset: i32,
     repeats: usize,
+    moving_selection_start: bool,
+    moving_selection_end: bool,
 }
 
 impl TouchHistory {
     /// Add a new touch event.
     ///
     /// This returns the number of times consecutive taps (0-2).
-    pub fn push(&mut self, time: u32, cursor_index: i32) -> usize {
+    pub fn push(&mut self, time: u32, cursor_index: i32, cursor_offset: i32) -> usize {
         if self.repeats < 2
             && self.last_touch + MAX_MULTI_TAP_MILLIS >= time
             && cursor_index == self.cursor_index
@@ -796,6 +881,9 @@ impl TouchHistory {
             self.repeats += 1;
         } else {
             self.cursor_index = cursor_index;
+            self.cursor_offset = cursor_offset;
+            self.moving_selection_start = false;
+            self.moving_selection_end = false;
             self.repeats = 0;
         }
 

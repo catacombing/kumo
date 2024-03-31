@@ -11,7 +11,9 @@ use glutin::display::Display;
 use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, SwapInterval, WindowSurface};
 use pangocairo::cairo::{Context, Format, ImageSurface};
-use pangocairo::pango::{Alignment, AttrColor, AttrList, EllipsizeMode, FontDescription, Layout};
+use pangocairo::pango::{
+    Alignment, AttrColor, AttrList, EllipsizeMode, FontDescription, Layout, SCALE as PANGO_SCALE,
+};
 use raw_window_handle::{RawWindowHandle, WaylandWindowHandle};
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::Proxy;
@@ -26,6 +28,9 @@ const FRAGMENT_SHADER: &str = include_str!("../../shaders/fragment.glsl");
 // Colors for text selection.
 const SELECTION_BG: [u16; 3] = [29952, 10752, 10752];
 const SELECTION_FG: [u16; 3] = [0; 3];
+
+// Selection caret height in pixels at scale 1.
+const CARET_SIZE: f64 = 5.;
 
 /// OpenGL renderer.
 #[derive(Debug)]
@@ -286,6 +291,7 @@ pub struct TextureBuilder {
     font: FontDescription,
     context: Context,
     size: Size<i32>,
+    scale: f64,
 }
 
 impl TextureBuilder {
@@ -296,7 +302,7 @@ impl TextureBuilder {
         let mut font = FontDescription::from_string("sans 16px");
         font.set_absolute_size(font.size() as f64 * scale);
 
-        Self { image_surface, context, size, font }
+        Self { image_surface, context, scale, size, font }
     }
 
     /// Fill entire buffer with a single color.
@@ -325,18 +331,20 @@ impl TextureBuilder {
         };
 
         // Truncate text beyond specified bounds.
-        layout.set_width(size.width * pangocairo::pango::SCALE);
-        layout.set_height(size.height * pangocairo::pango::SCALE);
+        layout.set_width(size.width * PANGO_SCALE);
+        layout.set_height(size.height * PANGO_SCALE);
         layout.set_ellipsize(EllipsizeMode::End);
 
-        // Set text position.
+        // Calculate text position.
         layout.set_alignment(Alignment::Left);
         let (_, text_height) = layout.pixel_size();
-        let y = position.y + size.height as f64 / 2. - text_height as f64 / 2.;
-        self.context.move_to(position.x, y);
+        let text_y = position.y + size.height as f64 / 2. - text_height as f64 / 2.;
 
-        // Change color of selected text.
+        // Handle text selection.
+        let color = text_options.text_color;
         if let Some(selection) = text_options.selection {
+            // Set fg/bg colors of selected text.
+
             let text_attributes = AttrList::new();
 
             let mut bg_attr =
@@ -352,21 +360,34 @@ impl TextureBuilder {
             text_attributes.insert(fg_attr);
 
             layout.set_attributes(Some(&text_attributes));
+
+            // Draw selection carets.
+            let draw_caret = |index| {
+                let (selection_cursor, _) = layout.cursor_pos(index);
+                let caret_x = position.x + selection_cursor.x() as f64 / PANGO_SCALE as f64;
+                let caret_size = CARET_SIZE * self.scale;
+                self.context.move_to(caret_x, text_y);
+                self.context.line_to(caret_x + caret_size, text_y - caret_size);
+                self.context.line_to(caret_x - caret_size, text_y - caret_size);
+                self.context.set_source_rgb(color[0], color[1], color[2]);
+                self.context.fill().unwrap();
+            };
+            draw_caret(selection.start);
+            draw_caret(selection.end);
         }
 
-        // Set foreground color.
-        let color = text_options.text_color;
+        // Render text.
+        self.context.move_to(position.x, text_y);
         self.context.set_source_rgb(color[0], color[1], color[2]);
-
         pangocairo::functions::show_layout(&self.context, layout);
 
         // Draw text input cursor.
         if (0..i32::MAX).contains(&text_options.cursor_pos) {
             // Get cursor rect and convert it from pango coordinates.
             let (cursor_rect, _) = layout.cursor_pos(text_options.cursor_pos);
-            let cursor_x = position.x + cursor_rect.x() as f64 / pangocairo::pango::SCALE as f64;
-            let cursor_y = y + cursor_rect.y() as f64 / pangocairo::pango::SCALE as f64;
-            let cursor_height = cursor_rect.height() as f64 / pangocairo::pango::SCALE as f64;
+            let cursor_x = position.x + cursor_rect.x() as f64 / PANGO_SCALE as f64;
+            let cursor_y = text_y + cursor_rect.y() as f64 / PANGO_SCALE as f64;
+            let cursor_height = cursor_rect.height() as f64 / PANGO_SCALE as f64;
 
             // Draw cursor line.
             self.context.move_to(cursor_x, cursor_y);

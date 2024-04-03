@@ -130,6 +130,10 @@ pub struct WebKitEngine {
     size: Size,
     scale: f32,
 
+    // Mouse pointer state.
+    pointer_button: u32,
+    pointer_state: u32,
+
     dirty: bool,
 }
 
@@ -192,6 +196,8 @@ impl WebKitEngine {
             size,
             image: ptr::null_mut(),
             scale: 1.0,
+            pointer_button: Default::default(),
+            pointer_state: Default::default(),
             buffer: Default::default(),
             dirty: Default::default(),
         })
@@ -367,8 +373,11 @@ impl Engine for WebKitEngine {
         state: u32,
         modifiers: Modifiers,
     ) {
+        self.pointer_button = button;
+        self.pointer_state = state;
+
         let mut event = wpe_input_pointer_event {
-            button,
+            button: button - 271,
             state,
             time,
             type_: wpe_input_pointer_event_type_wpe_input_pointer_event_type_button,
@@ -384,14 +393,16 @@ impl Engine for WebKitEngine {
     }
 
     fn pointer_motion(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
+        let button = if self.pointer_state == 0 { 0 } else { self.pointer_button - 271 };
+
         let mut event = wpe_input_pointer_event {
+            button,
             time,
             type_: wpe_input_pointer_event_type_wpe_input_pointer_event_type_motion,
-            button: 0,
-            state: 0,
             x: (position.x * self.scale as f64).round() as i32,
             y: (position.y * self.scale as f64).round() as i32,
             modifiers: wpe_modifiers(modifiers),
+            state: self.pointer_state,
         };
 
         unsafe {

@@ -34,6 +34,7 @@ const DEFAULT_WIDTH: u32 = 1280;
 const DEFAULT_HEIGHT: u32 = 720;
 
 mod engine;
+mod tlds;
 mod ui;
 mod wayland;
 

@@ -76,10 +76,6 @@ impl<S> Queue<S> {
     }
 
     /// Get handle for the underlying file descriptor.
-    ///
-    /// This can be used to integrate into event loops, since the file
-    /// descriptor will be readable whenever [`Self::try_run`]` should be
-    /// called.
     pub fn fd(&self) -> BorrowedFd<'_> {
         self.waker.as_fd()
     }
@@ -121,9 +117,6 @@ impl<S> StQueueHandle<S> {
     }
 
     /// Get a handle for dispatching thread-safe callbacks.
-    ///
-    /// To dispatch callbacks which are not thread-safe, see
-    /// [`Self::local_handle`] instead.
     pub fn handle(&self) -> MtQueueHandle<S> {
         MtQueueHandle { tx: self.mt_tx.clone(), waker: self.waker.clone() }
     }

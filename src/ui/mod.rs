@@ -62,7 +62,7 @@ impl UiHandler for State {
         };
 
         if let Some(window) = self.windows.get(&window_id) {
-            if let Some(engine) = self.engines.get(&window.active_tab()) {
+            if let Some(engine) = window.tabs.get(&window.active_tab) {
                 engine.load_uri(&uri);
             }
         }

@@ -67,11 +67,14 @@ trait WebKitHandler {
 
 impl WebKitHandler for State {
     fn set_egl_image(&mut self, engine_id: EngineId, image: *mut wpe_fdo_egl_exported_image) {
-        let engine = match self.engines.get_mut(&engine_id) {
+        let window = match self.windows.get_mut(&engine_id.window_id()) {
+            Some(window) => window,
+            None => return,
+        };
+        let engine = match window.tabs.get_mut(&engine_id) {
             Some(engine) => engine,
             None => return,
         };
-
         let webkit_engine = match engine.as_any().downcast_mut::<WebKitEngine>() {
             Some(webkit_engine) => webkit_engine,
             None => return,
@@ -100,11 +103,8 @@ impl WebKitHandler for State {
         webkit_engine.import_image(&self.connection, &self.egl_display, image);
 
         // Offer new WlBuffer to window.
-        let window_id = engine_id.window_id();
-        if let Some(window) = self.windows.get_mut(&window_id) {
-            if window.active_tab() == engine_id {
-                window.unstall(&mut self.engines);
-            }
+        if window.active_tab == engine_id {
+            window.unstall();
         }
     }
 
@@ -113,7 +113,7 @@ impl WebKitHandler for State {
         let window_id = engine_id.window_id();
 
         if let Some(window) = self.windows.get_mut(&window_id) {
-            window.set_display_uri(&mut self.engines, engine_id, &uri);
+            window.set_display_uri(engine_id, &uri);
         }
     }
 }
@@ -176,9 +176,6 @@ impl WebKitEngine {
             (WebViewBackend::new(egl_backend), exportable)
         };
 
-        // TODO: Multipe `WebView`s should share the same context / backend(?).
-        // TODO: WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES
-        //
         // Create web view with initial blank page.
         let web_view = WebView::new(&mut backend);
         web_view.load_uri("about:blank");

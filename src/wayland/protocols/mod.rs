@@ -99,7 +99,7 @@ impl CompositorHandler for State {
     ) {
         let window = self.windows.values_mut().find(|window| window.owns_surface(surface));
         if let Some(window) = window {
-            window.draw(&mut self.engines);
+            window.draw();
         }
     }
 }
@@ -137,7 +137,7 @@ impl WindowHandler for State {
             // Update window dimensions.
             let width = configure.new_size.0.map(|w| w.get()).unwrap_or(window.size.width);
             let height = configure.new_size.1.map(|h| h.get()).unwrap_or(window.size.height);
-            window.set_size(&self.egl_display, &mut self.engines, Size { width, height });
+            window.set_size(&self.egl_display, Size { width, height });
         }
     }
 }
@@ -154,7 +154,7 @@ impl FractionalScaleHandler for State {
     ) {
         let window = self.windows.values_mut().find(|w| w.owns_surface(surface));
         if let Some(window) = window {
-            window.set_scale(&mut self.engines, scale);
+            window.set_scale(scale);
         }
     }
 }
@@ -273,7 +273,7 @@ impl KeyboardHandler for State {
             Some(focus) => focus,
             None => return,
         };
-        window.press_key(&mut self.engines, event.raw_code, event.keysym, keyboard_state.modifiers);
+        window.press_key(event.raw_code, event.keysym, keyboard_state.modifiers);
     }
 
     fn release_key(
@@ -296,7 +296,7 @@ impl KeyboardHandler for State {
             None => return,
         };
         let modifiers = keyboard_state.modifiers;
-        window.release_key(&mut self.engines, event.raw_code, event.keysym, modifiers);
+        window.release_key(event.raw_code, event.keysym, modifiers);
     }
 
     fn update_modifiers(
@@ -356,7 +356,7 @@ impl KeyRepeat for State {
 
         // Update pressed keys.
         if let Some(window) = self.keyboard_focus.and_then(|focus| self.windows.get_mut(&focus)) {
-            window.press_key(&mut self.engines, raw, keysym, modifiers);
+            window.press_key(raw, keysym, modifiers);
         }
 
         // Request next repeat.
@@ -388,7 +388,7 @@ impl TouchHandler for State {
             None => Modifiers::default(),
         };
 
-        window.touch_down(&mut self.engines, &surface, time, id, position.into(), modifiers);
+        window.touch_down(&surface, time, id, position.into(), modifiers);
     }
 
     fn up(
@@ -414,7 +414,7 @@ impl TouchHandler for State {
             None => Modifiers::default(),
         };
 
-        window.touch_up(&mut self.engines, surface, time, id, modifiers);
+        window.touch_up(surface, time, id, modifiers);
     }
 
     fn motion(
@@ -440,7 +440,7 @@ impl TouchHandler for State {
             None => Modifiers::default(),
         };
 
-        window.touch_motion(&mut self.engines, surface, time, id, position.into(), modifiers);
+        window.touch_motion(surface, time, id, position.into(), modifiers);
     }
 
     fn cancel(&mut self, _connection: &Connection, _queue: &QueueHandle<Self>, _touch: &WlTouch) {}
@@ -492,22 +492,21 @@ impl PointerHandler for State {
             };
 
             // Dispatch event to the window.
-            let engines = &mut self.engines;
             let surface = &event.surface;
             match event.kind {
                 PointerEventKind::Enter { .. } | PointerEventKind::Leave { .. } => (),
                 PointerEventKind::Motion { time } => {
-                    window.pointer_motion(engines, surface, time, position, modifiers)
+                    window.pointer_motion(surface, time, position, modifiers)
                 },
                 PointerEventKind::Press { time, button, .. } => {
-                    window.pointer_button(engines, surface, time, position, button, 1, modifiers)
+                    window.pointer_button(surface, time, position, button, 1, modifiers)
                 },
                 PointerEventKind::Release { time, button, .. } => {
-                    window.pointer_button(engines, surface, time, position, button, 0, modifiers)
+                    window.pointer_button(surface, time, position, button, 0, modifiers)
                 },
-                PointerEventKind::Axis { time, horizontal, vertical, .. } => window.pointer_axis(
-                    engines, surface, time, position, horizontal, vertical, modifiers,
-                ),
+                PointerEventKind::Axis { time, horizontal, vertical, .. } => {
+                    window.pointer_axis(surface, time, position, horizontal, vertical, modifiers)
+                },
             }
         }
     }

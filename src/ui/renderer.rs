@@ -12,7 +12,7 @@ use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, SwapInterval, WindowSurface};
 use pangocairo::cairo::{Context, Format, ImageSurface};
 use pangocairo::pango::{
-    Alignment, AttrColor, AttrList, EllipsizeMode, FontDescription, Layout, SCALE as PANGO_SCALE,
+    AttrColor, AttrList, EllipsizeMode, FontDescription, Layout, SCALE as PANGO_SCALE,
 };
 use raw_window_handle::{RawWindowHandle, WaylandWindowHandle};
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
@@ -35,42 +35,47 @@ const CARET_SIZE: f64 = 5.;
 /// OpenGL renderer.
 #[derive(Debug)]
 pub struct Renderer {
-    uniform_position: GLint,
-    uniform_matrix: GLint,
-
-    egl_surface: Surface<WindowSurface>,
-    egl_context: PossiblyCurrentContext,
-
-    size: Size<f32>,
+    sized: Option<SizedRenderer>,
+    surface: WlSurface,
+    display: Display,
 }
 
 impl Renderer {
     /// Initialize a new renderer.
-    pub fn new(display: &Display, surface: &WlSurface, size: Size) -> Self {
+    pub fn new(display: Display, surface: WlSurface) -> Self {
         // Setup OpenGL symbol loader.
         gl::load_with(|symbol| {
             let symbol = CString::new(symbol).unwrap();
             display.get_proc_address(symbol.as_c_str()).cast()
         });
 
-        // Create EGL surface.
-        let (egl_surface, egl_context) = Self::create_surface(display, surface, size);
-
-        // Setup OpenGL program.
-        let (uniform_position, uniform_matrix) = Self::create_program();
-
-        Renderer { uniform_position, uniform_matrix, egl_surface, egl_context, size: size.into() }
+        Renderer { surface, display, sized: Default::default() }
     }
 
     /// Perform drawing with this renderer.
-    pub fn draw<F: FnMut(&Renderer)>(&self, mut fun: F) {
-        self.egl_context.make_current(&self.egl_surface).unwrap();
+    pub fn draw<F: FnOnce(&Renderer)>(&mut self, size: Size, fun: F) {
+        self.sized(size).make_current();
 
         fun(self);
 
         unsafe { gl::Flush() };
 
-        self.egl_surface.swap_buffers(&self.egl_context).unwrap();
+        self.sized(size).swap_buffers();
+    }
+
+    /// Get render state requiring a size.
+    fn sized(&mut self, size: Size) -> &SizedRenderer {
+        // Initialize or resize sized state.
+        match &mut self.sized {
+            // Resize renderer.
+            Some(sized) => sized.resize(size),
+            // Create sized state.
+            None => {
+                self.sized = Some(SizedRenderer::new(&self.display, &self.surface, size));
+            },
+        }
+
+        self.sized.as_ref().unwrap()
     }
 
     /// Render texture at a position in viewport-coordinates.
@@ -83,39 +88,92 @@ impl Renderer {
         mut position: Position<f32>,
         size: impl Into<Option<Size<f32>>>,
     ) {
+        // Fail before renderer initialization.
+        //
+        // The sized state should always be initialized since it only makes sense to
+        // call this function within `Self::draw`'s closure.
+        let sized = match &self.sized {
+            Some(sized) => sized,
+            None => unreachable!(),
+        };
+
         let (width, height) = match size.into() {
             Some(Size { width, height }) => (width, height),
             None => (texture.width as f32, texture.height as f32),
         };
 
         // Matrix transforming vertex positions to desired size.
-        let x_scale = width / self.size.width;
-        let y_scale = height / self.size.height;
+        let size: Size<f32> = sized.size.into();
+        let x_scale = width / size.width;
+        let y_scale = height / size.height;
         let matrix = [x_scale, 0., 0., y_scale];
-        gl::UniformMatrix2fv(self.uniform_matrix, 1, gl::FALSE, matrix.as_ptr());
+        gl::UniformMatrix2fv(sized.uniform_matrix, 1, gl::FALSE, matrix.as_ptr());
 
         // Set texture position offset.
-        position.x /= self.size.width / 2.;
-        position.y /= self.size.height / 2.;
-        gl::Uniform2fv(self.uniform_position, 1, [position.x, -position.y].as_ptr());
+        position.x /= size.width / 2.;
+        position.y /= size.height / 2.;
+        gl::Uniform2fv(sized.uniform_position, 1, [position.x, -position.y].as_ptr());
 
         gl::BindTexture(gl::TEXTURE_2D, texture.id);
 
         gl::DrawArrays(gl::TRIANGLES, 0, 6);
     }
+}
 
-    /// Update viewport size.
-    pub fn set_size(&mut self, size: Size) {
+/// Render state requiring known size.
+///
+/// This state is initialized on-demand, to avoid Mesa's issue with resizing
+/// before the first draw.
+#[derive(Debug)]
+struct SizedRenderer {
+    uniform_position: GLint,
+    uniform_matrix: GLint,
+
+    egl_surface: Surface<WindowSurface>,
+    egl_context: PossiblyCurrentContext,
+
+    size: Size,
+}
+
+impl SizedRenderer {
+    /// Create sized renderer state.
+    fn new(display: &Display, surface: &WlSurface, size: Size) -> Self {
+        // Create EGL surface and context and make it current.
+        let (egl_surface, egl_context) = Self::create_surface(display, surface, size);
+
+        // Setup OpenGL program.
+        let (uniform_position, uniform_matrix) = Self::create_program();
+
+        Self { uniform_position, uniform_matrix, egl_surface, egl_context, size }
+    }
+
+    /// Resize the renderer.
+    fn resize(&mut self, size: Size) {
+        if self.size == size {
+            return;
+        }
+
+        // Resize OpenGL viewport.
         unsafe { gl::Viewport(0, 0, size.width as i32, size.height as i32) };
 
-        // Update surface size.
+        // Resize EGL texture.
         self.egl_surface.resize(
             &self.egl_context,
             NonZeroU32::new(size.width).unwrap(),
             NonZeroU32::new(size.height).unwrap(),
         );
 
-        self.size = size.into();
+        self.size = size;
+    }
+
+    /// Make EGL surface current.
+    fn make_current(&self) {
+        self.egl_context.make_current(&self.egl_surface).unwrap();
+    }
+
+    /// Perform OpenGL buffer swap.
+    fn swap_buffers(&self) {
+        self.egl_surface.swap_buffers(&self.egl_context).unwrap();
     }
 
     /// Create a new EGL surface.
@@ -312,7 +370,7 @@ impl TextureBuilder {
     }
 
     /// Draw text within the specified bounds.
-    pub fn rasterize(&self, layout: &Layout, text_options: TextOptions) {
+    pub fn rasterize(&self, layout: &Layout, text_options: &TextOptions) {
         layout.set_font_description(Some(&self.font));
 
         // Limit text size to builder limits.
@@ -336,13 +394,12 @@ impl TextureBuilder {
         layout.set_ellipsize(EllipsizeMode::End);
 
         // Calculate text position.
-        layout.set_alignment(Alignment::Left);
         let (_, text_height) = layout.pixel_size();
         let text_y = position.y + size.height as f64 / 2. - text_height as f64 / 2.;
 
         // Handle text selection.
         let color = text_options.text_color;
-        if let Some(selection) = text_options.selection {
+        if let Some(selection) = &text_options.selection {
             // Set fg/bg colors of selected text.
 
             let text_attributes = AttrList::new();
@@ -397,6 +454,11 @@ impl TextureBuilder {
 
         // Clear selection markup attributes after rendering.
         layout.set_attributes(None);
+    }
+
+    /// Get the underlying Cairo context for direct drawing.
+    pub fn context(&self) -> &Context {
+        &self.context
     }
 
     /// Finalize the output texture.

@@ -71,7 +71,7 @@ impl WebKitHandler for State {
             Some(window) => window,
             None => return,
         };
-        let engine = match window.tabs.get_mut(&engine_id) {
+        let engine = match window.tabs_mut().get_mut(&engine_id) {
             Some(engine) => engine,
             None => return,
         };
@@ -103,7 +103,7 @@ impl WebKitHandler for State {
         webkit_engine.import_image(&self.connection, &self.egl_display, image);
 
         // Offer new WlBuffer to window.
-        if window.active_tab == engine_id {
+        if window.active_tab() == engine_id {
             window.unstall();
         }
     }
@@ -134,6 +134,8 @@ pub struct WebKitEngine {
     pointer_button: u32,
     pointer_state: u32,
 
+    id: EngineId,
+
     dirty: bool,
 }
 
@@ -157,6 +159,7 @@ impl WebKitEngine {
         queue: StQueueHandle<State>,
         engine_id: EngineId,
         size: Size,
+        scale: f64,
     ) -> Result<Self, WebKitError> {
         // Ensure FDO is initialized.
         let mut result = Ok(());
@@ -186,18 +189,24 @@ impl WebKitEngine {
             queue.clone().set_display_uri(engine_id, uri);
         });
 
-        Ok(Self {
+        let mut engine = Self {
             exportable,
             web_view,
             backend,
             size,
             image: ptr::null_mut(),
+            id: engine_id,
             scale: 1.0,
             pointer_button: Default::default(),
             pointer_state: Default::default(),
             buffer: Default::default(),
             dirty: Default::default(),
-        })
+        };
+
+        // Update engine scale.
+        engine.set_scale(scale);
+
+        Ok(engine)
     }
 
     /// Import a new EGLImage as WlBuffer.
@@ -278,6 +287,10 @@ impl WebKitEngine {
 }
 
 impl Engine for WebKitEngine {
+    fn id(&self) -> EngineId {
+        self.id
+    }
+
     fn wl_buffer(&self) -> Option<&WlBuffer> {
         self.buffer.as_ref()
     }
@@ -446,6 +459,14 @@ impl Engine for WebKitEngine {
 
     fn load_uri(&self, uri: &str) {
         self.web_view.load_uri(uri);
+    }
+
+    fn uri(&self) -> String {
+        self.web_view.uri().unwrap_or_default().into()
+    }
+
+    fn title(&self) -> String {
+        self.web_view.title().unwrap_or_default().into()
     }
 
     fn as_any(&mut self) -> &mut dyn Any {

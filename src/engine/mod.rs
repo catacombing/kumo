@@ -11,6 +11,9 @@ use crate::{Position, Size, WindowId};
 pub mod webkit;
 
 pub trait Engine {
+    /// Get the engine's unique ID.
+    fn id(&self) -> EngineId;
+
     /// Get the Wayland buffer for rendering the engine's current content.
     fn wl_buffer(&self) -> Option<&WlBuffer>;
 
@@ -84,6 +87,12 @@ pub trait Engine {
 
     /// Load a new page.
     fn load_uri(&self, uri: &str);
+
+    /// Get current URI.
+    fn uri(&self) -> String;
+
+    /// Get tab title.
+    fn title(&self) -> String;
 
     fn as_any(&mut self) -> &mut dyn Any;
 }

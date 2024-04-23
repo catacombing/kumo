@@ -28,6 +28,7 @@ use smithay_client_toolkit::{
 
 use crate::wayland::protocols::fractional_scale::{FractionalScaleHandler, FractionalScaleManager};
 use crate::wayland::protocols::viewporter::Viewporter;
+use crate::window::WindowHandler as _;
 use crate::{KeyboardState, Size, State};
 
 pub mod fractional_scale;
@@ -120,8 +121,12 @@ impl OutputHandler for State {
 delegate_output!(State);
 
 impl WindowHandler for State {
-    fn request_close(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &Window) {
-        self.main_loop.quit();
+    fn request_close(&mut self, _: &Connection, _: &QueueHandle<Self>, window: &Window) {
+        let window = self.windows.values_mut().find(|w| w.xdg() == window);
+        if let Some(window) = window {
+            let window_id = window.id();
+            self.close_window(window_id);
+        }
     }
 
     fn configure(
@@ -132,12 +137,12 @@ impl WindowHandler for State {
         configure: WindowConfigure,
         _serial: u32,
     ) {
-        let window = self.windows.values_mut().find(|w| &w.xdg == window);
+        let window = self.windows.values_mut().find(|w| w.xdg() == window);
         if let Some(window) = window {
             // Update window dimensions.
-            let width = configure.new_size.0.map(|w| w.get()).unwrap_or(window.size.width);
-            let height = configure.new_size.1.map(|h| h.get()).unwrap_or(window.size.height);
-            window.set_size(&self.egl_display, Size { width, height });
+            let width = configure.new_size.0.map(|w| w.get()).unwrap_or(window.size().width);
+            let height = configure.new_size.1.map(|h| h.get()).unwrap_or(window.size().height);
+            window.set_size(Size { width, height });
         }
     }
 }
@@ -231,7 +236,7 @@ impl KeyboardHandler for State {
             Some(window) => window,
             None => return,
         };
-        self.keyboard_focus = Some(window.id);
+        self.keyboard_focus = Some(window.id());
     }
 
     fn leave(
@@ -381,7 +386,7 @@ impl TouchHandler for State {
             Some(window) => window,
             None => return,
         };
-        self.touch_focus = Some((window.id, surface.clone()));
+        self.touch_focus = Some((window.id(), surface.clone()));
 
         let modifiers = match &self.keyboard {
             Some(keyboard_state) => keyboard_state.modifiers,

@@ -1,5 +1,9 @@
 //! Wayland protocol handling.
 
+use std::sync::{Arc, Mutex};
+
+use _text_input::zwp_text_input_manager_v3::{self, ZwpTextInputManagerV3};
+use _text_input::zwp_text_input_v3::{self, ZwpTextInputV3};
 use smithay_client_toolkit::compositor::{CompositorHandler, CompositorState};
 use smithay_client_toolkit::output::{OutputHandler, OutputState};
 use smithay_client_toolkit::reexports::client::globals::GlobalList;
@@ -9,7 +13,8 @@ use smithay_client_toolkit::reexports::client::protocol::wl_pointer::WlPointer;
 use smithay_client_toolkit::reexports::client::protocol::wl_seat::WlSeat;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::protocol::wl_touch::WlTouch;
-use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
+use smithay_client_toolkit::reexports::client::{Connection, Dispatch, QueueHandle};
+use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
 use smithay_client_toolkit::registry::{ProvidesRegistryState, RegistryState};
 use smithay_client_toolkit::seat::keyboard::{
     KeyEvent, KeyboardHandler, Keysym, Modifiers, RepeatInfo,
@@ -39,15 +44,18 @@ pub struct ProtocolStates {
     pub fractional_scale: FractionalScaleManager,
     pub subcompositor: SubcompositorState,
     pub compositor: CompositorState,
-    pub registry: RegistryState,
     pub viewporter: Viewporter,
     pub xdg_shell: XdgShell,
-    pub output: OutputState,
-    pub seat: SeatState,
+
+    text_input: TextInputManager,
+    registry: RegistryState,
+    output: OutputState,
+    seat: SeatState,
 }
 
 impl ProtocolStates {
     pub fn new(globals: &GlobalList, queue: &QueueHandle<State>) -> Self {
+        let text_input = TextInputManager::new(globals, queue);
         let registry = RegistryState::new(globals);
         let compositor = CompositorState::bind(globals, queue).unwrap();
         let wl_compositor = compositor.wl_compositor().clone();
@@ -63,6 +71,7 @@ impl ProtocolStates {
             subcompositor,
             compositor,
             viewporter,
+            text_input,
             xdg_shell,
             registry,
             output,
@@ -182,6 +191,9 @@ impl SeatHandler for State {
             Capability::Keyboard if self.keyboard.is_none() => {
                 let keyboard = self.protocol_states.seat.get_keyboard(queue, &seat, None).ok();
                 self.keyboard = keyboard.map(|kbd| KeyboardState::new(self.queue.handle(), kbd));
+
+                // Add new IME handler for this seat.
+                self.text_input.push(self.protocol_states.text_input.text_input(queue, seat));
             },
             Capability::Pointer if self.pointer.is_none() => {
                 self.pointer = self.protocol_states.seat.get_pointer(queue, &seat).ok();
@@ -197,11 +209,16 @@ impl SeatHandler for State {
         &mut self,
         _connection: &Connection,
         _queue: &QueueHandle<Self>,
-        _seat: WlSeat,
+        seat: WlSeat,
         capability: Capability,
     ) {
         match capability {
-            Capability::Keyboard => self.keyboard = None,
+            Capability::Keyboard => {
+                self.keyboard = None;
+
+                // Remove IME handler for this seat.
+                self.text_input.retain(|text_input| text_input.seat != seat);
+            },
             Capability::Pointer => {
                 if let Some(pointer) = self.pointer.take() {
                     pointer.release();
@@ -526,3 +543,166 @@ impl ProvidesRegistryState for State {
     }
 }
 delegate_registry!(State);
+
+/// zwp_text_input_v3 protocol implementation.
+impl State {
+    fn text_input_enter(&mut self, text_input: ZwpTextInputV3, surface: &WlSurface) {
+        let window = match self.windows.values_mut().find(|window| window.owns_surface(surface)) {
+            Some(window) => window,
+            None => return,
+        };
+
+        window.text_input_enter(text_input);
+    }
+
+    fn text_input_leave(&mut self, surface: &WlSurface) {
+        let window = match self.windows.values_mut().find(|window| window.owns_surface(surface)) {
+            Some(window) => window,
+            None => return,
+        };
+
+        window.text_input_leave();
+    }
+
+    /// Delete text around the current cursor position.
+    fn delete_surrounding_text(
+        &mut self,
+        surface: &WlSurface,
+        before_length: u32,
+        after_length: u32,
+    ) {
+        let window = match self.windows.values_mut().find(|window| window.owns_surface(surface)) {
+            Some(window) => window,
+            None => return,
+        };
+
+        window.delete_surrounding_text(before_length, after_length);
+    }
+
+    /// Insert text at the current cursor position.
+    fn commit_string(&mut self, surface: &WlSurface, text: String) {
+        let window = match self.windows.values_mut().find(|window| window.owns_surface(surface)) {
+            Some(window) => window,
+            None => return,
+        };
+
+        window.commit_string(text);
+    }
+
+    /// Set preedit text at the current cursor position.
+    fn preedit_string(
+        &mut self,
+        surface: &WlSurface,
+        text: String,
+        cursor_begin: i32,
+        cursor_end: i32,
+    ) {
+        let window = match self.windows.values_mut().find(|window| window.owns_surface(surface)) {
+            Some(window) => window,
+            None => return,
+        };
+
+        window.preedit_string(text, cursor_begin, cursor_end);
+    }
+}
+
+/// Factory for the zwp_text_input_v3 protocol.
+#[derive(Debug)]
+struct TextInputManager {
+    manager: ZwpTextInputManagerV3,
+}
+
+impl TextInputManager {
+    fn new(globals: &GlobalList, queue: &QueueHandle<State>) -> Self {
+        let manager = globals.bind(queue, 1..=1, ()).unwrap();
+        Self { manager }
+    }
+
+    /// Get a new text input handle.
+    fn text_input(&self, queue: &QueueHandle<State>, seat: WlSeat) -> TextInput {
+        let _text_input = self.manager.get_text_input(&seat, queue, Default::default());
+        TextInput { _text_input, seat }
+    }
+}
+
+impl Dispatch<ZwpTextInputManagerV3, ()> for State {
+    fn event(
+        _state: &mut State,
+        _input_manager: &ZwpTextInputManagerV3,
+        _event: zwp_text_input_manager_v3::Event,
+        _data: &(),
+        _connection: &Connection,
+        _queue: &QueueHandle<State>,
+    ) {
+        // No events.
+    }
+}
+
+/// State for the zwp_text_input_v3 protocol.
+#[derive(Default)]
+struct TextInputState {
+    surface: Option<WlSurface>,
+    preedit_string: Option<(String, i32, i32)>,
+    commit_string: Option<String>,
+    delete_surrounding_text: Option<(u32, u32)>,
+}
+
+/// Interface for the zwp_text_input_v3 protocol.
+pub struct TextInput {
+    _text_input: ZwpTextInputV3,
+    seat: WlSeat,
+}
+
+impl Dispatch<ZwpTextInputV3, Arc<Mutex<TextInputState>>> for State {
+    fn event(
+        state: &mut State,
+        text_input: &ZwpTextInputV3,
+        event: zwp_text_input_v3::Event,
+        data: &Arc<Mutex<TextInputState>>,
+        _connection: &Connection,
+        _queue: &QueueHandle<State>,
+    ) {
+        let mut data = data.lock().unwrap();
+        match event {
+            zwp_text_input_v3::Event::Enter { surface } => {
+                state.text_input_enter(text_input.clone(), &surface);
+                data.surface = Some(surface);
+            },
+            zwp_text_input_v3::Event::Leave { surface } => {
+                if data.surface.as_ref() == Some(&surface) {
+                    state.text_input_leave(&surface);
+                    data.surface = None;
+                }
+            },
+            zwp_text_input_v3::Event::PreeditString { text, cursor_begin, cursor_end } => {
+                data.preedit_string = Some((text.unwrap_or_default(), cursor_begin, cursor_end));
+            },
+            zwp_text_input_v3::Event::CommitString { text } => {
+                data.commit_string = Some(text.unwrap_or_default());
+            },
+            zwp_text_input_v3::Event::DeleteSurroundingText { before_length, after_length } => {
+                data.delete_surrounding_text = Some((before_length, after_length));
+            },
+            zwp_text_input_v3::Event::Done { .. } => {
+                let preedit_string = data.preedit_string.take().unwrap_or_default();
+                let delete_surrounding_text = data.delete_surrounding_text.take();
+                let commit_string = data.commit_string.take();
+
+                let surface = match &data.surface {
+                    Some(surface) => surface,
+                    None => return,
+                };
+
+                if let Some((before_length, after_length)) = delete_surrounding_text {
+                    state.delete_surrounding_text(surface, before_length, after_length);
+                }
+                if let Some(text) = commit_string {
+                    state.commit_string(surface, text);
+                }
+                let (text, cursor_begin, cursor_end) = preedit_string;
+                state.preedit_string(surface, text, cursor_begin, cursor_end);
+            },
+            _ => unreachable!(),
+        }
+    }
+}

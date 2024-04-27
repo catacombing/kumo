@@ -12,7 +12,8 @@ use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, SwapInterval, WindowSurface};
 use pangocairo::cairo::{Context, Format, ImageSurface};
 use pangocairo::pango::{
-    AttrColor, AttrList, EllipsizeMode, FontDescription, Layout, SCALE as PANGO_SCALE,
+    AttrColor, AttrInt, AttrList, EllipsizeMode, FontDescription, Layout, Underline,
+    SCALE as PANGO_SCALE,
 };
 use raw_window_handle::{RawWindowHandle, WaylandWindowHandle};
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
@@ -433,15 +434,50 @@ impl TextureBuilder {
             draw_caret(selection.end);
         }
 
+        // Temporarily insert preedit text.
+        let mut text_without_preedit = None;
+        if !text_options.preedit.0.is_empty() {
+            // Store text before preedit insertion.
+            let mut text_with_preedit = layout.text().to_string();
+            text_without_preedit = Some(text_with_preedit.clone());
+
+            // Insert preedit text.
+            let preedit_start = text_options.cursor_pos as u32;
+            let preedit_end = preedit_start + text_options.preedit.0.len() as u32;
+            text_with_preedit.insert_str(preedit_start as usize, &text_options.preedit.0);
+            layout.set_text(&text_with_preedit);
+
+            // Add underline below preedit text.
+            let attributes = layout.attributes().unwrap_or_default();
+            let mut ul_attr = AttrInt::new_underline(Underline::Single);
+            ul_attr.set_start_index(preedit_start);
+            ul_attr.set_end_index(preedit_end);
+            attributes.insert(ul_attr);
+            layout.set_attributes(Some(&attributes));
+        }
+
+        // Set attributes for multi-character IME underline cursor.
+        let (cursor_start, cursor_end) = text_options.cursor_pos();
+        if text_options.show_cursor && cursor_end > cursor_start {
+            let mut ul_attr = AttrInt::new_underline(Underline::Double);
+            ul_attr.set_start_index(cursor_start as u32);
+            ul_attr.set_end_index(cursor_end as u32);
+
+            let attributes = layout.attributes().unwrap_or_default();
+            attributes.insert(ul_attr);
+
+            layout.set_attributes(Some(&attributes));
+        }
+
         // Render text.
         self.context.move_to(position.x, text_y);
         self.context.set_source_rgb(color[0], color[1], color[2]);
         pangocairo::functions::show_layout(&self.context, layout);
 
-        // Draw text input cursor.
-        if (0..i32::MAX).contains(&text_options.cursor_pos) {
+        // Draw normal I-Beam cursor above text.
+        if text_options.show_cursor && cursor_start == cursor_end {
             // Get cursor rect and convert it from pango coordinates.
-            let (cursor_rect, _) = layout.cursor_pos(text_options.cursor_pos);
+            let (cursor_rect, _) = layout.cursor_pos(cursor_start);
             let cursor_x = position.x + cursor_rect.x() as f64 / PANGO_SCALE as f64;
             let cursor_y = text_y + cursor_rect.y() as f64 / PANGO_SCALE as f64;
             let cursor_height = cursor_rect.height() as f64 / PANGO_SCALE as f64;
@@ -454,6 +490,11 @@ impl TextureBuilder {
 
         // Clear selection markup attributes after rendering.
         layout.set_attributes(None);
+
+        // Reset text to remove preedit.
+        if let Some(text) = text_without_preedit.take() {
+            layout.set_text(&text);
+        }
     }
 
     /// Get the underlying Cairo context for direct drawing.
@@ -480,9 +521,11 @@ impl TextureBuilder {
 /// Options for text rendering.
 pub struct TextOptions {
     selection: Option<Range<i32>>,
+    preedit: (String, i32, i32),
     text_color: [f64; 3],
     position: Position<f64>,
     size: Option<Size<i32>>,
+    show_cursor: bool,
     cursor_pos: i32,
 }
 
@@ -491,8 +534,10 @@ impl TextOptions {
         Self {
             text_color: [1.; 3],
             cursor_pos: -1,
+            show_cursor: Default::default(),
             selection: Default::default(),
             position: Default::default(),
+            preedit: Default::default(),
             size: Default::default(),
         }
     }
@@ -513,13 +558,33 @@ impl TextOptions {
     }
 
     /// Show text input cursor.
-    pub fn show_cursor(&mut self, pos: i32) {
+    pub fn show_cursor(&mut self) {
+        self.show_cursor = true;
+    }
+
+    /// Set text input cursor position.
+    pub fn cursor_position(&mut self, pos: i32) {
         self.cursor_pos = pos;
     }
 
     /// Text selection range.
     pub fn selection(&mut self, selection: Option<Range<i32>>) {
         self.selection = selection;
+    }
+
+    /// Preedit text and cursor.
+    pub fn preedit(&mut self, (text, cursor_begin, cursor_end): (String, i32, i32)) {
+        self.preedit = (text, cursor_begin, cursor_end);
+    }
+
+    /// Get cursor position.
+    pub fn cursor_pos(&self) -> (i32, i32) {
+        if !self.preedit.0.is_empty() {
+            let cursor_pos = self.cursor_pos.max(0);
+            (cursor_pos + self.preedit.1, cursor_pos + self.preedit.2)
+        } else {
+            (self.cursor_pos, self.cursor_pos)
+        }
     }
 }
 

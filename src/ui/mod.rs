@@ -4,17 +4,20 @@ use std::borrow::Cow;
 use std::mem;
 use std::ops::{Bound, Range, RangeBounds};
 
+use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose};
 use funq::MtQueueHandle;
 use glutin::display::Display;
 use pangocairo::cairo::{Context, Format, ImageSurface};
-use pangocairo::pango::{Alignment, Layout};
+use pangocairo::pango::{Alignment, Layout, SCALE as PANGO_SCALE};
 use smithay_client_toolkit::reexports::client::protocol::wl_subsurface::WlSubsurface;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
+use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::tlds::TLDS;
 use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
+use crate::window::TextInput;
 use crate::{gl, Position, Size, State, WindowId};
 
 mod renderer;
@@ -229,7 +232,7 @@ impl Ui {
     /// Handle new key press.
     pub fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
         if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
-            self.uribar.text_input.press_key(raw, keysym, modifiers)
+            self.uribar.text_field.press_key(raw, keysym, modifiers)
         }
     }
 
@@ -319,7 +322,7 @@ impl Ui {
 
         match self.touch_focus {
             // Forward touch event.
-            TouchFocusElement::UriBar => self.uribar.touch_up(),
+            TouchFocusElement::UriBar => (),
             TouchFocusElement::TabsButton(position) => {
                 // Tab button relative position.
                 let tabs_button_position = position - self.tabs_button_position().into();
@@ -331,6 +334,39 @@ impl Ui {
                     self.queue.show_tabs(self.window_id);
                 }
             },
+        }
+    }
+
+    /// Delete text around the current cursor position.
+    pub fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32) {
+        if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
+            self.uribar.text_field.delete_surrounding_text(before_length, after_length);
+        }
+    }
+
+    /// Insert text at the current cursor position.
+    pub fn commit_string(&mut self, text: String) {
+        if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
+            self.uribar.text_field.commit_string(text);
+        }
+    }
+
+    /// Set preedit text at the current cursor position.
+    pub fn preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
+        if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
+            self.uribar.text_field.preedit_string(text, cursor_begin, cursor_end);
+        }
+    }
+
+    /// Send current IME state to the compositor.
+    pub fn commit_ime_state(&mut self, text_input: &mut TextInput) {
+        // Update IME state or disable it if no text field is focused.
+        match self.keyboard_focus {
+            Some(KeyboardInputElement::UriBar) => {
+                let uribar_pos = self.uribar_position();
+                self.uribar.text_field.commit_ime_state(text_input, uribar_pos);
+            },
+            _ => text_input.disable(),
         }
     }
 
@@ -395,7 +431,7 @@ impl Ui {
 /// URI input UI.
 struct Uribar {
     texture: Option<Texture>,
-    text_input: TextInput,
+    text_field: TextField,
     size: Size,
     scale: f64,
 }
@@ -403,10 +439,11 @@ struct Uribar {
 impl Uribar {
     fn new(window: WindowId, mut queue: MtQueueHandle<State>) -> Self {
         // Setup text input with submission handling.
-        let mut text_input = TextInput::new();
-        text_input.set_submit_handler(Box::new(move |uri| queue.load_uri(window, uri)));
+        let mut text_field = TextField::new();
+        text_field.set_submit_handler(Box::new(move |uri| queue.load_uri(window, uri)));
+        text_field.set_purpose(ContentPurpose::Url);
 
-        Self { text_input, scale: 1., texture: Default::default(), size: Default::default() }
+        Self { text_field, scale: 1., texture: Default::default(), size: Default::default() }
     }
 
     /// Update the output texture size and scale.
@@ -420,10 +457,10 @@ impl Uribar {
 
     /// Update the URI bar's content.
     fn set_uri(&mut self, uri: &str) {
-        if uri == self.text_input.text() {
+        if uri == self.text_field.text() {
             return;
         }
-        self.text_input.set_text(uri);
+        self.text_field.set_text(uri);
 
         // Force redraw.
         self.texture = None;
@@ -431,20 +468,20 @@ impl Uribar {
 
     /// Set URI bar input focus.
     fn set_focused(&mut self, focused: bool) {
-        self.text_input.set_focus(focused);
+        self.text_field.set_focus(focused);
     }
 
     /// Check if URI bar needs redraw.
     fn dirty(&self) -> bool {
-        self.texture.is_none() || self.text_input.dirty
+        self.texture.is_none() || self.text_field.dirty
     }
 
     /// Get the OpenGL texture.
     fn texture(&mut self) -> &Texture {
         // Ensure texture is up to date.
-        if self.texture.is_none() || self.text_input.dirty {
+        if self.texture.is_none() || self.text_field.dirty {
             self.texture = Some(self.draw());
-            self.text_input.dirty = false;
+            self.text_field.dirty = false;
         }
 
         self.texture.as_ref().unwrap()
@@ -457,50 +494,51 @@ impl Uribar {
         builder.clear(URIBAR_BG);
 
         // Set text rendering options.
-        let position = Position::new(URIBAR_X_PADDING * self.scale, 0.);
+        let position: Position<f64> = self.text_position().into();
         let width = self.size.width - 2 * position.x.round() as u32;
         let size = Size::new(width, self.size.height);
         let mut text_options = TextOptions::new();
+        text_options.cursor_position(self.text_field.cursor_index());
+        text_options.preedit(self.text_field.preedit.clone());
         text_options.position(position);
         text_options.size(size.into());
         text_options.text_color(URIBAR_FG);
 
         // Show cursor or selection when focused.
-        if self.text_input.focused {
-            if self.text_input.selection.is_some() {
-                text_options.selection(self.text_input.selection.clone());
+        if self.text_field.focused {
+            if self.text_field.selection.is_some() {
+                text_options.selection(self.text_field.selection.clone());
             } else {
-                text_options.show_cursor(self.text_input.cursor_index());
+                text_options.show_cursor();
             }
         }
 
         // Draw URI bar.
-        builder.rasterize(self.text_input.layout(), &text_options);
+        builder.rasterize(self.text_field.layout(), &text_options);
 
         // Convert cairo buffer to texture.
         builder.build()
     }
 
+    /// Get relative position of the text.
+    fn text_position(&self) -> Position {
+        Position::new((URIBAR_X_PADDING * self.scale).round() as i32, 0)
+    }
+
     /// Handle touch press events.
     pub fn touch_down(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
-        // Forward event to text input.
+        // Forward event to text field.
         let mut relative_position = position;
         relative_position.x -= URIBAR_X_PADDING * self.scale;
-        self.text_input.touch_down(time, relative_position, modifiers);
+        self.text_field.touch_down(time, relative_position, modifiers);
     }
 
     /// Handle touch motion events.
     pub fn touch_motion(&mut self, position: Position<f64>) {
-        // Forward event to text input.
+        // Forward event to text field.
         let mut relative_position = position;
         relative_position.x -= URIBAR_X_PADDING * self.scale;
-        self.text_input.touch_motion(relative_position);
-    }
-
-    /// Handle touch release events.
-    pub fn touch_up(&mut self) {
-        // Forward event to text input.
-        self.text_input.touch_up();
+        self.text_field.touch_motion(relative_position);
     }
 }
 
@@ -603,10 +641,14 @@ enum TouchFocusElement {
 }
 
 /// Text input field.
-struct TextInput {
+struct TextField {
     selection: Option<Range<i32>>,
     submit_handler: Box<dyn FnMut(String)>,
+    preedit: (String, i32, i32),
     last_touch: TouchHistory,
+    change_cause: ChangeCause,
+    last_ime_state: ImeState,
+    purpose: ContentPurpose,
     layout: Layout,
     cursor_index: i32,
     cursor_offset: i32,
@@ -614,7 +656,7 @@ struct TextInput {
     dirty: bool,
 }
 
-impl TextInput {
+impl TextField {
     fn new() -> Self {
         // Create pango layout.
         let image_surface = ImageSurface::create(Format::ARgb32, 0, 0).unwrap();
@@ -624,10 +666,14 @@ impl TextInput {
         Self {
             layout,
             submit_handler: Box::new(|_| {}),
+            change_cause: ChangeCause::Other,
+            purpose: ContentPurpose::Normal,
+            last_ime_state: Default::default(),
             cursor_offset: Default::default(),
             cursor_index: Default::default(),
             last_touch: Default::default(),
             selection: Default::default(),
+            preedit: Default::default(),
             focused: Default::default(),
             dirty: Default::default(),
         }
@@ -931,9 +977,120 @@ impl TextInput {
         self.dirty = true;
     }
 
-    /// Handle touch release events.
-    pub fn touch_up(&mut self) {
+    /// Delete text around the current cursor position.
+    fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32) {
+        // Calculate removal boundaries.
+        let mut text = self.text();
+        let index = self.cursor_index() as usize;
+        let end = (index + after_length as usize).min(text.len());
+        let start = index.saturating_sub(before_length as usize);
+
+        // Remove all bytes in the range from the text.
+        text.drain(index..end);
+        text.drain(start..index);
+        self.layout.set_text(&text);
+
+        // Update cursor position.
+        self.cursor_index = start as i32;
+        self.cursor_offset = 0;
+
+        // Set reason for next IME update.
+        self.change_cause = ChangeCause::InputMethod;
+
         self.dirty = true;
+    }
+
+    /// Insert text at the current cursor position.
+    fn commit_string(&mut self, text: String) {
+        // Delete selection before writing new text.
+        if let Some(selection) = self.selection.take() {
+            self.delete_selected(selection);
+        }
+
+        // Add text to input element.
+        let index = self.cursor_index() as usize;
+        let mut input_text = self.text();
+        input_text.insert_str(index, &text);
+        self.layout.set_text(&input_text);
+
+        // Move cursor behind the new characters.
+        self.cursor_index += text.len() as i32;
+
+        // Set reason for next IME update.
+        self.change_cause = ChangeCause::InputMethod;
+
+        self.dirty = true;
+    }
+
+    /// Set preedit text at the current cursor position.
+    fn preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
+        // Delete selection as soon as preedit starts.
+        if !text.is_empty() {
+            if let Some(selection) = self.selection.take() {
+                self.delete_selected(selection);
+            }
+        }
+
+        self.preedit = (text, cursor_begin, cursor_end);
+        self.dirty = true;
+    }
+
+    /// Send current IME state to the compositor.
+    fn commit_ime_state(&mut self, text_input: &mut TextInput, position: Position) {
+        // Only send disable event if input is not focused.
+        if !self.focused {
+            text_input.disable();
+            return;
+        }
+
+        // Skip if nothing has changed.
+        let cursor_index = self.cursor_index();
+        let surrounding_text = self.text();
+        let ime_state = ImeState {
+            cursor_index,
+            surrounding_text: surrounding_text.clone(),
+            selection: self.selection.clone(),
+            purpose: self.purpose,
+        };
+        if text_input.enabled() && self.last_ime_state == ime_state {
+            return;
+        }
+        self.last_ime_state = ime_state;
+
+        // Enable IME if necessary.
+        text_input.enable();
+
+        // Offer the entire input text as surrounding text hint.
+        //
+        // NOTE: This request is technically limited to 4000 bytes, but that is unlikely
+        // to be an issue for our purposes.
+        let (cursor_index, selection_anchor) = match &self.selection {
+            Some(selection) => (selection.end, selection.start),
+            None => (cursor_index, cursor_index),
+        };
+        text_input.set_surrounding_text(surrounding_text, cursor_index, selection_anchor);
+
+        // Set reason for this update.
+        let cause = mem::replace(&mut self.change_cause, ChangeCause::Other);
+        text_input.set_text_change_cause(cause);
+
+        // Set text input field type.
+        text_input.set_content_type(ContentHint::None, self.purpose);
+
+        // Set cursor position.
+        let (cursor_rect, _) = self.layout.cursor_pos(self.cursor_index());
+        let cursor_x = position.x + cursor_rect.x() / PANGO_SCALE;
+        let cursor_y = position.y + cursor_rect.y() / PANGO_SCALE;
+        let cursor_height = cursor_rect.height() / PANGO_SCALE;
+        let cursor_width = cursor_rect.width() / PANGO_SCALE;
+        text_input.set_cursor_rectangle(cursor_x, cursor_y, cursor_width, cursor_height);
+
+        text_input.commit();
+    }
+
+    /// Set IME input field purpose hint.
+    fn set_purpose(&mut self, purpose: ContentPurpose) {
+        self.purpose = purpose;
     }
 
     /// Set input focus.
@@ -950,28 +1107,62 @@ impl TextInput {
 
     /// Move the text input cursor.
     fn move_cursor(&mut self, positions: i32) {
-        let (cursor, offset) = self.layout.move_cursor_visually(
-            true,
-            self.cursor_index,
-            self.cursor_offset,
-            positions,
-        );
+        for _ in 0..positions.abs() {
+            let direction = positions;
+            let (cursor, offset) = self.layout.move_cursor_visually(
+                true,
+                self.cursor_index,
+                self.cursor_offset,
+                direction,
+            );
 
-        if (0..i32::MAX).contains(&cursor) {
-            self.cursor_index = cursor;
-            self.cursor_offset = offset;
+            if (0..i32::MAX).contains(&cursor) {
+                self.cursor_index = cursor;
+                self.cursor_offset = offset;
+            } else {
+                break;
+            }
         }
     }
 
     /// Get current cursor's byte offset.
     fn cursor_index(&self) -> i32 {
-        self.cursor_index + self.cursor_offset
+        // Offset is character based, so we translate it to bytes here.
+        let mut offset = self.cursor_offset;
+        if offset > 0 {
+            let text = self.text();
+            while !text.is_char_boundary((self.cursor_index + offset) as usize) {
+                offset += 1;
+            }
+        }
+
+        self.cursor_index + offset
     }
 }
 
-impl Default for TextInput {
+impl Default for TextField {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// IME state for text input field.
+#[derive(PartialEq, Eq)]
+struct ImeState {
+    cursor_index: i32,
+    selection: Option<Range<i32>>,
+    surrounding_text: String,
+    purpose: ContentPurpose,
+}
+
+impl Default for ImeState {
+    fn default() -> Self {
+        Self {
+            purpose: ContentPurpose::Normal,
+            cursor_index: -1,
+            surrounding_text: Default::default(),
+            selection: Default::default(),
+        }
     }
 }
 

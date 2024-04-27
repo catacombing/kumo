@@ -3,11 +3,13 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, ZwpTextInputV3};
 use funq::StQueueHandle;
 use glutin::display::Display;
 use indexmap::IndexMap;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
+use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::{AxisScroll, BTN_LEFT};
@@ -56,6 +58,7 @@ pub struct Window {
     tabs: IndexMap<EngineId, Box<dyn Engine>>,
     active_tab: EngineId,
 
+    text_input: Option<TextInput>,
     wayland_queue: QueueHandle<State>,
     connection: Connection,
     egl_display: Display,
@@ -133,6 +136,7 @@ impl Window {
             stalled: true,
             scale: 1.,
             touch_points: Default::default(),
+            text_input: Default::default(),
             closed: Default::default(),
             dirty: Default::default(),
             tabs: Default::default(),
@@ -254,8 +258,14 @@ impl Window {
             let ui_rendered = self.tabs_ui.draw(self.tabs.values(), self.active_tab);
             self.stalled &= !ui_rendered;
         } else {
+            // Draw UI.
             let ui_rendered = self.ui.draw(self.tabs.len(), self.dirty);
             self.stalled &= !ui_rendered;
+
+            // Commit latest IME state.
+            if let Some(text_input) = &mut self.text_input {
+                self.ui.commit_ime_state(text_input);
+            }
         }
 
         // Request a new frame if this frame was dirty.
@@ -555,6 +565,37 @@ impl Window {
         }
     }
 
+    /// Handle IME focus.
+    pub fn text_input_enter(&mut self, text_input: ZwpTextInputV3) {
+        self.text_input = Some(text_input.into());
+    }
+
+    /// Handle IME unfocus.
+    pub fn text_input_leave(&mut self) {
+        self.text_input = None;
+    }
+
+    /// Delete text around the current cursor position.
+    pub fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32) {
+        self.ui.delete_surrounding_text(before_length, after_length);
+        self.unstall();
+    }
+
+    /// Insert text at the current cursor position.
+    pub fn commit_string(&mut self, text: String) {
+        self.ui.commit_string(text);
+    }
+
+    /// Set preedit text at the current cursor position.
+    pub fn preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
+        self.ui.preedit_string(text, cursor_begin, cursor_end);
+
+        // NOTE: Unstall is always called and it's always the last event in the
+        // text-input chain, so we can trigger a redraw here without accidentally
+        // drawing a partially updated IME state.
+        self.unstall();
+    }
+
     /// Update the URI displayed by the UI.
     pub fn set_display_uri(&mut self, engine_id: EngineId, uri: &str) {
         // Ignore URI change for background engines.
@@ -608,5 +649,81 @@ impl WindowId {
 impl Default for WindowId {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Text input with enabled-state tracking.
+pub struct TextInput {
+    text_input: ZwpTextInputV3,
+    enabled: bool,
+}
+
+impl From<ZwpTextInputV3> for TextInput {
+    fn from(text_input: ZwpTextInputV3) -> Self {
+        Self { text_input, enabled: false }
+    }
+}
+
+impl TextInput {
+    /// Check if text input is enabled.
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Enable text input on a surface.
+    ///
+    /// This is automatically debounced if the text input is already enabled.
+    ///
+    /// Does not automatically send a commit, to allow synchronized
+    /// initialization of all IME state.
+    pub fn enable(&mut self) {
+        if self.enabled {
+            return;
+        }
+
+        self.enabled = true;
+        self.text_input.enable();
+    }
+
+    /// Disable text input on a surface.
+    ///
+    /// This is automatically debounced if the text input is already disabled.
+    ///
+    /// Contrary to `[Self::enable]`, this immediately sends a commit after
+    /// disabling IME, since there's no need to synchronize with other
+    /// events.
+    pub fn disable(&mut self) {
+        if !self.enabled {
+            return;
+        }
+
+        self.enabled = false;
+        self.text_input.disable();
+        self.text_input.commit();
+    }
+
+    /// Set the surrounding text.
+    pub fn set_surrounding_text(&self, text: String, cursor_index: i32, selection_anchor: i32) {
+        self.text_input.set_surrounding_text(text, cursor_index, selection_anchor);
+    }
+
+    /// Indicate the cause of surrounding text change.
+    pub fn set_text_change_cause(&self, cause: ChangeCause) {
+        self.text_input.set_text_change_cause(cause);
+    }
+
+    /// Set text field content purpose and hint.
+    pub fn set_content_type(&self, hint: ContentHint, purpose: ContentPurpose) {
+        self.text_input.set_content_type(hint, purpose);
+    }
+
+    /// Set text field cursor position.
+    pub fn set_cursor_rectangle(&self, x: i32, y: i32, width: i32, height: i32) {
+        self.text_input.set_cursor_rectangle(x, y, width, height);
+    }
+
+    /// Commit IME state.
+    pub fn commit(&self) {
+        self.text_input.commit();
     }
 }

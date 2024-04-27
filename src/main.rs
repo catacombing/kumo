@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io;
-use std::ops::{Mul, Sub};
+use std::ops::{Mul, Sub, SubAssign};
 use std::os::fd::{AsFd, AsRawFd};
 use std::time::Duration;
 
@@ -19,7 +19,7 @@ use smithay_client_toolkit::reexports::client::{
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers, RepeatInfo};
 
 use crate::engine::webkit::WebKitError;
-use crate::wayland::protocols::{KeyRepeat, ProtocolStates};
+use crate::wayland::protocols::{KeyRepeat, ProtocolStates, TextInput};
 use crate::wayland::WaylandDispatch;
 use crate::window::{Window, WindowId};
 
@@ -85,6 +85,7 @@ pub struct State {
     connection: Connection,
     egl_display: Display,
 
+    text_input: Vec<TextInput>,
     keyboard: Option<KeyboardState>,
     pointer: Option<WlPointer>,
     touch: Option<WlTouch>,
@@ -118,6 +119,7 @@ impl State {
             wayland_queue: Some(wayland_queue),
             keyboard_focus: Default::default(),
             touch_focus: Default::default(),
+            text_input: Default::default(),
             keyboard: Default::default(),
             windows: Default::default(),
             pointer: Default::default(),
@@ -290,13 +292,19 @@ impl Mul<f64> for Position<f64> {
     }
 }
 
-impl Sub<Position<f64>> for Position<f64> {
+impl<T: Sub<T, Output = T>> Sub<Position<T>> for Position<T> {
     type Output = Self;
 
-    fn sub(mut self, rhs: Position<f64>) -> Self {
-        self.x -= rhs.x;
-        self.y -= rhs.y;
+    fn sub(mut self, rhs: Position<T>) -> Self {
+        self.x = self.x - rhs.x;
+        self.y = self.y - rhs.y;
         self
+    }
+}
+
+impl<T: Sub<T, Output = T> + Copy> SubAssign<Position<T>> for Position<T> {
+    fn sub_assign(&mut self, rhs: Position<T>) {
+        *self = *self - rhs;
     }
 }
 

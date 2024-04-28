@@ -6,7 +6,7 @@ use std::sync::Once;
 use std::time::UNIX_EPOCH;
 
 use funq::StQueueHandle;
-use glutin::api::egl::EGL;
+use glutin::api::egl::Egl;
 use glutin::display::{AsRawDisplay, Display, RawDisplay};
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::{Connection, Proxy};
@@ -134,6 +134,8 @@ pub struct WebKitEngine {
     pointer_button: u32,
     pointer_state: u32,
 
+    egl: &'static Egl,
+
     id: EngineId,
 
     dirty: bool,
@@ -194,6 +196,7 @@ impl WebKitEngine {
             web_view,
             backend,
             size,
+            egl: display.egl().unwrap(),
             image: ptr::null_mut(),
             id: engine_id,
             scale: 1.0,
@@ -232,12 +235,11 @@ impl WebKitEngine {
         self.image = image;
 
         let RawDisplay::Egl(raw_display) = egl_display.raw_display();
-        let egl = EGL.as_ref().unwrap();
 
         // Convert EGLImage to WlBuffer.
         let object_id = unsafe {
             let egl_image = wpe_fdo_egl_exported_image_get_egl_image(self.image);
-            let raw_wl_buffer = egl.CreateWaylandBufferFromImageWL(raw_display, egl_image);
+            let raw_wl_buffer = self.egl.CreateWaylandBufferFromImageWL(raw_display, egl_image);
             ObjectId::from_ptr(WlBuffer::interface(), raw_wl_buffer.cast()).ok().unwrap()
         };
         self.buffer = Some(WlBuffer::from_id(connection, object_id).unwrap());

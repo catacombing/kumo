@@ -449,6 +449,7 @@ dependencies = [
 [[package]]
 name = "glutin"
 version = "0.31.3"
+source = "git+https://github.com/chrisduerr/glutin?branch=more_egl#e443ff3a978e7354d08c8910f2b216eeb3f04695"
 dependencies = [
  "bitflags 2.4.2",
  "cfg_aliases",
@@ -467,6 +468,7 @@ dependencies = [
 [[package]]
 name = "glutin_egl_sys"
 version = "0.6.0"
+source = "git+https://github.com/chrisduerr/glutin?branch=more_egl#e443ff3a978e7354d08c8910f2b216eeb3f04695"
 dependencies = [
  "gl_generator",
  "windows-sys 0.48.0",

@@ -22,8 +22,8 @@ members = [
 
 [dependencies]
 funq = { path = "./funq" }
-glutin_egl_sys = { path = "../../rust-windowing/glutin/glutin_egl_sys" }
-glutin = { path = "../../rust-windowing/glutin/glutin", default-features = false, features = ["wayland"] }
+glutin_egl_sys = { git = "https://github.com/chrisduerr/glutin", branch = "more_egl" }
+glutin = { git = "https://github.com/chrisduerr/glutin", branch = "more_egl", default-features = false, features = ["wayland"] }
 raw-window-handle = "0.5.2"
 smithay-client-toolkit = { version = "0.18.1", default-features = false, features = ["xkbcommon"] }
 thiserror = "1.0.57"

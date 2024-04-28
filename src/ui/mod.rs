@@ -889,6 +889,7 @@ impl TextField {
         let x = (position.x * pangocairo::pango::SCALE as f64).round() as i32;
         let y = (position.y * pangocairo::pango::SCALE as f64).round() as i32;
         let (_, index, offset) = self.layout.xy_to_index(x, y);
+        let byte_index = self.cursor_byte_index(index, offset);
 
         // Update touch history.
         let multi_taps = self.last_touch.push(time, index, offset);
@@ -898,8 +899,8 @@ impl TextField {
             0 => {
                 // Whether touch is modifying one of the selection boundaries.
                 if let Some(selection) = self.selection.as_ref() {
-                    self.last_touch.moving_selection_start = selection.start == index + offset;
-                    self.last_touch.moving_selection_end = selection.end == index + offset;
+                    self.last_touch.moving_selection_start = selection.start == byte_index;
+                    self.last_touch.moving_selection_end = selection.end == byte_index;
                 }
 
                 if !self.last_touch.moving_selection_start && !self.last_touch.moving_selection_end
@@ -919,9 +920,9 @@ impl TextField {
                 let mut word_end = text.len() as i32;
                 for (i, c) in text.char_indices() {
                     let i = i as i32;
-                    if i + 1 < index + offset && !c.is_alphanumeric() {
+                    if i + 1 < byte_index && !c.is_alphanumeric() {
                         word_start = i + 1;
-                    } else if i > index + offset && !c.is_alphanumeric() {
+                    } else if i > byte_index && !c.is_alphanumeric() {
                         word_end = i;
                         break;
                     }
@@ -943,26 +944,26 @@ impl TextField {
 
     /// Handle touch motion events.
     pub fn touch_motion(&mut self, position: Position<f64>) {
-        let selection = match &mut self.selection {
-            Some(selection)
-                if self.last_touch.moving_selection_start
-                    || self.last_touch.moving_selection_end =>
-            {
-                selection
-            },
-            _ => return,
-        };
+        // Ignore if neither selection end is being moved.
+        if self.selection.is_none()
+            || (!self.last_touch.moving_selection_start && !self.last_touch.moving_selection_end)
+        {
+            return;
+        }
 
         // Get byte offset from X/Y position.
         let x = (position.x * pangocairo::pango::SCALE as f64).round() as i32;
         let y = (position.y * pangocairo::pango::SCALE as f64).round() as i32;
         let (_, index, offset) = self.layout.xy_to_index(x, y);
+        let byte_index = self.cursor_byte_index(index, offset);
+
+        let selection = self.selection.as_mut().unwrap();
 
         // Update selection if it is at least one character wide.
-        if self.last_touch.moving_selection_start && index + offset != selection.end {
-            selection.start = index + offset;
-        } else if self.last_touch.moving_selection_end && index + offset != selection.start {
-            selection.end = index + offset;
+        if self.last_touch.moving_selection_start && byte_index != selection.end {
+            selection.start = byte_index;
+        } else if self.last_touch.moving_selection_end && byte_index != selection.start {
+            selection.end = byte_index;
         }
 
         // Swap modified side when input carets "overtake" each other.
@@ -1127,16 +1128,20 @@ impl TextField {
 
     /// Get current cursor's byte offset.
     fn cursor_index(&self) -> i32 {
+        self.cursor_byte_index(self.cursor_index, self.cursor_offset)
+    }
+
+    /// Convert a cursor's index and offset to a byte offset.
+    fn cursor_byte_index(&self, index: i32, mut offset: i32) -> i32 {
         // Offset is character based, so we translate it to bytes here.
-        let mut offset = self.cursor_offset;
         if offset > 0 {
             let text = self.text();
-            while !text.is_char_boundary((self.cursor_index + offset) as usize) {
+            while !text.is_char_boundary((index + offset) as usize) {
                 offset += 1;
             }
         }
 
-        self.cursor_index + offset
+        index + offset
     }
 }
 

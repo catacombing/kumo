@@ -425,6 +425,13 @@ impl Window {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.pointer_button(time, position, button, state, modifiers);
             }
+        } else if self.ui.surface() == surface {
+            // Forward emulated touch event to UI.
+            match state {
+                0 if button == BTN_LEFT => self.ui.touch_up(time, -1, modifiers),
+                1 if button == BTN_LEFT => self.ui.touch_down(time, -1, position, modifiers),
+                _ => (),
+            }
         } else if self.tabs_ui.surface() == surface {
             // Ignore button-up when button-down closed tabs UI.
             if self.tabs_ui.visible() {
@@ -439,13 +446,6 @@ impl Window {
                     },
                     _ => (),
                 }
-            }
-        } else {
-            // Forward emulated touch event to UI.
-            match state {
-                0 if button == BTN_LEFT => self.ui.touch_up(time, -1, modifiers),
-                1 if button == BTN_LEFT => self.ui.touch_down(time, -1, position, modifiers),
-                _ => (),
             }
         }
 
@@ -468,10 +468,10 @@ impl Window {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.pointer_motion(time, position, modifiers);
             }
+        } else if self.ui.surface() == surface {
+            self.ui.touch_motion(time, -1, position, modifiers);
         } else if self.tabs_ui.surface() == surface {
             self.tabs_ui.touch_motion(time, -1, position, modifiers);
-        } else {
-            self.ui.touch_motion(time, -1, position, modifiers);
         }
 
         // Unstall if UI changed.
@@ -492,21 +492,20 @@ impl Window {
         self.touch_points.insert(id, position);
 
         // Forward events to corresponding surface.
-        if self.xdg.wl_surface() != surface {
-            self.ui.touch_down(time, id, position, modifiers);
-        } else if self.tabs_ui.surface() == surface {
-            // Ignore touch-up when touch-down closed tabs UI.
-            if self.tabs_ui.visible() {
+        if self.xdg.wl_surface() == surface {
+            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 // Clear UI keyboard focus.
                 self.ui.clear_keyboard_focus();
 
-                self.tabs_ui.touch_down(time, id, position, modifiers);
+                engine.touch_down(&self.touch_points, time, id, modifiers);
             }
-        } else if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+        } else if self.ui.surface() == surface {
+            self.ui.touch_down(time, id, position, modifiers);
+        } else if self.tabs_ui.surface() == surface {
             // Clear UI keyboard focus.
             self.ui.clear_keyboard_focus();
 
-            engine.touch_down(&self.touch_points, time, id, modifiers);
+            self.tabs_ui.touch_down(time, id, position, modifiers);
         }
 
         // Unstall if UI changed.
@@ -522,10 +521,10 @@ impl Window {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.touch_up(&self.touch_points, time, id, modifiers);
             }
+        } else if self.ui.surface() == surface {
+            self.ui.touch_up(time, id, modifiers);
         } else if self.tabs_ui.surface() == surface {
             self.tabs_ui.touch_up(time, id, modifiers);
-        } else {
-            self.ui.touch_up(time, id, modifiers);
         }
 
         // Unstall if UI changed.
@@ -553,10 +552,10 @@ impl Window {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.touch_motion(&self.touch_points, time, id, modifiers);
             }
+        } else if self.ui.surface() == surface {
+            self.ui.touch_motion(time, id, position, modifiers);
         } else if self.tabs_ui.surface() == surface {
             self.tabs_ui.touch_motion(time, id, position, modifiers);
-        } else {
-            self.ui.touch_motion(time, id, position, modifiers);
         }
 
         // Unstall if UI changed.

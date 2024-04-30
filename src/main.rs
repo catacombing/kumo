@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io;
-use std::ops::{Mul, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::os::fd::{AsFd, AsRawFd};
 use std::time::Duration;
 
@@ -276,8 +276,8 @@ impl Mul<f64> for Position {
     type Output = Self;
 
     fn mul(mut self, scale: f64) -> Self {
-        self.x = (self.x as f64 * scale) as i32;
-        self.y = (self.y as f64 * scale) as i32;
+        self.x = (self.x as f64 * scale).round() as i32;
+        self.y = (self.y as f64 * scale).round() as i32;
         self
     }
 }
@@ -289,6 +289,22 @@ impl Mul<f64> for Position<f64> {
         self.x *= scale;
         self.y *= scale;
         self
+    }
+}
+
+impl<T: Add<T, Output = T>> Add<Position<T>> for Position<T> {
+    type Output = Self;
+
+    fn add(mut self, rhs: Position<T>) -> Self {
+        self.x = self.x + rhs.x;
+        self.y = self.y + rhs.y;
+        self
+    }
+}
+
+impl<T: Add<T, Output = T> + Copy> AddAssign<Position<T>> for Position<T> {
+    fn add_assign(&mut self, rhs: Position<T>) {
+        *self = *self + rhs;
     }
 }
 
@@ -355,8 +371,34 @@ impl Mul<f64> for Size {
     type Output = Self;
 
     fn mul(mut self, scale: f64) -> Self {
-        self.width = (self.width as f64 * scale) as u32;
-        self.height = (self.height as f64 * scale) as u32;
+        self.width = (self.width as f64 * scale).round() as u32;
+        self.height = (self.height as f64 * scale).round() as u32;
         self
+    }
+}
+
+impl Mul<f64> for Size<f64> {
+    type Output = Self;
+
+    fn mul(mut self, scale: f64) -> Self {
+        self.width *= scale;
+        self.height *= scale;
+        self
+    }
+}
+
+impl<T: Sub<T, Output = T>> Sub<Size<T>> for Size<T> {
+    type Output = Self;
+
+    fn sub(mut self, rhs: Size<T>) -> Self {
+        self.width = self.width - rhs.width;
+        self.height = self.height - rhs.height;
+        self
+    }
+}
+
+impl<T: Sub<T, Output = T> + Copy> SubAssign<Size<T>> for Size<T> {
+    fn sub_assign(&mut self, rhs: Size<T>) {
+        *self = *self - rhs;
     }
 }

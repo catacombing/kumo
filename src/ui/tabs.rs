@@ -20,21 +20,35 @@ const ACTIVE_TAB_FG: [f64; 3] = [1., 1., 1.];
 const INACTIVE_TAB_FG: [f64; 3] = [0.8, 0.8, 0.8];
 /// Tab view background color.
 const TABS_BG: [f64; 3] = [0.09, 0.09, 0.09];
+/// New tab button background color.
+const NEW_TAB_BG: [f64; 3] = [0.15, 0.15, 0.15];
+
+/// Tab font size.
+const FONT_SIZE: u8 = 20;
 
 /// Horizontal tabbing around tabs.
 const TABS_X_PADDING: f64 = 10.;
 
-/// Logical height of each tab.
-const TAB_HEIGHT: u32 = 30;
+/// Vertical padding between tabs.
+const TABS_Y_PADDING: f64 = 1.;
 
-/// Icon of the tab "X" button.
-const CLOSE_ICON_SIZE: f64 = 10.;
+/// Horizontal padding around "New Tab" button.
+const NEW_TAB_X_PADDING: f64 = 10.;
+
+/// Vertical padding around "New Tab" button.
+const NEW_TAB_Y_PADDING: f64 = 10.;
+
+/// Padding around the tab "X" button.
+const CLOSE_PADDING: f64 = 30.;
+
+/// Logical height of each tab.
+const TAB_HEIGHT: u32 = 50;
 
 /// Logical height of the "New Tab" button.
-const NEW_TAB_BUTTON_HEIGHT: u32 = 30;
+const NEW_TAB_BUTTON_HEIGHT: u32 = 60;
 
 /// Size of the "New Tab" button `+` icon.
-const NEW_TAB_ICON_SIZE: f64 = 15.;
+const NEW_TAB_ICON_SIZE: f64 = 30.;
 
 /// Square of the maximum distance before touch input is considered a drag.
 const MAX_TAP_DISTANCE: f64 = 400.;
@@ -201,17 +215,19 @@ impl TabsUi {
 
                 // Draw individual tabs.
                 let mut texture_pos = new_tab_button_position;
+                texture_pos.x += (TABS_X_PADDING * self.scale) as f32;
                 texture_pos.y += self.scroll_offset as f32;
                 for texture in tab_textures {
-                    // Skip rendering tabs completely outside the viewport.
+                    // Render only tabs within the viewport.
                     texture_pos.y -= texture.height as f32;
-                    if texture_pos.y >= new_tab_button_position.y
-                        || texture_pos.y <= -1. * texture.height as f32
+                    if texture_pos.y < new_tab_button_position.y
+                        && texture_pos.y > -1. * texture.height as f32
                     {
-                        continue;
+                        renderer.draw_texture_at(texture, texture_pos, None);
                     }
 
-                    renderer.draw_texture_at(texture, texture_pos, None);
+                    // Add padding after the tab.
+                    texture_pos.y -= (TABS_Y_PADDING * self.scale) as f32
                 }
 
                 // Draw "New Tab" button, last, to render over scrolled tabs.
@@ -247,8 +263,10 @@ impl TabsUi {
         self.touch_state.position = position;
 
         // "New Tab" button relative position.
-        let new_tab_button_position = position - self.new_tab_button_position();
-        let new_tab_button_size: Size<f64> = self.new_tab_button_size().into();
+        let mut new_tab_button_position = position - self.new_tab_button_position();
+        new_tab_button_position -= Position::new(NEW_TAB_X_PADDING, NEW_TAB_Y_PADDING) * self.scale;
+        let mut new_tab_button_size: Size<f64> = self.new_tab_button_size().into();
+        new_tab_button_size -= Size::new(NEW_TAB_X_PADDING, NEW_TAB_Y_PADDING) * 2. * self.scale;
 
         if (0.0..new_tab_button_size.width).contains(&new_tab_button_position.x)
             && (0.0..new_tab_button_size.height).contains(&new_tab_button_position.y)
@@ -279,7 +297,8 @@ impl TabsUi {
         }
 
         // Update touch position.
-        let old_position = mem::replace(&mut self.touch_state.position, position * self.scale);
+        let position = position * self.scale;
+        let old_position = mem::replace(&mut self.touch_state.position, position);
 
         // Switch to dragging once tap distance limit is exceeded.
         let delta = self.touch_state.position - self.touch_state.start;
@@ -345,15 +364,19 @@ impl TabsUi {
     }
 
     /// Physical size of the "New Tab" button bar.
+    ///
+    /// This includes all padding since that is included in the texture.
     fn new_tab_button_size(&self) -> Size {
-        let width = self.size.width - (2. * TABS_X_PADDING).round() as u32;
-        Size::new(width, NEW_TAB_BUTTON_HEIGHT) * self.scale
+        let height = NEW_TAB_BUTTON_HEIGHT + (2. * NEW_TAB_Y_PADDING).round() as u32;
+        Size::new(self.size.width, height) * self.scale
     }
 
     /// Physical position of the "New Tab" button.
+    ///
+    /// This includes all padding since that is included in the texture.
     fn new_tab_button_position(&self) -> Position<f64> {
-        let y = (self.size.height - NEW_TAB_BUTTON_HEIGHT) as f64 * self.scale;
-        Position::new(TABS_X_PADDING * self.scale, y)
+        let y = (self.size.height - NEW_TAB_BUTTON_HEIGHT) as f64 - 2. * NEW_TAB_Y_PADDING;
+        Position::new(0., y) * self.scale
     }
 
     /// Physical size of each tab.
@@ -363,14 +386,14 @@ impl TabsUi {
     }
 
     /// Get physical size of the close button.
-    fn close_button_size(scale: f64) -> Size<f64> {
-        let size = CLOSE_ICON_SIZE * scale;
+    fn close_button_size(tab_size: Size, scale: f64) -> Size<f64> {
+        let size = tab_size.height as f64 - CLOSE_PADDING * scale;
         Size::new(size, size)
     }
 
     /// Get physical position of the close button within a tab.
     fn close_button_position(tab_size: Size, scale: f64) -> Position<f64> {
-        let icon_size = Self::close_button_size(scale);
+        let icon_size = Self::close_button_size(tab_size, scale);
         let button_padding = (tab_size.height as f64 - icon_size.height) / 2.;
         let x = tab_size.width as f64 - button_padding - icon_size.width;
         Position::new(x, button_padding)
@@ -381,34 +404,41 @@ impl TabsUi {
     /// The tuple's second element will be `true` when the position matches the
     /// close button of the tab.
     fn tab_at(&self, position: Position<f64>) -> Option<(&RenderTab, bool)> {
-        let new_tab_button_position = self.new_tab_button_position();
-        let tab_size = self.tab_size();
+        let tabs_end_y = self.new_tab_button_position().y;
+        let y_padding = TABS_Y_PADDING * self.scale;
+        let x_padding = TABS_X_PADDING * self.scale;
+        let tab_size_int = self.tab_size();
+        let tab_size: Size<f64> = tab_size_int.into();
 
         // Check if position is beyond tabs list or outside of the horizontal
         // boundaries.
-        if position.x < new_tab_button_position.x
-            || position.x >= new_tab_button_position.x + tab_size.width as f64
-            || position.y >= new_tab_button_position.y
+        if position.x < x_padding
+            || position.x >= x_padding + tab_size.width
+            || position.y >= tabs_end_y
         {
             return None;
         }
 
+        // Check if position is in the tab separator.
+        let new_tab_relative = (tabs_end_y - position.y).round();
+        let tab_relative_y =
+            tab_size.height - 1. - (new_tab_relative % (tab_size.height + y_padding));
+        if tab_relative_y < 0. {
+            return None;
+        }
+
         // Find tab at the specified offset.
-        let new_tab_relative = (new_tab_button_position.y - position.y).round();
-        let rindex = new_tab_relative as u32 / tab_size.height;
-        let index = self.texture_cache.tabs.len().checked_sub(rindex as usize + 1)?;
+        let rindex = (new_tab_relative / (tab_size.height + y_padding).round()) as usize;
+        let index = self.texture_cache.tabs.len().checked_sub(rindex + 1)?;
         let tab = self.texture_cache.tabs.get(index)?;
 
         // Check if click is within close button bounds.
-        let close_position = Self::close_button_position(tab_size, self.scale);
-        let close_size = Self::close_button_size(self.scale);
-        let tab_height = tab_size.height as f64;
-        let tab_relative_x = position.x - new_tab_button_position.x;
-        let tab_relative_y = tab_height - 1. - new_tab_relative % tab_height;
-        let close_relative_x = (tab_relative_x - close_position.x).round() as i32;
-        let close_relative_y = (tab_relative_y - close_position.y).round() as i32;
-        let close = (0..close_size.width as i32).contains(&close_relative_x)
-            && (0..close_size.height as i32).contains(&close_relative_y);
+        //
+        // We include padding for the close button since it can be really hard to hit
+        // otherwise.
+        let close_position = Self::close_button_position(tab_size_int, self.scale);
+        let tab_relative_x = position.x - x_padding;
+        let close = tab_relative_x >= close_position.x - close_position.y;
 
         Some((tab, close))
     }
@@ -423,10 +453,22 @@ impl TabsUi {
 
     /// Get maximum tab scroll offset.
     fn max_scroll_offset(&self) -> usize {
-        let available_height = self.new_tab_button_position().y.round() as usize;
-        let tabs_height: usize =
-            self.texture_cache.cached_textures().map(|texture| texture.height).sum();
-        tabs_height.saturating_sub(available_height)
+        let tab_padding = (TABS_Y_PADDING * self.scale).round() as usize;
+        let tab_height = self.tab_size().height;
+
+        // Calculate height available for tabs.
+        let available_height = self.new_tab_button_position().y.round();
+
+        // Calculate height of all tabs.
+        let num_tabs = self.texture_cache.tabs.len();
+        let mut tabs_height = num_tabs * (tab_height as usize + tab_padding) - tab_padding;
+
+        // Allow a bit of padding at the top.
+        let new_tab_padding = (NEW_TAB_Y_PADDING * self.scale).round();
+        tabs_height += new_tab_padding as usize;
+
+        // Calculate tab content outside the viewport.
+        tabs_height.saturating_sub(available_height as usize)
     }
 }
 
@@ -482,37 +524,40 @@ impl TextureCache {
 
             // Configure text rendering options.
             let mut text_options = TextOptions::new();
+            text_options.set_font_size(FONT_SIZE);
             if tab.uri.1 {
                 text_options.text_color(ACTIVE_TAB_FG);
             } else {
                 text_options.text_color(INACTIVE_TAB_FG);
             }
 
+            // Calculate available area font font rendering.
+            let close_position = TabsUi::close_button_position(tab_size, scale);
+            let text_width = (close_position.x - close_position.y).round() as i32;
+            let text_size = Size::new(text_width, tab_size.height as i32);
+            text_options.position(Position::new(close_position.y, 0.));
+            text_options.size(text_size);
+
             // Render text to the texture.
             let builder = TextureBuilder::new(tab_size.into(), scale);
-            builder.clear(TABS_BG);
+            builder.clear(NEW_TAB_BG);
             builder.rasterize(&layout, &text_options);
 
             // Render close `X`.
-            let position = TabsUi::close_button_position(tab_size, scale);
-            let size = TabsUi::close_button_size(scale);
-            builder.context().move_to(position.x, position.y);
-            builder.context().line_to(position.x + size.width, position.y + size.height);
-            builder.context().move_to(position.x + size.width, position.y);
-            builder.context().line_to(position.x, position.y + size.height);
-            builder.context().set_source_rgb(ACTIVE_TAB_FG[0], ACTIVE_TAB_FG[1], ACTIVE_TAB_FG[2]);
-            builder.context().set_line_width(scale);
-            builder.context().stroke().unwrap();
+            let size = TabsUi::close_button_size(tab_size, scale);
+            let context = builder.context();
+            context.move_to(close_position.x, close_position.y);
+            context.line_to(close_position.x + size.width, close_position.y + size.height);
+            context.move_to(close_position.x + size.width, close_position.y);
+            context.line_to(close_position.x, close_position.y + size.height);
+            context.set_source_rgb(ACTIVE_TAB_FG[0], ACTIVE_TAB_FG[1], ACTIVE_TAB_FG[2]);
+            context.set_line_width(scale);
+            context.stroke().unwrap();
 
             self.textures.insert(tab.uri.clone(), builder.build());
         }
 
         // Get textures for all tabs in reverse order.
-        self.tabs.iter().rev().map(|tab| self.textures.get(&tab.uri).unwrap())
-    }
-
-    /// Get cached textures, without updating them.
-    fn cached_textures(&self) -> impl Iterator<Item = &Texture> {
         self.tabs.iter().rev().map(|tab| self.textures.get(&tab.uri).unwrap())
     }
 
@@ -571,6 +616,15 @@ impl NewTabButton {
         // Clear with background color.
         let builder = TextureBuilder::new(self.size.into(), self.scale);
         builder.clear(TABS_BG);
+
+        // Draw button background.
+        let x_padding = NEW_TAB_X_PADDING * self.scale;
+        let y_padding = NEW_TAB_Y_PADDING * self.scale;
+        let width = self.size.width as f64 - 2. * x_padding;
+        let height = self.size.height as f64 - 2. * y_padding;
+        builder.context().rectangle(x_padding, y_padding, width.round(), height.round());
+        builder.context().set_source_rgb(NEW_TAB_BG[0], NEW_TAB_BG[1], NEW_TAB_BG[2]);
+        builder.context().fill().unwrap();
 
         // Set general stroke properties.
         let icon_size = NEW_TAB_ICON_SIZE * self.scale;

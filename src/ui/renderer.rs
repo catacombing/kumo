@@ -347,7 +347,6 @@ impl Texture {
 /// Cairo-based graphics rendering.
 pub struct TextureBuilder {
     image_surface: ImageSurface,
-    font: FontDescription,
     context: Context,
     size: Size<i32>,
     scale: f64,
@@ -358,10 +357,7 @@ impl TextureBuilder {
         let image_surface = ImageSurface::create(Format::ARgb32, size.width, size.height).unwrap();
         let context = Context::new(&image_surface).unwrap();
 
-        let mut font = FontDescription::from_string("sans 16px");
-        font.set_absolute_size(font.size() as f64 * scale);
-
-        Self { image_surface, context, scale, size, font }
+        Self { image_surface, context, scale, size }
     }
 
     /// Fill entire buffer with a single color.
@@ -372,7 +368,10 @@ impl TextureBuilder {
 
     /// Draw text within the specified bounds.
     pub fn rasterize(&self, layout: &Layout, text_options: &TextOptions) {
-        layout.set_font_description(Some(&self.font));
+        let font_desc = format!("sans {}px", text_options.font_size);
+        let mut font = FontDescription::from_string(&font_desc);
+        font.set_absolute_size(font.size() as f64 * self.scale);
+        layout.set_font_description(Some(&font));
 
         // Limit text size to builder limits.
         let position = text_options.position;
@@ -391,8 +390,10 @@ impl TextureBuilder {
 
         // Truncate text beyond specified bounds.
         layout.set_width(size.width * PANGO_SCALE);
-        layout.set_height(size.height * PANGO_SCALE);
         layout.set_ellipsize(EllipsizeMode::End);
+
+        // Do not break lines.
+        layout.set_height(0);
 
         // Calculate text position.
         let (_, text_height) = layout.pixel_size();
@@ -527,6 +528,7 @@ pub struct TextOptions {
     size: Option<Size<i32>>,
     show_cursor: bool,
     cursor_pos: i32,
+    font_size: u8,
 }
 
 impl TextOptions {
@@ -534,6 +536,7 @@ impl TextOptions {
         Self {
             text_color: [1.; 3],
             cursor_pos: -1,
+            font_size: 16,
             show_cursor: Default::default(),
             selection: Default::default(),
             position: Default::default(),
@@ -585,6 +588,11 @@ impl TextOptions {
         } else {
             (self.cursor_pos, self.cursor_pos)
         }
+    }
+
+    /// Set the font size.
+    pub fn set_font_size(&mut self, size: u8) {
+        self.font_size = size;
     }
 }
 

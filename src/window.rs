@@ -614,6 +614,12 @@ impl Window {
     /// Open the tabs UI.
     pub fn show_tabs_ui(&mut self) {
         self.tabs_ui.show();
+
+        // Ensure IME is closed.
+        self.ui.clear_keyboard_focus();
+        if let Some(text_input) = &mut self.text_input {
+            self.ui.commit_ime_state(text_input);
+        }
     }
 
     /// Check whether a surface is owned by this window.

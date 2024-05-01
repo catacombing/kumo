@@ -158,7 +158,6 @@ impl TabsUi {
         // Update UI element sizes.
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
         self.texture_cache.clear();
-        self.clamp_scroll_offset();
     }
 
     /// Update the render scale.
@@ -169,7 +168,6 @@ impl TabsUi {
         // Update UI element scales.
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
         self.texture_cache.clear();
-        self.clamp_scroll_offset();
     }
 
     /// Render current tabs UI state.
@@ -179,6 +177,9 @@ impl TabsUi {
     where
         T: Iterator<Item = &'a Box<dyn Engine>>,
     {
+        // Ensure offset is correct in case tabs were closed or window size changed.
+        self.clamp_scroll_offset();
+
         // Abort early if UI is up to date.
         if !self.dirty {
             return false;

@@ -406,7 +406,7 @@ impl TabsUi {
     ///
     /// The tuple's second element will be `true` when the position matches the
     /// close button of the tab.
-    fn tab_at(&self, position: Position<f64>) -> Option<(&RenderTab, bool)> {
+    fn tab_at(&self, mut position: Position<f64>) -> Option<(&RenderTab, bool)> {
         let tabs_end_y = self.new_tab_button_position().y;
         let y_padding = TABS_Y_PADDING * self.scale;
         let x_padding = TABS_X_PADDING * self.scale;
@@ -421,6 +421,9 @@ impl TabsUi {
         {
             return None;
         }
+
+        // Apply current scroll offset.
+        position.y -= self.scroll_offset;
 
         // Check if position is in the tab separator.
         let new_tab_relative = (tabs_end_y - position.y).round();

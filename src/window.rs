@@ -214,10 +214,14 @@ impl Window {
 
     /// Close a tabs.
     pub fn close_tab(&mut self, engine_id: EngineId) {
-        self.tabs.retain(|&id, _| id != engine_id);
+        // Remove engine and get the position it was in.
+        let index = match self.tabs.shift_remove_full(&engine_id) {
+            Some((index, ..)) => index,
+            None => return,
+        };
 
         if engine_id == self.active_tab {
-            match self.tabs.first() {
+            match self.tabs.get_index(index.saturating_sub(1)) {
                 // If the closed tab was active, switch to the first one.
                 Some((&engine_id, _)) => self.set_active_tab(engine_id),
                 // If there's no more tabs, close the window.

@@ -187,6 +187,9 @@ impl Ui {
         // persisted when drawing with the same surface multiple times.
         self.viewport.set_destination(self.size.width as i32, self.size.height as i32);
 
+        // Mark entire UI as damaged.
+        self.surface.damage(0, 0, self.size.width as i32, self.size.height as i32);
+
         // Calculate target positions/sizes before partial mutable borrows.
         let tabs_button_pos = self.tabs_button_position();
         let separator_size = self.separator_size();

@@ -7,6 +7,7 @@ use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, Z
 use funq::StQueueHandle;
 use glutin::display::Display;
 use indexmap::IndexMap;
+use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
@@ -26,6 +27,9 @@ use crate::{Position, Size, State};
 // Default window size.
 const DEFAULT_WIDTH: u32 = 1280;
 const DEFAULT_HEIGHT: u32 = 720;
+
+/// Fallback color when waiting for engine frame.
+const BACKGROUND_COLOR: [u32; 4] = [402653184, 402653184, 402653184, u32::MAX];
 
 #[funq::callbacks(State)]
 pub trait WindowHandler {
@@ -60,12 +64,15 @@ pub struct Window {
 
     text_input: Option<TextInput>,
     wayland_queue: QueueHandle<State>,
+    initial_configure_done: bool,
     connection: Connection,
     egl_display: Display,
     xdg: XdgWindow,
     viewport: WpViewport,
     scale: f64,
     size: Size,
+
+    fallback_buffer: Option<WlBuffer>,
 
     queue: StQueueHandle<State>,
 
@@ -118,10 +125,17 @@ impl Window {
         xdg.set_app_id("Kumo");
         xdg.commit();
 
+        // Create single-pixel buffer as fallback when waiting for engine rendering.
+        let fallback_buffer = protocol_states.single_pixel_buffer.as_ref().map(|spb| {
+            let [r, g, b, a] = BACKGROUND_COLOR;
+            spb.create_u32_rgba_buffer(r, g, b, a, &wayland_queue, ())
+        });
+
         let size = Size::new(DEFAULT_WIDTH, DEFAULT_HEIGHT);
         let active_tab = EngineId::new(id);
 
         let mut window = Self {
+            fallback_buffer,
             wayland_queue,
             egl_display,
             connection,
@@ -135,6 +149,7 @@ impl Window {
             id,
             stalled: true,
             scale: 1.,
+            initial_configure_done: Default::default(),
             touch_points: Default::default(),
             text_input: Default::default(),
             closed: Default::default(),
@@ -220,37 +235,43 @@ impl Window {
 
     /// Redraw the window.
     pub fn draw(&mut self) {
-        // Ignore rendering when we're about to exit.
-        if self.closed {
+        // Ignore rendering before initial configure or after shutdown.
+        if self.closed || !self.initial_configure_done {
             return;
         }
 
         // Mark window as stalled if no rendering is performed.
         self.stalled = true;
 
-        // Ignore rendering until engine has a buffer.
-        //
-        // This automatically ensures we keep trying to redraw until the first commit
-        // has a buffer attached.
-        let engine = self.tabs.get_mut(&self.active_tab).unwrap();
-        let engine_buffer = match engine.wl_buffer() {
-            Some(engine_buffer) => engine_buffer,
-            None => return,
-        };
-
-        let surface = self.xdg.wl_surface();
-
         // Redraw the active browser engine.
+        let surface = self.xdg.wl_surface();
         let tabs_ui_visible = self.tabs_ui.visible();
-        if !tabs_ui_visible && (engine.dirty() || self.dirty) {
-            // Attach engine buffer to primary surface.
-            surface.attach(Some(engine_buffer), 0, 0);
-            surface.damage(0, 0, self.size.width as i32, (self.size.height - UI_HEIGHT) as i32);
+        if !tabs_ui_visible {
+            let engine = self.tabs.get_mut(&self.active_tab).unwrap();
+            match (engine.wl_buffer(), &self.fallback_buffer) {
+                // Render buffer if one is attached and requires redraw.
+                (Some(engine_buffer), _) if engine.dirty() || self.dirty => {
+                    // Attach engine buffer to primary surface.
+                    surface.attach(Some(engine_buffer), 0, 0);
+                    let height = (self.size.height - UI_HEIGHT) as i32;
+                    surface.damage(0, 0, self.size.width as i32, height);
 
-            // Request new engine frame.
-            engine.frame_done();
+                    // Request new engine frame.
+                    engine.frame_done();
 
-            self.stalled = false;
+                    self.stalled = false;
+                },
+                // Attach fallback buffer while engine is loading.
+                //
+                // We don't modify `stalled` here since this content never changes.
+                (None, Some(buffer)) => {
+                    surface.attach(Some(buffer), 0, 0);
+                    let height = (self.size.height - UI_HEIGHT) as i32;
+                    surface.damage(0, 0, self.size.width as i32, height);
+                },
+                // Ignore if buffer is attached but not dirty.
+                _ => (),
+            }
         }
 
         // Attach new UI buffers.
@@ -322,6 +343,10 @@ impl Window {
         let ui_pos = Position::new(0, (self.size.height - UI_HEIGHT) as i32);
         let ui_size = Size::new(self.size.width, UI_HEIGHT);
         self.ui.set_geometry(ui_pos, ui_size);
+
+        // Ensure browser is redrawn after every resize.
+        self.initial_configure_done = true;
+        self.unstall();
     }
 
     /// Update surface scale.

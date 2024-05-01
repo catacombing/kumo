@@ -191,6 +191,9 @@ impl TabsUi {
         // persisted when drawing with the same surface multiple times.
         self.viewport.set_destination(self.size.width as i32, self.size.height as i32);
 
+        // Mark entire UI as damaged.
+        self.surface.damage(0, 0, self.size.width as i32, self.size.height as i32);
+
         // Get geometry required for rendering.
         let new_tab_button_position: Position<f32> = self.new_tab_button_position().into();
         let tab_size = self.tab_size();
@@ -461,7 +464,8 @@ impl TabsUi {
 
         // Calculate height of all tabs.
         let num_tabs = self.texture_cache.tabs.len();
-        let mut tabs_height = num_tabs * (tab_height as usize + tab_padding) - tab_padding;
+        let mut tabs_height =
+            (num_tabs * (tab_height as usize + tab_padding)).saturating_sub(tab_padding);
 
         // Allow a bit of padding at the top.
         let new_tab_padding = (NEW_TAB_Y_PADDING * self.scale).round();

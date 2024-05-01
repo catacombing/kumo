@@ -1,6 +1,7 @@
 //! Browser window handling.
 
 use std::collections::HashMap;
+use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, ZwpTextInputV3};
@@ -108,14 +109,14 @@ impl Window {
         let ui_surface =
             protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
         let ui_viewport = protocol_states.viewporter.viewport(&wayland_queue, &ui_surface.1);
-        let ui = Ui::new(id, queue.handle(), egl_display.clone(), ui_surface, ui_viewport);
+        let mut ui = Ui::new(id, queue.handle(), egl_display.clone(), ui_surface, ui_viewport);
 
         // Create tabs UI renderer.
         let (_, tabs_ui_surface) =
             protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
         let tabs_ui_viewport =
             protocol_states.viewporter.viewport(&wayland_queue, &tabs_ui_surface);
-        let tabs_ui =
+        let mut tabs_ui =
             TabsUi::new(id, queue.handle(), egl_display.clone(), tabs_ui_surface, tabs_ui_viewport);
 
         // Create XDG window.
@@ -133,6 +134,12 @@ impl Window {
 
         let size = Size::new(DEFAULT_WIDTH, DEFAULT_HEIGHT);
         let active_tab = EngineId::new(id);
+
+        // Resize UI elements to the initial window size.
+        tabs_ui.set_size(Size::new(size.width, size.height));
+        let ui_pos = Position::new(0, (size.height - UI_HEIGHT) as i32);
+        let ui_size = Size::new(size.width, UI_HEIGHT);
+        ui.set_geometry(ui_pos, ui_size);
 
         let mut window = Self {
             fallback_buffer,
@@ -330,7 +337,18 @@ impl Window {
 
     /// Update surface size.
     pub fn set_size(&mut self, size: Size) {
+        // Complete initial configure.
+        let was_done = mem::replace(&mut self.initial_configure_done, true);
+
         // Update window dimensions.
+        if self.size == size {
+            // Still force redraw for the initial configure.
+            if !was_done {
+                self.unstall();
+            }
+
+            return;
+        }
         self.size = size;
 
         // Resize window's browser engines.
@@ -348,14 +366,18 @@ impl Window {
         let ui_size = Size::new(self.size.width, UI_HEIGHT);
         self.ui.set_geometry(ui_pos, ui_size);
 
-        // Ensure browser is redrawn after every resize.
-        self.initial_configure_done = true;
-        self.unstall();
+        // We skip unstall in browser view to wait for an engine update instead.
+        if self.tabs_ui.visible() {
+            self.unstall();
+        }
     }
 
     /// Update surface scale.
     pub fn set_scale(&mut self, scale: f64) {
         // Update window scale.
+        if self.scale == scale {
+            return;
+        }
         self.scale = scale;
 
         // Resize window's browser engines.
@@ -367,7 +389,10 @@ impl Window {
         self.tabs_ui.set_scale(scale);
         self.ui.set_scale(scale);
 
-        // NOTE: We wait for engine's frame, rather than explicit unstall here.
+        // We skip unstall in browser view to wait for an engine update instead.
+        if self.tabs_ui.visible() {
+            self.unstall();
+        }
     }
 
     /// Handle new key press.

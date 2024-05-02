@@ -12,7 +12,7 @@ use smithay_client_toolkit::seat::keyboard::Modifiers;
 
 use crate::engine::{Engine, EngineId};
 use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
-use crate::{gl, Position, Size, State, WindowId};
+use crate::{gl, rect_contains, Position, Size, State, WindowId};
 
 /// Tab text color of active tab.
 const ACTIVE_TAB_FG: [f64; 3] = [1., 1., 1.];
@@ -265,25 +265,16 @@ impl TabsUi {
         // Convert position to physical space.
         let position = position * self.scale;
         self.touch_state.position = position;
+        self.touch_state.start = position;
 
-        // "New Tab" button relative position.
-        let mut new_tab_button_position = position - self.new_tab_button_position();
-        new_tab_button_position -= Position::new(NEW_TAB_X_PADDING, NEW_TAB_Y_PADDING) * self.scale;
-        let mut new_tab_button_size: Size<f64> = self.new_tab_button_size().into();
-        new_tab_button_size -= Size::new(NEW_TAB_X_PADDING, NEW_TAB_Y_PADDING) * 2. * self.scale;
+        // Get new tab button geometry.
+        let new_tab_button_position = self.new_tab_button_position();
+        let new_tab_button_size = self.new_tab_button_size().into();
 
-        if (0.0..new_tab_button_size.width).contains(&new_tab_button_position.x)
-            && (0.0..new_tab_button_size.height).contains(&new_tab_button_position.y)
-        {
-            // Open a new tab.
-            self.hide();
-            self.queue.add_tab(self.window_id);
-
-            // Immediately terminate this touch sequence.
-            self.touch_state.slot = None;
+        if rect_contains(new_tab_button_position, new_tab_button_size, position) {
+            self.touch_state.action = TouchAction::NewTabTap;
         } else {
-            self.touch_state.action = TouchAction::Tap;
-            self.touch_state.start = position;
+            self.touch_state.action = TouchAction::TabTap;
         }
     }
 
@@ -304,10 +295,15 @@ impl TabsUi {
         let position = position * self.scale;
         let old_position = mem::replace(&mut self.touch_state.position, position);
 
+        // Ignore drag when tap started on "New Tab" button.
+        if self.touch_state.action == TouchAction::NewTabTap {
+            return;
+        }
+
         // Switch to dragging once tap distance limit is exceeded.
         let delta = self.touch_state.position - self.touch_state.start;
         if delta.x.powi(2) + delta.y.powi(2) > MAX_TAP_DISTANCE {
-            self.touch_state.action = TouchAction::Drag;
+            self.touch_state.action = TouchAction::TabDrag;
 
             // Immediately start moving the tabs list.
             let old_offset = self.scroll_offset;
@@ -325,16 +321,32 @@ impl TabsUi {
         }
         self.touch_state.slot = None;
 
-        // Switch tabs for tap actions on a tab.
-        if self.touch_state.action == TouchAction::Tap {
-            if let Some((&RenderTab { engine, .. }, close)) = self.tab_at(self.touch_state.start) {
-                if close {
-                    self.queue.close_tab(engine);
-                } else {
+        match self.touch_state.action {
+            // Open a new tab.
+            TouchAction::NewTabTap => {
+                let new_tab_button_position = self.new_tab_button_position();
+                let new_tab_button_size = self.new_tab_button_size().into();
+                let position = self.touch_state.position;
+
+                if rect_contains(new_tab_button_position, new_tab_button_size, position) {
                     self.hide();
-                    self.queue.set_active_tab(engine);
+                    self.queue.add_tab(self.window_id);
                 }
-            }
+            },
+            // Switch tabs for tap actions on a tab.
+            TouchAction::TabTap => {
+                if let Some((&RenderTab { engine, .. }, close)) =
+                    self.tab_at(self.touch_state.start)
+                {
+                    if close {
+                        self.queue.close_tab(engine);
+                    } else {
+                        self.hide();
+                        self.queue.set_active_tab(engine);
+                    }
+                }
+            },
+            TouchAction::TabDrag => (),
         }
     }
 
@@ -682,6 +694,7 @@ struct TouchState {
 #[derive(Default, Copy, Clone, PartialEq, Eq, Debug)]
 enum TouchAction {
     #[default]
-    Tap,
-    Drag,
+    TabTap,
+    TabDrag,
+    NewTabTap,
 }

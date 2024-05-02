@@ -236,7 +236,7 @@ impl KeyboardState {
 }
 
 /// 2D object position.
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Default, Debug)]
 pub struct Position<T = i32> {
     pub x: T,
     pub y: T,
@@ -401,4 +401,15 @@ impl<T: Sub<T, Output = T> + Copy> SubAssign<Size<T>> for Size<T> {
     fn sub_assign(&mut self, rhs: Size<T>) {
         *self = *self - rhs;
     }
+}
+
+/// Check if a rectangle contains a point.
+pub fn rect_contains<T>(position: Position<T>, size: Size<T>, point: Position<T>) -> bool
+where
+    T: PartialOrd + Add<Output = T>,
+{
+    point.x >= position.x
+        && point.y >= position.y
+        && point.x < position.x + size.width
+        && point.y < position.y + size.height
 }

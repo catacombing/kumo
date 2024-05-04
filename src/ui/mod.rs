@@ -9,6 +9,7 @@ use funq::MtQueueHandle;
 use glutin::display::Display;
 use pangocairo::cairo::{Context, Format, ImageSurface};
 use pangocairo::pango::{Alignment, Layout, SCALE as PANGO_SCALE};
+use smithay_client_toolkit::compositor::{CompositorState, Region};
 use smithay_client_toolkit::reexports::client::protocol::wl_subsurface::WlSubsurface;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
@@ -149,12 +150,18 @@ impl Ui {
     }
 
     /// Update the surface geometry.
-    pub fn set_geometry(&mut self, position: Position, size: Size) {
+    pub fn set_geometry(&mut self, compositor: &CompositorState, position: Position, size: Size) {
         self.size = size;
         self.dirty = true;
 
         // Update subsurface location.
         self.subsurface.set_position(position.x, position.y);
+
+        // Update opaque region.
+        if let Ok(region) = Region::new(compositor) {
+            region.add(0, 0, size.width as i32, size.height as i32);
+            self.surface.set_opaque_region(Some(region.wl_region()));
+        }
 
         // Update UI elements.
         self.uribar.set_geometry(self.uribar_size(), self.scale);

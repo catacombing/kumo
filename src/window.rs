@@ -8,6 +8,7 @@ use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, Z
 use funq::StQueueHandle;
 use glutin::display::Display;
 use indexmap::IndexMap;
+use smithay_client_toolkit::compositor::{CompositorState, Region};
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
@@ -136,10 +137,10 @@ impl Window {
         let active_tab = EngineId::new(id);
 
         // Resize UI elements to the initial window size.
-        tabs_ui.set_size(Size::new(size.width, size.height));
+        tabs_ui.set_size(&protocol_states.compositor, Size::new(size.width, size.height));
         let ui_pos = Position::new(0, (size.height - UI_HEIGHT) as i32);
         let ui_size = Size::new(size.width, UI_HEIGHT);
-        ui.set_geometry(ui_pos, ui_size);
+        ui.set_geometry(&protocol_states.compositor, ui_pos, ui_size);
 
         let mut window = Self {
             fallback_buffer,
@@ -163,6 +164,9 @@ impl Window {
             dirty: Default::default(),
             tabs: Default::default(),
         };
+
+        // Make sure primary window properties are set.
+        window.update_primary_surface(&protocol_states.compositor);
 
         // Create initial browser tab.
         window.add_tab()?;
@@ -336,7 +340,7 @@ impl Window {
     }
 
     /// Update surface size.
-    pub fn set_size(&mut self, size: Size) {
+    pub fn set_size(&mut self, compositor: &CompositorState, size: Size) {
         // Complete initial configure.
         let was_done = mem::replace(&mut self.initial_configure_done, true);
 
@@ -352,19 +356,17 @@ impl Window {
         self.size = size;
 
         // Resize window's browser engines.
+        let engine_size = Size::new(self.size.width, self.size.height - UI_HEIGHT);
         for engine in self.tabs.values_mut() {
-            let engine_size = Size::new(self.size.width, self.size.height - UI_HEIGHT);
             engine.set_size(engine_size);
-
-            // Update browser's viewporter logical render size.
-            self.viewport.set_destination(engine_size.width as i32, engine_size.height as i32);
         }
+        self.update_primary_surface(compositor);
 
         // Resize UI element surface.
-        self.tabs_ui.set_size(Size::new(self.size.width, self.size.height));
+        self.tabs_ui.set_size(compositor, Size::new(self.size.width, self.size.height));
         let ui_pos = Position::new(0, (self.size.height - UI_HEIGHT) as i32);
         let ui_size = Size::new(self.size.width, UI_HEIGHT);
-        self.ui.set_geometry(ui_pos, ui_size);
+        self.ui.set_geometry(compositor, ui_pos, ui_size);
 
         // We skip unstall in browser view to wait for an engine update instead.
         if self.tabs_ui.visible() {
@@ -691,6 +693,20 @@ impl Window {
     /// Get underlying XDG shell window.
     pub fn xdg(&self) -> &XdgWindow {
         &self.xdg
+    }
+
+    /// Update primary surface attributes.
+    fn update_primary_surface(&self, compositor: &CompositorState) {
+        let engine_size = Size::new(self.size.width, self.size.height - UI_HEIGHT);
+
+        // Update browser's viewporter logical render size.
+        self.viewport.set_destination(engine_size.width as i32, engine_size.height as i32);
+
+        // Update opaque region.
+        if let Ok(region) = Region::new(compositor) {
+            region.add(0, 0, engine_size.width as i32, engine_size.height as i32);
+            self.xdg.wl_surface().set_opaque_region(Some(region.wl_region()));
+        }
     }
 }
 

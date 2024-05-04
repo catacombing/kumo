@@ -6,6 +6,7 @@ use std::mem;
 use funq::MtQueueHandle;
 use glutin::display::Display;
 use pangocairo::cairo::{Context, Format, ImageSurface};
+use smithay_client_toolkit::compositor::{CompositorState, Region};
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
@@ -151,9 +152,15 @@ impl TabsUi {
     }
 
     /// Update the surface size.
-    pub fn set_size(&mut self, size: Size) {
+    pub fn set_size(&mut self, compositor: &CompositorState, size: Size) {
         self.size = size;
         self.dirty = true;
+
+        // Update opaque region.
+        if let Ok(region) = Region::new(compositor) {
+            region.add(0, 0, size.width as i32, size.height as i32);
+            self.surface.set_opaque_region(Some(region.wl_region()));
+        }
 
         // Update UI element sizes.
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);

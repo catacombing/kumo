@@ -158,7 +158,7 @@ impl WindowHandler for State {
             // Update window dimensions.
             let width = configure.new_size.0.map(|w| w.get()).unwrap_or(window.size().width);
             let height = configure.new_size.1.map(|h| h.get()).unwrap_or(window.size().height);
-            window.set_size(Size { width, height });
+            window.set_size(&self.protocol_states.compositor, Size { width, height });
         }
     }
 }

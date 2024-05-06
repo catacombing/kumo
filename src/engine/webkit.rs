@@ -191,12 +191,16 @@ impl WebKitEngine {
             queue.clone().set_display_uri(engine_id, uri);
         });
 
+        // Get access to the OpenGL API.
+        let Display::Egl(egl_display) = display;
+        let egl = egl_display.egl();
+
         let mut engine = Self {
             exportable,
             web_view,
             backend,
             size,
-            egl: display.egl().unwrap(),
+            egl,
             image: ptr::null_mut(),
             id: engine_id,
             scale: 1.0,
@@ -461,6 +465,10 @@ impl Engine for WebKitEngine {
 
     fn load_uri(&self, uri: &str) {
         self.web_view.load_uri(uri);
+    }
+
+    fn load_prev(&self) {
+        self.web_view.go_back();
     }
 
     fn uri(&self) -> String {

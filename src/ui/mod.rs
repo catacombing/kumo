@@ -19,7 +19,7 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use crate::tlds::TLDS;
 use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
 use crate::window::TextInput;
-use crate::{gl, Position, Size, State, WindowId};
+use crate::{gl, rect_contains, Position, Size, State, WindowId};
 
 mod renderer;
 pub mod tabs;
@@ -31,7 +31,10 @@ pub const UI_HEIGHT: u32 = 50;
 const SEPARATOR_HEIGHT: f64 = 1.5;
 
 /// Logical width and height of the tabs button.
-const TABS_BUTTON_SIZE: u32 = 29;
+const TABS_BUTTON_SIZE: u32 = 28;
+
+/// Logical width and height of the "previous page" button.
+const PREV_BUTTON_SIZE: u32 = 14;
 
 /// Color of the UI/content separator.
 const SEPARATOR_COLOR: [u8; 4] = [117, 42, 42, 255];
@@ -47,8 +50,8 @@ const URIBAR_FG: [f64; 3] = [1., 1., 1.];
 /// URI bar background color.
 const URIBAR_BG: [f64; 3] = [0.15, 0.15, 0.15];
 
-/// URI bar padding to left window edge.
-const URIBAR_X_PADDING: f64 = 10.;
+/// Horizontal padding between elements and screen border.
+const X_PADDING: f64 = 10.;
 
 /// Maximum interval between taps to be considered a double/trible-tap.
 const MAX_MULTI_TAP_MILLIS: u32 = 300;
@@ -60,6 +63,9 @@ const SEARCH_URI: &str = "https://duckduckgo.com/?q=";
 trait UiHandler {
     /// Change the active engine's URI.
     fn load_uri(&mut self, window: WindowId, uri: String);
+
+    /// Load previous page.
+    fn load_prev(&mut self, window: WindowId);
 
     /// Open tabs UI.
     fn show_tabs(&mut self, window: WindowId);
@@ -76,6 +82,14 @@ impl UiHandler for State {
         if let Some(window) = self.windows.get(&window_id) {
             if let Some(engine) = window.tabs().get(&window.active_tab()) {
                 engine.load_uri(&uri);
+            }
+        }
+    }
+
+    fn load_prev(&mut self, window_id: WindowId) {
+        if let Some(window) = self.windows.get(&window_id) {
+            if let Some(engine) = window.tabs().get(&window.active_tab()) {
+                engine.load_prev();
             }
         }
     }
@@ -101,6 +115,7 @@ pub struct Ui {
     scale: f64,
 
     tabs_button: TabsButton,
+    prev_button: PrevButton,
     separator: Separator,
     uribar: Uribar,
 
@@ -138,6 +153,7 @@ impl Ui {
             keyboard_focus: Default::default(),
             touch_point: Default::default(),
             tabs_button: Default::default(),
+            prev_button: Default::default(),
             separator: Default::default(),
             dirty: Default::default(),
             size: Default::default(),
@@ -173,8 +189,11 @@ impl Ui {
         self.dirty = true;
 
         // Update UI elements.
-        self.uribar.set_geometry(self.uribar_size(), scale);
         self.tabs_button.set_scale(scale);
+        self.prev_button.set_scale(scale);
+
+        // Update uribar last, to ensure all element scales are updated.
+        self.uribar.set_geometry(self.uribar_size(), scale);
     }
 
     /// Render current UI state.
@@ -198,6 +217,7 @@ impl Ui {
         self.surface.damage(0, 0, self.size.width as i32, self.size.height as i32);
 
         // Calculate target positions/sizes before partial mutable borrows.
+        let prev_button_pos = self.prev_button_position();
         let tabs_button_pos = self.tabs_button_position();
         let separator_size = self.separator_size();
         let uribar_pos = self.uribar_position();
@@ -210,6 +230,7 @@ impl Ui {
             // This must happen with the renderer bound to ensure new textures are
             // associated with the correct program.
             let tabs_button_texture = self.tabs_button.texture(tab_count);
+            let prev_button_texture = self.prev_button.texture();
             let separator_texture = self.separator.texture();
             let uribar_texture = self.uribar.texture();
 
@@ -220,6 +241,7 @@ impl Ui {
                 gl::Clear(gl::COLOR_BUFFER_BIT);
 
                 // Draw UI elements.
+                renderer.draw_texture_at(prev_button_texture, prev_button_pos.into(), None);
                 renderer.draw_texture_at(tabs_button_texture, tabs_button_pos.into(), None);
                 renderer.draw_texture_at(separator_texture, (0., 0.).into(), separator_size);
                 renderer.draw_texture_at(uribar_texture, uribar_pos.into(), None);
@@ -266,31 +288,27 @@ impl Ui {
         // Convert position to physical space.
         let position = position * self.scale;
 
-        // URI bar relative position.
-        let uribar_position = position - self.uribar_position().into();
-        let uribar_size: Size<f64> = self.uribar.size.into();
+        // Get uribar constraints.
+        let uribar_position = self.uribar_position().into();
+        let uribar_size = self.uribar.size.into();
 
-        // Tab button relative position.
-        let tabs_button_position = position - self.tabs_button_position().into();
-        let tabs_button_size: Size<f64> = self.tabs_button.size().into();
-
-        if (0.0..uribar_size.width).contains(&uribar_position.x)
-            && (0.0..uribar_size.height).contains(&uribar_position.y)
-        {
-            self.keyboard_focus_uribar();
-            self.touch_focus = TouchFocusElement::UriBar;
-
+        if rect_contains(uribar_position, uribar_size, position) {
             // Forward touch event.
-            self.uribar.touch_down(time, uribar_position, modifiers);
+            self.uribar.touch_down(time, position - uribar_position, modifiers);
+
+            self.touch_focus = TouchFocusElement::UriBar;
+            self.keyboard_focus_uribar();
 
             return;
-        } else if (0.0..tabs_button_size.width).contains(&tabs_button_position.x)
-            && (0.0..tabs_button_size.height).contains(&tabs_button_position.y)
-        {
+        } else if position.x > uribar_position.x + uribar_size.width {
             self.touch_focus = TouchFocusElement::TabsButton(position);
+            return;
+        } else if position.x < uribar_position.x {
+            self.touch_focus = TouchFocusElement::PrevButton(position);
             return;
         }
 
+        self.touch_focus = TouchFocusElement::None;
         self.clear_keyboard_focus();
     }
 
@@ -316,9 +334,11 @@ impl Ui {
                 let uribar_position = position - self.uribar_position().into();
                 self.uribar.touch_motion(uribar_position);
             },
-            TouchFocusElement::TabsButton(touch_position) => {
+            TouchFocusElement::TabsButton(touch_position)
+            | TouchFocusElement::PrevButton(touch_position) => {
                 *touch_position = position;
             },
+            TouchFocusElement::None => (),
         }
     }
 
@@ -331,17 +351,18 @@ impl Ui {
         self.touch_point = None;
 
         match self.touch_focus {
-            // Forward touch event.
-            TouchFocusElement::UriBar => (),
+            TouchFocusElement::UriBar | TouchFocusElement::None => (),
             TouchFocusElement::TabsButton(position) => {
-                // Tab button relative position.
-                let tabs_button_position = position - self.tabs_button_position().into();
-                let tabs_button_size: Size<f64> = self.tabs_button.size().into();
-
-                if (0.0..tabs_button_size.width).contains(&tabs_button_position.x)
-                    && (0.0..tabs_button_size.height).contains(&tabs_button_position.y)
-                {
+                let uribar_x = self.uribar_position().x as f64;
+                let uribar_width = self.uribar_size().width as f64;
+                if position.x > uribar_x + uribar_width {
                     self.queue.show_tabs(self.window_id);
+                }
+            },
+            TouchFocusElement::PrevButton(position) => {
+                let uribar_x = self.uribar_position().x as f64;
+                if position.x < uribar_x {
+                    self.queue.load_prev(self.window_id);
                 }
             },
         }
@@ -405,9 +426,15 @@ impl Ui {
     /// Physical position of the URI bar.
     fn uribar_position(&self) -> Position {
         let available_height = (self.size.height as f64 - SEPARATOR_HEIGHT) * self.scale;
-        let padding = available_height * (1. - URIBAR_HEIGHT_PERCENTAGE) / 2.;
-        let y = SEPARATOR_HEIGHT * self.scale + padding;
-        Position::new(padding.round() as i32, y.round() as i32)
+        let vertical_padding = available_height * (1. - URIBAR_HEIGHT_PERCENTAGE) / 2.;
+        let y = SEPARATOR_HEIGHT * self.scale + vertical_padding;
+
+        let horizontal_padding = X_PADDING * self.scale;
+        let prev_button_x = self.prev_button_position().x;
+        let prev_button_width = self.prev_button.size().width as i32;
+        let x = prev_button_x + prev_button_width + horizontal_padding.round() as i32;
+
+        Position::new(x, y.round() as i32)
     }
 
     /// Physical size of the URI bar.
@@ -415,8 +442,10 @@ impl Ui {
         let available_height = (self.size.height as f64 - SEPARATOR_HEIGHT) * self.scale;
         let height = available_height * URIBAR_HEIGHT_PERCENTAGE;
 
-        let tabs_button_x = self.tabs_button_position().x as f64;
-        let width = tabs_button_x - available_height * (1. - URIBAR_HEIGHT_PERCENTAGE);
+        let tabs_button_start = self.tabs_button_position().x as f64;
+        let prev_button_x = self.prev_button_position().x as f64;
+        let prev_button_end = prev_button_x + self.prev_button.size().width as f64;
+        let width = tabs_button_start - prev_button_end - X_PADDING * self.scale * 2.;
 
         Size::new(width.round() as u32, height.round() as u32)
     }
@@ -424,10 +453,23 @@ impl Ui {
     /// Physical position of the tabs button.
     fn tabs_button_position(&self) -> Position {
         let available_height = (self.size.height as f64 - SEPARATOR_HEIGHT) * self.scale;
-        let padding = (available_height - TABS_BUTTON_SIZE as f64 * self.scale) / 2.;
-        let y = SEPARATOR_HEIGHT * self.scale + padding;
-        let x = (self.size.width - TABS_BUTTON_SIZE) as f64 * self.scale - padding;
+        let vertical_padding = (available_height - TABS_BUTTON_SIZE as f64 * self.scale) / 2.;
+
+        let x = ((self.size.width - TABS_BUTTON_SIZE) as f64 - X_PADDING) * self.scale;
+        let y = SEPARATOR_HEIGHT * self.scale + vertical_padding;
+
         Position::new(x.round() as i32, y.round() as i32)
+    }
+
+    /// Physical position of the previous page button.
+    fn prev_button_position(&self) -> Position {
+        let available_height = (self.size.height as f64 - SEPARATOR_HEIGHT) * self.scale;
+        let vertical_padding = (available_height - PREV_BUTTON_SIZE as f64 * self.scale) / 2.;
+
+        let x = (X_PADDING * self.scale).round() as i32;
+        let y = SEPARATOR_HEIGHT * self.scale + vertical_padding;
+
+        Position::new(x, y.round() as i32)
     }
 
     /// Physical size of the UI/content separator.
@@ -532,14 +574,14 @@ impl Uribar {
 
     /// Get relative position of the text.
     fn text_position(&self) -> Position {
-        Position::new((URIBAR_X_PADDING * self.scale).round() as i32, 0)
+        Position::new((X_PADDING * self.scale).round() as i32, 0)
     }
 
     /// Handle touch press events.
     pub fn touch_down(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
         // Forward event to text field.
         let mut relative_position = position;
-        relative_position.x -= URIBAR_X_PADDING * self.scale;
+        relative_position.x -= X_PADDING * self.scale;
         self.text_field.touch_down(time, relative_position, modifiers);
     }
 
@@ -547,7 +589,7 @@ impl Uribar {
     pub fn touch_motion(&mut self, position: Position<f64>) {
         // Forward event to text field.
         let mut relative_position = position;
-        relative_position.x -= URIBAR_X_PADDING * self.scale;
+        relative_position.x -= X_PADDING * self.scale;
         self.text_field.touch_motion(relative_position);
     }
 }
@@ -639,6 +681,60 @@ impl TabsButton {
     }
 }
 
+/// Previous tab button.
+struct PrevButton {
+    texture: Option<Texture>,
+    scale: f64,
+}
+
+impl Default for PrevButton {
+    fn default() -> Self {
+        Self { scale: 1., texture: Default::default() }
+    }
+}
+
+impl PrevButton {
+    fn texture(&mut self) -> &Texture {
+        // Ensure texture is up to date.
+        if self.texture.is_none() {
+            self.texture = Some(self.draw());
+        }
+
+        self.texture.as_ref().unwrap()
+    }
+
+    /// Draw the button into an OpenGL texture.
+    fn draw(&mut self) -> Texture {
+        let int_size = self.size();
+        let builder = TextureBuilder::new(int_size.into(), self.scale);
+        builder.clear(UI_BG);
+
+        // Draw button arrow.
+        let size: Size<f64> = int_size.into();
+        builder.context().set_source_rgb(URIBAR_FG[0], URIBAR_FG[1], URIBAR_FG[2]);
+        builder.context().move_to(size.width * 0.75, 0.);
+        builder.context().line_to(size.width * 0.25, size.height / 2.);
+        builder.context().line_to(size.width * 0.75, size.height);
+        builder.context().set_line_width(self.scale);
+        builder.context().stroke().unwrap();
+
+        builder.build()
+    }
+
+    /// Get the physical size of the button.
+    fn size(&self) -> Size {
+        Size::new(PREV_BUTTON_SIZE, PREV_BUTTON_SIZE) * self.scale
+    }
+
+    /// Update the output texture scale.
+    fn set_scale(&mut self, scale: f64) {
+        self.scale = scale;
+
+        // Force redraw.
+        self.texture = None;
+    }
+}
+
 /// Elements accepting keyboard focus.
 enum KeyboardInputElement {
     UriBar,
@@ -646,8 +742,10 @@ enum KeyboardInputElement {
 
 /// Elements accepting touch input.
 enum TouchFocusElement {
+    None,
     UriBar,
     TabsButton(Position<f64>),
+    PrevButton(Position<f64>),
 }
 
 /// Text input field.

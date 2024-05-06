@@ -88,6 +88,9 @@ pub trait Engine {
     /// Load a new page.
     fn load_uri(&self, uri: &str);
 
+    /// Go to the previous page.
+    fn load_prev(&self);
+
     /// Get current URI.
     fn uri(&self) -> String;
 

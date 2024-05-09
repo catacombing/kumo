@@ -11,6 +11,7 @@ pub use website_data_manager::*;
 mod authentication_request;
 #[allow(warnings)]
 mod auto;
+mod color;
 mod cookie_manager;
 mod network_session;
 mod web_view_backend;

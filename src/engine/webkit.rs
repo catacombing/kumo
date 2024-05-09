@@ -37,9 +37,9 @@ use wpe_backend_fdo_sys::{
     wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image,
     wpe_view_backend_exportable_fdo_get_view_backend,
 };
-use wpe_webkit::{WebView, WebViewBackend, WebViewExt};
+use wpe_webkit::{Color, WebView, WebViewBackend, WebViewExt};
 
-use crate::engine::{Engine, EngineId};
+use crate::engine::{Engine, EngineId, BG};
 use crate::{Position, Size, State};
 
 // Once for calling FDO initialization methods.
@@ -184,6 +184,10 @@ impl WebKitEngine {
         // Create web view with initial blank page.
         let web_view = WebView::new(&mut backend);
         web_view.load_uri("about:blank");
+
+        // Set browser background color.
+        let mut color = Color::new(BG[0], BG[1], BG[2], 1.);
+        web_view.set_background_color(&mut color);
 
         // Notify UI about URI updates.
         web_view.connect_uri_notify(move |web_view| {

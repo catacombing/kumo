@@ -10,6 +10,9 @@ use crate::{Position, Size, WindowId};
 
 pub mod webkit;
 
+/// Default engine background color.
+pub const BG: [f64; 3] = [0.1, 0.1, 0.1];
+
 pub trait Engine {
     /// Get the engine's unique ID.
     fn id(&self) -> EngineId;

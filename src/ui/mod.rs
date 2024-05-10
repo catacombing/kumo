@@ -16,7 +16,6 @@ use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
-use crate::tlds::TLDS;
 use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
 use crate::window::TextInput;
 use crate::{gl, rect_contains, Position, Size, State, WindowId};
@@ -56,11 +55,8 @@ const X_PADDING: f64 = 10.;
 /// Maximum interval between taps to be considered a double/trible-tap.
 const MAX_MULTI_TAP_MILLIS: u32 = 300;
 
-/// Search engine base URI.
-const SEARCH_URI: &str = "https://duckduckgo.com/?q=";
-
 #[funq::callbacks(State)]
-trait UiHandler {
+pub trait UiHandler {
     /// Change the active engine's URI.
     fn load_uri(&mut self, window: WindowId, uri: String);
 
@@ -73,16 +69,8 @@ trait UiHandler {
 
 impl UiHandler for State {
     fn load_uri(&mut self, window_id: WindowId, uri: String) {
-        // Perform search if URI is not a recognized URI.
-        let uri = match build_uri(uri.trim()) {
-            Some(uri) => uri,
-            None => Cow::Owned(format!("{SEARCH_URI}{uri}")),
-        };
-
         if let Some(window) = self.windows.get(&window_id) {
-            if let Some(engine) = window.tabs().get(&window.active_tab()) {
-                engine.load_uri(&uri);
-            }
+            window.load_uri(uri);
         }
     }
 
@@ -1311,120 +1299,5 @@ impl TouchHistory {
         self.last_touch = time;
 
         self.repeats
-    }
-}
-
-#[allow(rustdoc::bare_urls)]
-/// Extract HTTP URI from uri bar input.
-///
-/// # Examples
-///
-/// | input                         | output                                      |
-/// | ----------------------------- | ------------------------------------------- |
-/// | `"https://example.org"`       | `Some("https://example.org")`               |
-/// | `"example.org"`               | `Some("https://example.org")`               |
-/// | `"example.org/space in path"` | `Some("https://example.org/space in path")` |
-/// | `"/home"`                     | `Some("file:///home")`                      |
-/// | `"example org"`               | `None`                                      |
-/// | `"ftp://example.org"`         | `None`                                      |
-fn build_uri(mut input: &str) -> Option<Cow<'_, str>> {
-    let uri = Cow::Borrowed(input);
-
-    // If input starts with `/`, we assume it's a path.
-    if input.starts_with('/') {
-        return Some(Cow::Owned(format!("file://{uri}")));
-    }
-
-    // Parse scheme, short-circuiting if an unknown scheme was found.
-    const ALLOWED_SCHEMES: &[&str] = &["http", "https", "file"];
-    let mut has_scheme = false;
-    let mut has_port = false;
-    if let Some(index) = input.find(|c: char| !c.is_alphabetic()) {
-        if input[index..].starts_with(':') {
-            has_scheme = ALLOWED_SCHEMES.contains(&&input[..index]);
-            if has_scheme {
-                // Allow arbitrary number of slashes after the scheme.
-                input = input[index + 1..].trim_start_matches('/');
-            } else {
-                // Check if we're dealing with a local address + port, instead of scheme.
-                // Example: "localhost:80/index"
-                has_port = index + 1 < input.len()
-                    && &input[index + 1..index + 2] != "/"
-                    && input[index + 1..].chars().take_while(|c| *c != '/').all(|c| c.is_numeric());
-
-                if has_port {
-                    input = &input[..index];
-                } else {
-                    return None;
-                }
-            }
-        }
-    }
-
-    if !has_port {
-        // Allow all characters after a slash.
-        if let Some(index) = input.find('/') {
-            input = &input[..index];
-        }
-
-        // Parse port.
-        if let Some(index) = input.rfind(':') {
-            has_port =
-                index + 1 < input.len() && input[index + 1..].chars().all(|c| c.is_numeric());
-            if has_port {
-                input = &input[..index];
-            }
-        }
-    }
-
-    // Abort if the domain contains any illegal characters.
-    if input.find(|c: char| !c.is_alphanumeric() && c != '-' && c != '.').is_some() {
-        return None;
-    }
-
-    // Skip TLD check if scheme was explicitly specified.
-    if has_scheme {
-        return Some(uri);
-    }
-
-    // Check for valid TLD.
-    match input.rfind('.') {
-        Some(tld_index) if TLDS.contains(&input[tld_index + 1..].to_uppercase().as_str()) => {
-            Some(Cow::Owned(format!("https://{uri}")))
-        },
-        // Accept no TLD only if a port was explicitly specified.
-        None if has_port => Some(Cow::Owned(format!("https://{uri}"))),
-        _ => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn extract_uri() {
-        assert_eq!(build_uri("https://example.org").as_deref(), Some("https://example.org"));
-        assert_eq!(build_uri("example.org").as_deref(), Some("https://example.org"));
-        assert_eq!(build_uri("x.org/space path").as_deref(), Some("https://x.org/space path"));
-        assert_eq!(build_uri("/home/user").as_deref(), Some("file:///home/user"));
-        assert_eq!(build_uri("https://x.org:666").as_deref(), Some("https://x.org:666"));
-        assert_eq!(build_uri("example.org:666").as_deref(), Some("https://example.org:666"));
-        assert_eq!(build_uri("https://example:666").as_deref(), Some("https://example:666"));
-        assert_eq!(build_uri("example:666").as_deref(), Some("https://example:666"));
-        assert_eq!(build_uri("example:666/x").as_deref(), Some("https://example:666/x"));
-        assert_eq!(build_uri("https://exa-mple.org").as_deref(), Some("https://exa-mple.org"));
-        assert_eq!(build_uri("exa-mple.org").as_deref(), Some("https://exa-mple.org"));
-        assert_eq!(build_uri("https:123").as_deref(), Some("https:123"));
-        assert_eq!(build_uri("https:123:456").as_deref(), Some("https:123:456"));
-        assert_eq!(build_uri("/test:123").as_deref(), Some("file:///test:123"));
-
-        assert_eq!(build_uri("example org").as_deref(), None);
-        assert_eq!(build_uri("ftp://example.org").as_deref(), None);
-        assert_eq!(build_uri("space in scheme:example.org").as_deref(), None);
-        assert_eq!(build_uri("example.invalidtld").as_deref(), None);
-        assert_eq!(build_uri("example.org:/").as_deref(), None);
-        assert_eq!(build_uri("example:/").as_deref(), None);
-        assert_eq!(build_uri("xxx:123:456").as_deref(), None);
     }
 }

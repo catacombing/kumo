@@ -76,7 +76,7 @@ impl TabsUiHandler for State {
         // Explicitly mark window as dirty since the tabs UI closed.
         window.mark_dirty();
 
-        let _ = window.add_tab();
+        let _ = window.add_tab(true);
     }
 
     fn set_active_tab(&mut self, engine_id: EngineId) {

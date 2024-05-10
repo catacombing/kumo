@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-use std::io;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::os::fd::{AsFd, AsRawFd};
 use std::time::Duration;
+use std::{env, io};
 
 use funq::{MtQueueHandle, Queue, StQueueHandle};
 use glib::{source, ControlFlow, IOCondition, MainLoop, Priority, Source};
@@ -54,7 +54,18 @@ fn main() -> Result<(), Error> {
     let mut state = State::new(queue.local_handle(), main_loop.clone())?;
 
     // Create our initial window.
-    state.create_window()?;
+    let window_id = state.create_window()?;
+
+    // Spawn a new tab for every CLI argument.
+    let window = state.windows.get_mut(&window_id).unwrap();
+    for (i, arg) in env::args().skip(1).enumerate() {
+        if i > 0 {
+            window.add_tab(false)?;
+        } else {
+            window.clear_keyboard_focus();
+        }
+        window.load_uri(arg);
+    }
 
     // Register Wayland socket with GLib event loop.
     let mut queue_handle = queue.handle();
@@ -128,7 +139,7 @@ impl State {
     }
 
     /// Create a new browser window.
-    fn create_window(&mut self) -> Result<(), WebKitError> {
+    fn create_window(&mut self) -> Result<WindowId, WebKitError> {
         // Setup new window.
         let connection = self.connection.clone();
         let window = Window::new(
@@ -138,12 +149,13 @@ impl State {
             self.queue.clone(),
             self.wayland_queue(),
         )?;
-        self.windows.insert(window.id(), window);
+        let window_id = window.id();
+        self.windows.insert(window_id, window);
 
         // Ensure Wayland processing is kicked off.
         self.wayland_dispatch();
 
-        Ok(())
+        Ok(window_id)
     }
 
     /// Get access to the Wayland queue.

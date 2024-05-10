@@ -383,7 +383,7 @@ impl TabsUi {
 
     /// Check whether tabs UI needs redraw.
     pub fn dirty(&self) -> bool {
-        self.dirty
+        self.visible && self.dirty
     }
 
     /// Physical size of the "New Tab" button bar.

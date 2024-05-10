@@ -368,10 +368,7 @@ impl Window {
         let ui_size = Size::new(self.size.width, UI_HEIGHT);
         self.ui.set_geometry(compositor, ui_pos, ui_size);
 
-        // We skip unstall in browser view to wait for an engine update instead.
-        if self.tabs_ui.visible() {
-            self.unstall();
-        }
+        self.unstall();
     }
 
     /// Update surface scale.
@@ -391,10 +388,7 @@ impl Window {
         self.tabs_ui.set_scale(scale);
         self.ui.set_scale(scale);
 
-        // We skip unstall in browser view to wait for an engine update instead.
-        if self.tabs_ui.visible() {
-            self.unstall();
-        }
+        self.unstall();
     }
 
     /// Handle new key press.

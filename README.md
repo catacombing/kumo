@@ -3,6 +3,12 @@
 Kumo is a web browser with a UI focused on portrait-mode touchscreen mobile
 devices. It is optimized to run on low-end hardware with a limited battery life.
 
+## Screenshots
+
+<p align="center">
+  <img src="https://github.com/catacombing/kumo/assets/8886672/ccff7958-0745-4757-8450-bf1782c19c45" width="50%"/>
+</p>
+
 ## Installation
 
 The following dependencies are required for running Kumo:

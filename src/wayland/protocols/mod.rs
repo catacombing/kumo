@@ -2,13 +2,11 @@
 
 use std::sync::{Arc, Mutex};
 
-use _spb::wp_single_pixel_buffer_manager_v1::{self, WpSinglePixelBufferManagerV1};
 use _text_input::zwp_text_input_manager_v3::{self, ZwpTextInputManagerV3};
 use _text_input::zwp_text_input_v3::{self, ZwpTextInputV3};
 use smithay_client_toolkit::compositor::{CompositorHandler, CompositorState};
 use smithay_client_toolkit::output::{OutputHandler, OutputState};
 use smithay_client_toolkit::reexports::client::globals::GlobalList;
-use smithay_client_toolkit::reexports::client::protocol::wl_buffer::{self, WlBuffer};
 use smithay_client_toolkit::reexports::client::protocol::wl_keyboard::WlKeyboard;
 use smithay_client_toolkit::reexports::client::protocol::wl_output::{Transform, WlOutput};
 use smithay_client_toolkit::reexports::client::protocol::wl_pointer::WlPointer;
@@ -16,7 +14,6 @@ use smithay_client_toolkit::reexports::client::protocol::wl_seat::WlSeat;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::protocol::wl_touch::WlTouch;
 use smithay_client_toolkit::reexports::client::{Connection, Dispatch, QueueHandle};
-use smithay_client_toolkit::reexports::protocols::wp::single_pixel_buffer::v1::client as _spb;
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
 use smithay_client_toolkit::registry::{ProvidesRegistryState, RegistryState};
 use smithay_client_toolkit::seat::keyboard::{
@@ -44,7 +41,6 @@ pub mod viewporter;
 
 #[derive(Debug)]
 pub struct ProtocolStates {
-    pub single_pixel_buffer: Option<WpSinglePixelBufferManagerV1>,
     pub fractional_scale: FractionalScaleManager,
     pub subcompositor: SubcompositorState,
     pub compositor: CompositorState,
@@ -60,7 +56,6 @@ pub struct ProtocolStates {
 impl ProtocolStates {
     pub fn new(globals: &GlobalList, queue: &QueueHandle<State>) -> Self {
         // SPB is optional for rendering a fallback when the engine is too slow.
-        let single_pixel_buffer = globals.bind(queue, 1..=1, ()).ok();
         let text_input = TextInputManager::new(globals, queue);
         let registry = RegistryState::new(globals);
         let compositor = CompositorState::bind(globals, queue).unwrap();
@@ -73,7 +68,6 @@ impl ProtocolStates {
         let seat = SeatState::new(globals, queue);
 
         Self {
-            single_pixel_buffer,
             fractional_scale,
             subcompositor,
             compositor,
@@ -709,37 +703,6 @@ impl Dispatch<ZwpTextInputV3, Arc<Mutex<TextInputState>>> for State {
                 let (text, cursor_begin, cursor_end) = preedit_string;
                 state.preedit_string(surface, text, cursor_begin, cursor_end);
             },
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl Dispatch<WpSinglePixelBufferManagerV1, ()> for State {
-    fn event(
-        _state: &mut State,
-        _manager: &WpSinglePixelBufferManagerV1,
-        _event: wp_single_pixel_buffer_manager_v1::Event,
-        _data: &(),
-        _connection: &Connection,
-        _queue: &QueueHandle<State>,
-    ) {
-        // No events.
-    }
-}
-
-impl Dispatch<WlBuffer, ()> for State {
-    fn event(
-        _state: &mut State,
-        _buffer: &WlBuffer,
-        event: wl_buffer::Event,
-        _data: &(),
-        _connection: &Connection,
-        _queue: &QueueHandle<State>,
-    ) {
-        match event {
-            // We don't need to handle release since we only use non-mutable SHM buffers for single
-            // pixel buffers.
-            wl_buffer::Event::Release => (),
             _ => unreachable!(),
         }
     }

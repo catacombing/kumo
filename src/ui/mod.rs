@@ -10,7 +10,6 @@ use glutin::display::Display;
 use pangocairo::cairo::{Context, Format, ImageSurface};
 use pangocairo::pango::{Alignment, Layout, SCALE as PANGO_SCALE};
 use smithay_client_toolkit::compositor::{CompositorState, Region};
-use smithay_client_toolkit::reexports::client::protocol::wl_subsurface::WlSubsurface;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
@@ -23,8 +22,8 @@ use crate::{gl, rect_contains, Position, Size, State, WindowId};
 mod renderer;
 pub mod tabs;
 
-/// Logical height of the UI surface.
-pub const UI_HEIGHT: u32 = 50;
+/// Logical height of the non-browser UI.
+pub const TOOLBAR_HEIGHT: f64 = 50.;
 
 /// Logical height of the UI/content separator.
 const SEPARATOR_HEIGHT: f64 = 1.5;
@@ -95,7 +94,6 @@ impl UiHandler for State {
 pub struct Ui {
     renderer: Renderer,
 
-    subsurface: WlSubsurface,
     surface: WlSurface,
     viewport: WpViewport,
 
@@ -122,14 +120,13 @@ impl Ui {
         window_id: WindowId,
         queue: MtQueueHandle<State>,
         display: Display,
-        (subsurface, surface): (WlSubsurface, WlSurface),
+        surface: WlSurface,
         viewport: WpViewport,
     ) -> Self {
         let uribar = Uribar::new(window_id, queue.clone());
         let renderer = Renderer::new(display, surface.clone());
 
         let mut ui = Self {
-            subsurface,
             window_id,
             viewport,
             renderer,
@@ -153,13 +150,10 @@ impl Ui {
         ui
     }
 
-    /// Update the surface geometry.
-    pub fn set_geometry(&mut self, compositor: &CompositorState, position: Position, size: Size) {
+    /// Update the logical UI size.
+    pub fn set_size(&mut self, compositor: &CompositorState, size: Size) {
         self.size = size;
         self.dirty = true;
-
-        // Update subsurface location.
-        self.subsurface.set_position(position.x, position.y);
 
         // Update opaque region.
         if let Ok(region) = Region::new(compositor) {
@@ -207,8 +201,9 @@ impl Ui {
         // Calculate target positions/sizes before partial mutable borrows.
         let prev_button_pos = self.prev_button_position();
         let tabs_button_pos = self.tabs_button_position();
-        let separator_size = self.separator_size();
+        let separator_pos = self.separator_position();
         let uribar_pos = self.uribar_position();
+        let separator_size = self.separator_size();
 
         // Render the UI.
         let physical_size = self.size * self.scale;
@@ -229,9 +224,9 @@ impl Ui {
                 gl::Clear(gl::COLOR_BUFFER_BIT);
 
                 // Draw UI elements.
+                renderer.draw_texture_at(separator_texture, separator_pos.into(), separator_size);
                 renderer.draw_texture_at(prev_button_texture, prev_button_pos.into(), None);
                 renderer.draw_texture_at(tabs_button_texture, tabs_button_pos.into(), None);
-                renderer.draw_texture_at(separator_texture, (0., 0.).into(), separator_size);
                 renderer.draw_texture_at(uribar_texture, uribar_pos.into(), None);
             }
         });
@@ -413,9 +408,9 @@ impl Ui {
 
     /// Physical position of the URI bar.
     fn uribar_position(&self) -> Position {
-        let available_height = (self.size.height as f64 - SEPARATOR_HEIGHT) * self.scale;
+        let available_height = (TOOLBAR_HEIGHT - SEPARATOR_HEIGHT) * self.scale;
         let vertical_padding = available_height * (1. - URIBAR_HEIGHT_PERCENTAGE) / 2.;
-        let y = SEPARATOR_HEIGHT * self.scale + vertical_padding;
+        let y = self.size.height as f64 * self.scale - available_height + vertical_padding;
 
         let horizontal_padding = X_PADDING * self.scale;
         let prev_button_x = self.prev_button_position().x;
@@ -427,7 +422,7 @@ impl Ui {
 
     /// Physical size of the URI bar.
     fn uribar_size(&self) -> Size {
-        let available_height = (self.size.height as f64 - SEPARATOR_HEIGHT) * self.scale;
+        let available_height = (TOOLBAR_HEIGHT - SEPARATOR_HEIGHT) * self.scale;
         let height = available_height * URIBAR_HEIGHT_PERCENTAGE;
 
         let tabs_button_start = self.tabs_button_position().x as f64;
@@ -440,27 +435,33 @@ impl Ui {
 
     /// Physical position of the tabs button.
     fn tabs_button_position(&self) -> Position {
-        let available_height = (self.size.height as f64 - SEPARATOR_HEIGHT) * self.scale;
+        let available_height = (TOOLBAR_HEIGHT - SEPARATOR_HEIGHT) * self.scale;
         let vertical_padding = (available_height - TABS_BUTTON_SIZE as f64 * self.scale) / 2.;
 
         let x = ((self.size.width - TABS_BUTTON_SIZE) as f64 - X_PADDING) * self.scale;
-        let y = SEPARATOR_HEIGHT * self.scale + vertical_padding;
+        let y = self.size.height as f64 * self.scale - available_height + vertical_padding;
 
         Position::new(x.round() as i32, y.round() as i32)
     }
 
     /// Physical position of the previous page button.
     fn prev_button_position(&self) -> Position {
-        let available_height = (self.size.height as f64 - SEPARATOR_HEIGHT) * self.scale;
+        let available_height = (TOOLBAR_HEIGHT - SEPARATOR_HEIGHT) * self.scale;
         let vertical_padding = (available_height - PREV_BUTTON_SIZE as f64 * self.scale) / 2.;
 
         let x = (X_PADDING * self.scale).round() as i32;
-        let y = SEPARATOR_HEIGHT * self.scale + vertical_padding;
+        let y = self.size.height as f64 * self.scale - available_height + vertical_padding;
 
         Position::new(x, y.round() as i32)
     }
 
-    /// Physical size of the UI/content separator.
+    /// Physical position of the toolbar separator.
+    fn separator_position(&self) -> Position {
+        let y = (self.size.height as f64 - TOOLBAR_HEIGHT) * self.scale;
+        Position::new(0, y.round() as i32)
+    }
+
+    /// Physical size of the toolbar separator.
     fn separator_size(&self) -> Size<f32> {
         let mut physical_size = self.size * self.scale;
         physical_size.height = (SEPARATOR_HEIGHT * self.scale).round() as u32;

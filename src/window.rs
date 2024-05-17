@@ -10,7 +10,6 @@ use funq::StQueueHandle;
 use glutin::display::Display;
 use indexmap::IndexMap;
 use smithay_client_toolkit::compositor::{CompositorState, Region};
-use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
@@ -24,7 +23,7 @@ use crate::engine::webkit::{WebKitEngine, WebKitError};
 use crate::engine::{Engine, EngineId};
 use crate::tlds::TLDS;
 use crate::ui::tabs::TabsUi;
-use crate::ui::{Ui, UI_HEIGHT};
+use crate::ui::{Ui, TOOLBAR_HEIGHT};
 use crate::wayland::protocols::ProtocolStates;
 use crate::{Position, Size, State};
 
@@ -34,9 +33,6 @@ const SEARCH_URI: &str = "https://duckduckgo.com/?q=";
 // Default window size.
 const DEFAULT_WIDTH: u32 = 1280;
 const DEFAULT_HEIGHT: u32 = 720;
-
-/// Fallback color when waiting for engine frame.
-const BACKGROUND_COLOR: [u32; 4] = [402653184, 402653184, 402653184, u32::MAX];
 
 #[funq::callbacks(State)]
 pub trait WindowHandler {
@@ -79,8 +75,6 @@ pub struct Window {
     scale: f64,
     size: Size,
 
-    fallback_buffer: Option<WlBuffer>,
-
     queue: StQueueHandle<State>,
 
     tabs_ui: TabsUi,
@@ -112,10 +106,11 @@ impl Window {
 
         // Create UI renderer.
         let id = WindowId::new();
-        let ui_surface =
+        let (ui_subsurface, ui_surface) =
             protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
-        let ui_viewport = protocol_states.viewporter.viewport(&wayland_queue, &ui_surface.1);
+        let ui_viewport = protocol_states.viewporter.viewport(&wayland_queue, &ui_surface);
         let mut ui = Ui::new(id, queue.handle(), egl_display.clone(), ui_surface, ui_viewport);
+        ui_subsurface.place_below(&surface);
 
         // Create tabs UI renderer.
         let (_, tabs_ui_surface) =
@@ -132,23 +127,14 @@ impl Window {
         xdg.set_app_id("Kumo");
         xdg.commit();
 
-        // Create single-pixel buffer as fallback when waiting for engine rendering.
-        let fallback_buffer = protocol_states.single_pixel_buffer.as_ref().map(|spb| {
-            let [r, g, b, a] = BACKGROUND_COLOR;
-            spb.create_u32_rgba_buffer(r, g, b, a, &wayland_queue, ())
-        });
-
         let size = Size::new(DEFAULT_WIDTH, DEFAULT_HEIGHT);
         let active_tab = EngineId::new(id);
 
         // Resize UI elements to the initial window size.
-        tabs_ui.set_size(&protocol_states.compositor, Size::new(size.width, size.height));
-        let ui_pos = Position::new(0, (size.height - UI_HEIGHT) as i32);
-        let ui_size = Size::new(size.width, UI_HEIGHT);
-        ui.set_geometry(&protocol_states.compositor, ui_pos, ui_size);
+        tabs_ui.set_size(&protocol_states.compositor, size);
+        ui.set_size(&protocol_states.compositor, size);
 
         let mut window = Self {
-            fallback_buffer,
             wayland_queue,
             egl_display,
             connection,
@@ -197,7 +183,7 @@ impl Window {
     /// Add a tab to the window.
     pub fn add_tab(&mut self, focus_uribar: bool) -> Result<EngineId, WebKitError> {
         // Create a new browser engine.
-        let size = Size::new(self.size.width, self.size.height - UI_HEIGHT);
+        let size = self.engine_size();
         let engine_id = EngineId::new(self.id);
         let engine =
             WebKitEngine::new(&self.egl_display, self.queue.clone(), engine_id, size, self.scale)?;
@@ -287,30 +273,20 @@ impl Window {
         let surface = self.xdg.wl_surface();
         let tabs_ui_visible = self.tabs_ui.visible();
         if !tabs_ui_visible {
+            let engine_size: Size<i32> = self.engine_size().into();
             let engine = self.tabs.get_mut(&self.active_tab).unwrap();
-            match (engine.wl_buffer(), &self.fallback_buffer) {
-                // Render buffer if one is attached and requires redraw.
-                (Some(engine_buffer), _) if engine.dirty() || self.dirty => {
-                    // Attach engine buffer to primary surface.
-                    surface.attach(Some(engine_buffer), 0, 0);
-                    let height = (self.size.height - UI_HEIGHT) as i32;
-                    surface.damage(0, 0, self.size.width as i32, height);
 
-                    // Request new engine frame.
-                    engine.frame_done();
+            // Render buffer if one is attached and requires redraw.
+            let dirty = engine.dirty() || self.dirty;
+            if let Some(engine_buffer) = engine.wl_buffer().filter(|_| dirty) {
+                // Attach engine buffer to primary surface.
+                surface.attach(Some(engine_buffer), 0, 0);
+                surface.damage(0, 0, engine_size.width, engine_size.height);
 
-                    self.stalled = false;
-                },
-                // Attach fallback buffer while engine is loading.
-                //
-                // We don't modify `stalled` here since this content never changes.
-                (None, Some(buffer)) => {
-                    surface.attach(Some(buffer), 0, 0);
-                    let height = (self.size.height - UI_HEIGHT) as i32;
-                    surface.damage(0, 0, self.size.width as i32, height);
-                },
-                // Ignore if buffer is attached but not dirty.
-                _ => (),
+                // Request new engine frame.
+                engine.frame_done();
+
+                self.stalled = false;
             }
         }
 
@@ -381,17 +357,15 @@ impl Window {
         self.size = size;
 
         // Resize window's browser engines.
-        let engine_size = Size::new(self.size.width, self.size.height - UI_HEIGHT);
+        let engine_size = self.engine_size();
         for engine in self.tabs.values_mut() {
             engine.set_size(engine_size);
         }
         self.update_primary_surface(compositor);
 
         // Resize UI element surface.
-        self.tabs_ui.set_size(compositor, Size::new(self.size.width, self.size.height));
-        let ui_pos = Position::new(0, (self.size.height - UI_HEIGHT) as i32);
-        let ui_size = Size::new(self.size.width, UI_HEIGHT);
-        self.ui.set_geometry(compositor, ui_pos, ui_size);
+        self.tabs_ui.set_size(compositor, self.size);
+        self.ui.set_size(compositor, self.size);
 
         self.unstall();
     }
@@ -716,7 +690,7 @@ impl Window {
 
     /// Update primary surface attributes.
     fn update_primary_surface(&self, compositor: &CompositorState) {
-        let engine_size = Size::new(self.size.width, self.size.height - UI_HEIGHT);
+        let engine_size = self.engine_size();
 
         // Update browser's viewporter logical render size.
         self.viewport.set_destination(engine_size.width as i32, engine_size.height as i32);
@@ -726,6 +700,11 @@ impl Window {
             region.add(0, 0, engine_size.width as i32, engine_size.height as i32);
             self.xdg.wl_surface().set_opaque_region(Some(region.wl_region()));
         }
+    }
+
+    /// Size allocated to the browser engine's buffer.
+    pub fn engine_size(&self) -> Size {
+        Size::new(self.size.width, self.size.height - TOOLBAR_HEIGHT as u32)
     }
 }
 

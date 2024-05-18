@@ -106,18 +106,19 @@ impl Window {
         // Enable fractional scaling.
         protocol_states.fractional_scale.fractional_scaling(&wayland_queue, &surface);
 
+        // Create engine surface.
+        let (_, engine_surface) =
+            protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
+        let engine_viewport = protocol_states.viewporter.viewport(&wayland_queue, &engine_surface);
+
         // Create tabs UI renderer.
-        let (_, tabs_ui_surface) =
+        let (tabs_ui_subsurface, tabs_ui_surface) =
             protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
         let tabs_ui_viewport =
             protocol_states.viewporter.viewport(&wayland_queue, &tabs_ui_surface);
         let mut tabs_ui =
             TabsUi::new(id, queue.handle(), egl_display.clone(), tabs_ui_surface, tabs_ui_viewport);
-
-        // Create engine surface.
-        let (_, engine_surface) =
-            protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
-        let engine_viewport = protocol_states.viewporter.viewport(&wayland_queue, &engine_surface);
+        tabs_ui_subsurface.place_above(&engine_surface);
 
         // Create XDG window.
         let decorations = WindowDecorations::RequestServer;

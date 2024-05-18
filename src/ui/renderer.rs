@@ -57,6 +57,11 @@ impl Renderer {
     pub fn draw<F: FnOnce(&Renderer)>(&mut self, size: Size, fun: F) {
         self.sized(size).make_current();
 
+        // Resize OpenGL viewport.
+        //
+        // This isn't done in `Self::resize` since the renderer must be current.
+        unsafe { gl::Viewport(0, 0, size.width as i32, size.height as i32) };
+
         fun(self);
 
         unsafe { gl::Flush() };
@@ -153,9 +158,6 @@ impl SizedRenderer {
         if self.size == size {
             return;
         }
-
-        // Resize OpenGL viewport.
-        unsafe { gl::Viewport(0, 0, size.width as i32, size.height as i32) };
 
         // Resize EGL texture.
         self.egl_surface.resize(

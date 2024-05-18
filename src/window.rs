@@ -68,10 +68,11 @@ pub struct Window {
     text_input: Option<TextInput>,
     wayland_queue: QueueHandle<State>,
     initial_configure_done: bool,
+    engine_viewport: WpViewport,
+    engine_surface: WlSurface,
     connection: Connection,
     egl_display: Display,
     xdg: XdgWindow,
-    viewport: WpViewport,
     scale: f64,
     size: Size,
 
@@ -96,21 +97,14 @@ impl Window {
         queue: StQueueHandle<State>,
         wayland_queue: QueueHandle<State>,
     ) -> Result<Self, WebKitError> {
+        // Create UI renderer.
+        let id = WindowId::new();
         let surface = protocol_states.compositor.create_surface(&wayland_queue);
+        let ui_viewport = protocol_states.viewporter.viewport(&wayland_queue, &surface);
+        let mut ui = Ui::new(id, queue.handle(), egl_display.clone(), surface.clone(), ui_viewport);
 
         // Enable fractional scaling.
         protocol_states.fractional_scale.fractional_scaling(&wayland_queue, &surface);
-
-        // Enable viewporter for the browser surface.
-        let viewport = protocol_states.viewporter.viewport(&wayland_queue, &surface);
-
-        // Create UI renderer.
-        let id = WindowId::new();
-        let (ui_subsurface, ui_surface) =
-            protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
-        let ui_viewport = protocol_states.viewporter.viewport(&wayland_queue, &ui_surface);
-        let mut ui = Ui::new(id, queue.handle(), egl_display.clone(), ui_surface, ui_viewport);
-        ui_subsurface.place_below(&surface);
 
         // Create tabs UI renderer.
         let (_, tabs_ui_surface) =
@@ -119,6 +113,11 @@ impl Window {
             protocol_states.viewporter.viewport(&wayland_queue, &tabs_ui_surface);
         let mut tabs_ui =
             TabsUi::new(id, queue.handle(), egl_display.clone(), tabs_ui_surface, tabs_ui_viewport);
+
+        // Create engine surface.
+        let (_, engine_surface) =
+            protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
+        let engine_viewport = protocol_states.viewporter.viewport(&wayland_queue, &engine_surface);
 
         // Create XDG window.
         let decorations = WindowDecorations::RequestServer;
@@ -135,11 +134,12 @@ impl Window {
         ui.set_size(&protocol_states.compositor, size);
 
         let mut window = Self {
+            engine_viewport,
+            engine_surface,
             wayland_queue,
             egl_display,
             connection,
             active_tab,
-            viewport,
             tabs_ui,
             queue,
             size,
@@ -157,7 +157,7 @@ impl Window {
         };
 
         // Make sure primary window properties are set.
-        window.update_primary_surface(&protocol_states.compositor);
+        window.update_engine_surface(&protocol_states.compositor);
 
         // Create initial browser tab.
         window.add_tab(true)?;
@@ -270,7 +270,6 @@ impl Window {
         self.stalled = true;
 
         // Redraw the active browser engine.
-        let surface = self.xdg.wl_surface();
         let tabs_ui_visible = self.tabs_ui.visible();
         if !tabs_ui_visible {
             let engine_size: Size<i32> = self.engine_size().into();
@@ -279,9 +278,13 @@ impl Window {
             // Render buffer if one is attached and requires redraw.
             let dirty = engine.dirty() || self.dirty;
             if let Some(engine_buffer) = engine.wl_buffer().filter(|_| dirty) {
+                // Update browser's viewporter logical render size.
+                self.engine_viewport.set_destination(engine_size.width, engine_size.height);
+
                 // Attach engine buffer to primary surface.
-                surface.attach(Some(engine_buffer), 0, 0);
-                surface.damage(0, 0, engine_size.width, engine_size.height);
+                self.engine_surface.attach(Some(engine_buffer), 0, 0);
+                self.engine_surface.damage(0, 0, engine_size.width, engine_size.height);
+                self.engine_surface.commit();
 
                 // Request new engine frame.
                 engine.frame_done();
@@ -306,6 +309,7 @@ impl Window {
         }
 
         // Request a new frame if this frame was dirty.
+        let surface = self.xdg.wl_surface();
         if !self.stalled {
             surface.frame(&self.wayland_queue, surface.clone());
         }
@@ -361,7 +365,7 @@ impl Window {
         for engine in self.tabs.values_mut() {
             engine.set_size(engine_size);
         }
-        self.update_primary_surface(compositor);
+        self.update_engine_surface(compositor);
 
         // Resize UI element surface.
         self.tabs_ui.set_size(compositor, self.size);
@@ -448,7 +452,7 @@ impl Window {
         vertical: AxisScroll,
         modifiers: Modifiers,
     ) {
-        if self.xdg.wl_surface() == surface {
+        if &self.engine_surface == surface {
             // Forward event to browser engine.
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.pointer_axis(time, position, horizontal, vertical, modifiers);
@@ -467,7 +471,7 @@ impl Window {
         modifiers: Modifiers,
     ) {
         // Forward emulated touch event to UI.
-        if self.xdg.wl_surface() == surface {
+        if &self.engine_surface == surface {
             // Clear UI keyboard focus.
             self.ui.clear_keyboard_focus();
 
@@ -513,7 +517,7 @@ impl Window {
         modifiers: Modifiers,
     ) {
         // Forward events to corresponding surface.
-        if self.xdg.wl_surface() == surface {
+        if &self.engine_surface == surface {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.pointer_motion(time, position, modifiers);
             }
@@ -541,7 +545,7 @@ impl Window {
         self.touch_points.insert(id, position);
 
         // Forward events to corresponding surface.
-        if self.xdg.wl_surface() == surface {
+        if &self.engine_surface == surface {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 // Clear UI keyboard focus.
                 self.ui.clear_keyboard_focus();
@@ -566,7 +570,7 @@ impl Window {
     /// Handle touch release events.
     pub fn touch_up(&mut self, surface: &WlSurface, time: u32, id: i32, modifiers: Modifiers) {
         // Forward events to corresponding surface.
-        if self.xdg.wl_surface() == surface {
+        if &self.engine_surface == surface {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.touch_up(&self.touch_points, time, id, modifiers);
             }
@@ -597,7 +601,7 @@ impl Window {
         self.touch_points.insert(id, position);
 
         // Forward events to corresponding surface.
-        if self.xdg.wl_surface() == surface {
+        if &self.engine_surface == surface {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.touch_motion(&self.touch_points, time, id, modifiers);
             }
@@ -673,7 +677,7 @@ impl Window {
 
     /// Check whether a surface is owned by this window.
     pub fn owns_surface(&self, surface: &WlSurface) -> bool {
-        self.xdg.wl_surface() == surface
+        &self.engine_surface == surface
             || self.ui.surface() == surface
             || self.tabs_ui.surface() == surface
     }
@@ -689,16 +693,12 @@ impl Window {
     }
 
     /// Update primary surface attributes.
-    fn update_primary_surface(&self, compositor: &CompositorState) {
-        let engine_size = self.engine_size();
-
-        // Update browser's viewporter logical render size.
-        self.viewport.set_destination(engine_size.width as i32, engine_size.height as i32);
-
+    fn update_engine_surface(&self, compositor: &CompositorState) {
         // Update opaque region.
         if let Ok(region) = Region::new(compositor) {
-            region.add(0, 0, engine_size.width as i32, engine_size.height as i32);
-            self.xdg.wl_surface().set_opaque_region(Some(region.wl_region()));
+            let engine_size: Size<i32> = self.engine_size().into();
+            region.add(0, 0, engine_size.width, engine_size.height);
+            self.engine_surface.set_opaque_region(Some(region.wl_region()));
         }
     }
 

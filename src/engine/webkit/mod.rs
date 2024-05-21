@@ -31,6 +31,7 @@ use wpe_backend_fdo_sys::{
     wpe_input_touch_event_type_wpe_input_touch_event_type_motion,
     wpe_input_touch_event_type_wpe_input_touch_event_type_up,
     wpe_view_activity_state_wpe_view_activity_state_focused,
+    wpe_view_activity_state_wpe_view_activity_state_in_window,
     wpe_view_activity_state_wpe_view_activity_state_visible, wpe_view_backend_add_activity_state,
     wpe_view_backend_dispatch_axis_event, wpe_view_backend_dispatch_keyboard_event,
     wpe_view_backend_dispatch_pointer_event, wpe_view_backend_dispatch_set_device_scale_factor,
@@ -38,7 +39,7 @@ use wpe_backend_fdo_sys::{
     wpe_view_backend_exportable_fdo, wpe_view_backend_exportable_fdo_dispatch_frame_complete,
     wpe_view_backend_exportable_fdo_egl_client, wpe_view_backend_exportable_fdo_egl_create,
     wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image,
-    wpe_view_backend_exportable_fdo_get_view_backend,
+    wpe_view_backend_exportable_fdo_get_view_backend, wpe_view_backend_remove_activity_state,
 };
 use wpe_webkit::{Color, WebView, WebViewBackend, WebViewExt};
 
@@ -207,6 +208,14 @@ impl WebKitEngine {
         let input_method_context = InputMethodContext::new();
         web_view.set_input_method_context(Some(&input_method_context));
 
+        // Set initial activity state.
+        let state = wpe_view_activity_state_wpe_view_activity_state_visible
+            | wpe_view_activity_state_wpe_view_activity_state_in_window
+            | wpe_view_activity_state_wpe_view_activity_state_focused;
+        unsafe {
+            wpe_view_backend_add_activity_state(backend.wpe_backend(), state);
+        }
+
         // Get access to the OpenGL API.
         let Display::Egl(egl_display) = display;
         let egl = egl_display.egl();
@@ -308,19 +317,19 @@ impl WebKitEngine {
         }
     }
 
+    /// Update engine focus.
     fn set_focused(&mut self, focused: bool) {
         // Force text-input update.
         self.input_method_context.mark_text_input_dirty();
 
-        let state = if focused {
-            wpe_view_activity_state_wpe_view_activity_state_focused
-        } else {
-            wpe_view_activity_state_wpe_view_activity_state_visible
-        };
-
+        let state = wpe_view_activity_state_wpe_view_activity_state_focused;
         unsafe {
             let backend = self.backend.wpe_backend();
-            wpe_view_backend_add_activity_state(backend, state);
+            if focused {
+                wpe_view_backend_add_activity_state(backend, state);
+            } else {
+                wpe_view_backend_remove_activity_state(backend, state);
+            }
         }
     }
 }

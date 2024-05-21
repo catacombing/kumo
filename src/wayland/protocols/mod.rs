@@ -55,7 +55,6 @@ pub struct ProtocolStates {
 
 impl ProtocolStates {
     pub fn new(globals: &GlobalList, queue: &QueueHandle<State>) -> Self {
-        // SPB is optional for rendering a fallback when the engine is too slow.
         let text_input = TextInputManager::new(globals, queue);
         let registry = RegistryState::new(globals);
         let compositor = CompositorState::bind(globals, queue).unwrap();

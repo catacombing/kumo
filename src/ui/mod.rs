@@ -16,7 +16,7 @@ use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_vie
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
-use crate::window::TextInput;
+use crate::window::{TextInputChange, TextInputState};
 use crate::{gl, rect_contains, Position, Size, State, WindowId};
 
 mod renderer;
@@ -372,15 +372,14 @@ impl Ui {
         }
     }
 
-    /// Send current IME state to the compositor.
-    pub fn commit_ime_state(&mut self, text_input: &mut TextInput) {
-        // Update IME state or disable it if no text field is focused.
+    /// Get current IME text_input state.
+    pub fn text_input_state(&mut self) -> TextInputChange {
         match self.keyboard_focus {
             Some(KeyboardInputElement::UriBar) => {
                 let uribar_pos = self.uribar_position();
-                self.uribar.text_field.commit_ime_state(text_input, uribar_pos);
+                self.uribar.text_field.text_input_state(uribar_pos)
             },
-            _ => text_input.disable(),
+            _ => TextInputChange::Disabled,
         }
     }
 
@@ -744,12 +743,12 @@ struct TextField {
     preedit: (String, i32, i32),
     last_touch: TouchHistory,
     change_cause: ChangeCause,
-    last_ime_state: ImeState,
     purpose: ContentPurpose,
     layout: Layout,
     cursor_index: i32,
     cursor_offset: i32,
     focused: bool,
+    text_input_dirty: bool,
     dirty: bool,
 }
 
@@ -765,7 +764,7 @@ impl TextField {
             submit_handler: Box::new(|_| {}),
             change_cause: ChangeCause::Other,
             purpose: ContentPurpose::Normal,
-            last_ime_state: Default::default(),
+            text_input_dirty: Default::default(),
             cursor_offset: Default::default(),
             cursor_index: Default::default(),
             last_touch: Default::default(),
@@ -799,6 +798,7 @@ impl TextField {
         // Clear selection.
         self.selection = None;
 
+        self.text_input_dirty = true;
         self.dirty = true;
     }
 
@@ -832,6 +832,8 @@ impl TextField {
 
         if start < end {
             self.selection = Some(start..end);
+
+            self.text_input_dirty = true;
             self.dirty = true;
         } else {
             self.clear_selection();
@@ -841,6 +843,8 @@ impl TextField {
     /// Clear text selection.
     pub fn clear_selection(&mut self) {
         self.selection = None;
+
+        self.text_input_dirty = true;
         self.dirty = true;
     }
 
@@ -866,6 +870,8 @@ impl TextField {
                     },
                     None => self.move_cursor(-1),
                 }
+
+                self.text_input_dirty = true;
                 self.dirty = true;
             },
             (Keysym::Right, false, false) => {
@@ -882,6 +888,8 @@ impl TextField {
                     },
                     None => self.move_cursor(1),
                 }
+
+                self.text_input_dirty = true;
                 self.dirty = true;
             },
             (Keysym::BackSpace, false, false) => {
@@ -902,6 +910,7 @@ impl TextField {
                     },
                 }
 
+                self.text_input_dirty = true;
                 self.dirty = true;
             },
             (Keysym::Delete, false, false) => {
@@ -931,6 +940,7 @@ impl TextField {
                     },
                 }
 
+                self.text_input_dirty = true;
                 self.dirty = true;
             },
             (keysym, _, false) => {
@@ -949,6 +959,7 @@ impl TextField {
                     // Move cursor behind the new character.
                     self.move_cursor(1);
 
+                    self.text_input_dirty = true;
                     self.dirty = true;
                 }
             },
@@ -974,6 +985,9 @@ impl TextField {
             self.cursor_index = selection.start;
             self.cursor_offset = 0;
         }
+
+        self.text_input_dirty = true;
+        self.dirty = true;
     }
 
     /// Handle touch press events.
@@ -1008,6 +1022,9 @@ impl TextField {
 
                     // Clear selection.
                     self.selection = None;
+
+                    self.text_input_dirty = true;
+                    self.dirty = true;
                 }
             },
             1 => {
@@ -1035,8 +1052,6 @@ impl TextField {
 
         // Ensure focus when receiving touch input.
         self.set_focus(true);
-
-        self.dirty = true;
     }
 
     /// Handle touch motion events.
@@ -1072,6 +1087,7 @@ impl TextField {
             );
         }
 
+        self.text_input_dirty = true;
         self.dirty = true;
     }
 
@@ -1095,6 +1111,7 @@ impl TextField {
         // Set reason for next IME update.
         self.change_cause = ChangeCause::InputMethod;
 
+        self.text_input_dirty = true;
         self.dirty = true;
     }
 
@@ -1117,6 +1134,7 @@ impl TextField {
         // Set reason for next IME update.
         self.change_cause = ChangeCause::InputMethod;
 
+        self.text_input_dirty = true;
         self.dirty = true;
     }
 
@@ -1130,65 +1148,53 @@ impl TextField {
         }
 
         self.preedit = (text, cursor_begin, cursor_end);
+
+        self.text_input_dirty = true;
         self.dirty = true;
     }
 
-    /// Send current IME state to the compositor.
-    fn commit_ime_state(&mut self, text_input: &mut TextInput, position: Position) {
-        // Only send disable event if input is not focused.
+    /// Get current IME text_input state.
+    fn text_input_state(&mut self, position: Position) -> TextInputChange {
+        // Send disabled if input is not focused.
         if !self.focused {
-            text_input.disable();
-            return;
+            return TextInputChange::Disabled;
         }
 
-        // Skip if nothing has changed.
+        // Skip expensive surrounding_text clone without changes.
+        if !mem::take(&mut self.text_input_dirty) {
+            return TextInputChange::Unchanged;
+        }
+
+        // Get reason for this change.
+        let change_cause = mem::replace(&mut self.change_cause, ChangeCause::Other);
+
+        // Calculate cursor rectangle.
         let cursor_index = self.cursor_index();
-        let surrounding_text = self.text();
-        let ime_state = ImeState {
-            cursor_index,
-            surrounding_text: surrounding_text.clone(),
-            selection: self.selection.clone(),
-            purpose: self.purpose,
-        };
-        if text_input.enabled() && self.last_ime_state == ime_state {
-            return;
-        }
-        self.last_ime_state = ime_state;
-
-        // Enable IME if necessary.
-        text_input.enable();
-
-        // Offer the entire input text as surrounding text hint.
-        //
-        // NOTE: This request is technically limited to 4000 bytes, but that is unlikely
-        // to be an issue for our purposes.
-        let (cursor_index, selection_anchor) = match &self.selection {
-            Some(selection) => (selection.end, selection.start),
-            None => (cursor_index, cursor_index),
-        };
-        text_input.set_surrounding_text(surrounding_text, cursor_index, selection_anchor);
-
-        // Set reason for this update.
-        let cause = mem::replace(&mut self.change_cause, ChangeCause::Other);
-        text_input.set_text_change_cause(cause);
-
-        // Set text input field type.
-        text_input.set_content_type(ContentHint::None, self.purpose);
-
-        // Set cursor position.
         let (cursor_rect, _) = self.layout.cursor_pos(self.cursor_index());
         let cursor_x = position.x + cursor_rect.x() / PANGO_SCALE;
         let cursor_y = position.y + cursor_rect.y() / PANGO_SCALE;
         let cursor_height = cursor_rect.height() / PANGO_SCALE;
         let cursor_width = cursor_rect.width() / PANGO_SCALE;
-        text_input.set_cursor_rectangle(cursor_x, cursor_y, cursor_width, cursor_height);
+        let cursor_rect = (cursor_x, cursor_y, cursor_width, cursor_height);
 
-        text_input.commit();
+        // Skip if nothing has changed.
+        let surrounding_text = self.text();
+        TextInputChange::Dirty(TextInputState {
+            change_cause,
+            cursor_index,
+            cursor_rect,
+            surrounding_text: surrounding_text.clone(),
+            selection: self.selection.clone(),
+            hint: ContentHint::None,
+            purpose: self.purpose,
+        })
     }
 
     /// Set IME input field purpose hint.
     fn set_purpose(&mut self, purpose: ContentPurpose) {
         self.purpose = purpose;
+
+        self.text_input_dirty = true;
     }
 
     /// Set input focus.
@@ -1201,6 +1207,9 @@ impl TextField {
         }
 
         self.focused = focused;
+
+        self.text_input_dirty = true;
+        self.dirty = true;
     }
 
     /// Move the text input cursor.
@@ -1221,6 +1230,9 @@ impl TextField {
                 break;
             }
         }
+
+        self.text_input_dirty = true;
+        self.dirty = true;
     }
 
     /// Get current cursor's byte offset.

@@ -62,7 +62,7 @@ fn main() -> Result<(), Error> {
         if i > 0 {
             window.add_tab(false)?;
         } else {
-            window.clear_keyboard_focus();
+            window.clear_focus();
         }
         window.load_uri(arg);
     }

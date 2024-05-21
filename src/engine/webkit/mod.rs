@@ -6,6 +6,7 @@ use std::sync::Once;
 use std::time::UNIX_EPOCH;
 
 use funq::StQueueHandle;
+use glib::object::ObjectExt;
 use glutin::api::egl::Egl;
 use glutin::display::{AsRawDisplay, Display, RawDisplay};
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
@@ -28,19 +29,25 @@ use wpe_backend_fdo_sys::{
     wpe_input_touch_event_raw, wpe_input_touch_event_type,
     wpe_input_touch_event_type_wpe_input_touch_event_type_down,
     wpe_input_touch_event_type_wpe_input_touch_event_type_motion,
-    wpe_input_touch_event_type_wpe_input_touch_event_type_up, wpe_view_backend_dispatch_axis_event,
-    wpe_view_backend_dispatch_keyboard_event, wpe_view_backend_dispatch_pointer_event,
-    wpe_view_backend_dispatch_set_device_scale_factor, wpe_view_backend_dispatch_set_size,
-    wpe_view_backend_dispatch_touch_event, wpe_view_backend_exportable_fdo,
-    wpe_view_backend_exportable_fdo_dispatch_frame_complete,
+    wpe_input_touch_event_type_wpe_input_touch_event_type_up,
+    wpe_view_activity_state_wpe_view_activity_state_focused,
+    wpe_view_activity_state_wpe_view_activity_state_visible, wpe_view_backend_add_activity_state,
+    wpe_view_backend_dispatch_axis_event, wpe_view_backend_dispatch_keyboard_event,
+    wpe_view_backend_dispatch_pointer_event, wpe_view_backend_dispatch_set_device_scale_factor,
+    wpe_view_backend_dispatch_set_size, wpe_view_backend_dispatch_touch_event,
+    wpe_view_backend_exportable_fdo, wpe_view_backend_exportable_fdo_dispatch_frame_complete,
     wpe_view_backend_exportable_fdo_egl_client, wpe_view_backend_exportable_fdo_egl_create,
     wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image,
     wpe_view_backend_exportable_fdo_get_view_backend,
 };
 use wpe_webkit::{Color, WebView, WebViewBackend, WebViewExt};
 
+use crate::engine::webkit::input_method_context::InputMethodContext;
 use crate::engine::{Engine, EngineId, BG};
+use crate::window::TextInputChange;
 use crate::{Position, Size, State};
+
+mod input_method_context;
 
 // Once for calling FDO initialization methods.
 static FDO_INIT: Once = Once::new();
@@ -120,6 +127,7 @@ impl WebKitHandler for State {
 
 /// WebKit browser engine.
 pub struct WebKitEngine {
+    input_method_context: InputMethodContext,
     backend: WebViewBackend,
     web_view: WebView,
 
@@ -195,11 +203,16 @@ impl WebKitEngine {
             queue.clone().set_display_uri(engine_id, uri);
         });
 
+        // Setup input handler.
+        let input_method_context = InputMethodContext::new();
+        web_view.set_input_method_context(Some(&input_method_context));
+
         // Get access to the OpenGL API.
         let Display::Egl(egl_display) = display;
         let egl = egl_display.egl();
 
         let mut engine = Self {
+            input_method_context,
             exportable,
             web_view,
             backend,
@@ -292,6 +305,22 @@ impl WebKitEngine {
         unsafe {
             let wpe_backend = self.backend.wpe_backend();
             wpe_view_backend_dispatch_touch_event(wpe_backend, &mut event);
+        }
+    }
+
+    fn set_focused(&mut self, focused: bool) {
+        // Force text-input update.
+        self.input_method_context.mark_text_input_dirty();
+
+        let state = if focused {
+            wpe_view_activity_state_wpe_view_activity_state_focused
+        } else {
+            wpe_view_activity_state_wpe_view_activity_state_visible
+        };
+
+        unsafe {
+            let backend = self.backend.wpe_backend();
+            wpe_view_backend_add_activity_state(backend, state);
         }
     }
 }
@@ -393,6 +422,8 @@ impl Engine for WebKitEngine {
         state: u32,
         modifiers: Modifiers,
     ) {
+        self.set_focused(true);
+
         self.pointer_button = button;
         self.pointer_state = state;
 
@@ -438,6 +469,8 @@ impl Engine for WebKitEngine {
         id: i32,
         modifiers: Modifiers,
     ) {
+        self.set_focused(true);
+
         let event_type = wpe_input_touch_event_type_wpe_input_touch_event_type_down;
         let touch_points = wpe_touch_points(touch_points, self.scale, time, id, event_type);
         self.touch_event(&touch_points, time, id, modifiers, event_type);
@@ -481,6 +514,29 @@ impl Engine for WebKitEngine {
 
     fn title(&self) -> String {
         self.web_view.title().unwrap_or_default().into()
+    }
+
+    fn text_input_state(&self) -> TextInputChange {
+        self.input_method_context.text_input_state()
+    }
+
+    fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32) {
+        self.input_method_context
+            .emit_by_name::<()>("delete-surrounding", &[&before_length, &after_length]);
+    }
+
+    fn commit_string(&mut self, text: String) {
+        self.input_method_context.emit_by_name::<()>("committed", &[&text]);
+    }
+
+    fn preedit_string(&mut self, _text: String, _cursor_begin: i32, _cursor_end: i32) {
+        // NOTE: WebKit supports signaling preedit start/change/finish, but
+        // doesn't support forwarding the preedit text itself.
+    }
+
+    fn clear_focus(&mut self) {
+        // TODO: This makes engine transparent for some reason.
+        self.set_focused(false);
     }
 
     fn as_any(&mut self) -> &mut dyn Any {

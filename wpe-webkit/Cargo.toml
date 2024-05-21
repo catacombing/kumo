@@ -16,10 +16,10 @@ rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-libc = "0.2"
-glib = "0.19.0"
 gio = "0.19.2"
+glib = "0.19.0"
 gobject-sys = "0.19.0"
+libc = "0.2"
 
 [dependencies.ffi]
 package = "wpe-webkit-sys"

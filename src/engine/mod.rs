@@ -6,6 +6,7 @@ use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
 
+use crate::window::TextInputChange;
 use crate::{Position, Size, WindowId};
 
 pub mod webkit;
@@ -99,6 +100,21 @@ pub trait Engine {
 
     /// Get tab title.
     fn title(&self) -> String;
+
+    /// Get IME text_input state.
+    fn text_input_state(&self) -> TextInputChange;
+
+    /// Delete text around the current cursor position.
+    fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32);
+
+    /// Insert text at the current cursor position.
+    fn commit_string(&mut self, text: String);
+
+    /// Set preedit text at the current cursor position.
+    fn preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32);
+
+    /// Clear engine focus.
+    fn clear_focus(&mut self);
 
     fn as_any(&mut self) -> &mut dyn Any;
 }

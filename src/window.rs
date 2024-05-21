@@ -3,13 +3,14 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::mem;
+use std::ops::Range;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, ZwpTextInputV3};
 use funq::StQueueHandle;
 use glutin::display::Display;
 use indexmap::IndexMap;
-use smithay_client_toolkit::compositor::{CompositorState, Region};
+use smithay_client_toolkit::compositor::CompositorState;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
@@ -157,9 +158,6 @@ impl Window {
             tabs: Default::default(),
         };
 
-        // Make sure primary window properties are set.
-        window.update_engine_surface(&protocol_states.compositor);
-
         // Create initial browser tab.
         window.add_tab(true)?;
 
@@ -255,9 +253,17 @@ impl Window {
         }
     }
 
-    /// Clear URI bar focus.
-    pub fn clear_keyboard_focus(&mut self) {
+    // Clear browser engine focus.
+    pub fn clear_engine_focus(&mut self) {
+        if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+            engine.clear_focus();
+        }
+    }
+
+    // Clear all keyboard focus.
+    pub fn clear_focus(&mut self) {
         self.ui.clear_keyboard_focus();
+        self.clear_engine_focus();
     }
 
     /// Redraw the window.
@@ -270,8 +276,13 @@ impl Window {
         // Mark window as stalled if no rendering is performed.
         self.stalled = true;
 
-        // Redraw the active browser engine.
+        // Check which surface has keyboard focus.
         let tabs_ui_visible = self.tabs_ui.visible();
+        let ui_focused = self.ui.has_keyboard_focus();
+        let engine_focused = !ui_focused && !tabs_ui_visible;
+        let mut text_input_state = TextInputChange::Disabled;
+
+        // Redraw the active browser engine.
         if !tabs_ui_visible {
             let engine_size: Size<i32> = self.engine_size().into();
             let engine = self.tabs.get_mut(&self.active_tab).unwrap();
@@ -292,6 +303,11 @@ impl Window {
 
                 self.stalled = false;
             }
+
+            // Get engine's IME text_input state.
+            if self.text_input.is_some() && engine_focused {
+                text_input_state = engine.text_input_state();
+            }
         }
 
         // Attach new UI buffers.
@@ -303,10 +319,19 @@ impl Window {
             let ui_rendered = self.ui.draw(self.tabs.len(), self.dirty);
             self.stalled &= !ui_rendered;
 
-            // Commit latest IME state.
-            if let Some(text_input) = &mut self.text_input {
-                self.ui.commit_ime_state(text_input);
+            // Get UI's IME text_input state.
+            if self.text_input.is_some() && ui_focused {
+                text_input_state = self.ui.text_input_state();
             }
+        }
+
+        // Update IME text_input state.
+        match (text_input_state, &mut self.text_input) {
+            (TextInputChange::Dirty(text_input_state), Some(text_input)) => {
+                text_input_state.commit(text_input);
+            },
+            (TextInputChange::Disabled, Some(text_input)) => text_input.disable(),
+            _ => (),
         }
 
         // Request a new frame if this frame was dirty.
@@ -366,7 +391,6 @@ impl Window {
         for engine in self.tabs.values_mut() {
             engine.set_size(engine_size);
         }
-        self.update_engine_surface(compositor);
 
         // Resize UI element surface.
         self.tabs_ui.set_size(compositor, self.size);
@@ -473,13 +497,16 @@ impl Window {
     ) {
         // Forward emulated touch event to UI.
         if &self.engine_surface == surface {
-            // Clear UI keyboard focus.
+            // Clear UI focus.
             self.ui.clear_keyboard_focus();
 
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.pointer_button(time, position, button, state, modifiers);
             }
         } else if self.ui.surface() == surface {
+            // Clear engine focus.
+            self.clear_engine_focus();
+
             // Forward emulated touch event to UI.
             match state {
                 0 if button == BTN_LEFT => self.ui.touch_up(time, -1, modifiers),
@@ -489,8 +516,8 @@ impl Window {
         } else if self.tabs_ui.surface() == surface {
             // Ignore button-up when button-down closed tabs UI.
             if self.tabs_ui.visible() {
-                // Clear UI keyboard focus.
-                self.ui.clear_keyboard_focus();
+                // Clear all focus.
+                self.clear_focus();
 
                 // Forward emulated touch event to UI.
                 match state {
@@ -547,17 +574,20 @@ impl Window {
 
         // Forward events to corresponding surface.
         if &self.engine_surface == surface {
-            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
-                // Clear UI keyboard focus.
-                self.ui.clear_keyboard_focus();
+            // Clear UI focus.
+            self.ui.clear_keyboard_focus();
 
+            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.touch_down(&self.touch_points, time, id, modifiers);
             }
         } else if self.ui.surface() == surface {
+            // Clear engine focus.
+            self.clear_engine_focus();
+
             self.ui.touch_down(time, id, position, modifiers);
         } else if self.tabs_ui.surface() == surface {
-            // Clear UI keyboard focus.
-            self.ui.clear_keyboard_focus();
+            // Clear all focus.
+            self.clear_focus();
 
             self.tabs_ui.touch_down(time, id, position, modifiers);
         }
@@ -630,23 +660,46 @@ impl Window {
 
     /// Delete text around the current cursor position.
     pub fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32) {
-        self.ui.delete_surrounding_text(before_length, after_length);
-        self.unstall();
+        if self.ui.has_keyboard_focus() {
+            self.ui.delete_surrounding_text(before_length, after_length);
+        } else {
+            let engine = match self.tabs.get_mut(&self.active_tab) {
+                Some(engine) => engine,
+                None => return,
+            };
+            engine.delete_surrounding_text(before_length, after_length);
+        }
     }
 
     /// Insert text at the current cursor position.
     pub fn commit_string(&mut self, text: String) {
-        self.ui.commit_string(text);
+        if self.ui.has_keyboard_focus() {
+            self.ui.commit_string(text);
+        } else {
+            let engine = match self.tabs.get_mut(&self.active_tab) {
+                Some(engine) => engine,
+                None => return,
+            };
+            engine.commit_string(text);
+        }
     }
 
     /// Set preedit text at the current cursor position.
     pub fn preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
-        self.ui.preedit_string(text, cursor_begin, cursor_end);
+        if self.ui.has_keyboard_focus() {
+            self.ui.preedit_string(text, cursor_begin, cursor_end);
 
-        // NOTE: Unstall is always called and it's always the last event in the
-        // text-input chain, so we can trigger a redraw here without accidentally
-        // drawing a partially updated IME state.
-        self.unstall();
+            // NOTE: `preedit_string` is always called and it's always the last event in the
+            // text-input chain, so we can trigger a redraw here without accidentally
+            // drawing a partially updated IME state.
+            self.unstall();
+        } else if !self.tabs_ui.visible() {
+            let engine = match self.tabs.get_mut(&self.active_tab) {
+                Some(engine) => engine,
+                None => return,
+            };
+            engine.preedit_string(text, cursor_begin, cursor_end);
+        }
     }
 
     /// Update the URI displayed by the UI.
@@ -668,12 +721,7 @@ impl Window {
     /// Open the tabs UI.
     pub fn show_tabs_ui(&mut self) {
         self.tabs_ui.show();
-
-        // Ensure IME is closed.
-        self.ui.clear_keyboard_focus();
-        if let Some(text_input) = &mut self.text_input {
-            self.ui.commit_ime_state(text_input);
-        }
+        self.clear_focus();
     }
 
     /// Check whether a surface is owned by this window.
@@ -691,16 +739,6 @@ impl Window {
     /// Get underlying XDG shell window.
     pub fn xdg(&self) -> &XdgWindow {
         &self.xdg
-    }
-
-    /// Update primary surface attributes.
-    fn update_engine_surface(&self, compositor: &CompositorState) {
-        // Update opaque region.
-        if let Ok(region) = Region::new(compositor) {
-            let engine_size: Size<i32> = self.engine_size().into();
-            region.add(0, 0, engine_size.width, engine_size.height);
-            self.engine_surface.set_opaque_region(Some(region.wl_region()));
-        }
     }
 
     /// Size allocated to the browser engine's buffer.
@@ -727,6 +765,7 @@ impl Default for WindowId {
 }
 
 /// Text input with enabled-state tracking.
+#[derive(Debug)]
 pub struct TextInput {
     text_input: ZwpTextInputV3,
     enabled: bool,
@@ -739,11 +778,6 @@ impl From<ZwpTextInputV3> for TextInput {
 }
 
 impl TextInput {
-    /// Check if text input is enabled.
-    pub fn enabled(&self) -> bool {
-        self.enabled
-    }
-
     /// Enable text input on a surface.
     ///
     /// This is automatically debounced if the text input is already enabled.
@@ -800,6 +834,72 @@ impl TextInput {
     pub fn commit(&self) {
         self.text_input.commit();
     }
+}
+
+/// IME text_input state.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct TextInputState {
+    pub cursor_index: i32,
+    pub cursor_rect: (i32, i32, i32, i32),
+    pub selection: Option<Range<i32>>,
+    pub surrounding_text: String,
+    pub change_cause: ChangeCause,
+    pub purpose: ContentPurpose,
+    pub hint: ContentHint,
+}
+
+impl Default for TextInputState {
+    fn default() -> Self {
+        Self {
+            change_cause: ChangeCause::Other,
+            purpose: ContentPurpose::Normal,
+            hint: ContentHint::None,
+            surrounding_text: Default::default(),
+            cursor_index: Default::default(),
+            cursor_rect: Default::default(),
+            selection: Default::default(),
+        }
+    }
+}
+
+impl TextInputState {
+    fn commit(self, text_input: &mut TextInput) {
+        // Enable IME if necessary.
+        text_input.enable();
+
+        // Offer the entire input text as surrounding text hint.
+        //
+        // NOTE: This request is technically limited to 4000 bytes, but that is unlikely
+        // to be an issue for our purposes.
+        let (cursor_index, selection_anchor) = match &self.selection {
+            Some(selection) => (selection.end, selection.start),
+            None => (self.cursor_index, self.cursor_index),
+        };
+        text_input.set_surrounding_text(self.surrounding_text, cursor_index, selection_anchor);
+
+        // Set reason for this update.
+        text_input.set_text_change_cause(self.change_cause);
+
+        // Set text input field type.
+        text_input.set_content_type(self.hint, self.purpose);
+
+        // Set cursor position.
+        let (cursor_x, cursor_y, cursor_width, cursor_height) = self.cursor_rect;
+        text_input.set_cursor_rectangle(cursor_x, cursor_y, cursor_width, cursor_height);
+
+        text_input.commit();
+    }
+}
+
+/// Text input state change.
+#[derive(Debug)]
+pub enum TextInputChange {
+    /// Text input is disabled.
+    Disabled,
+    /// Text input is unchanged.
+    Unchanged,
+    /// Text input requires update.
+    Dirty(TextInputState),
 }
 
 #[allow(rustdoc::bare_urls)]

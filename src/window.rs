@@ -287,29 +287,38 @@ impl Window {
             let max_engine_size = Size::<f64>::from(self.engine_size()) * self.scale;
             let engine = self.tabs.get_mut(&self.active_tab).unwrap();
 
-            if let Some(engine_buffer) = engine.wl_buffer() {
-                let buffer_size: Size<f64> = engine.buffer_size().into();
+            match engine.wl_buffer() {
+                // Render the engine's buffer.
+                Some(engine_buffer) => {
+                    let buffer_size: Size<f64> = engine.buffer_size().into();
 
-                // Update browser's viewporter render size.
-                let src_width = buffer_size.width.min(max_engine_size.width);
-                let src_height = buffer_size.height.min(max_engine_size.height);
-                self.engine_viewport.set_source(0., 0., src_width, src_height);
-                let dst_width = (src_width / self.scale).round() as i32;
-                let dst_height = (src_height / self.scale).round() as i32;
-                self.engine_viewport.set_destination(dst_width, dst_height);
+                    // Update browser's viewporter render size.
+                    let src_width = buffer_size.width.min(max_engine_size.width);
+                    let src_height = buffer_size.height.min(max_engine_size.height);
+                    self.engine_viewport.set_source(0., 0., src_width, src_height);
+                    let dst_width = (src_width / self.scale).round() as i32;
+                    let dst_height = (src_height / self.scale).round() as i32;
+                    self.engine_viewport.set_destination(dst_width, dst_height);
 
-                // Render buffer if it requires a redraw.
-                if engine.dirty() || self.dirty {
-                    // Attach engine buffer to primary surface.
-                    self.engine_surface.attach(Some(engine_buffer), 0, 0);
-                    self.engine_surface.damage(0, 0, dst_width, dst_height);
+                    // Render buffer if it requires a redraw.
+                    if engine.dirty() || self.dirty {
+                        // Attach engine buffer to primary surface.
+                        self.engine_surface.attach(Some(engine_buffer), 0, 0);
+                        self.engine_surface.damage(0, 0, dst_width, dst_height);
+                        self.engine_surface.commit();
+
+                        // Request new engine frame.
+                        engine.frame_done();
+
+                        self.stalled = false;
+                    }
+                },
+                // Clear attached surface if we've switched to an engine that
+                // doesn't have a buffer yet.
+                None => {
+                    self.engine_surface.attach(None, 0, 0);
                     self.engine_surface.commit();
-
-                    // Request new engine frame.
-                    engine.frame_done();
-
-                    self.stalled = false;
-                }
+                },
             }
 
             // Get engine's IME text_input state.

@@ -30,6 +30,9 @@ pub trait Engine {
     /// Update the browser engine's size.
     fn set_size(&mut self, size: Size);
 
+    /// Get the Wayland buffer's current physical size.
+    fn buffer_size(&self) -> Size;
+
     /// Update the browser engine's scale.
     fn set_scale(&mut self, scale: f64);
 

@@ -284,24 +284,32 @@ impl Window {
 
         // Redraw the active browser engine.
         if !tabs_ui_visible {
-            let engine_size: Size<i32> = self.engine_size().into();
+            let max_engine_size = Size::<f64>::from(self.engine_size()) * self.scale;
             let engine = self.tabs.get_mut(&self.active_tab).unwrap();
 
-            // Render buffer if one is attached and requires redraw.
-            let dirty = engine.dirty() || self.dirty;
-            if let Some(engine_buffer) = engine.wl_buffer().filter(|_| dirty) {
-                // Update browser's viewporter logical render size.
-                self.engine_viewport.set_destination(engine_size.width, engine_size.height);
+            if let Some(engine_buffer) = engine.wl_buffer() {
+                let buffer_size: Size<f64> = engine.buffer_size().into();
 
-                // Attach engine buffer to primary surface.
-                self.engine_surface.attach(Some(engine_buffer), 0, 0);
-                self.engine_surface.damage(0, 0, engine_size.width, engine_size.height);
-                self.engine_surface.commit();
+                // Update browser's viewporter render size.
+                let src_width = buffer_size.width.min(max_engine_size.width);
+                let src_height = buffer_size.height.min(max_engine_size.height);
+                self.engine_viewport.set_source(0., 0., src_width, src_height);
+                let dst_width = (src_width / self.scale).round() as i32;
+                let dst_height = (src_height / self.scale).round() as i32;
+                self.engine_viewport.set_destination(dst_width, dst_height);
 
-                // Request new engine frame.
-                engine.frame_done();
+                // Render buffer if it requires a redraw.
+                if engine.dirty() || self.dirty {
+                    // Attach engine buffer to primary surface.
+                    self.engine_surface.attach(Some(engine_buffer), 0, 0);
+                    self.engine_surface.damage(0, 0, dst_width, dst_height);
+                    self.engine_surface.commit();
 
-                self.stalled = false;
+                    // Request new engine frame.
+                    engine.frame_done();
+
+                    self.stalled = false;
+                }
             }
 
             // Get engine's IME text_input state.

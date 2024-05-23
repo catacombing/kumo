@@ -93,9 +93,9 @@ impl WebKitHandler for State {
             let width = wpe_fdo_egl_exported_image_get_width(image);
             let height = wpe_fdo_egl_exported_image_get_height(image);
             let desired_width =
-                (webkit_engine.size.width as f32 * webkit_engine.scale).round() as u32;
+                (webkit_engine.target_size.width as f32 * webkit_engine.scale).round() as u32;
             let desired_height =
-                (webkit_engine.size.height as f32 * webkit_engine.scale).round() as u32;
+                (webkit_engine.target_size.height as f32 * webkit_engine.scale).round() as u32;
 
             if desired_width != width || desired_height != height {
                 webkit_engine.frame_done();
@@ -136,7 +136,8 @@ pub struct WebKitEngine {
     image: *mut wpe_fdo_egl_exported_image,
     buffer: Option<WlBuffer>,
 
-    size: Size,
+    target_size: Size,
+    buffer_size: Size,
     scale: f32,
 
     // Mouse pointer state.
@@ -225,13 +226,14 @@ impl WebKitEngine {
             exportable,
             web_view,
             backend,
-            size,
+            target_size: size,
             egl,
             image: ptr::null_mut(),
             id: engine_id,
             scale: 1.0,
             pointer_button: Default::default(),
             pointer_state: Default::default(),
+            buffer_size: Default::default(),
             buffer: Default::default(),
             dirty: Default::default(),
         };
@@ -262,6 +264,7 @@ impl WebKitEngine {
             }
         }
 
+        self.buffer_size = self.target_size * self.scale as f64;
         self.image = image;
 
         let RawDisplay::Egl(raw_display) = egl_display.raw_display();
@@ -356,12 +359,16 @@ impl Engine for WebKitEngine {
     }
 
     fn set_size(&mut self, size: Size) {
-        self.size = size;
+        self.target_size = size;
 
         unsafe {
             let wpe_backend = self.backend.wpe_backend();
             wpe_view_backend_dispatch_set_size(wpe_backend, size.width, size.height);
         }
+    }
+
+    fn buffer_size(&self) -> Size {
+        self.buffer_size
     }
 
     fn set_scale(&mut self, scale: f64) {

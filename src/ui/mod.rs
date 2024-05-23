@@ -471,6 +471,8 @@ impl Ui {
 /// URI input UI.
 struct Uribar {
     texture: Option<Texture>,
+    dirty: bool,
+
     text_field: TextField,
     size: Size,
     scale: f64,
@@ -483,7 +485,13 @@ impl Uribar {
         text_field.set_submit_handler(Box::new(move |uri| queue.load_uri(window, uri)));
         text_field.set_purpose(ContentPurpose::Url);
 
-        Self { text_field, scale: 1., texture: Default::default(), size: Default::default() }
+        Self {
+            text_field,
+            dirty: true,
+            scale: 1.,
+            texture: Default::default(),
+            size: Default::default(),
+        }
     }
 
     /// Update the output texture size and scale.
@@ -492,7 +500,7 @@ impl Uribar {
         self.size = size;
 
         // Force redraw.
-        self.texture = None;
+        self.dirty = true;
     }
 
     /// Update the URI bar's content.
@@ -503,7 +511,7 @@ impl Uribar {
         self.text_field.set_text(uri);
 
         // Force redraw.
-        self.texture = None;
+        self.dirty = true;
     }
 
     /// Set URI bar input focus.
@@ -513,15 +521,20 @@ impl Uribar {
 
     /// Check if URI bar needs redraw.
     fn dirty(&self) -> bool {
-        self.texture.is_none() || self.text_field.dirty
+        self.dirty || self.text_field.dirty
     }
 
     /// Get the OpenGL texture.
     fn texture(&mut self) -> &Texture {
         // Ensure texture is up to date.
-        if self.texture.is_none() || self.text_field.dirty {
+        if self.dirty || self.text_field.dirty {
+            if let Some(texture) = self.texture.take() {
+                texture.delete();
+            }
             self.texture = Some(self.draw());
+
             self.text_field.dirty = false;
+            self.dirty = false;
         }
 
         self.texture.as_ref().unwrap()
@@ -602,13 +615,14 @@ impl Separator {
 /// Tab overview button.
 struct TabsButton {
     texture: Option<Texture>,
+    dirty: bool,
     tab_count: usize,
     scale: f64,
 }
 
 impl Default for TabsButton {
     fn default() -> Self {
-        Self { scale: 1., tab_count: Default::default(), texture: Default::default() }
+        Self { scale: 1., dirty: true, tab_count: Default::default(), texture: Default::default() }
     }
 }
 
@@ -616,14 +630,22 @@ impl TabsButton {
     fn texture(&mut self, tab_count: usize) -> &Texture {
         // Ensure texture is up to date.
         let tab_count = tab_count.min(100);
-        if self.texture.is_none() || tab_count != self.tab_count {
+        if self.dirty || tab_count != self.tab_count {
+            // Get tab count text.
             let label = if tab_count == 100 {
                 Cow::Borrowed("∞")
             } else {
                 Cow::Owned(tab_count.to_string())
             };
+
+            // Redraw texture.
+            if let Some(texture) = self.texture.take() {
+                texture.delete();
+            }
             self.texture = Some(self.draw(&label));
+
             self.tab_count = tab_count;
+            self.dirty = false;
         }
 
         self.texture.as_ref().unwrap()
@@ -665,26 +687,30 @@ impl TabsButton {
         self.scale = scale;
 
         // Force redraw.
-        self.texture = None;
+        self.dirty = true;
     }
 }
 
 /// Previous tab button.
 struct PrevButton {
     texture: Option<Texture>,
+    dirty: bool,
     scale: f64,
 }
 
 impl Default for PrevButton {
     fn default() -> Self {
-        Self { scale: 1., texture: Default::default() }
+        Self { scale: 1., dirty: true, texture: Default::default() }
     }
 }
 
 impl PrevButton {
     fn texture(&mut self) -> &Texture {
         // Ensure texture is up to date.
-        if self.texture.is_none() {
+        if mem::take(&mut self.dirty) {
+            if let Some(texture) = self.texture.take() {
+                texture.delete();
+            }
             self.texture = Some(self.draw());
         }
 
@@ -719,7 +745,7 @@ impl PrevButton {
         self.scale = scale;
 
         // Force redraw.
-        self.texture = None;
+        self.dirty = true;
     }
 }
 

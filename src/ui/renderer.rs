@@ -309,14 +309,6 @@ pub struct Texture {
     pub height: usize,
 }
 
-impl Drop for Texture {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteTextures(1, &self.id);
-        }
-    }
-}
-
 impl Texture {
     /// Load a buffer as texture into OpenGL.
     pub fn new(buffer: &[u8], width: usize, height: usize) -> Self {
@@ -342,6 +334,16 @@ impl Texture {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
             Self { id, width, height }
+        }
+    }
+
+    /// Delete this texture.
+    ///
+    /// Since texture ID are context-specific, the context must be bound when
+    /// calling this function.
+    pub fn delete(&self) {
+        unsafe {
+            gl::DeleteTextures(1, &self.id);
         }
     }
 }

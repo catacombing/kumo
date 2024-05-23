@@ -526,7 +526,16 @@ impl TextureCache {
         self.tabs.extend(tabs.map(|tab| RenderTab::new(tab.as_ref(), active_tab)));
 
         // Remove unused URIs from cache.
-        self.textures.retain(|uri, _| self.tabs.iter().any(|tab| &tab.uri == uri));
+        self.textures.retain(|uri, texture| {
+            let retain = self.tabs.iter().any(|tab| &tab.uri == uri);
+
+            // Release OpenGL texture.
+            if !retain {
+                texture.delete();
+            }
+
+            retain
+        });
 
         // Create textures for missing tabs.
         for tab in self.tabs.iter() {
@@ -618,20 +627,24 @@ impl RenderTab {
 /// Tab creation button.
 struct NewTabButton {
     texture: Option<Texture>,
+    dirty: bool,
     size: Size,
     scale: f64,
 }
 
 impl Default for NewTabButton {
     fn default() -> Self {
-        Self { scale: 1., texture: Default::default(), size: Default::default() }
+        Self { dirty: true, scale: 1., texture: Default::default(), size: Default::default() }
     }
 }
 
 impl NewTabButton {
     fn texture(&mut self) -> &Texture {
         // Ensure texture is up to date.
-        if self.texture.is_none() {
+        if mem::take(&mut self.dirty) {
+            if let Some(texture) = self.texture.take() {
+                texture.delete();
+            }
             self.texture = Some(self.draw());
         }
 
@@ -684,7 +697,7 @@ impl NewTabButton {
         self.scale = scale;
 
         // Force redraw.
-        self.texture = None;
+        self.dirty = true;
     }
 }
 

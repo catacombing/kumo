@@ -1452,6 +1452,12 @@ pub const TLDS: &[&str] = &[
     "ZW",
 ];
 
+/// Allowed URI schemes.
+///
+/// This is used for autocomplete, so entries are sorted by autocomplete
+/// priority.
+pub const SCHEMES: &[&str] = &["https", "http", "file"];
+
 #[cfg(test)]
 mod tests {
     use super::*;

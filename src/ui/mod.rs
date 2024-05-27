@@ -17,7 +17,7 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
 use crate::window::{TextInputChange, TextInputState};
-use crate::{gl, rect_contains, Position, Size, State, WindowId};
+use crate::{gl, rect_contains, History, Position, Size, State, WindowId};
 
 mod renderer;
 pub mod tabs;
@@ -53,6 +53,9 @@ const X_PADDING: f64 = 10.;
 
 /// Maximum interval between taps to be considered a double/trible-tap.
 const MAX_MULTI_TAP_MILLIS: u32 = 300;
+
+/// Separator characters for tab completion.
+const AUTOCOMPLETE_SEPARATORS: &[u8] = &[b'/', b':', b' ', b'?', b'&'];
 
 #[funq::callbacks(State)]
 pub trait UiHandler {
@@ -122,8 +125,9 @@ impl Ui {
         display: Display,
         surface: WlSurface,
         viewport: WpViewport,
+        history: History,
     ) -> Self {
-        let uribar = Uribar::new(window_id, queue.clone());
+        let uribar = Uribar::new(window_id, history, queue.clone());
         let renderer = Renderer::new(display, surface.clone());
 
         let mut ui = Self {
@@ -479,11 +483,23 @@ struct Uribar {
 }
 
 impl Uribar {
-    fn new(window: WindowId, mut queue: MtQueueHandle<State>) -> Self {
+    fn new(window: WindowId, history: History, mut queue: MtQueueHandle<State>) -> Self {
         // Setup text input with submission handling.
         let mut text_field = TextField::new();
         text_field.set_submit_handler(Box::new(move |uri| queue.load_uri(window, uri)));
         text_field.set_purpose(ContentPurpose::Url);
+
+        // Setup autocomplete suggestion on text change.
+        text_field.set_text_change_handler(Box::new(move |text_field| {
+            let text = text_field.text();
+            let suggestion = match history.autocomplete(&text) {
+                Some(mut suggestion) if suggestion.len() > text.len() => {
+                    suggestion.split_off(text.len())
+                },
+                _ => String::new(),
+            };
+            text_field.set_autocomplete(suggestion);
+        }));
 
         Self {
             text_field,
@@ -552,6 +568,7 @@ impl Uribar {
         let size = Size::new(width, self.size.height);
         let mut text_options = TextOptions::new();
         text_options.cursor_position(self.text_field.cursor_index());
+        text_options.autocomplete(self.text_field.autocomplete().into());
         text_options.preedit(self.text_field.preedit.clone());
         text_options.position(position);
         text_options.size(size.into());
@@ -764,16 +781,25 @@ enum TouchFocusElement {
 
 /// Text input field.
 struct TextField {
-    selection: Option<Range<i32>>,
-    submit_handler: Box<dyn FnMut(String)>,
-    preedit: (String, i32, i32),
-    last_touch: TouchHistory,
-    change_cause: ChangeCause,
-    purpose: ContentPurpose,
     layout: Layout,
     cursor_index: i32,
     cursor_offset: i32,
+
+    selection: Option<Range<i32>>,
+
+    last_touch: TouchHistory,
+
+    text_change_handler: Box<dyn FnMut(&mut Self)>,
+    submit_handler: Box<dyn FnMut(String)>,
+
+    autocomplete: String,
+
+    preedit: (String, i32, i32),
+    change_cause: ChangeCause,
+    purpose: ContentPurpose,
+
     focused: bool,
+
     text_input_dirty: bool,
     dirty: bool,
 }
@@ -787,11 +813,13 @@ impl TextField {
 
         Self {
             layout,
+            text_change_handler: Box::new(|_| {}),
             submit_handler: Box::new(|_| {}),
             change_cause: ChangeCause::Other,
             purpose: ContentPurpose::Normal,
             text_input_dirty: Default::default(),
             cursor_offset: Default::default(),
+            autocomplete: Default::default(),
             cursor_index: Default::default(),
             last_touch: Default::default(),
             selection: Default::default(),
@@ -806,11 +834,17 @@ impl TextField {
         self.submit_handler = handler;
     }
 
+    /// Update text change handler.
+    fn set_text_change_handler(&mut self, handler: Box<dyn FnMut(&mut Self)>) {
+        self.text_change_handler = handler;
+    }
+
     /// Update the field's text.
     ///
     /// This automatically positions the cursor at the end of the text.
     fn set_text(&mut self, text: &str) {
         self.layout.set_text(text);
+        self.emit_text_changed();
 
         // Move cursor to the beginning.
         if text.is_empty() {
@@ -933,6 +967,7 @@ impl TextField {
                         let mut text = self.text();
                         text.drain(start_index..end_index);
                         self.layout.set_text(&text);
+                        self.emit_text_changed();
                     },
                 }
 
@@ -963,11 +998,30 @@ impl TextField {
                         // Remove all bytes in the range from the text.
                         text.drain(start_index..end_index);
                         self.layout.set_text(&text);
+                        self.emit_text_changed();
                     },
                 }
 
                 self.text_input_dirty = true;
                 self.dirty = true;
+            },
+            (Keysym::Tab, false, false) => {
+                // Ignore tab without completion available.
+                if self.autocomplete.is_empty() {
+                    return;
+                }
+
+                // Add all text up to and including the next separator characters.
+                let complete_index = self
+                    .autocomplete
+                    .bytes()
+                    .enumerate()
+                    .skip_while(|(_, b)| !AUTOCOMPLETE_SEPARATORS.contains(b))
+                    .find_map(|(i, b)| (!AUTOCOMPLETE_SEPARATORS.contains(&b)).then_some(i))
+                    .unwrap_or(self.autocomplete.len());
+                let text = format!("{}{}", self.text(), &self.autocomplete[..complete_index]);
+                self.set_text(&text);
+                self.emit_text_changed();
             },
             (keysym, _, false) => {
                 // Delete selection before writing new text.
@@ -981,6 +1035,7 @@ impl TextField {
                     let mut text = self.text();
                     text.insert(index, key_char);
                     self.layout.set_text(&text);
+                    self.emit_text_changed();
 
                     // Move cursor behind the new character.
                     self.move_cursor(1);
@@ -1002,6 +1057,7 @@ impl TextField {
         let mut text = self.text().to_string();
         text.drain(range);
         self.layout.set_text(&text);
+        self.emit_text_changed();
 
         // Update cursor.
         if selection.start > 0 && selection.start == text.len() as i32 {
@@ -1129,6 +1185,7 @@ impl TextField {
         text.drain(index..end);
         text.drain(start..index);
         self.layout.set_text(&text);
+        self.emit_text_changed();
 
         // Update cursor position.
         self.cursor_index = start as i32;
@@ -1153,6 +1210,7 @@ impl TextField {
         let mut input_text = self.text();
         input_text.insert_str(index, &text);
         self.layout.set_text(&input_text);
+        self.emit_text_changed();
 
         // Move cursor behind the new characters.
         self.cursor_index += text.len() as i32;
@@ -1177,6 +1235,25 @@ impl TextField {
 
         self.text_input_dirty = true;
         self.dirty = true;
+    }
+
+    /// Set autocomplete text.
+    ///
+    /// This is expected to have the common prefix removed already.
+    fn set_autocomplete(&mut self, autocomplete: String) {
+        self.autocomplete = autocomplete;
+    }
+
+    /// Get autocomplete text.
+    ///
+    /// This will return the text to be appended behind the cursor when an
+    /// autocomplete suggestion is available.
+    fn autocomplete(&self) -> &str {
+        if self.focused && self.selection.is_none() {
+            &self.autocomplete
+        } else {
+            ""
+        }
     }
 
     /// Get current IME text_input state.
@@ -1259,6 +1336,13 @@ impl TextField {
 
         self.text_input_dirty = true;
         self.dirty = true;
+    }
+
+    /// Call text change handler.
+    fn emit_text_changed(&mut self) {
+        let mut text_change_handler = mem::replace(&mut self.text_change_handler, Box::new(|_| {}));
+        (text_change_handler)(self);
+        self.text_change_handler = text_change_handler;
     }
 
     /// Get current cursor's byte offset.

@@ -69,8 +69,8 @@ trait WebKitHandler {
     /// Update the engine's underlying EGL image.
     fn set_egl_image(&mut self, engine_id: EngineId, image: *mut wpe_fdo_egl_exported_image);
 
-    /// Update the engine's URI.
-    fn set_display_uri(&mut self, engine_id: EngineId, uri: String);
+    /// Update current active resource for an engine.
+    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String, title: String);
 }
 
 impl WebKitHandler for State {
@@ -116,12 +116,11 @@ impl WebKitHandler for State {
         }
     }
 
-    /// Update the engine's URI.
-    fn set_display_uri(&mut self, engine_id: EngineId, uri: String) {
+    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String, title: String) {
         let window_id = engine_id.window_id();
 
         if let Some(window) = self.windows.get_mut(&window_id) {
-            window.set_display_uri(engine_id, &uri);
+            window.set_engine_uri(&self.history, engine_id, uri, title);
         }
     }
 }
@@ -202,7 +201,8 @@ impl WebKitEngine {
         // Notify UI about URI updates.
         web_view.connect_uri_notify(move |web_view| {
             let uri = web_view.uri().unwrap_or_default().to_string();
-            queue.clone().set_display_uri(engine_id, uri);
+            let title = web_view.title().map(String::from).unwrap_or_else(|| uri.clone());
+            queue.clone().set_engine_uri(engine_id, uri, title);
         });
 
         // Setup input handler.
@@ -551,7 +551,6 @@ impl Engine for WebKitEngine {
     }
 
     fn clear_focus(&mut self) {
-        // TODO: This makes engine transparent for some reason.
         self.set_focused(false);
     }
 

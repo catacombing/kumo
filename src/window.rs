@@ -22,11 +22,11 @@ use smithay_client_toolkit::shell::WaylandSurface;
 
 use crate::engine::webkit::{WebKitEngine, WebKitError};
 use crate::engine::{Engine, EngineId};
-use crate::tlds::TLDS;
 use crate::ui::tabs::TabsUi;
 use crate::ui::{Ui, TOOLBAR_HEIGHT};
+use crate::uri::{SCHEMES, TLDS};
 use crate::wayland::protocols::ProtocolStates;
-use crate::{Position, Size, State};
+use crate::{History, Position, Size, State};
 
 /// Search engine base URI.
 const SEARCH_URI: &str = "https://duckduckgo.com/?q=";
@@ -97,12 +97,14 @@ impl Window {
         egl_display: Display,
         queue: StQueueHandle<State>,
         wayland_queue: QueueHandle<State>,
+        history: History,
     ) -> Result<Self, WebKitError> {
         // Create UI renderer.
         let id = WindowId::new();
         let surface = protocol_states.compositor.create_surface(&wayland_queue);
         let ui_viewport = protocol_states.viewporter.viewport(&wayland_queue, &surface);
-        let mut ui = Ui::new(id, queue.handle(), egl_display.clone(), surface.clone(), ui_viewport);
+        let mut ui =
+            Ui::new(id, queue.handle(), egl_display.clone(), surface.clone(), ui_viewport, history);
 
         // Enable fractional scaling.
         protocol_states.fractional_scale.fractional_scaling(&wayland_queue, &surface);
@@ -719,20 +721,26 @@ impl Window {
         }
     }
 
-    /// Update the URI displayed by the UI.
-    pub fn set_display_uri(&mut self, engine_id: EngineId, uri: &str) {
-        // Ignore URI change for background engines.
-        if engine_id != self.active_tab {
-            return;
+    /// Update an engine's active resource.
+    pub fn set_engine_uri(
+        &mut self,
+        history: &History,
+        engine_id: EngineId,
+        uri: String,
+        title: String,
+    ) {
+        // Update UI if the URI change is for the active tab.
+        if engine_id == self.active_tab {
+            self.ui.set_uri(&uri);
+
+            // Unstall if UI changed.
+            if self.ui.dirty() {
+                self.unstall();
+            }
         }
 
-        // Update the URI.
-        self.ui.set_uri(uri);
-
-        // Unstall if UI changed.
-        if self.ui.dirty() {
-            self.unstall();
-        }
+        // Increment URI visit count for history.
+        history.visit(uri, title);
     }
 
     /// Open the tabs UI.
@@ -941,12 +949,11 @@ fn build_uri(mut input: &str) -> Option<Cow<'_, str>> {
     }
 
     // Parse scheme, short-circuiting if an unknown scheme was found.
-    const ALLOWED_SCHEMES: &[&str] = &["http", "https", "file"];
     let mut has_scheme = false;
     let mut has_port = false;
     if let Some(index) = input.find(|c: char| !c.is_alphabetic()) {
         if input[index..].starts_with(':') {
-            has_scheme = ALLOWED_SCHEMES.contains(&&input[..index]);
+            has_scheme = SCHEMES.contains(&&input[..index]);
             if has_scheme {
                 // Allow arbitrary number of slashes after the scheme.
                 input = input[index + 1..].trim_start_matches('/');

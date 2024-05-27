@@ -439,26 +439,48 @@ impl TextureBuilder {
             draw_caret(selection.end);
         }
 
-        // Temporarily insert preedit text.
-        let mut text_without_preedit = None;
-        if !text_options.preedit.0.is_empty() {
-            // Store text before preedit insertion.
-            let mut text_with_preedit = layout.text().to_string();
-            text_without_preedit = Some(text_with_preedit.clone());
+        // Temporarily insert preedit and autocomplete text.
+        let mut text_without_virtual = None;
+        let has_preedit = !text_options.preedit.0.is_empty();
+        let has_autocomplete = !text_options.autocomplete.is_empty();
+        if has_preedit || has_autocomplete {
+            // Store text before insertion.
+            let mut virtual_text = layout.text().to_string();
+            text_without_virtual = Some(virtual_text.clone());
 
-            // Insert preedit text.
-            let preedit_start = text_options.cursor_pos as u32;
-            let preedit_end = preedit_start + text_options.preedit.0.len() as u32;
-            text_with_preedit.insert_str(preedit_start as usize, &text_options.preedit.0);
-            layout.set_text(&text_with_preedit);
+            let mut preedit_end = text_options.cursor_pos as usize;
+            if has_preedit {
+                // Insert preedit text.
+                let preedit_start = preedit_end;
+                preedit_end += text_options.preedit.0.len();
+                virtual_text.insert_str(preedit_start, &text_options.preedit.0);
 
-            // Add underline below preedit text.
-            let attributes = layout.attributes().unwrap_or_default();
-            let mut ul_attr = AttrInt::new_underline(Underline::Single);
-            ul_attr.set_start_index(preedit_start);
-            ul_attr.set_end_index(preedit_end);
-            attributes.insert(ul_attr);
-            layout.set_attributes(Some(&attributes));
+                // Add underline below preedit text.
+                let attributes = layout.attributes().unwrap_or_default();
+                let mut ul_attr = AttrInt::new_underline(Underline::Single);
+                ul_attr.set_start_index(preedit_start as u32);
+                ul_attr.set_end_index(preedit_end as u32);
+                attributes.insert(ul_attr);
+                layout.set_attributes(Some(&attributes));
+            }
+
+            if has_autocomplete {
+                // Insert autocomplete text.
+                let autocomplete_start = preedit_end;
+                let autocomplete_end = autocomplete_start + text_options.autocomplete.len();
+                virtual_text.insert_str(preedit_end, &text_options.autocomplete);
+
+                // Set color for autocomplete text.
+                let attributes = layout.attributes().unwrap_or_default();
+                let [r, g, b] = text_options.autocomplete_color;
+                let mut col_attr = AttrColor::new_foreground(r, g, b);
+                col_attr.set_start_index(autocomplete_start as u32);
+                col_attr.set_end_index(autocomplete_end as u32);
+                attributes.insert(col_attr);
+                layout.set_attributes(Some(&attributes));
+            }
+
+            layout.set_text(&virtual_text);
         }
 
         // Set attributes for multi-character IME underline cursor.
@@ -496,8 +518,8 @@ impl TextureBuilder {
         // Clear selection markup attributes after rendering.
         layout.set_attributes(None);
 
-        // Reset text to remove preedit.
-        if let Some(text) = text_without_preedit.take() {
+        // Reset text to remove preedit/autocomplete.
+        if let Some(text) = text_without_virtual.take() {
             layout.set_text(&text);
         }
     }
@@ -527,6 +549,8 @@ impl TextureBuilder {
 pub struct TextOptions {
     selection: Option<Range<i32>>,
     preedit: (String, i32, i32),
+    autocomplete: String,
+    autocomplete_color: [u16; 3],
     text_color: [f64; 3],
     position: Position<f64>,
     size: Option<Size<i32>>,
@@ -538,9 +562,11 @@ pub struct TextOptions {
 impl TextOptions {
     pub fn new() -> Self {
         Self {
+            autocomplete_color: [50_000; 3],
             text_color: [1.; 3],
             cursor_pos: -1,
             font_size: 16,
+            autocomplete: Default::default(),
             show_cursor: Default::default(),
             selection: Default::default(),
             position: Default::default(),
@@ -582,6 +608,11 @@ impl TextOptions {
     /// Preedit text and cursor.
     pub fn preedit(&mut self, (text, cursor_begin, cursor_end): (String, i32, i32)) {
         self.preedit = (text, cursor_begin, cursor_end);
+    }
+
+    /// Autocomplete suggestion text.
+    pub fn autocomplete(&mut self, autocomplete: String) {
+        self.autocomplete = autocomplete;
     }
 
     /// Get cursor position.

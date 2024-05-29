@@ -23,7 +23,7 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers, RepeatInfo};
 use crate::engine::webkit::WebKitError;
 use crate::wayland::protocols::{KeyRepeat, ProtocolStates, TextInput};
 use crate::wayland::WaylandDispatch;
-use crate::window::{Window, WindowId};
+use crate::window::{KeyboardFocus, Window, WindowId};
 
 mod engine;
 mod ui;
@@ -64,7 +64,7 @@ fn main() -> Result<(), Error> {
         if i > 0 {
             window.add_tab(false)?;
         } else {
-            window.clear_focus();
+            window.set_keyboard_focus(KeyboardFocus::None);
         }
         window.load_uri(arg);
     }

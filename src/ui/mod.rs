@@ -19,8 +19,8 @@ use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
 use crate::window::{TextInputChange, TextInputState};
 use crate::{gl, rect_contains, History, Position, Size, State, WindowId};
 
+pub mod overlay;
 mod renderer;
-pub mod tabs;
 
 /// Logical height of the non-browser UI.
 pub const TOOLBAR_HEIGHT: f64 = 50.;
@@ -193,7 +193,7 @@ impl Ui {
         }
         self.dirty = false;
 
-        // Update browser's viewporter logical render size.
+        // Update viewporter logical render size.
         //
         // NOTE: This must be done every time we draw with Sway; it is not correctly
         // persisted when drawing with the same surface multiple times.
@@ -238,11 +238,6 @@ impl Ui {
         true
     }
 
-    /// Check if the keyboard focus is on a UI input element.
-    pub fn has_keyboard_focus(&self) -> bool {
-        self.keyboard_focus.is_some()
-    }
-
     /// Get underlying Wayland surface.
     pub fn surface(&self) -> &WlSurface {
         &self.surface
@@ -254,9 +249,6 @@ impl Ui {
             self.uribar.text_field.press_key(raw, keysym, modifiers)
         }
     }
-
-    /// Handle key release.
-    pub fn release_key(&self, _raw: u32, _keysym: Keysym, _modifiers: Modifiers) {}
 
     /// Handle touch press events.
     pub fn touch_down(

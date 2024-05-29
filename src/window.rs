@@ -22,7 +22,7 @@ use smithay_client_toolkit::shell::WaylandSurface;
 
 use crate::engine::webkit::{WebKitEngine, WebKitError};
 use crate::engine::{Engine, EngineId};
-use crate::ui::tabs::TabsUi;
+use crate::ui::overlay::{Overlay, Popup};
 use crate::ui::{Ui, TOOLBAR_HEIGHT};
 use crate::uri::{SCHEMES, TLDS};
 use crate::wayland::protocols::ProtocolStates;
@@ -65,6 +65,7 @@ pub struct Window {
 
     tabs: IndexMap<EngineId, Box<dyn Engine>>,
     active_tab: EngineId,
+    overlay: Overlay,
 
     text_input: Option<TextInput>,
     wayland_queue: QueueHandle<State>,
@@ -79,11 +80,11 @@ pub struct Window {
 
     queue: StQueueHandle<State>,
 
-    tabs_ui: TabsUi,
     ui: Ui,
 
     // Touch point position tracking.
     touch_points: HashMap<i32, Position<f64>>,
+    keyboard_focus: KeyboardFocus,
 
     stalled: bool,
     closed: bool,
@@ -114,14 +115,19 @@ impl Window {
             protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
         let engine_viewport = protocol_states.viewporter.viewport(&wayland_queue, &engine_surface);
 
-        // Create tabs UI renderer.
-        let (tabs_ui_subsurface, tabs_ui_surface) =
+        // Create overlay UI surface.
+        let (overlay_subsurface, overlay_surface) =
             protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
-        let tabs_ui_viewport =
-            protocol_states.viewporter.viewport(&wayland_queue, &tabs_ui_surface);
-        let mut tabs_ui =
-            TabsUi::new(id, queue.handle(), egl_display.clone(), tabs_ui_surface, tabs_ui_viewport);
-        tabs_ui_subsurface.place_above(&engine_surface);
+        let overlay_viewport =
+            protocol_states.viewporter.viewport(&wayland_queue, &overlay_surface);
+        let mut overlay = Overlay::new(
+            id,
+            queue.handle(),
+            egl_display.clone(),
+            overlay_surface,
+            overlay_viewport,
+        );
+        overlay_subsurface.place_above(&engine_surface);
 
         // Create XDG window.
         let decorations = WindowDecorations::RequestServer;
@@ -134,7 +140,7 @@ impl Window {
         let active_tab = EngineId::new(id);
 
         // Resize UI elements to the initial window size.
-        tabs_ui.set_size(&protocol_states.compositor, size);
+        overlay.set_size(&protocol_states.compositor, size);
         ui.set_size(&protocol_states.compositor, size);
 
         let mut window = Self {
@@ -144,7 +150,7 @@ impl Window {
             egl_display,
             connection,
             active_tab,
-            tabs_ui,
+            overlay,
             queue,
             size,
             xdg,
@@ -153,6 +159,7 @@ impl Window {
             stalled: true,
             scale: 1.,
             initial_configure_done: Default::default(),
+            keyboard_focus: Default::default(),
             touch_points: Default::default(),
             text_input: Default::default(),
             closed: Default::default(),
@@ -193,8 +200,12 @@ impl Window {
         // Switch the active tab.
         self.active_tab = engine_id;
 
+        // Update tabs popup.
+        self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
+
         if focus_uribar {
             // Focus URI bar to allow text input.
+            self.set_keyboard_focus(KeyboardFocus::Ui);
             self.ui.keyboard_focus_uribar();
         }
         self.ui.set_uri("");
@@ -202,19 +213,6 @@ impl Window {
         self.unstall();
 
         Ok(engine_id)
-    }
-
-    /// Get this window's active tab.
-    pub fn active_tab(&self) -> EngineId {
-        self.active_tab
-    }
-
-    /// Switch between tabs.
-    pub fn set_active_tab(&mut self, engine_id: EngineId) {
-        self.active_tab = engine_id;
-        let uri = self.tabs.get_mut(&self.active_tab).unwrap().uri();
-        self.ui.set_uri(&uri);
-        self.unstall();
     }
 
     /// Close a tabs.
@@ -237,8 +235,30 @@ impl Window {
             }
         }
 
+        // Update tabs popup.
+        self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
+
         // Force tabs UI redraw.
-        self.tabs_ui.mark_dirty();
+        self.dirty = true;
+        self.unstall();
+    }
+
+    /// Get this window's active tab.
+    pub fn active_tab(&self) -> EngineId {
+        self.active_tab
+    }
+
+    /// Switch between tabs.
+    pub fn set_active_tab(&mut self, engine_id: EngineId) {
+        self.active_tab = engine_id;
+
+        // Update URI bar.
+        let uri = self.tabs.get_mut(&self.active_tab).unwrap().uri();
+        self.ui.set_uri(&uri);
+
+        // Update tabs popup.
+        self.overlay.tabs_mut().set_active_tab(self.active_tab);
+
         self.unstall();
     }
 
@@ -255,19 +275,6 @@ impl Window {
         }
     }
 
-    // Clear browser engine focus.
-    pub fn clear_engine_focus(&mut self) {
-        if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
-            engine.clear_focus();
-        }
-    }
-
-    // Clear all keyboard focus.
-    pub fn clear_focus(&mut self) {
-        self.ui.clear_keyboard_focus();
-        self.clear_engine_focus();
-    }
-
     /// Redraw the window.
     pub fn draw(&mut self) {
         // Ignore rendering before initial configure or after shutdown.
@@ -278,14 +285,11 @@ impl Window {
         // Mark window as stalled if no rendering is performed.
         self.stalled = true;
 
-        // Check which surface has keyboard focus.
-        let tabs_ui_visible = self.tabs_ui.visible();
-        let ui_focused = self.ui.has_keyboard_focus();
-        let engine_focused = !ui_focused && !tabs_ui_visible;
         let mut text_input_state = TextInputChange::Disabled;
+        let overlay_opaque = self.overlay.opaque();
 
         // Redraw the active browser engine.
-        if !tabs_ui_visible {
+        if !overlay_opaque {
             let max_engine_size = Size::<f64>::from(self.engine_size()) * self.scale;
             let engine = self.tabs.get_mut(&self.active_tab).unwrap();
 
@@ -324,25 +328,25 @@ impl Window {
             }
 
             // Get engine's IME text_input state.
-            if self.text_input.is_some() && engine_focused {
+            if self.text_input.is_some() && self.keyboard_focus == KeyboardFocus::Browser {
                 text_input_state = engine.text_input_state();
             }
         }
 
-        // Attach new UI buffers.
-        if tabs_ui_visible {
-            let ui_rendered = self.tabs_ui.draw(self.tabs.values(), self.active_tab);
-            self.stalled &= !ui_rendered;
-        } else {
-            // Draw UI.
+        // Draw UI.
+        if !overlay_opaque {
             let ui_rendered = self.ui.draw(self.tabs.len(), self.dirty);
             self.stalled &= !ui_rendered;
-
-            // Get UI's IME text_input state.
-            if self.text_input.is_some() && ui_focused {
-                text_input_state = self.ui.text_input_state();
-            }
         }
+
+        // Get UI's IME text_input state.
+        if self.text_input.is_some() && self.keyboard_focus == KeyboardFocus::Ui {
+            text_input_state = self.ui.text_input_state();
+        }
+
+        // Draw overlay surface.
+        let overlay_rendered = self.overlay.draw();
+        self.stalled &= !overlay_rendered;
 
         // Update IME text_input state.
         match (text_input_state, &mut self.text_input) {
@@ -381,14 +385,6 @@ impl Window {
         let _ = self.connection.flush();
     }
 
-    /// Explicitly mark window as dirty for a forced redraw.
-    ///
-    /// This will not unstall the renderer automatically, use `[Self::unstall]`
-    /// to do so.
-    pub fn mark_dirty(&mut self) {
-        self.dirty = true;
-    }
-
     /// Update surface size.
     pub fn set_size(&mut self, compositor: &CompositorState, size: Size) {
         // Complete initial configure.
@@ -412,7 +408,7 @@ impl Window {
         }
 
         // Resize UI element surface.
-        self.tabs_ui.set_size(compositor, self.size);
+        self.overlay.set_size(compositor, self.size);
         self.ui.set_size(compositor, self.size);
 
         self.unstall();
@@ -432,7 +428,7 @@ impl Window {
         }
 
         // Resize UI.
-        self.tabs_ui.set_scale(scale);
+        self.overlay.set_scale(scale);
         self.ui.set_scale(scale);
 
         self.unstall();
@@ -440,49 +436,40 @@ impl Window {
 
     /// Handle new key press.
     pub fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
-        // Ignore keyboard input in tabs UI.
-        if self.tabs_ui.visible() {
-            return;
+        match self.keyboard_focus {
+            KeyboardFocus::Ui => self.ui.press_key(raw, keysym, modifiers),
+            KeyboardFocus::Browser => {
+                let engine = match self.tabs.get_mut(&self.active_tab) {
+                    Some(engine) => engine,
+                    None => return,
+                };
+                engine.press_key(raw, keysym, modifiers);
+            },
+            // Overlay has no press handling need (yet).
+            KeyboardFocus::Overlay | KeyboardFocus::None => (),
         }
 
-        if self.ui.has_keyboard_focus() {
-            // Handle keyboard event in UI.
-            self.ui.press_key(raw, keysym, modifiers);
-
-            // Unstall if UI changed.
-            if self.ui.dirty() {
-                self.unstall();
-            }
-        } else {
-            // Forward keyboard event to browser engine.
-            let engine = match self.tabs.get_mut(&self.active_tab) {
-                Some(engine) => engine,
-                None => return,
-            };
-            engine.press_key(raw, keysym, modifiers);
+        // Unstall if UI changed.
+        if self.ui.dirty() || self.overlay.dirty() {
+            self.unstall();
         }
     }
 
     /// Handle key release.
     pub fn release_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
-        // Ignore keyboard input in tabs UI.
-        if self.tabs_ui.visible() {
-            return;
+        match self.keyboard_focus {
+            KeyboardFocus::Browser => {
+                if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+                    engine.release_key(raw, keysym, modifiers);
+                }
+            },
+            // Ui/Overlay has no release handling need (yet).
+            KeyboardFocus::Ui | KeyboardFocus::Overlay | KeyboardFocus::None => (),
         }
 
-        if self.ui.has_keyboard_focus() {
-            // Forward event to UI.
-            self.ui.release_key(raw, keysym, modifiers);
-
-            // Unstall if UI changed.
-            if self.ui.dirty() {
-                self.unstall();
-            }
-        } else {
-            // Forward keyboard event to browser engine.
-            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
-                engine.release_key(raw, keysym, modifiers);
-            }
+        // Unstall if UI changed.
+        if self.ui.dirty() || self.overlay.dirty() {
+            self.unstall();
         }
     }
 
@@ -514,43 +501,24 @@ impl Window {
         state: u32,
         modifiers: Modifiers,
     ) {
-        // Forward emulated touch event to UI.
         if &self.engine_surface == surface {
-            // Clear UI focus.
-            self.ui.clear_keyboard_focus();
+            self.update_keyboard_focus_surface(surface);
 
+            // Use real pointer events for the browser engine.
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.pointer_button(time, position, button, state, modifiers);
             }
-        } else if self.ui.surface() == surface {
-            // Clear engine focus.
-            self.clear_engine_focus();
-
-            // Forward emulated touch event to UI.
+        } else {
+            // Emulate touch for non-engine purposes.
             match state {
-                0 if button == BTN_LEFT => self.ui.touch_up(time, -1, modifiers),
-                1 if button == BTN_LEFT => self.ui.touch_down(time, -1, position, modifiers),
+                0 if button == BTN_LEFT => self.touch_up(surface, time, -1, modifiers),
+                1 if button == BTN_LEFT => self.touch_down(surface, time, -1, position, modifiers),
                 _ => (),
-            }
-        } else if self.tabs_ui.surface() == surface {
-            // Ignore button-up when button-down closed tabs UI.
-            if self.tabs_ui.visible() {
-                // Clear all focus.
-                self.clear_focus();
-
-                // Forward emulated touch event to UI.
-                match state {
-                    0 if button == BTN_LEFT => self.tabs_ui.touch_up(time, -1, modifiers),
-                    1 if button == BTN_LEFT => {
-                        self.tabs_ui.touch_down(time, -1, position, modifiers)
-                    },
-                    _ => (),
-                }
             }
         }
 
         // Unstall if UI changed.
-        if self.ui.dirty() || self.tabs_ui.dirty() {
+        if self.ui.dirty() || self.overlay.dirty() {
             self.unstall();
         }
     }
@@ -563,20 +531,14 @@ impl Window {
         position: Position<f64>,
         modifiers: Modifiers,
     ) {
-        // Forward events to corresponding surface.
         if &self.engine_surface == surface {
+            // Use real pointer events for the browser engine.
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.pointer_motion(time, position, modifiers);
             }
-        } else if self.ui.surface() == surface {
-            self.ui.touch_motion(time, -1, position, modifiers);
-        } else if self.tabs_ui.surface() == surface {
-            self.tabs_ui.touch_motion(time, -1, position, modifiers);
-        }
-
-        // Unstall if UI changed.
-        if self.ui.dirty() || self.tabs_ui.dirty() {
-            self.unstall();
+        } else {
+            // Emulate touch for non-engine purposes.
+            self.touch_motion(surface, time, -1, position, modifiers);
         }
     }
 
@@ -591,28 +553,22 @@ impl Window {
     ) {
         self.touch_points.insert(id, position);
 
+        // Update the surface receiving keyboard focus.
+        self.update_keyboard_focus_surface(surface);
+
         // Forward events to corresponding surface.
         if &self.engine_surface == surface {
-            // Clear UI focus.
-            self.ui.clear_keyboard_focus();
-
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.touch_down(&self.touch_points, time, id, modifiers);
             }
         } else if self.ui.surface() == surface {
-            // Clear engine focus.
-            self.clear_engine_focus();
-
             self.ui.touch_down(time, id, position, modifiers);
-        } else if self.tabs_ui.surface() == surface {
-            // Clear all focus.
-            self.clear_focus();
-
-            self.tabs_ui.touch_down(time, id, position, modifiers);
+        } else if self.overlay.surface() == surface {
+            self.overlay.touch_down(time, id, position, modifiers);
         }
 
         // Unstall if UI changed.
-        if self.ui.dirty() || self.tabs_ui.dirty() {
+        if self.ui.dirty() || self.overlay.dirty() {
             self.unstall();
         }
     }
@@ -626,12 +582,12 @@ impl Window {
             }
         } else if self.ui.surface() == surface {
             self.ui.touch_up(time, id, modifiers);
-        } else if self.tabs_ui.surface() == surface {
-            self.tabs_ui.touch_up(time, id, modifiers);
+        } else if self.overlay.surface() == surface {
+            self.overlay.touch_up(time, id, modifiers);
         }
 
         // Unstall if UI changed.
-        if self.ui.dirty() || self.tabs_ui.dirty() {
+        if self.ui.dirty() || self.overlay.dirty() {
             self.unstall();
         }
 
@@ -657,12 +613,12 @@ impl Window {
             }
         } else if self.ui.surface() == surface {
             self.ui.touch_motion(time, id, position, modifiers);
-        } else if self.tabs_ui.surface() == surface {
-            self.tabs_ui.touch_motion(time, id, position, modifiers);
+        } else if self.overlay.surface() == surface {
+            self.overlay.touch_motion(time, id, position, modifiers);
         }
 
         // Unstall if UI changed.
-        if self.ui.dirty() || self.tabs_ui.dirty() {
+        if self.ui.dirty() || self.overlay.dirty() {
             self.unstall();
         }
     }
@@ -679,45 +635,49 @@ impl Window {
 
     /// Delete text around the current cursor position.
     pub fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32) {
-        if self.ui.has_keyboard_focus() {
-            self.ui.delete_surrounding_text(before_length, after_length);
-        } else {
-            let engine = match self.tabs.get_mut(&self.active_tab) {
-                Some(engine) => engine,
-                None => return,
-            };
-            engine.delete_surrounding_text(before_length, after_length);
+        match self.keyboard_focus {
+            KeyboardFocus::Ui => self.ui.delete_surrounding_text(before_length, after_length),
+            KeyboardFocus::Browser => {
+                let engine = match self.tabs.get_mut(&self.active_tab) {
+                    Some(engine) => engine,
+                    None => return,
+                };
+                engine.delete_surrounding_text(before_length, after_length);
+            },
+            // Overlay has no IME handling need (yet).
+            KeyboardFocus::Overlay | KeyboardFocus::None => (),
         }
     }
 
     /// Insert text at the current cursor position.
     pub fn commit_string(&mut self, text: String) {
-        if self.ui.has_keyboard_focus() {
-            self.ui.commit_string(text);
-        } else {
-            let engine = match self.tabs.get_mut(&self.active_tab) {
-                Some(engine) => engine,
-                None => return,
-            };
-            engine.commit_string(text);
+        match self.keyboard_focus {
+            KeyboardFocus::Ui => self.ui.commit_string(text),
+            KeyboardFocus::Browser => {
+                let engine = match self.tabs.get_mut(&self.active_tab) {
+                    Some(engine) => engine,
+                    None => return,
+                };
+                engine.commit_string(text);
+            },
+            // Overlay has no IME handling need (yet).
+            KeyboardFocus::Overlay | KeyboardFocus::None => (),
         }
     }
 
     /// Set preedit text at the current cursor position.
     pub fn preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
-        if self.ui.has_keyboard_focus() {
-            self.ui.preedit_string(text, cursor_begin, cursor_end);
-
-            // NOTE: `preedit_string` is always called and it's always the last event in the
-            // text-input chain, so we can trigger a redraw here without accidentally
-            // drawing a partially updated IME state.
-            self.unstall();
-        } else if !self.tabs_ui.visible() {
-            let engine = match self.tabs.get_mut(&self.active_tab) {
-                Some(engine) => engine,
-                None => return,
-            };
-            engine.preedit_string(text, cursor_begin, cursor_end);
+        match self.keyboard_focus {
+            KeyboardFocus::Ui => self.ui.preedit_string(text, cursor_begin, cursor_end),
+            KeyboardFocus::Browser => {
+                let engine = match self.tabs.get_mut(&self.active_tab) {
+                    Some(engine) => engine,
+                    None => return,
+                };
+                engine.preedit_string(text, cursor_begin, cursor_end);
+            },
+            // Overlay has no IME handling need (yet).
+            KeyboardFocus::Overlay | KeyboardFocus::None => (),
         }
     }
 
@@ -739,21 +699,24 @@ impl Window {
             }
         }
 
+        // Update tabs popup.
+        self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
+
         // Increment URI visit count for history.
         history.visit(uri, title);
     }
 
     /// Open the tabs UI.
     pub fn show_tabs_ui(&mut self) {
-        self.tabs_ui.show();
-        self.clear_focus();
+        self.overlay.tabs_mut().set_visible(true);
+        self.set_keyboard_focus(KeyboardFocus::None);
     }
 
     /// Check whether a surface is owned by this window.
     pub fn owns_surface(&self, surface: &WlSurface) -> bool {
         &self.engine_surface == surface
             || self.ui.surface() == surface
-            || self.tabs_ui.surface() == surface
+            || self.overlay.surface() == surface
     }
 
     /// Get window size.
@@ -769,6 +732,34 @@ impl Window {
     /// Size allocated to the browser engine's buffer.
     pub fn engine_size(&self) -> Size {
         Size::new(self.size.width, self.size.height - TOOLBAR_HEIGHT as u32)
+    }
+
+    /// Handle keyboard focus surface changes.
+    pub fn update_keyboard_focus_surface(&mut self, surface: &WlSurface) {
+        if self.ui.surface() == surface {
+            self.set_keyboard_focus(KeyboardFocus::Ui);
+        } else if &self.engine_surface == surface {
+            self.set_keyboard_focus(KeyboardFocus::Browser);
+        } else if self.overlay.surface() == surface {
+            self.set_keyboard_focus(KeyboardFocus::Overlay);
+        }
+    }
+
+    /// Update the keyboard focus.
+    pub fn set_keyboard_focus(&mut self, focus: KeyboardFocus) {
+        self.keyboard_focus = focus;
+
+        // Clear UI focus.
+        if focus != KeyboardFocus::Ui {
+            self.ui.clear_keyboard_focus();
+        }
+
+        // Clear engine focus.
+        if focus != KeyboardFocus::Browser {
+            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+                engine.clear_focus();
+            }
+        }
     }
 }
 
@@ -787,6 +778,16 @@ impl Default for WindowId {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Keyboard focus surfaces.
+#[derive(PartialEq, Eq, Copy, Clone, Default)]
+pub enum KeyboardFocus {
+    None,
+    #[default]
+    Ui,
+    Browser,
+    Overlay,
 }
 
 /// Text input with enabled-state tracking.

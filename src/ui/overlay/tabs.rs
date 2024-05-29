@@ -1,17 +1,14 @@
-//! Tabs UI.
+//! Tabs overlay.
 
 use std::collections::HashMap;
 use std::mem;
 
 use funq::MtQueueHandle;
-use glutin::display::Display;
 use pangocairo::cairo::{Context, Format, ImageSurface};
-use smithay_client_toolkit::compositor::{CompositorState, Region};
-use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
-use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
 use crate::engine::{Engine, EngineId};
+use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
 use crate::{gl, rect_contains, Position, Size, State, WindowId};
 
@@ -55,7 +52,7 @@ const NEW_TAB_ICON_SIZE: f64 = 30.;
 const MAX_TAP_DISTANCE: f64 = 400.;
 
 #[funq::callbacks(State)]
-trait TabsUiHandler {
+trait TabsHandler {
     /// Create a new tab and switch to it.
     fn add_tab(&mut self, window: WindowId);
 
@@ -66,15 +63,12 @@ trait TabsUiHandler {
     fn close_tab(&mut self, engine_id: EngineId);
 }
 
-impl TabsUiHandler for State {
+impl TabsHandler for State {
     fn add_tab(&mut self, window_id: WindowId) {
         let window = match self.windows.get_mut(&window_id) {
             Some(window) => window,
             None => return,
         };
-
-        // Explicitly mark window as dirty since the tabs UI closed.
-        window.mark_dirty();
 
         let _ = window.add_tab(true);
     }
@@ -84,9 +78,6 @@ impl TabsUiHandler for State {
             Some(window) => window,
             None => return,
         };
-
-        // Explicitly mark window as dirty since the tabs UI closed.
-        window.mark_dirty();
 
         window.set_active_tab(engine_id);
     }
@@ -101,14 +92,10 @@ impl TabsUiHandler for State {
     }
 }
 
-/// Tab overview/creation UI.
-pub struct TabsUi {
+/// Tab overview UI.
+pub struct Tabs {
     texture_cache: TextureCache,
-    renderer: Renderer,
     scroll_offset: f64,
-
-    surface: WlSurface,
-    viewport: WpViewport,
 
     size: Size,
     scale: f64,
@@ -124,21 +111,10 @@ pub struct TabsUi {
     dirty: bool,
 }
 
-impl TabsUi {
-    pub fn new(
-        window_id: WindowId,
-        queue: MtQueueHandle<State>,
-        display: Display,
-        surface: WlSurface,
-        viewport: WpViewport,
-    ) -> Self {
-        let renderer = Renderer::new(display, surface.clone());
-
+impl Tabs {
+    pub fn new(window_id: WindowId, queue: MtQueueHandle<State>) -> Self {
         Self {
             window_id,
-            viewport,
-            renderer,
-            surface,
             queue,
             scale: 1.0,
             new_tab_button: Default::default(),
@@ -151,239 +127,19 @@ impl TabsUi {
         }
     }
 
-    /// Update the surface size.
-    pub fn set_size(&mut self, compositor: &CompositorState, size: Size) {
-        self.size = size;
-        self.dirty = true;
-
-        // Update opaque region.
-        if let Ok(region) = Region::new(compositor) {
-            region.add(0, 0, size.width as i32, size.height as i32);
-            self.surface.set_opaque_region(Some(region.wl_region()));
-        }
-
-        // Update UI element sizes.
-        self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
-        self.texture_cache.clear();
-    }
-
-    /// Update the render scale.
-    pub fn set_scale(&mut self, scale: f64) {
-        self.scale = scale;
-        self.dirty = true;
-
-        // Update UI element scales.
-        self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
-        self.texture_cache.clear();
-    }
-
-    /// Render current tabs UI state.
-    ///
-    /// Returns `true` if rendering was performed.
-    pub fn draw<'a, T>(&mut self, tabs: T, active_tab: EngineId) -> bool
+    /// Update the tabs tracked by this cache.
+    pub fn set_tabs<'a, T>(&mut self, tabs: T, active_tab: EngineId)
     where
         T: Iterator<Item = &'a Box<dyn Engine>>,
     {
-        // Ensure offset is correct in case tabs were closed or window size changed.
-        self.clamp_scroll_offset();
-
-        // Abort early if UI is up to date.
-        if !self.dirty {
-            return false;
-        }
-        self.dirty = false;
-
-        // Update browser's viewporter logical render size.
-        //
-        // NOTE: This must be done every time we draw with Sway; it is not correctly
-        // persisted when drawing with the same surface multiple times.
-        self.viewport.set_destination(self.size.width as i32, self.size.height as i32);
-
-        // Mark entire UI as damaged.
-        self.surface.damage(0, 0, self.size.width as i32, self.size.height as i32);
-
-        // Get geometry required for rendering.
-        let new_tab_button_position: Position<f32> = self.new_tab_button_position().into();
-        let tab_size = self.tab_size();
-
-        // Render the tabs UI.
-        let physical_size = self.size * self.scale;
-        self.renderer.draw(physical_size, |renderer| {
-            // Get textures for all tabs.
-            //
-            // This must happen with the renderer bound to ensure new textures are
-            // associated with the correct program.
-            let tab_textures = self.texture_cache.textures(tab_size, self.scale, tabs, active_tab);
-
-            // Get "New Tab" button texture.
-            let new_tab_button = self.new_tab_button.texture();
-
-            unsafe {
-                // Draw background.
-                let [r, g, b] = TABS_BG;
-                gl::ClearColor(r as f32, g as f32, b as f32, 1.0);
-                gl::Clear(gl::COLOR_BUFFER_BIT);
-
-                // Draw individual tabs.
-                let mut texture_pos = new_tab_button_position;
-                texture_pos.x += (TABS_X_PADDING * self.scale) as f32;
-                texture_pos.y += self.scroll_offset as f32;
-                for texture in tab_textures {
-                    // Render only tabs within the viewport.
-                    texture_pos.y -= texture.height as f32;
-                    if texture_pos.y < new_tab_button_position.y
-                        && texture_pos.y > -1. * texture.height as f32
-                    {
-                        renderer.draw_texture_at(texture, texture_pos, None);
-                    }
-
-                    // Add padding after the tab.
-                    texture_pos.y -= (TABS_Y_PADDING * self.scale) as f32
-                }
-
-                // Draw "New Tab" button, last, to render over scrolled tabs.
-                texture_pos = new_tab_button_position;
-                renderer.draw_texture_at(new_tab_button, texture_pos, None);
-            }
-        });
-
-        true
-    }
-
-    /// Force tabs UI redraw.
-    pub fn mark_dirty(&mut self) {
+        self.texture_cache.set_tabs(tabs, active_tab);
         self.dirty = true;
     }
 
-    /// Handle touch press events.
-    pub fn touch_down(
-        &mut self,
-        _time: u32,
-        id: i32,
-        position: Position<f64>,
-        _modifiers: Modifiers,
-    ) {
-        // Only accept a single touch point in the UI.
-        if self.touch_state.slot.is_some() {
-            return;
-        }
-        self.touch_state.slot = Some(id);
-
-        // Convert position to physical space.
-        let position = position * self.scale;
-        self.touch_state.position = position;
-        self.touch_state.start = position;
-
-        // Get new tab button geometry.
-        let new_tab_button_position = self.new_tab_button_position();
-        let new_tab_button_size = self.new_tab_button_size().into();
-
-        if rect_contains(new_tab_button_position, new_tab_button_size, position) {
-            self.touch_state.action = TouchAction::NewTabTap;
-        } else {
-            self.touch_state.action = TouchAction::TabTap;
-        }
-    }
-
-    /// Handle touch motion events.
-    pub fn touch_motion(
-        &mut self,
-        _time: u32,
-        id: i32,
-        position: Position<f64>,
-        _modifiers: Modifiers,
-    ) {
-        // Ignore all unknown touch points.
-        if self.touch_state.slot != Some(id) {
-            return;
-        }
-
-        // Update touch position.
-        let position = position * self.scale;
-        let old_position = mem::replace(&mut self.touch_state.position, position);
-
-        // Ignore drag when tap started on "New Tab" button.
-        if self.touch_state.action == TouchAction::NewTabTap {
-            return;
-        }
-
-        // Switch to dragging once tap distance limit is exceeded.
-        let delta = self.touch_state.position - self.touch_state.start;
-        if delta.x.powi(2) + delta.y.powi(2) > MAX_TAP_DISTANCE {
-            self.touch_state.action = TouchAction::TabDrag;
-
-            // Immediately start moving the tabs list.
-            let old_offset = self.scroll_offset;
-            self.scroll_offset += self.touch_state.position.y - old_position.y;
-            self.clamp_scroll_offset();
-            self.dirty |= self.scroll_offset != old_offset;
-        }
-    }
-
-    /// Handle touch release events.
-    pub fn touch_up(&mut self, _time: u32, id: i32, _modifiers: Modifiers) {
-        // Ignore all unknown touch points.
-        if self.touch_state.slot != Some(id) {
-            return;
-        }
-        self.touch_state.slot = None;
-
-        match self.touch_state.action {
-            // Open a new tab.
-            TouchAction::NewTabTap => {
-                let new_tab_button_position = self.new_tab_button_position();
-                let new_tab_button_size = self.new_tab_button_size().into();
-                let position = self.touch_state.position;
-
-                if rect_contains(new_tab_button_position, new_tab_button_size, position) {
-                    self.hide();
-                    self.queue.add_tab(self.window_id);
-                }
-            },
-            // Switch tabs for tap actions on a tab.
-            TouchAction::TabTap => {
-                if let Some((&RenderTab { engine, .. }, close)) =
-                    self.tab_at(self.touch_state.start)
-                {
-                    if close {
-                        self.queue.close_tab(engine);
-                    } else {
-                        self.hide();
-                        self.queue.set_active_tab(engine);
-                    }
-                }
-            },
-            TouchAction::TabDrag => (),
-        }
-    }
-
-    /// Show the tabs UI.
-    pub fn show(&mut self) {
-        self.dirty |= !self.visible;
-        self.visible = true;
-    }
-
-    /// Hide the tabs UI.
-    fn hide(&mut self) {
-        self.surface.attach(None, 0, 0);
-        self.surface.commit();
-
-        self.visible = false;
-    }
-
-    /// Check tabs UI visibility.
-    pub fn visible(&self) -> bool {
-        self.visible
-    }
-
-    /// Get underlying Wayland surface.
-    pub fn surface(&self) -> &WlSurface {
-        &self.surface
-    }
-
-    /// Check whether tabs UI needs redraw.
-    pub fn dirty(&self) -> bool {
-        self.visible && self.dirty
+    /// Update the active tab for this cache.
+    pub fn set_active_tab(&mut self, active_tab: EngineId) {
+        self.texture_cache.set_active_tab(active_tab);
+        self.dirty = true;
     }
 
     /// Physical size of the "New Tab" button bar.
@@ -499,6 +255,198 @@ impl TabsUi {
     }
 }
 
+impl Popup for Tabs {
+    fn visible(&self) -> bool {
+        self.visible
+    }
+
+    fn set_visible(&mut self, visible: bool) {
+        self.dirty |= self.visible != visible;
+        self.visible = visible;
+    }
+
+    fn dirty(&self) -> bool {
+        self.dirty
+    }
+
+    fn draw(&mut self, renderer: &Renderer) {
+        self.dirty = false;
+
+        // Don't render anything when hidden.
+        if !self.visible {
+            return;
+        }
+
+        // Ensure offset is correct in case tabs were closed or window size changed.
+        self.clamp_scroll_offset();
+
+        // Get geometry required for rendering.
+        let new_tab_button_position: Position<f32> = self.new_tab_button_position().into();
+        let tab_size = self.tab_size();
+
+        // Render the tabs UI.
+        // Get textures for all tabs.
+        //
+        // This must happen with the renderer bound to ensure new textures are
+        // associated with the correct program.
+        let tab_textures = self.texture_cache.textures(tab_size, self.scale);
+
+        // Get "New Tab" button texture.
+        let new_tab_button = self.new_tab_button.texture();
+
+        unsafe {
+            // Draw background.
+            let [r, g, b] = TABS_BG;
+            gl::ClearColor(r as f32, g as f32, b as f32, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+
+            // Draw individual tabs.
+            let mut texture_pos = new_tab_button_position;
+            texture_pos.x += (TABS_X_PADDING * self.scale) as f32;
+            texture_pos.y += self.scroll_offset as f32;
+            for texture in tab_textures {
+                // Render only tabs within the viewport.
+                texture_pos.y -= texture.height as f32;
+                if texture_pos.y < new_tab_button_position.y
+                    && texture_pos.y > -1. * texture.height as f32
+                {
+                    renderer.draw_texture_at(texture, texture_pos, None);
+                }
+
+                // Add padding after the tab.
+                texture_pos.y -= (TABS_Y_PADDING * self.scale) as f32
+            }
+
+            // Draw "New Tab" button, last, to render over scrolled tabs.
+            texture_pos = new_tab_button_position;
+            renderer.draw_texture_at(new_tab_button, texture_pos, None);
+        }
+    }
+
+    fn position(&self) -> Position {
+        Position::new(0, 0)
+    }
+
+    fn set_size(&mut self, size: Size) {
+        self.size = size;
+        self.dirty = true;
+
+        // Update UI element sizes.
+        self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
+        self.texture_cache.clear_textures();
+    }
+
+    fn size(&self) -> Size {
+        self.size
+    }
+
+    fn set_scale(&mut self, scale: f64) {
+        self.scale = scale;
+        self.dirty = true;
+
+        // Update UI element scales.
+        self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
+        self.texture_cache.clear_textures();
+    }
+
+    fn opaque_region(&self) -> Size {
+        self.size
+    }
+
+    fn touch_down(&mut self, _time: u32, id: i32, position: Position<f64>, _modifiers: Modifiers) {
+        // Only accept a single touch point in the UI.
+        if self.touch_state.slot.is_some() {
+            return;
+        }
+        self.touch_state.slot = Some(id);
+
+        // Convert position to physical space.
+        let position = position * self.scale;
+        self.touch_state.position = position;
+        self.touch_state.start = position;
+
+        // Get new tab button geometry.
+        let new_tab_button_position = self.new_tab_button_position();
+        let new_tab_button_size = self.new_tab_button_size().into();
+
+        if rect_contains(new_tab_button_position, new_tab_button_size, position) {
+            self.touch_state.action = TouchAction::NewTabTap;
+        } else {
+            self.touch_state.action = TouchAction::TabTap;
+        }
+    }
+
+    fn touch_motion(
+        &mut self,
+        _time: u32,
+        id: i32,
+        position: Position<f64>,
+        _modifiers: Modifiers,
+    ) {
+        // Ignore all unknown touch points.
+        if self.touch_state.slot != Some(id) {
+            return;
+        }
+
+        // Update touch position.
+        let position = position * self.scale;
+        let old_position = mem::replace(&mut self.touch_state.position, position);
+
+        // Ignore drag when tap started on "New Tab" button.
+        if self.touch_state.action == TouchAction::NewTabTap {
+            return;
+        }
+
+        // Switch to dragging once tap distance limit is exceeded.
+        let delta = self.touch_state.position - self.touch_state.start;
+        if delta.x.powi(2) + delta.y.powi(2) > MAX_TAP_DISTANCE {
+            self.touch_state.action = TouchAction::TabDrag;
+
+            // Immediately start moving the tabs list.
+            let old_offset = self.scroll_offset;
+            self.scroll_offset += self.touch_state.position.y - old_position.y;
+            self.clamp_scroll_offset();
+            self.dirty |= self.scroll_offset != old_offset;
+        }
+    }
+
+    fn touch_up(&mut self, _time: u32, id: i32, _modifiers: Modifiers) {
+        // Ignore all unknown touch points.
+        if self.touch_state.slot != Some(id) {
+            return;
+        }
+        self.touch_state.slot = None;
+
+        match self.touch_state.action {
+            // Open a new tab.
+            TouchAction::NewTabTap => {
+                let new_tab_button_position = self.new_tab_button_position();
+                let new_tab_button_size = self.new_tab_button_size().into();
+                let position = self.touch_state.position;
+
+                if rect_contains(new_tab_button_position, new_tab_button_size, position) {
+                    self.set_visible(false);
+                    self.queue.add_tab(self.window_id);
+                }
+            },
+            // Switch tabs for tap actions on a tab.
+            TouchAction::TabTap => {
+                if let Some((&RenderTab { engine, .. }, close)) =
+                    self.tab_at(self.touch_state.start)
+                {
+                    if close {
+                        self.queue.close_tab(engine);
+                    } else {
+                        self.set_visible(false);
+                        self.queue.set_active_tab(engine);
+                    }
+                }
+            },
+            TouchAction::TabDrag => (),
+        }
+    }
+}
+
 /// Tab texture cache by URI.
 #[derive(Default)]
 struct TextureCache {
@@ -507,24 +455,32 @@ struct TextureCache {
 }
 
 impl TextureCache {
+    /// Update the tabs tracked by this cache.
+    fn set_tabs<'a, T>(&mut self, tabs: T, active_tab: EngineId)
+    where
+        T: Iterator<Item = &'a Box<dyn Engine>>,
+    {
+        self.tabs.clear();
+        self.tabs.extend(tabs.map(|tab| RenderTab::new(tab.as_ref(), active_tab)));
+    }
+
+    /// Update the active tab for this cache.
+    fn set_active_tab(&mut self, active_tab: EngineId) {
+        for tab in &mut self.tabs {
+            tab.uri.1 = tab.engine == active_tab;
+        }
+    }
+
+    /// Clear all cached textures.
+    fn clear_textures(&mut self) {
+        self.textures.clear();
+    }
+
     /// Get all textures for the specified list of tabs.
     ///
     /// This will automatically maintain an internal cache to avoid re-drawing
     /// textures for tabs that have not changed.
-    fn textures<'a, T>(
-        &mut self,
-        tab_size: Size,
-        scale: f64,
-        tabs: T,
-        active_tab: EngineId,
-    ) -> impl Iterator<Item = &Texture>
-    where
-        T: Iterator<Item = &'a Box<dyn Engine>>,
-    {
-        // Get URIs for all tabs.
-        self.tabs.clear();
-        self.tabs.extend(tabs.map(|tab| RenderTab::new(tab.as_ref(), active_tab)));
-
+    fn textures(&mut self, tab_size: Size, scale: f64) -> impl Iterator<Item = &Texture> {
         // Remove unused URIs from cache.
         self.textures.retain(|uri, texture| {
             let retain = self.tabs.iter().any(|tab| &tab.uri == uri);
@@ -568,7 +524,7 @@ impl TextureCache {
             }
 
             // Calculate available area font font rendering.
-            let close_position = TabsUi::close_button_position(tab_size, scale);
+            let close_position = Tabs::close_button_position(tab_size, scale);
             let text_width = (close_position.x - close_position.y).round() as i32;
             let text_size = Size::new(text_width, tab_size.height as i32);
             text_options.position(Position::new(close_position.y, 0.));
@@ -580,7 +536,7 @@ impl TextureCache {
             builder.rasterize(&layout, &text_options);
 
             // Render close `X`.
-            let size = TabsUi::close_button_size(tab_size, scale);
+            let size = Tabs::close_button_size(tab_size, scale);
             let context = builder.context();
             context.move_to(close_position.x, close_position.y);
             context.line_to(close_position.x + size.width, close_position.y + size.height);
@@ -595,12 +551,6 @@ impl TextureCache {
 
         // Get textures for all tabs in reverse order.
         self.tabs.iter().rev().map(|tab| self.textures.get(&tab.uri).unwrap())
-    }
-
-    /// Clear all cached textures.
-    fn clear(&mut self) {
-        self.textures.clear();
-        self.tabs.clear();
     }
 }
 

@@ -679,6 +679,13 @@ impl Window {
             // Overlay has no IME handling need (yet).
             KeyboardFocus::Overlay | KeyboardFocus::None => (),
         }
+
+        // NOTE: `preedit_string` is always called and it's always the last event in the
+        // text-input chain, so we can trigger a redraw here without accidentally
+        // drawing a partially updated IME state.
+        if self.keyboard_focus != KeyboardFocus::Browser {
+            self.unstall();
+        }
     }
 
     /// Update an engine's active resource.

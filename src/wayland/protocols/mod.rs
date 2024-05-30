@@ -1,5 +1,6 @@
 //! Wayland protocol handling.
 
+use std::os::fd::OwnedFd;
 use std::sync::{Arc, Mutex};
 
 use _text_input::zwp_text_input_manager_v3::{self, ZwpTextInputManagerV3};
@@ -7,13 +8,14 @@ use _text_input::zwp_text_input_v3::{self, ZwpTextInputV3};
 use smithay_client_toolkit::compositor::{CompositorHandler, CompositorState};
 use smithay_client_toolkit::output::{OutputHandler, OutputState};
 use smithay_client_toolkit::reexports::client::globals::GlobalList;
+use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::protocol::wl_keyboard::WlKeyboard;
 use smithay_client_toolkit::reexports::client::protocol::wl_output::{Transform, WlOutput};
 use smithay_client_toolkit::reexports::client::protocol::wl_pointer::WlPointer;
 use smithay_client_toolkit::reexports::client::protocol::wl_seat::WlSeat;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::protocol::wl_touch::WlTouch;
-use smithay_client_toolkit::reexports::client::{Connection, Dispatch, QueueHandle};
+use smithay_client_toolkit::reexports::client::{Connection, Dispatch, Proxy, QueueHandle};
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
 use smithay_client_toolkit::registry::{ProvidesRegistryState, RegistryState};
 use smithay_client_toolkit::seat::keyboard::{
@@ -30,6 +32,8 @@ use smithay_client_toolkit::{
     delegate_seat, delegate_subcompositor, delegate_touch, delegate_xdg_shell, delegate_xdg_window,
     registry_handlers,
 };
+use wayland_backend::client::{Backend, ObjectData, ObjectId};
+use wayland_backend::protocol::Message;
 
 use crate::wayland::protocols::fractional_scale::{FractionalScaleHandler, FractionalScaleManager};
 use crate::wayland::protocols::viewporter::Viewporter;
@@ -705,4 +709,34 @@ impl Dispatch<ZwpTextInputV3, Arc<Mutex<TextInputState>>> for State {
             _ => unreachable!(),
         }
     }
+}
+
+/// Foreign WlBuffer object data.
+pub struct BufferData {
+    connection: Connection,
+}
+
+impl BufferData {
+    pub fn new(connection: Connection) -> Arc<Self> {
+        Arc::new(Self { connection })
+    }
+}
+
+impl ObjectData for BufferData {
+    fn event(
+        self: Arc<Self>,
+        _backend: &Backend,
+        msg: Message<ObjectId, OwnedFd>,
+    ) -> Option<Arc<dyn ObjectData>> {
+        // Destroy buffer on release.
+        if msg.opcode == 0 {
+            if let Ok(buffer) = WlBuffer::from_id(&self.connection, msg.sender_id) {
+                buffer.destroy();
+            }
+        }
+
+        None
+    }
+
+    fn destroyed(&self, _object_id: ObjectId) {}
 }

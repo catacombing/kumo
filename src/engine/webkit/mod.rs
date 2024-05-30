@@ -13,7 +13,6 @@ use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::{Connection, Proxy};
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
-use wayland_backend::client::ObjectId;
 use wpe_backend_fdo_sys::{
     wpe_fdo_egl_exported_image, wpe_fdo_egl_exported_image_get_egl_image,
     wpe_fdo_egl_exported_image_get_height, wpe_fdo_egl_exported_image_get_width,
@@ -45,6 +44,7 @@ use wpe_webkit::{Color, WebView, WebViewBackend, WebViewExt};
 
 use crate::engine::webkit::input_method_context::InputMethodContext;
 use crate::engine::{Engine, EngineId, BG};
+use crate::wayland::protocols::BufferData;
 use crate::window::TextInputChange;
 use crate::{Position, Size, State};
 
@@ -273,7 +273,8 @@ impl WebKitEngine {
         let object_id = unsafe {
             let egl_image = wpe_fdo_egl_exported_image_get_egl_image(self.image);
             let raw_wl_buffer = self.egl.CreateWaylandBufferFromImageWL(raw_display, egl_image);
-            ObjectId::from_ptr(WlBuffer::interface(), raw_wl_buffer.cast()).ok().unwrap()
+            let data = BufferData::new(connection.clone());
+            connection.backend().manage_object(WlBuffer::interface(), raw_wl_buffer.cast(), data)
         };
         self.buffer = Some(WlBuffer::from_id(connection, object_id).unwrap());
     }

@@ -462,7 +462,7 @@ dependencies = [
  "objc2",
  "once_cell",
  "raw-window-handle",
- "wayland-sys",
+ "wayland-sys 0.31.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1596,15 +1596,14 @@ checksum = "af190c94f2773fdb3729c55b007a722abb5384da03bc0986df4c289bf5567e96"
 [[package]]
 name = "wayland-backend"
 version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d50fa61ce90d76474c87f5fc002828d81b32677340112b4ef08079a9d459a40"
+source = "git+https://github.com/chrisduerr/wayland-rs?rev=86f2212e916603e970b55c0f5ca8c12d884a956b#86f2212e916603e970b55c0f5ca8c12d884a956b"
 dependencies = [
  "cc",
  "downcast-rs",
  "rustix",
  "scoped-tls",
  "smallvec",
- "wayland-sys",
+ "wayland-sys 0.31.1 (git+https://github.com/chrisduerr/wayland-rs?rev=86f2212e916603e970b55c0f5ca8c12d884a956b)",
 ]
 
 [[package]]
@@ -1686,6 +1685,16 @@ dependencies = [
  "dlib",
  "log",
  "once_cell",
+ "pkg-config",
+]
+
+[[package]]
+name = "wayland-sys"
+version = "0.31.1"
+source = "git+https://github.com/chrisduerr/wayland-rs?rev=86f2212e916603e970b55c0f5ca8c12d884a956b#86f2212e916603e970b55c0f5ca8c12d884a956b"
+dependencies = [
+ "dlib",
+ "log",
  "pkg-config",
 ]
 

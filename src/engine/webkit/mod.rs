@@ -40,7 +40,10 @@ use wpe_backend_fdo_sys::{
     wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image,
     wpe_view_backend_exportable_fdo_get_view_backend, wpe_view_backend_remove_activity_state,
 };
-use wpe_webkit::{Color, WebView, WebViewBackend, WebViewExt};
+use wpe_webkit::{
+    Color, CookieAcceptPolicy, CookiePersistentStorage, NetworkSession, WebView, WebViewBackend,
+    WebViewExt,
+};
 
 use crate::engine::webkit::input_method_context::InputMethodContext;
 use crate::engine::{Engine, EngineId, BG};
@@ -191,7 +194,9 @@ impl WebKitEngine {
         };
 
         // Create web view with initial blank page.
-        let web_view = WebView::new(&mut backend);
+        let network_session = xdg_network_session().unwrap_or_else(NetworkSession::new_ephemeral);
+        let web_view =
+            WebView::builder().network_session(&network_session).backend(&backend).build();
         web_view.load_uri("about:blank");
 
         // Set browser background color.
@@ -661,4 +666,22 @@ unsafe extern "C" fn on_egl_image_export(
     };
 
     state.queue.set_egl_image(state.engine_id, image);
+}
+
+/// Get WebKit network session using XDG-based backing storage.
+fn xdg_network_session() -> Option<NetworkSession> {
+    // Create the network session using kumo-suffixed XDG directories.
+    let data_dir = dirs::data_dir()?.join("kumo/default");
+    let cache_dir = dirs::cache_dir()?.join("kumo/default");
+    let network_session = NetworkSession::new(Some(data_dir.to_str()?), Some(cache_dir.to_str()?));
+
+    // Setup SQLite cookie storage in xdg data dir.
+    let cookie_manager = network_session.cookie_manager()?;
+    let cookies_path = data_dir.join("cookies.sqlite");
+    cookie_manager.set_persistent_storage(cookies_path.to_str()?, CookiePersistentStorage::Sqlite);
+
+    // Prohibit third-party cookies.
+    cookie_manager.set_accept_policy(CookieAcceptPolicy::NoThirdParty);
+
+    Some(network_session)
 }

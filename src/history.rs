@@ -197,8 +197,8 @@ impl HistoryUri {
         }
 
         // Check if input is submatch of base without any path segments.
-        if self.base != input_uri.base && input_uri.path.is_empty() {
-            return self.base.starts_with(&input_uri.base);
+        if self.base != input_uri.base {
+            return input_uri.path.is_empty() && self.base.starts_with(&input_uri.base);
         }
 
         // Abort if input is longer than URI.
@@ -337,5 +337,6 @@ mod tests {
         assert!(uri.autocomplete(&"example".into()));
         assert!(!uri.autocomplete(&"org".into()));
         assert!(uri.autocomplete(&"example.org/path/segments".into()));
+        assert!(!uri.autocomplete(&"other.org/p".into()));
     }
 }

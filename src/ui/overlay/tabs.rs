@@ -142,6 +142,17 @@ impl Tabs {
         self.dirty = true;
     }
 
+    /// Check whether the popup is active.
+    pub fn visible(&self) -> bool {
+        self.visible
+    }
+
+    /// Show or hide a popup.
+    pub fn set_visible(&mut self, visible: bool) {
+        self.dirty |= self.visible != visible;
+        self.visible = visible;
+    }
+
     /// Physical size of the "New Tab" button bar.
     ///
     /// This includes all padding since that is included in the texture.
@@ -256,15 +267,6 @@ impl Tabs {
 }
 
 impl Popup for Tabs {
-    fn visible(&self) -> bool {
-        self.visible
-    }
-
-    fn set_visible(&mut self, visible: bool) {
-        self.dirty |= self.visible != visible;
-        self.visible = visible;
-    }
-
     fn dirty(&self) -> bool {
         self.dirty
     }
@@ -294,33 +296,36 @@ impl Popup for Tabs {
         // Get "New Tab" button texture.
         let new_tab_button = self.new_tab_button.texture();
 
+        // Draw background.
+        //
+        // NOTE: This clears the entire surface, but works fine since the tabs popup
+        // always fills the entire surface.
+        let [r, g, b] = TABS_BG;
         unsafe {
-            // Draw background.
-            let [r, g, b] = TABS_BG;
             gl::ClearColor(r as f32, g as f32, b as f32, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
 
-            // Draw individual tabs.
-            let mut texture_pos = new_tab_button_position;
-            texture_pos.x += (TABS_X_PADDING * self.scale) as f32;
-            texture_pos.y += self.scroll_offset as f32;
-            for texture in tab_textures {
-                // Render only tabs within the viewport.
-                texture_pos.y -= texture.height as f32;
-                if texture_pos.y < new_tab_button_position.y
-                    && texture_pos.y > -1. * texture.height as f32
-                {
-                    renderer.draw_texture_at(texture, texture_pos, None);
-                }
-
-                // Add padding after the tab.
-                texture_pos.y -= (TABS_Y_PADDING * self.scale) as f32
+        // Draw individual tabs.
+        let mut texture_pos = new_tab_button_position;
+        texture_pos.x += (TABS_X_PADDING * self.scale) as f32;
+        texture_pos.y += self.scroll_offset as f32;
+        for texture in tab_textures {
+            // Render only tabs within the viewport.
+            texture_pos.y -= texture.height as f32;
+            if texture_pos.y < new_tab_button_position.y
+                && texture_pos.y > -1. * texture.height as f32
+            {
+                unsafe { renderer.draw_texture_at(texture, texture_pos, None) };
             }
 
-            // Draw "New Tab" button, last, to render over scrolled tabs.
-            texture_pos = new_tab_button_position;
-            renderer.draw_texture_at(new_tab_button, texture_pos, None);
+            // Add padding after the tab.
+            texture_pos.y -= (TABS_Y_PADDING * self.scale) as f32
         }
+
+        // Draw "New Tab" button, last, to render over scrolled tabs.
+        texture_pos = new_tab_button_position;
+        unsafe { renderer.draw_texture_at(new_tab_button, texture_pos, None) };
     }
 
     fn position(&self) -> Position {
@@ -602,7 +607,7 @@ impl NewTabButton {
     }
 
     /// Draw the button into an OpenGL texture.
-    fn draw(&mut self) -> Texture {
+    fn draw(&self) -> Texture {
         // Clear with background color.
         let builder = TextureBuilder::new(self.size.into(), self.scale);
         builder.clear(TABS_BG);

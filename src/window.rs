@@ -10,7 +10,6 @@ use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, Z
 use funq::StQueueHandle;
 use glutin::display::Display;
 use indexmap::IndexMap;
-use smithay_client_toolkit::compositor::CompositorState;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
@@ -22,7 +21,8 @@ use smithay_client_toolkit::shell::WaylandSurface;
 
 use crate::engine::webkit::{WebKitEngine, WebKitError};
 use crate::engine::{Engine, EngineId};
-use crate::ui::overlay::{Overlay, Popup};
+use crate::ui::overlay::option_menu::{OptionMenuId, OptionMenuItem};
+use crate::ui::overlay::Overlay;
 use crate::ui::{Ui, TOOLBAR_HEIGHT};
 use crate::uri::{SCHEMES, TLDS};
 use crate::wayland::protocols::ProtocolStates;
@@ -104,8 +104,15 @@ impl Window {
         let id = WindowId::new();
         let surface = protocol_states.compositor.create_surface(&wayland_queue);
         let ui_viewport = protocol_states.viewporter.viewport(&wayland_queue, &surface);
-        let mut ui =
-            Ui::new(id, queue.handle(), egl_display.clone(), surface.clone(), ui_viewport, history);
+        let mut ui = Ui::new(
+            id,
+            queue.handle(),
+            egl_display.clone(),
+            surface.clone(),
+            ui_viewport,
+            protocol_states.compositor.clone(),
+            history,
+        );
 
         // Enable fractional scaling.
         protocol_states.fractional_scale.fractional_scaling(&wayland_queue, &surface);
@@ -126,6 +133,7 @@ impl Window {
             egl_display.clone(),
             overlay_surface,
             overlay_viewport,
+            protocol_states.compositor.clone(),
         );
         overlay_subsurface.place_above(&engine_surface);
 
@@ -140,8 +148,8 @@ impl Window {
         let active_tab = EngineId::new(id);
 
         // Resize UI elements to the initial window size.
-        overlay.set_size(&protocol_states.compositor, size);
-        ui.set_size(&protocol_states.compositor, size);
+        overlay.set_size(size);
+        ui.set_size(size);
 
         let mut window = Self {
             engine_viewport,
@@ -386,7 +394,7 @@ impl Window {
     }
 
     /// Update surface size.
-    pub fn set_size(&mut self, compositor: &CompositorState, size: Size) {
+    pub fn set_size(&mut self, size: Size) {
         // Complete initial configure.
         let was_done = mem::replace(&mut self.initial_configure_done, true);
 
@@ -408,8 +416,8 @@ impl Window {
         }
 
         // Resize UI element surface.
-        self.overlay.set_size(compositor, self.size);
-        self.ui.set_size(compositor, self.size);
+        self.overlay.set_size(self.size);
+        self.ui.set_size(self.size);
 
         self.unstall();
     }
@@ -486,6 +494,9 @@ impl Window {
         if &self.engine_surface == surface {
             // Forward event to browser engine.
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+                // Ensure popups are closed when scrolling.
+                engine.option_menu_close(None);
+
                 engine.pointer_axis(time, position, horizontal, vertical, modifiers);
             }
         }
@@ -559,9 +570,17 @@ impl Window {
         // Forward events to corresponding surface.
         if &self.engine_surface == surface {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+                // Close all dropdowns when interacting with the page.
+                engine.option_menu_close(None);
+
                 engine.touch_down(&self.touch_points, time, id, modifiers);
             }
         } else if self.ui.surface() == surface {
+            // Close all dropdowns when clicking on the UI.
+            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+                engine.option_menu_close(None);
+            }
+
             self.ui.touch_down(time, id, position, modifiers);
         } else if self.overlay.surface() == surface {
             self.overlay.touch_down(time, id, position, modifiers);
@@ -717,6 +736,24 @@ impl Window {
     pub fn show_tabs_ui(&mut self) {
         self.overlay.tabs_mut().set_visible(true);
         self.set_keyboard_focus(KeyboardFocus::None);
+    }
+
+    /// Create a new dropdown popup.
+    pub fn open_option_menu<I>(
+        &mut self,
+        menu_id: OptionMenuId,
+        position: Position,
+        item_size: Size,
+        items: I,
+    ) where
+        I: Iterator<Item = OptionMenuItem>,
+    {
+        self.overlay.open_option_menu(menu_id, position, item_size, self.scale, items);
+    }
+
+    /// Remove a dropdown popup.
+    pub fn close_option_menu(&mut self, menu_id: OptionMenuId) {
+        self.overlay.close_option_menu(menu_id);
     }
 
     /// Check whether a surface is owned by this window.

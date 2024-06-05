@@ -7,20 +7,16 @@ use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
+use crate::ui::overlay::option_menu::{OptionMenu, OptionMenuId, OptionMenuItem};
 use crate::ui::overlay::tabs::Tabs;
 use crate::ui::Renderer;
 use crate::{gl, rect_contains, Position, Size, State, WindowId};
 
+pub mod option_menu;
 pub mod tabs;
 
 /// Overlay surface element.
 pub trait Popup {
-    /// Check whether the popup is active.
-    fn visible(&self) -> bool;
-
-    /// Show or hide a popup.
-    fn set_visible(&mut self, visible: bool);
-
     /// Check whether the popup requires a redraw.
     fn dirty(&self) -> bool;
 
@@ -72,8 +68,11 @@ pub struct Overlay {
 
     surface: WlSurface,
     viewport: WpViewport,
+    compositor: CompositorState,
 
     popups: Popups,
+
+    queue: MtQueueHandle<State>,
 
     touch_focus: Option<usize>,
 
@@ -88,16 +87,18 @@ impl Overlay {
         display: Display,
         surface: WlSurface,
         viewport: WpViewport,
+        compositor: CompositorState,
     ) -> Self {
         let renderer = Renderer::new(display, surface.clone());
-
-        let popups = Popups::new(window_id, queue);
+        let popups = Popups::new(window_id, queue.clone());
 
         Self {
+            compositor,
             viewport,
             renderer,
             surface,
             popups,
+            queue,
             scale: 1.0,
             touch_focus: Default::default(),
             size: Default::default(),
@@ -105,16 +106,17 @@ impl Overlay {
     }
 
     /// Update the logical UI size.
-    pub fn set_size(&mut self, compositor: &CompositorState, size: Size) {
+    pub fn set_size(&mut self, size: Size) {
         self.size = size;
 
         // Update popups.
-        for popup in self.popups.iter_mut() {
-            popup.set_size(size);
-        }
+        self.popups.set_size(size);
+    }
 
+    /// Update Wayland surface regions.
+    fn update_regions(&self) {
         // Update opaque region.
-        if let Ok(region) = Region::new(compositor) {
+        if let Ok(region) = Region::new(&self.compositor) {
             for popup in self.popups.iter() {
                 let pos = popup.position();
                 let size: Size<i32> = popup.opaque_region().into();
@@ -124,7 +126,7 @@ impl Overlay {
         }
 
         // Update input region.
-        if let Ok(region) = Region::new(compositor) {
+        if let Ok(region) = Region::new(&self.compositor) {
             for popup in self.popups.iter() {
                 let pos = popup.position();
                 let size: Size<i32> = popup.size().into();
@@ -139,38 +141,29 @@ impl Overlay {
         self.scale = scale;
 
         // Update popups.
-        for popup in self.popups.iter_mut() {
-            popup.set_scale(scale);
-        }
+        self.popups.set_scale(scale);
     }
 
     /// Render current overlay state.
     ///
     /// Returns `true` if rendering was performed.
     pub fn draw(&mut self) -> bool {
-        let mut any_visible = false;
-        let mut any_dirty = false;
-        for popup in self.popups.iter() {
-            any_visible |= popup.visible();
-            any_dirty |= popup.dirty();
-
-            // Stop as soon as redraw requirement has been determined.
-            if any_visible && any_dirty {
-                break;
-            }
-        }
+        let mut popups = self.popups.iter().peekable();
 
         // Hide surface if there's no visible popups.
-        if !any_visible {
+        if popups.peek().is_none() {
             self.surface.attach(None, 0, 0);
             self.surface.commit();
             return false;
         }
 
         // Don't redraw if rendering is up to date.
-        if !any_dirty {
+        if popups.all(|popup| !popup.dirty()) {
             return false;
         }
+        drop(popups);
+
+        self.update_regions();
 
         // Update viewporter logical render size.
         //
@@ -266,26 +259,74 @@ impl Overlay {
     pub fn tabs_mut(&mut self) -> &mut Tabs {
         &mut self.popups.tabs
     }
+
+    /// Show a dropdown menu.
+    pub fn open_option_menu<I>(
+        &mut self,
+        id: OptionMenuId,
+        position: Position,
+        item_size: Size,
+        scale: f64,
+        items: I,
+    ) where
+        I: Iterator<Item = OptionMenuItem>,
+    {
+        let queue = self.queue.clone();
+        let option_menu = OptionMenu::new(id, queue, position, item_size, scale, items);
+        self.popups.option_menus.push(option_menu);
+    }
+
+    /// Hide a dropdown menu.
+    pub fn close_option_menu(&mut self, id: OptionMenuId) {
+        self.popups.option_menus.retain(|menu| menu.id() != id);
+    }
 }
 
 /// Overlay popup windows.
 struct Popups {
+    option_menus: Vec<OptionMenu>,
     tabs: Tabs,
 }
 
 impl Popups {
     fn new(window_id: WindowId, queue: MtQueueHandle<State>) -> Self {
         let tabs = Tabs::new(window_id, queue);
-        Self { tabs }
+        Self { tabs, option_menus: Default::default() }
+    }
+
+    /// Update logical popup size.
+    fn set_size(&mut self, size: Size) {
+        for menu in &mut self.option_menus {
+            menu.set_size(size);
+        }
+        self.tabs.set_size(size);
+    }
+
+    /// Update popup scale.
+    fn set_scale(&mut self, scale: f64) {
+        for menu in &mut self.option_menus {
+            menu.set_scale(scale);
+        }
+        self.tabs.set_scale(scale);
     }
 
     /// Non-mutable popup iterator.
-    fn iter(&self) -> impl Iterator<Item = &dyn Popup> {
-        [&self.tabs as &dyn Popup].into_iter()
+    fn iter(&self) -> Box<dyn Iterator<Item = &dyn Popup> + '_> {
+        if self.tabs.visible() {
+            Box::new(self.option_menus.iter().map(|menu| menu as _).chain([&self.tabs as _]))
+        } else {
+            Box::new(self.option_menus.iter().map(|menu| menu as _))
+        }
     }
 
     /// Mutable popup iterator.
-    fn iter_mut(&mut self) -> impl Iterator<Item = &mut dyn Popup> {
-        [&mut self.tabs as &mut dyn Popup].into_iter()
+    fn iter_mut(&mut self) -> Box<dyn Iterator<Item = &mut dyn Popup> + '_> {
+        if self.tabs.visible() {
+            Box::new(
+                self.option_menus.iter_mut().map(|menu| menu as _).chain([&mut self.tabs as _]),
+            )
+        } else {
+            Box::new(self.option_menus.iter_mut().map(|menu| menu as _))
+        }
     }
 }

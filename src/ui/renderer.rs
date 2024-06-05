@@ -372,9 +372,7 @@ impl TextureBuilder {
 
     /// Draw text within the specified bounds.
     pub fn rasterize(&self, layout: &Layout, text_options: &TextOptions) {
-        let font_desc = format!("sans {}px", text_options.font_size);
-        let mut font = FontDescription::from_string(&font_desc);
-        font.set_absolute_size(font.size() as f64 * self.scale);
+        let font = Self::font_description(text_options.font_size, self.scale);
         layout.set_font_description(Some(&font));
 
         // Limit text size to builder limits.
@@ -542,6 +540,14 @@ impl TextureBuilder {
         }
 
         Texture::new(&data, width, height)
+    }
+
+    /// Get the font description for the specified size.
+    pub fn font_description(font_size: u8, scale: f64) -> FontDescription {
+        let font_desc = format!("sans {}px", font_size);
+        let mut font = FontDescription::from_string(&font_desc);
+        font.set_absolute_size(font.size() as f64 * scale);
+        font
     }
 }
 

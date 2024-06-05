@@ -85,6 +85,19 @@ impl ProtocolStates {
 }
 
 impl CompositorHandler for State {
+    fn frame(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        surface: &WlSurface,
+        _serial: u32,
+    ) {
+        let window = self.windows.values_mut().find(|window| window.owns_surface(surface));
+        if let Some(window) = window {
+            window.draw();
+        }
+    }
+
     fn scale_factor_changed(
         &mut self,
         _: &Connection,
@@ -104,17 +117,23 @@ impl CompositorHandler for State {
     ) {
     }
 
-    fn frame(
+    fn surface_enter(
         &mut self,
-        _connection: &Connection,
-        _queue: &QueueHandle<Self>,
-        surface: &WlSurface,
-        _serial: u32,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &WlSurface,
+        _: &WlOutput,
     ) {
-        let window = self.windows.values_mut().find(|window| window.owns_surface(surface));
-        if let Some(window) = window {
-            window.draw();
-        }
+    }
+
+    /// The surface has left an output.
+    fn surface_leave(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &WlSurface,
+        _: &WlOutput,
+    ) {
     }
 }
 delegate_compositor!(State);
@@ -155,7 +174,7 @@ impl WindowHandler for State {
             // Update window dimensions.
             let width = configure.new_size.0.map(|w| w.get()).unwrap_or(window.size().width);
             let height = configure.new_size.1.map(|h| h.get()).unwrap_or(window.size().height);
-            window.set_size(&self.protocol_states.compositor, Size { width, height });
+            window.set_size(Size { width, height });
         }
     }
 }
@@ -332,6 +351,7 @@ impl KeyboardHandler for State {
         _keyboard: &WlKeyboard,
         _serial: u32,
         modifiers: Modifiers,
+        _layout: u32,
     ) {
         let keyboard_state = match &mut self.keyboard {
             Some(keyboard_state) => keyboard_state,

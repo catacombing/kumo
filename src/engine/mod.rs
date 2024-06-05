@@ -6,6 +6,7 @@ use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
 
+use crate::ui::overlay::option_menu::OptionMenuId;
 use crate::window::TextInputChange;
 use crate::{Position, Size, WindowId};
 
@@ -118,6 +119,12 @@ pub trait Engine {
 
     /// Clear engine focus.
     fn clear_focus(&mut self);
+
+    /// Submit option menu item selection.
+    fn option_menu_submit(&mut self, menu_id: OptionMenuId, index: usize);
+
+    /// Close option menu.
+    fn option_menu_close(&mut self, menu_id: Option<OptionMenuId>);
 
     fn as_any(&mut self) -> &mut dyn Any;
 }

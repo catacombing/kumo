@@ -41,12 +41,13 @@ use wpe_backend_fdo_sys::{
     wpe_view_backend_exportable_fdo_get_view_backend, wpe_view_backend_remove_activity_state,
 };
 use wpe_webkit::{
-    Color, CookieAcceptPolicy, CookiePersistentStorage, NetworkSession, WebView, WebViewBackend,
-    WebViewExt,
+    Color, CookieAcceptPolicy, CookiePersistentStorage, NetworkSession, OptionMenu, WebView,
+    WebViewBackend, WebViewExt,
 };
 
 use crate::engine::webkit::input_method_context::InputMethodContext;
 use crate::engine::{Engine, EngineId, BG};
+use crate::ui::overlay::option_menu::{OptionMenuId, OptionMenuItem};
 use crate::wayland::protocols::BufferData;
 use crate::window::TextInputChange;
 use crate::{Position, Size, State};
@@ -74,6 +75,17 @@ trait WebKitHandler {
 
     /// Update current active resource for an engine.
     fn set_engine_uri(&mut self, engine_id: EngineId, uri: String, title: String);
+
+    /// Open dropdown popup.
+    fn open_option_menu(
+        &mut self,
+        engine_id: EngineId,
+        option_menu: OptionMenu,
+        rect: (i32, i32, i32, i32),
+    );
+
+    /// Close dropdown popup.
+    fn close_option_menu(&mut self, menu_id: OptionMenuId);
 }
 
 impl WebKitHandler for State {
@@ -126,6 +138,64 @@ impl WebKitHandler for State {
             window.set_engine_uri(&self.history, engine_id, uri, title);
         }
     }
+
+    fn open_option_menu(
+        &mut self,
+        engine_id: EngineId,
+        option_menu: OptionMenu,
+        (x, y, width, height): (i32, i32, i32, i32),
+    ) {
+        let window = match self.windows.get_mut(&engine_id.window_id()) {
+            Some(window) => window,
+            None => return,
+        };
+        let engine = match window.tabs_mut().get_mut(&engine_id) {
+            Some(engine) => engine,
+            None => return,
+        };
+        let webkit_engine = match engine.as_any().downcast_mut::<WebKitEngine>() {
+            Some(webkit_engine) => webkit_engine,
+            None => return,
+        };
+
+        // Get properties from WebKit menu items.
+        let mut items = Vec::new();
+        for i in 0..option_menu.n_items() {
+            if let Some(mut item) = option_menu.item(i) {
+                if let Some(label) = item.label() {
+                    items.push(OptionMenuItem {
+                        label: label.into(),
+                        disabled: !item.is_enabled(),
+                        selected: item.is_selected(),
+                    });
+                }
+            }
+        }
+
+        // Get dimensions.
+        let position = Position::new(x, y + height);
+        let item_size = Size::new(width as u32, height as u32);
+
+        // Hookup close callback.
+        let menu_id = OptionMenuId::new(engine_id);
+        let close_queue = self.queue.clone();
+        option_menu.connect_close(move |_| close_queue.clone().close_option_menu(menu_id));
+
+        // Update engine's active popup for close/activate handling.
+        if let Some((_, option_menu)) = webkit_engine.option_menu.take() {
+            option_menu.close();
+        }
+        webkit_engine.option_menu = Some((menu_id, option_menu));
+
+        // Show the popup.
+        window.open_option_menu(menu_id, position, item_size, items.into_iter());
+    }
+
+    fn close_option_menu(&mut self, menu_id: OptionMenuId) {
+        if let Some(window) = self.windows.get_mut(&menu_id.window_id()) {
+            window.close_option_menu(menu_id);
+        }
+    }
 }
 
 /// WebKit browser engine.
@@ -149,6 +219,8 @@ pub struct WebKitEngine {
     egl: &'static Egl,
 
     id: EngineId,
+
+    option_menu: Option<(OptionMenuId, OptionMenu)>,
 
     dirty: bool,
 }
@@ -204,10 +276,16 @@ impl WebKitEngine {
         web_view.set_background_color(&mut color);
 
         // Notify UI about URI updates.
+        let uri_queue = queue.clone();
         web_view.connect_uri_notify(move |web_view| {
             let uri = web_view.uri().unwrap_or_default().to_string();
             let title = web_view.title().map(String::from).unwrap_or_else(|| uri.clone());
-            queue.clone().set_engine_uri(engine_id, uri, title);
+            uri_queue.clone().set_engine_uri(engine_id, uri, title);
+        });
+
+        web_view.connect_show_option_menu(move |_, menu, rect| {
+            queue.clone().open_option_menu(engine_id, menu.clone(), rect.geometry());
+            true
         });
 
         // Setup input handler.
@@ -239,6 +317,7 @@ impl WebKitEngine {
             pointer_button: Default::default(),
             pointer_state: Default::default(),
             buffer_size: Default::default(),
+            option_menu: Default::default(),
             buffer: Default::default(),
             dirty: Default::default(),
         };
@@ -558,6 +637,23 @@ impl Engine for WebKitEngine {
 
     fn clear_focus(&mut self) {
         self.set_focused(false);
+    }
+
+    fn option_menu_submit(&mut self, menu_id: OptionMenuId, index: usize) {
+        if let Some((id, menu)) = &self.option_menu {
+            if *id == menu_id {
+                menu.activate_item(index as u32);
+            }
+        }
+    }
+
+    fn option_menu_close(&mut self, menu_id: Option<OptionMenuId>) {
+        if let Some((id, menu)) = &self.option_menu {
+            if menu_id.map_or(true, |menu_id| *id == menu_id) {
+                menu.close();
+                self.option_menu = None;
+            }
+        }
     }
 
     fn as_any(&mut self) -> &mut dyn Any {

@@ -16,5 +16,6 @@ mod color;
 mod cookie_manager;
 mod input_method_context;
 mod network_session;
+mod rectangle;
 mod web_view_backend;
 mod website_data_manager;

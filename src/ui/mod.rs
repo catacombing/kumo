@@ -99,6 +99,7 @@ pub struct Ui {
 
     surface: WlSurface,
     viewport: WpViewport,
+    compositor: CompositorState,
 
     size: Size,
     scale: f64,
@@ -125,12 +126,14 @@ impl Ui {
         display: Display,
         surface: WlSurface,
         viewport: WpViewport,
+        compositor: CompositorState,
         history: History,
     ) -> Self {
         let uribar = Uribar::new(window_id, history, queue.clone());
         let renderer = Renderer::new(display, surface.clone());
 
         let mut ui = Self {
+            compositor,
             window_id,
             viewport,
             renderer,
@@ -155,12 +158,12 @@ impl Ui {
     }
 
     /// Update the logical UI size.
-    pub fn set_size(&mut self, compositor: &CompositorState, size: Size) {
+    pub fn set_size(&mut self, size: Size) {
         self.size = size;
         self.dirty = true;
 
         // Update opaque region.
-        if let Ok(region) = Region::new(compositor) {
+        if let Ok(region) = Region::new(&self.compositor) {
             region.add(0, 0, size.width as i32, size.height as i32);
             self.surface.set_opaque_region(Some(region.wl_region()));
         }

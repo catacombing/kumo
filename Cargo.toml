@@ -25,7 +25,7 @@ funq = { path = "./funq" }
 glutin_egl_sys = { git = "https://github.com/chrisduerr/glutin", branch = "more_egl" }
 glutin = { git = "https://github.com/chrisduerr/glutin", branch = "more_egl", default-features = false, features = ["wayland"] }
 raw-window-handle = "0.5.2"
-smithay-client-toolkit = { version = "0.18.1", default-features = false, features = ["xkbcommon"] }
+smithay-client-toolkit = { version = "0.19.1", default-features = false, features = ["xkbcommon"] }
 thiserror = "1.0.57"
 wayland-backend = { version = "0.3.3", features = ["client_system"] }
 wpe-backend-fdo-sys = { path = "./wpe-backend-fdo-sys" }
@@ -44,4 +44,4 @@ gl_generator = "0.14.0"
 reqwest = { version = "0.12.2", default-features = false, features = ["default-tls", "blocking"] }
 
 [patch.crates-io]
-wayland-backend = { git = "https://github.com/chrisduerr/wayland-rs", rev = "86f2212e916603e970b55c0f5ca8c12d884a956b" }
+wayland-backend = { git = "https://github.com/chrisduerr/wayland-rs", rev = "46e208db449a91949d5ea5bcadab97df21982343" }

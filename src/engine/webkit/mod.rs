@@ -73,8 +73,11 @@ trait WebKitHandler {
     /// Update the engine's underlying EGL image.
     fn set_egl_image(&mut self, engine_id: EngineId, image: *mut wpe_fdo_egl_exported_image);
 
-    /// Update current active resource for an engine.
-    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String, title: String);
+    /// Update current URI for an engine.
+    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String);
+
+    /// Update current title for an engine.
+    fn set_engine_title(&mut self, engine_id: EngineId, title: String);
 
     /// Open dropdown popup.
     fn open_option_menu(
@@ -131,11 +134,19 @@ impl WebKitHandler for State {
         }
     }
 
-    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String, title: String) {
+    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String) {
         let window_id = engine_id.window_id();
 
         if let Some(window) = self.windows.get_mut(&window_id) {
-            window.set_engine_uri(&self.history, engine_id, uri, title);
+            window.set_engine_uri(&self.history, engine_id, uri);
+        }
+    }
+
+    fn set_engine_title(&mut self, engine_id: EngineId, title: String) {
+        let window_id = engine_id.window_id();
+
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            window.set_engine_title(&self.history, engine_id, title);
         }
     }
 
@@ -275,12 +286,16 @@ impl WebKitEngine {
         let mut color = Color::new(BG[0], BG[1], BG[2], 1.);
         web_view.set_background_color(&mut color);
 
-        // Notify UI about URI updates.
+        // Notify UI about URI and title changes.
         let uri_queue = queue.clone();
         web_view.connect_uri_notify(move |web_view| {
             let uri = web_view.uri().unwrap_or_default().to_string();
-            let title = web_view.title().map(String::from).unwrap_or_else(|| uri.clone());
-            uri_queue.clone().set_engine_uri(engine_id, uri, title);
+            uri_queue.clone().set_engine_uri(engine_id, uri);
+        });
+        let title_queue = queue.clone();
+        web_view.connect_title_notify(move |web_view| {
+            let title = web_view.title().unwrap_or_default().to_string();
+            title_queue.clone().set_engine_title(engine_id, title);
         });
 
         web_view.connect_show_option_menu(move |_, menu, rect| {

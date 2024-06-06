@@ -44,7 +44,7 @@ impl History {
     }
 
     /// Increment URI visit count for history.
-    pub fn visit(&self, uri: String, title: String) {
+    pub fn visit(&self, uri: String) {
         let history_uri = HistoryUri::new(&uri);
 
         // Ignore invalid URIs.
@@ -54,16 +54,38 @@ impl History {
 
         // Update filesystem history.
         if let Some(db) = &self.db {
-            if let Err(err) = db.visit(&uri, &title) {
-                eprintln!("Failed to write history: {err}");
+            if let Err(err) = db.visit(&uri) {
+                eprintln!("Failed to write URI to history: {err}");
             }
         }
 
         // Update in-memory history.
         let mut entries = self.entries.write().unwrap();
         let history = entries.entry(history_uri).or_default();
-        history.title = title;
         history.views += 1;
+    }
+
+    /// Set the title for a URI.
+    pub fn set_title(&self, uri: &str, title: String) {
+        let history_uri = HistoryUri::new(uri);
+
+        // Ignore invalid URIs.
+        if history_uri.base.is_empty() {
+            return;
+        }
+
+        // Update filesystem history.
+        if let Some(db) = &self.db {
+            if let Err(err) = db.set_title(uri, &title) {
+                eprintln!("Failed to write title to history: {err}");
+            }
+        }
+
+        // Update in-memory history.
+        let mut entries = self.entries.write().unwrap();
+        if let Some(history) = entries.get_mut(&history_uri) {
+            history.title = title;
+        }
     }
 
     /// Get autocomplete suggestion for an input.
@@ -109,10 +131,10 @@ impl HistoryDb {
         connection.execute(
             "CREATE TABLE IF NOT EXISTS history (
                 uri TEXT NOT NULL PRIMARY KEY,
-                title TEXT NOT NULL,
+                title TEXT DEFAULT '',
                 views INTEGER NOT NULL DEFAULT 1
             )",
-            (),
+            [],
         )?;
 
         Ok(Self { connection })
@@ -134,12 +156,19 @@ impl HistoryDb {
     }
 
     /// Increment visits for a page.
-    fn visit(&self, uri: &str, title: &str) -> rusqlite::Result<()> {
+    fn visit(&self, uri: &str) -> rusqlite::Result<()> {
         self.connection.execute(
-            "INSERT INTO history (uri, title) VALUES (?1, ?2)
+            "INSERT INTO history (uri) VALUES (?1)
                 ON CONFLICT (uri) DO UPDATE SET views=views+1",
-            (uri, title),
+            [uri],
         )?;
+
+        Ok(())
+    }
+
+    /// Update title for a URI.
+    fn set_title(&self, uri: &str, title: &str) -> rusqlite::Result<()> {
+        self.connection.execute("UPDATE history SET title=?1 WHERE uri=?2", [title, uri])?;
 
         Ok(())
     }

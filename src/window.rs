@@ -707,14 +707,8 @@ impl Window {
         }
     }
 
-    /// Update an engine's active resource.
-    pub fn set_engine_uri(
-        &mut self,
-        history: &History,
-        engine_id: EngineId,
-        uri: String,
-        title: String,
-    ) {
+    /// Update an engine's URI.
+    pub fn set_engine_uri(&mut self, history: &History, engine_id: EngineId, uri: String) {
         // Update UI if the URI change is for the active tab.
         if engine_id == self.active_tab {
             self.ui.set_uri(&uri);
@@ -729,7 +723,19 @@ impl Window {
         self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
 
         // Increment URI visit count for history.
-        history.visit(uri, title);
+        history.visit(uri);
+    }
+
+    /// Update an engine's title.
+    pub fn set_engine_title(&mut self, history: &History, engine_id: EngineId, title: String) {
+        // Update tabs popup.
+        self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
+
+        // Update title of current URI for history.
+        if let Some(engine) = self.tabs.get(&engine_id) {
+            let uri = engine.uri();
+            history.set_title(&uri, title);
+        }
     }
 
     /// Open the tabs UI.

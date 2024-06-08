@@ -22,9 +22,8 @@ members = [
 
 [dependencies]
 funq = { path = "./funq" }
-glutin_egl_sys = { git = "https://github.com/chrisduerr/glutin", branch = "more_egl" }
-glutin = { git = "https://github.com/chrisduerr/glutin", branch = "more_egl", default-features = false, features = ["wayland"] }
-raw-window-handle = "0.5.2"
+glutin = { version = "0.32.0", default-features = false, features = ["wayland"] }
+raw-window-handle = "0.6.0"
 smithay-client-toolkit = { version = "0.19.1", default-features = false, features = ["xkbcommon"] }
 thiserror = "1.0.57"
 wayland-backend = { version = "0.3.3", features = ["client_system"] }

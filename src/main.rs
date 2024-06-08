@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::os::fd::{AsFd, AsRawFd};
+use std::ptr::NonNull;
 use std::time::Duration;
 use std::{env, io};
 
@@ -120,8 +121,8 @@ impl State {
         let protocol_states = ProtocolStates::new(&globals, &wayland_queue.handle());
 
         // Get EGL display.
-        let mut wayland_display = WaylandDisplayHandle::empty();
-        wayland_display.display = connection.backend().display_ptr().cast();
+        let display = NonNull::new(connection.backend().display_ptr().cast()).unwrap();
+        let wayland_display = WaylandDisplayHandle::new(display);
         let raw_display = RawDisplayHandle::Wayland(wayland_display);
         let egl_display = unsafe { Display::new(raw_display, DisplayApiPreference::Egl)? };
 

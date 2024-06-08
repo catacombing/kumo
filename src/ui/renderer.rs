@@ -3,6 +3,7 @@
 use std::ffi::{CStr, CString};
 use std::num::NonZeroU32;
 use std::ops::Range;
+use std::ptr::NonNull;
 use std::{cmp, mem, ptr};
 
 use glutin::config::{Api, ConfigTemplateBuilder};
@@ -205,8 +206,8 @@ impl SizedRenderer {
             unsafe { display.create_context(&egl_config, &context_attributes).unwrap() };
         let egl_context = egl_context.treat_as_possibly_current();
 
-        let mut raw_window_handle = WaylandWindowHandle::empty();
-        raw_window_handle.surface = surface.id().as_ptr().cast();
+        let surface = NonNull::new(surface.id().as_ptr().cast()).unwrap();
+        let raw_window_handle = WaylandWindowHandle::new(surface);
         let raw_window_handle = RawWindowHandle::Wayland(raw_window_handle);
         let surface_attributes = SurfaceAttributesBuilder::<WindowSurface>::new().build(
             raw_window_handle,

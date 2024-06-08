@@ -12,11 +12,14 @@ use glutin::display::Display;
 use indexmap::IndexMap;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
+use smithay_client_toolkit::reexports::csd_frame::WindowState;
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::{AxisScroll, BTN_LEFT};
-use smithay_client_toolkit::shell::xdg::window::{Window as XdgWindow, WindowDecorations};
+use smithay_client_toolkit::shell::xdg::window::{
+    Window as XdgWindow, WindowConfigure, WindowDecorations,
+};
 use smithay_client_toolkit::shell::WaylandSurface;
 
 use crate::engine::webkit::{WebKitEngine, WebKitError};
@@ -85,6 +88,9 @@ pub struct Window {
     // Touch point position tracking.
     touch_points: HashMap<i32, Position<f64>>,
     keyboard_focus: KeyboardFocus,
+
+    fullscreen_request: Option<EngineId>,
+    fullscreen: bool,
 
     stalled: bool,
     closed: bool,
@@ -167,9 +173,11 @@ impl Window {
             stalled: true,
             scale: 1.,
             initial_configure_done: Default::default(),
+            fullscreen_request: Default::default(),
             keyboard_focus: Default::default(),
             touch_points: Default::default(),
             text_input: Default::default(),
+            fullscreen: Default::default(),
             closed: Default::default(),
             dirty: Default::default(),
             tabs: Default::default(),
@@ -342,7 +350,7 @@ impl Window {
         }
 
         // Draw UI.
-        if !overlay_opaque {
+        if !overlay_opaque && !self.fullscreen {
             let ui_rendered = self.ui.draw(self.tabs.len(), self.dirty);
             self.stalled &= !ui_rendered;
         }
@@ -393,13 +401,22 @@ impl Window {
         let _ = self.connection.flush();
     }
 
-    /// Update surface size.
-    pub fn set_size(&mut self, size: Size) {
+    /// Handle Wayland configure events.
+    pub fn configure(&mut self, configure: WindowConfigure) {
+        // Get new configured size.
+        let width = configure.new_size.0.map(|w| w.get()).unwrap_or(self.size.width);
+        let height = configure.new_size.1.map(|h| h.get()).unwrap_or(self.size.height);
+        let size = Size { width, height };
+
+        // Get fullscreen state.
+        let is_fullscreen = configure.state.contains(WindowState::FULLSCREEN);
+
         // Complete initial configure.
         let was_done = mem::replace(&mut self.initial_configure_done, true);
 
-        // Update window dimensions.
-        if self.size == size {
+        // Short-circuit if nothing changed.
+        let size_unchanged = self.size == size;
+        if size_unchanged && self.fullscreen == is_fullscreen {
             // Still force redraw for the initial configure.
             if !was_done {
                 self.unstall();
@@ -407,6 +424,7 @@ impl Window {
 
             return;
         }
+        self.fullscreen = is_fullscreen;
         self.size = size;
 
         // Resize window's browser engines.
@@ -416,8 +434,20 @@ impl Window {
         }
 
         // Resize UI element surface.
-        self.overlay.set_size(self.size);
-        self.ui.set_size(self.size);
+        if !size_unchanged {
+            self.overlay.set_size(self.size);
+            self.ui.set_size(self.size);
+        }
+
+        // Acknowledge pending engine fullscreen requests.
+        if Some(self.active_tab) == self.fullscreen_request.take() {
+            let active_tab = self.tabs.get_mut(&self.active_tab).unwrap();
+            if self.fullscreen {
+                active_tab.confirm_enter_fullscreen();
+            } else {
+                active_tab.confirm_leave_fullscreen();
+            }
+        }
 
         self.unstall();
     }
@@ -762,16 +792,29 @@ impl Window {
         self.overlay.close_option_menu(menu_id);
     }
 
+    /// Handle engine fullscreen requests.
+    pub fn request_fullscreen(&mut self, engine_id: EngineId, enable: bool) {
+        // Ignore fullscreen requests for background engines.
+        if engine_id != self.active_tab {
+            return;
+        }
+
+        // Request fullscreen mode from compositor.
+        if enable {
+            self.xdg().set_fullscreen(None);
+        } else {
+            self.xdg().unset_fullscreen();
+        }
+
+        // Store engine's fullscreen request.
+        self.fullscreen_request = Some(engine_id);
+    }
+
     /// Check whether a surface is owned by this window.
     pub fn owns_surface(&self, surface: &WlSurface) -> bool {
         &self.engine_surface == surface
             || self.ui.surface() == surface
             || self.overlay.surface() == surface
-    }
-
-    /// Get window size.
-    pub fn size(&self) -> Size {
-        self.size
     }
 
     /// Get underlying XDG shell window.
@@ -781,7 +824,11 @@ impl Window {
 
     /// Size allocated to the browser engine's buffer.
     pub fn engine_size(&self) -> Size {
-        Size::new(self.size.width, self.size.height - TOOLBAR_HEIGHT as u32)
+        if self.fullscreen {
+            Size::new(self.size.width, self.size.height)
+        } else {
+            Size::new(self.size.width, self.size.height - TOOLBAR_HEIGHT as u32)
+        }
     }
 
     /// Handle keyboard focus surface changes.

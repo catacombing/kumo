@@ -16,7 +16,7 @@ use smithay_client_toolkit::seat::pointer::AxisScroll;
 use wpe_backend_fdo_sys::{
     wpe_fdo_egl_exported_image, wpe_fdo_egl_exported_image_get_egl_image,
     wpe_fdo_egl_exported_image_get_height, wpe_fdo_egl_exported_image_get_width,
-    wpe_input_axis_2d_event, wpe_input_axis_event,
+    wpe_fdo_initialize_for_egl_display, wpe_input_axis_2d_event, wpe_input_axis_event,
     wpe_input_axis_event_type_wpe_input_axis_event_type_mask_2d,
     wpe_input_axis_event_type_wpe_input_axis_event_type_motion_smooth, wpe_input_keyboard_event,
     wpe_input_modifier_wpe_input_keyboard_modifier_alt,
@@ -28,7 +28,7 @@ use wpe_backend_fdo_sys::{
     wpe_input_touch_event_raw, wpe_input_touch_event_type,
     wpe_input_touch_event_type_wpe_input_touch_event_type_down,
     wpe_input_touch_event_type_wpe_input_touch_event_type_motion,
-    wpe_input_touch_event_type_wpe_input_touch_event_type_up,
+    wpe_input_touch_event_type_wpe_input_touch_event_type_up, wpe_loader_init,
     wpe_view_activity_state_wpe_view_activity_state_focused,
     wpe_view_activity_state_wpe_view_activity_state_in_window,
     wpe_view_activity_state_wpe_view_activity_state_visible, wpe_view_backend_add_activity_state,
@@ -39,6 +39,7 @@ use wpe_backend_fdo_sys::{
     wpe_view_backend_exportable_fdo_egl_client, wpe_view_backend_exportable_fdo_egl_create,
     wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image,
     wpe_view_backend_exportable_fdo_get_view_backend, wpe_view_backend_remove_activity_state,
+    wpe_view_backend_set_fullscreen_handler,
 };
 use wpe_webkit::{
     Color, CookieAcceptPolicy, CookiePersistentStorage, NetworkSession, OptionMenu, WebView,
@@ -89,6 +90,9 @@ trait WebKitHandler {
 
     /// Close dropdown popup.
     fn close_option_menu(&mut self, menu_id: OptionMenuId);
+
+    /// Handle fullscreen enter/leave.
+    fn set_fullscreen(&mut self, engine_id: EngineId, enable: bool);
 }
 
 impl WebKitHandler for State {
@@ -207,6 +211,12 @@ impl WebKitHandler for State {
             window.close_option_menu(menu_id);
         }
     }
+
+    fn set_fullscreen(&mut self, engine_id: EngineId, enable: bool) {
+        if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
+            window.request_fullscreen(engine_id, enable);
+        }
+    }
 }
 
 /// WebKit browser engine.
@@ -298,8 +308,10 @@ impl WebKitEngine {
             title_queue.clone().set_engine_title(engine_id, title);
         });
 
+        // Listen for option menu open events.
+        let option_menu_queue = queue.clone();
         web_view.connect_show_option_menu(move |_, menu, rect| {
-            queue.clone().open_option_menu(engine_id, menu.clone(), rect.geometry());
+            option_menu_queue.clone().open_option_menu(engine_id, menu.clone(), rect.geometry());
             true
         });
 
@@ -307,13 +319,20 @@ impl WebKitEngine {
         let input_method_context = InputMethodContext::new();
         web_view.set_input_method_context(Some(&input_method_context));
 
+        // Setup fullscreen handler.
+        let state = Box::into_raw(Box::new(FullscreenSharedState { queue, engine_id })).cast();
+        let wpe_backend = unsafe { backend.wpe_backend() };
+        unsafe {
+            wpe_view_backend_set_fullscreen_handler(wpe_backend, Some(handle_fullscreen), state);
+        }
+
         // Set initial activity state.
         let state = wpe_view_activity_state_wpe_view_activity_state_visible
             | wpe_view_activity_state_wpe_view_activity_state_in_window
             | wpe_view_activity_state_wpe_view_activity_state_focused;
         unsafe {
-            wpe_view_backend_add_activity_state(backend.wpe_backend(), state);
-        }
+            wpe_view_backend_add_activity_state(wpe_backend, state);
+        };
 
         // Get access to the OpenGL API.
         let Display::Egl(egl_display) = display;
@@ -384,11 +403,11 @@ impl WebKitEngine {
             let RawDisplay::Egl(display) = display.raw_display();
 
             let backend_lib = CString::new("libWPEBackend-fdo-1.0.so").unwrap();
-            if !wpe_backend_fdo_sys::wpe_loader_init(backend_lib.as_ptr()) {
+            if !wpe_loader_init(backend_lib.as_ptr()) {
                 return Err(WebKitError::FdoLibInit);
             }
 
-            if !wpe_backend_fdo_sys::wpe_fdo_initialize_for_egl_display(display as *mut _) {
+            if !wpe_fdo_initialize_for_egl_display(display as *mut _) {
                 return Err(WebKitError::EglInit);
             }
 
@@ -671,6 +690,20 @@ impl Engine for WebKitEngine {
         }
     }
 
+    fn confirm_enter_fullscreen(&mut self) {
+        unsafe {
+            let backend = self.backend.wpe_backend();
+            wpe_backend_fdo_sys::wpe_view_backend_dispatch_did_enter_fullscreen(backend);
+        }
+    }
+
+    fn confirm_leave_fullscreen(&mut self) {
+        unsafe {
+            let backend = self.backend.wpe_backend();
+            wpe_backend_fdo_sys::wpe_view_backend_dispatch_did_exit_fullscreen(backend);
+        }
+    }
+
     fn as_any(&mut self) -> &mut dyn Any {
         self
     }
@@ -767,11 +800,10 @@ unsafe fn create_exportable_backend(
 
 /// Handle EGL backend image export.
 unsafe extern "C" fn on_egl_image_export(
-    data: *mut ffi::c_void,
+    state: *mut ffi::c_void,
     image: *mut wpe_fdo_egl_exported_image,
 ) {
-    let state = data as *mut ExportableSharedState;
-    let state = match state.as_mut() {
+    let state = match state.cast::<ExportableSharedState>().as_mut() {
         Some(state) => state,
         None => return,
     };
@@ -795,4 +827,22 @@ fn xdg_network_session() -> Option<NetworkSession> {
     cookie_manager.set_accept_policy(CookieAcceptPolicy::NoThirdParty);
 
     Some(network_session)
+}
+
+/// Shared state leaked to fullscreen handler callback.
+struct FullscreenSharedState {
+    queue: StQueueHandle<State>,
+    engine_id: EngineId,
+}
+
+/// Fullscreen callback handler.
+unsafe extern "C" fn handle_fullscreen(state: *mut ffi::c_void, enable: bool) -> bool {
+    let state = match state.cast::<FullscreenSharedState>().as_mut() {
+        Some(state) => state,
+        None => return false,
+    };
+
+    state.queue.set_fullscreen(state.engine_id, enable);
+
+    true
 }

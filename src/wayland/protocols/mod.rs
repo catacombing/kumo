@@ -38,7 +38,7 @@ use wayland_backend::protocol::Message;
 use crate::wayland::protocols::fractional_scale::{FractionalScaleHandler, FractionalScaleManager};
 use crate::wayland::protocols::viewporter::Viewporter;
 use crate::window::WindowHandler as _;
-use crate::{KeyboardState, Size, State};
+use crate::{KeyboardState, State};
 
 pub mod fractional_scale;
 pub mod viewporter;
@@ -169,12 +169,8 @@ impl WindowHandler for State {
         configure: WindowConfigure,
         _serial: u32,
     ) {
-        let window = self.windows.values_mut().find(|w| w.xdg() == window);
-        if let Some(window) = window {
-            // Update window dimensions.
-            let width = configure.new_size.0.map(|w| w.get()).unwrap_or(window.size().width);
-            let height = configure.new_size.1.map(|h| h.get()).unwrap_or(window.size().height);
-            window.set_size(Size { width, height });
+        if let Some(window) = self.windows.values_mut().find(|w| w.xdg() == window) {
+            window.configure(configure);
         }
     }
 }

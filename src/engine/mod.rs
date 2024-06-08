@@ -126,6 +126,12 @@ pub trait Engine {
     /// Close option menu.
     fn option_menu_close(&mut self, menu_id: Option<OptionMenuId>);
 
+    /// Notify engine that entering fullscreen was successful.
+    fn confirm_enter_fullscreen(&mut self);
+
+    /// Notify engine that leaving fullscreen was successful.
+    fn confirm_leave_fullscreen(&mut self);
+
     fn as_any(&mut self) -> &mut dyn Any;
 }
 

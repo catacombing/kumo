@@ -272,7 +272,7 @@ impl Overlay {
         I: Iterator<Item = OptionMenuItem>,
     {
         let queue = self.queue.clone();
-        let option_menu = OptionMenu::new(id, queue, position, item_size, scale, items);
+        let option_menu = OptionMenu::new(id, queue, position, item_size, self.size, scale, items);
         self.popups.option_menus.push(option_menu);
     }
 

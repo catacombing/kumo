@@ -257,6 +257,11 @@ impl HistoryUri {
 
         uri += &self.base;
 
+        // Add trailing slash if it's only the base.
+        if self.path.is_empty() {
+            uri = format!("{uri}/");
+        }
+
         for segment in &self.path {
             uri = format!("{uri}/{segment}");
         }

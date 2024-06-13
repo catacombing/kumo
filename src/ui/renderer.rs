@@ -373,8 +373,11 @@ impl TextureBuilder {
 
     /// Draw text within the specified bounds.
     pub fn rasterize(&self, layout: &Layout, text_options: &TextOptions) {
-        let font = Self::font_description(text_options.font_size, self.scale);
-        layout.set_font_description(Some(&font));
+        // Set description if necessary.
+        if layout.font_description().is_none() {
+            let font = Self::font_description(text_options.font_size, self.scale);
+            layout.set_font_description(Some(&font));
+        }
 
         // Limit text size to builder limits.
         let position = text_options.position;

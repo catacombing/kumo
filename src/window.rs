@@ -10,6 +10,7 @@ use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, Z
 use funq::StQueueHandle;
 use glutin::display::Display;
 use indexmap::IndexMap;
+use smallvec::SmallVec;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
 use smithay_client_toolkit::reexports::csd_frame::WindowState;
@@ -24,7 +25,8 @@ use smithay_client_toolkit::shell::WaylandSurface;
 
 use crate::engine::webkit::{WebKitEngine, WebKitError};
 use crate::engine::{Engine, EngineId};
-use crate::ui::overlay::option_menu::{OptionMenuId, OptionMenuItem};
+use crate::history::{HistoryMatch, MAX_MATCHES};
+use crate::ui::overlay::option_menu::{OptionMenuId, OptionMenuItem, ScrollTarget};
 use crate::ui::overlay::Overlay;
 use crate::ui::{Ui, TOOLBAR_HEIGHT};
 use crate::uri::{SCHEMES, TLDS};
@@ -84,6 +86,8 @@ pub struct Window {
     queue: StQueueHandle<State>,
 
     ui: Ui,
+    history_menu_matches: SmallVec<[HistoryMatch; MAX_MATCHES]>,
+    history_menu: Option<OptionMenuId>,
 
     // Touch point position tracking.
     touch_points: HashMap<i32, Position<f64>>,
@@ -173,8 +177,10 @@ impl Window {
             stalled: true,
             scale: 1.,
             initial_configure_done: Default::default(),
+            history_menu_matches: Default::default(),
             fullscreen_request: Default::default(),
             keyboard_focus: Default::default(),
+            history_menu: Default::default(),
             touch_points: Default::default(),
             text_input: Default::default(),
             fullscreen: Default::default(),
@@ -449,6 +455,9 @@ impl Window {
             }
         }
 
+        // Close history popup, so we don't need to resize it.
+        self.close_history_menu();
+
         self.unstall();
     }
 
@@ -483,8 +492,7 @@ impl Window {
                 };
                 engine.press_key(raw, keysym, modifiers);
             },
-            // Overlay has no press handling need (yet).
-            KeyboardFocus::Overlay | KeyboardFocus::None => (),
+            KeyboardFocus::None => (),
         }
 
         // Unstall if UI changed.
@@ -501,8 +509,8 @@ impl Window {
                     engine.release_key(raw, keysym, modifiers);
                 }
             },
-            // Ui/Overlay has no release handling need (yet).
-            KeyboardFocus::Ui | KeyboardFocus::Overlay | KeyboardFocus::None => (),
+            // Ui has no release handling need (yet).
+            KeyboardFocus::Ui | KeyboardFocus::None => (),
         }
 
         // Unstall if UI changed.
@@ -525,7 +533,7 @@ impl Window {
             // Forward event to browser engine.
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 // Ensure popups are closed when scrolling.
-                engine.option_menu_close(None);
+                engine.close_option_menu(None);
 
                 engine.pointer_axis(time, position, horizontal, vertical, modifiers);
             }
@@ -601,14 +609,14 @@ impl Window {
         if &self.engine_surface == surface {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 // Close all dropdowns when interacting with the page.
-                engine.option_menu_close(None);
+                engine.close_option_menu(None);
 
                 engine.touch_down(&self.touch_points, time, id, modifiers);
             }
         } else if self.ui.surface() == surface {
             // Close all dropdowns when clicking on the UI.
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
-                engine.option_menu_close(None);
+                engine.close_option_menu(None);
             }
 
             self.ui.touch_down(time, id, position, modifiers);
@@ -693,8 +701,7 @@ impl Window {
                 };
                 engine.delete_surrounding_text(before_length, after_length);
             },
-            // Overlay has no IME handling need (yet).
-            KeyboardFocus::Overlay | KeyboardFocus::None => (),
+            KeyboardFocus::None => (),
         }
     }
 
@@ -709,8 +716,7 @@ impl Window {
                 };
                 engine.commit_string(text);
             },
-            // Overlay has no IME handling need (yet).
-            KeyboardFocus::Overlay | KeyboardFocus::None => (),
+            KeyboardFocus::None => (),
         }
     }
 
@@ -725,8 +731,7 @@ impl Window {
                 };
                 engine.preedit_string(text, cursor_begin, cursor_end);
             },
-            // Overlay has no IME handling need (yet).
-            KeyboardFocus::Overlay | KeyboardFocus::None => (),
+            KeyboardFocus::None => (),
         }
 
         // NOTE: `preedit_string` is always called and it's always the last event in the
@@ -779,17 +784,71 @@ impl Window {
         &mut self,
         menu_id: OptionMenuId,
         position: Position,
-        item_size: Size,
+        item_width: u32,
         items: I,
     ) where
         I: Iterator<Item = OptionMenuItem>,
     {
-        self.overlay.open_option_menu(menu_id, position, item_size, self.scale, items);
+        self.overlay.open_option_menu(menu_id, position, item_width, self.scale, items);
     }
 
     /// Remove a dropdown popup.
     pub fn close_option_menu(&mut self, menu_id: OptionMenuId) {
         self.overlay.close_option_menu(menu_id);
+    }
+
+    /// Handle submission for option menu spawned by the window.
+    pub fn submit_option_menu(&mut self, menu_id: OptionMenuId, index: usize) {
+        // Ignore unknown menu IDs.
+        if Some(menu_id) != self.history_menu {
+            return;
+        }
+
+        // Load the selected URI.
+        let uri = self.history_menu_matches.swap_remove(index).uri;
+        self.load_uri(uri);
+        self.set_keyboard_focus(KeyboardFocus::None);
+
+        // Close the menu.
+        self.close_option_menu(menu_id);
+    }
+
+    /// Show history options menu.
+    pub fn open_history_menu(&mut self, matches: SmallVec<[HistoryMatch; MAX_MATCHES]>) {
+        // Close old menu.
+        if let Some(menu_id) = self.history_menu.take() {
+            self.close_option_menu(menu_id);
+        }
+
+        // Skip new menu creation without matches.
+        if matches.is_empty() {
+            return;
+        }
+
+        // Convert matches to option menu entries.
+        self.history_menu_matches = matches;
+        let items = self.history_menu_matches.iter().map(|m| {
+            let (label, description) = if m.title.is_empty() {
+                (m.uri.clone(), m.uri.clone())
+            } else {
+                (m.title.clone(), m.uri.clone())
+            };
+            OptionMenuItem { label, description, disabled: false, selected: false }
+        });
+
+        // Open new menu.
+        let menu_id = OptionMenuId::new(self.id);
+        let position = Position::new(0, self.size.height as i32);
+        self.overlay.open_option_menu(menu_id, position, self.size.width, self.scale, items);
+        self.overlay.scroll_option_menu(menu_id, ScrollTarget::End);
+        self.history_menu = Some(menu_id);
+    }
+
+    /// Hide history options menu.
+    pub fn close_history_menu(&mut self) {
+        if let Some(menu_id) = self.history_menu.take() {
+            self.overlay.close_option_menu(menu_id);
+        }
     }
 
     /// Handle engine fullscreen requests.
@@ -833,12 +892,14 @@ impl Window {
 
     /// Handle keyboard focus surface changes.
     pub fn update_keyboard_focus_surface(&mut self, surface: &WlSurface) {
+        // Assign keyboard focus to the element owning the surface.
+        //
+        // The overlay does not have any text input elements and thus does not take
+        // keyboard focus.
         if self.ui.surface() == surface {
             self.set_keyboard_focus(KeyboardFocus::Ui);
         } else if &self.engine_surface == surface {
             self.set_keyboard_focus(KeyboardFocus::Browser);
-        } else if self.overlay.surface() == surface {
-            self.set_keyboard_focus(KeyboardFocus::Overlay);
         }
     }
 
@@ -884,7 +945,6 @@ pub enum KeyboardFocus {
     #[default]
     Ui,
     Browser,
-    Overlay,
 }
 
 /// Text input with enabled-state tracking.

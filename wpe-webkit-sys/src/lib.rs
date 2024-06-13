@@ -3,7 +3,7 @@
 // from ../gir-files
 // DO NOT EDIT
 
-#![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
+#![allow(non_camel_case_types, non_upper_case_globals, non_snake_case, dead_code)]
 #![allow(
     clippy::approx_constant,
     clippy::type_complexity,

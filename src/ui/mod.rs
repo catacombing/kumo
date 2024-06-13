@@ -9,12 +9,14 @@ use funq::MtQueueHandle;
 use glutin::display::Display;
 use pangocairo::cairo::{Context, Format, ImageSurface};
 use pangocairo::pango::{Alignment, Layout, SCALE as PANGO_SCALE};
+use smallvec::SmallVec;
 use smithay_client_toolkit::compositor::{CompositorState, Region};
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
+use crate::history::{HistoryMatch, MAX_MATCHES};
 use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
 use crate::window::{TextInputChange, TextInputState};
 use crate::{gl, rect_contains, History, Position, Size, State, WindowId};
@@ -67,6 +69,16 @@ pub trait UiHandler {
 
     /// Open tabs UI.
     fn show_tabs(&mut self, window: WindowId);
+
+    /// Show history suggestions popup.
+    fn open_history_menu(
+        &mut self,
+        window_id: WindowId,
+        matches: SmallVec<[HistoryMatch; MAX_MATCHES]>,
+    );
+
+    /// Hide history suggestions popup.
+    fn close_history_menu(&mut self, window_id: WindowId);
 }
 
 impl UiHandler for State {
@@ -91,6 +103,22 @@ impl UiHandler for State {
         };
         window.show_tabs_ui();
         window.unstall();
+    }
+
+    fn open_history_menu(
+        &mut self,
+        window_id: WindowId,
+        matches: SmallVec<[HistoryMatch; MAX_MATCHES]>,
+    ) {
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            window.open_history_menu(matches);
+        }
+    }
+
+    fn close_history_menu(&mut self, window_id: WindowId) {
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            window.close_history_menu();
+        }
     }
 }
 
@@ -472,21 +500,34 @@ struct Uribar {
     texture: Option<Texture>,
     dirty: bool,
 
+    queue: MtQueueHandle<State>,
+    window_id: WindowId,
+
     text_field: TextField,
     size: Size,
     scale: f64,
 }
 
 impl Uribar {
-    fn new(window: WindowId, history: History, mut queue: MtQueueHandle<State>) -> Self {
+    fn new(window_id: WindowId, history: History, queue: MtQueueHandle<State>) -> Self {
         // Setup text input with submission handling.
         let mut text_field = TextField::new();
-        text_field.set_submit_handler(Box::new(move |uri| queue.load_uri(window, uri)));
+        let mut submit_queue = queue.clone();
+        text_field.set_submit_handler(Box::new(move |uri| submit_queue.load_uri(window_id, uri)));
         text_field.set_purpose(ContentPurpose::Url);
 
         // Setup autocomplete suggestion on text change.
+        let mut matches_queue = queue.clone();
         text_field.set_text_change_handler(Box::new(move |text_field| {
             let text = text_field.text();
+
+            // Get matches for history popup.
+            if text_field.focused {
+                let matches = history.matches(&text);
+                matches_queue.open_history_menu(window_id, matches);
+            }
+
+            // Get suggestion for autocomplete.
             let suggestion = match history.autocomplete(&text) {
                 Some(mut suggestion) if suggestion.len() > text.len() => {
                     suggestion.split_off(text.len())
@@ -498,6 +539,8 @@ impl Uribar {
 
         Self {
             text_field,
+            window_id,
+            queue,
             dirty: true,
             scale: 1.,
             texture: Default::default(),
@@ -527,6 +570,10 @@ impl Uribar {
 
     /// Set URI bar input focus.
     fn set_focused(&mut self, focused: bool) {
+        if !focused {
+            self.queue.close_history_menu(self.window_id);
+        }
+
         self.text_field.set_focus(focused);
     }
 

@@ -180,6 +180,7 @@ impl WebKitHandler for State {
                 if let Some(label) = item.label() {
                     items.push(OptionMenuItem {
                         label: label.into(),
+                        description: String::new(),
                         disabled: !item.is_enabled(),
                         selected: item.is_selected(),
                     });
@@ -187,12 +188,11 @@ impl WebKitHandler for State {
             }
         }
 
-        // Get dimensions.
+        // Get popup position.
         let position = Position::new(x, y + height);
-        let item_size = Size::new(width as u32, height as u32);
 
         // Hookup close callback.
-        let menu_id = OptionMenuId::new(engine_id);
+        let menu_id = OptionMenuId::with_engine(engine_id);
         let close_queue = self.queue.clone();
         option_menu.connect_close(move |_| close_queue.clone().close_option_menu(menu_id));
 
@@ -203,7 +203,7 @@ impl WebKitHandler for State {
         webkit_engine.option_menu = Some((menu_id, option_menu));
 
         // Show the popup.
-        window.open_option_menu(menu_id, position, item_size, items.into_iter());
+        window.open_option_menu(menu_id, position, width as u32, items.into_iter());
     }
 
     fn close_option_menu(&mut self, menu_id: OptionMenuId) {
@@ -673,7 +673,7 @@ impl Engine for WebKitEngine {
         self.set_focused(false);
     }
 
-    fn option_menu_submit(&mut self, menu_id: OptionMenuId, index: usize) {
+    fn submit_option_menu(&mut self, menu_id: OptionMenuId, index: usize) {
         if let Some((id, menu)) = &self.option_menu {
             if *id == menu_id {
                 menu.activate_item(index as u32);
@@ -681,7 +681,7 @@ impl Engine for WebKitEngine {
         }
     }
 
-    fn option_menu_close(&mut self, menu_id: Option<OptionMenuId>) {
+    fn close_option_menu(&mut self, menu_id: Option<OptionMenuId>) {
         if let Some((id, menu)) = &self.option_menu {
             if menu_id.map_or(true, |menu_id| *id == menu_id) {
                 menu.close();

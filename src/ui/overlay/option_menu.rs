@@ -22,16 +22,22 @@ const DISABLED_FG: [f64; 3] = [0.4, 0.4, 0.4];
 const DISABLED_BG: [f64; 3] = BG;
 const SELECTED_FG: [f64; 3] = [0.09, 0.09, 0.09];
 const SELECTED_BG: [f64; 3] = [0.46, 0.16, 0.16];
+const DESCRIPTION_FG: [f64; 3] = [0.75, 0.75, 0.75];
 
 // Option menu item padding.
 const X_PADDING: f64 = 15.;
 const Y_PADDING: f64 = 10.;
 
-/// Option item font size.
-const FONT_SIZE: u8 = 14;
+/// Option item label font size.
+const LABEL_FONT_SIZE: u8 = 16;
+/// Option item description font size.
+const DESCRIPTION_FONT_SIZE: u8 = 14;
 
 /// Square of the maximum distance before touch input is considered a drag.
 const MAX_TAP_DISTANCE: f64 = 400.;
+
+/// Next option menu ID.
+static NEXT_MENU_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[funq::callbacks(State)]
 trait OptionMenuHandler {
@@ -45,12 +51,23 @@ impl OptionMenuHandler for State {
             Some(window) => window,
             None => return,
         };
-        let engine = match window.tabs_mut().get_mut(&menu_id.engine_id()) {
+
+        // Submit for the window if there's no engine ID attached.
+        let engine_id = match menu_id.engine_id() {
+            Some(engine_id) => engine_id,
+            None => {
+                window.submit_option_menu(menu_id, index);
+                return;
+            },
+        };
+
+        // Submit for the engine.
+        let engine = match window.tabs_mut().get_mut(&engine_id) {
             Some(engine) => engine,
             None => return,
         };
-        engine.option_menu_submit(menu_id, index);
-        engine.option_menu_close(Some(menu_id));
+        engine.submit_option_menu(menu_id, index);
+        engine.close_option_menu(Some(menu_id));
     }
 }
 
@@ -78,7 +95,7 @@ impl OptionMenu {
         id: OptionMenuId,
         queue: MtQueueHandle<State>,
         position: Position,
-        item_size: Size,
+        item_width: u32,
         max_size: Size,
         scale: f64,
         items: I,
@@ -95,7 +112,7 @@ impl OptionMenu {
                     selection_index = Some(i);
                 }
 
-                OptionMenuRenderItem::new(item, item_size, scale)
+                OptionMenuRenderItem::new(item, item_width, scale)
             })
             .collect();
 
@@ -106,7 +123,7 @@ impl OptionMenu {
             items,
             scale,
             id,
-            width: item_size.width,
+            width: item_width,
             scroll_offset: Default::default(),
             touch_state: Default::default(),
             max_height: Default::default(),
@@ -122,6 +139,15 @@ impl OptionMenu {
     /// Get the popup's ID,
     pub fn id(&self) -> OptionMenuId {
         self.id
+    }
+
+    /// Move scroll position.
+    pub fn scroll(&mut self, target: ScrollTarget) {
+        let scroll_offset = match target {
+            ScrollTarget::End => self.max_scroll_offset() as f32,
+        };
+        self.dirty = self.scroll_offset != scroll_offset;
+        self.scroll_offset = scroll_offset;
     }
 
     /// Get index of item at the specified physical point.
@@ -329,6 +355,8 @@ impl Popup for OptionMenu {
 pub struct OptionMenuItem {
     /// Option menu text.
     pub label: String,
+    /// Option menu detail text.
+    pub description: String,
     /// Whether item is selectable.
     pub disabled: bool,
     /// Whether item is selected.
@@ -341,34 +369,45 @@ struct OptionMenuRenderItem {
     texture: Option<Texture>,
     dirty: bool,
 
-    /// Desired logical texture size.
-    size: Size,
+    /// Desired logical texture width.
+    width: u32,
     /// Render scale.
     scale: f64,
 
-    /// Pango text layout.
-    layout: Layout,
+    /// Pango layout for main text.
+    label_layout: Layout,
+    /// Pange layout for description text.
+    description_layout: Option<Layout>,
     /// Whether item is selectable.
     disabled: bool,
 }
 
 impl OptionMenuRenderItem {
-    fn new(item: OptionMenuItem, item_size: Size, scale: f64) -> Self {
-        let layout = {
-            let image_surface = ImageSurface::create(Format::ARgb32, 0, 0).unwrap();
-            let context = Context::new(&image_surface).unwrap();
-            pangocairo::functions::create_layout(&context)
+    fn new(item: OptionMenuItem, item_width: u32, scale: f64) -> Self {
+        // Create a new pango layout.
+        let create_layout = |text: String, font_size: u8| {
+            let layout = {
+                let image_surface = ImageSurface::create(Format::ARgb32, 0, 0).unwrap();
+                let context = Context::new(&image_surface).unwrap();
+                pangocairo::functions::create_layout(&context)
+            };
+            let font = TextureBuilder::font_description(font_size, scale);
+            layout.set_font_description(Some(&font));
+            layout.set_text(&text);
+            layout.set_height(0);
+            layout
         };
-        let font = TextureBuilder::font_description(FONT_SIZE, scale);
-        layout.set_font_description(Some(&font));
-        layout.set_text(&item.label);
-        layout.set_height(0);
+
+        let description_layout = (!item.description.is_empty())
+            .then(|| create_layout(item.description, DESCRIPTION_FONT_SIZE));
+        let label_layout = create_layout(item.label, LABEL_FONT_SIZE);
 
         OptionMenuRenderItem {
-            layout,
+            description_layout,
+            label_layout,
             scale,
             disabled: item.disabled,
-            size: item_size,
+            width: item_width,
             texture: None,
             dirty: true,
         }
@@ -388,34 +427,49 @@ impl OptionMenuRenderItem {
 
     fn draw(&self, selected: bool) -> Texture {
         // Determine item colors.
-        let (fg, bg) = if self.disabled {
-            (DISABLED_FG, DISABLED_BG)
+        let (fg, description_fg, bg) = if self.disabled {
+            (DISABLED_FG, DISABLED_FG, DISABLED_BG)
         } else if selected {
-            (SELECTED_FG, SELECTED_BG)
+            (SELECTED_FG, SELECTED_FG, SELECTED_BG)
         } else {
-            (FG, BG)
+            (FG, DESCRIPTION_FG, BG)
         };
+
+        // Calculate physical item size.
+        let width = (self.width as f64 * self.scale).round() as i32;
+        let physical_size = Size::new(width, self.height());
+
+        // Initialize as opaque texture.
+        let builder = TextureBuilder::new(physical_size, self.scale);
+        builder.clear(bg);
 
         // Configure text rendering options.
         let mut text_options = TextOptions::new();
-        text_options.set_font_size(FONT_SIZE);
         text_options.text_color(fg);
 
-        // Calculate physical item size.
-        let width = (self.size.width as f64 * self.scale).round() as i32;
-        let physical_size = Size::new(width, self.height());
-
-        // Calculate text placement.
+        // Calculate label text placement.
+        let y_padding = (Y_PADDING * self.scale).round() as i32;
         let x_padding = (X_PADDING * self.scale).round() as i32;
-        let mut text_size = physical_size;
-        text_size.width -= 2 * x_padding;
+        let label_height = self.label_layout.pixel_size().1 + y_padding;
+        let label_width = physical_size.width - 2 * x_padding;
         text_options.position(Position::new(x_padding, 0).into());
-        text_options.size(text_size);
+        text_options.size(Size::new(label_width, label_height));
 
-        // Render text to texture.
-        let builder = TextureBuilder::new(physical_size, self.scale);
-        builder.clear(bg);
-        builder.rasterize(&self.layout, &text_options);
+        // Render label text to texture.
+        builder.rasterize(&self.label_layout, &text_options);
+
+        // Render text description.
+        if let Some(description_layout) = &self.description_layout {
+            // Calculate description text placement.
+            let description_height = description_layout.pixel_size().1 + y_padding;
+            let description_size = Size::new(label_width, description_height);
+            text_options.position(Position::new(x_padding, label_height - y_padding).into());
+            text_options.size(description_size);
+
+            // Render description to texture.
+            text_options.text_color(description_fg);
+            builder.rasterize(description_layout, &text_options);
+        }
 
         builder.build()
     }
@@ -423,7 +477,9 @@ impl OptionMenuRenderItem {
     /// Get the item's height.
     fn height(&self) -> i32 {
         let y_padding = (Y_PADDING * self.scale).round() as i32;
-        self.layout.pixel_size().1 + y_padding
+        let label_height = self.label_layout.pixel_size().1;
+        let description_height = self.description_layout.as_ref().map_or(0, |l| l.pixel_size().1);
+        label_height + description_height + y_padding
     }
 
     /// Update item scale.
@@ -436,25 +492,32 @@ impl OptionMenuRenderItem {
 /// Unique identifier for an option menu.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OptionMenuId {
-    engine_id: EngineId,
+    window_id: WindowId,
+    engine_id: Option<EngineId>,
     id: usize,
 }
 
 impl OptionMenuId {
-    pub fn new(engine_id: EngineId) -> Self {
-        static NEXT_MENU_ID: AtomicUsize = AtomicUsize::new(0);
+    /// Create new ID for menu spawned by window.
+    pub fn new(window_id: WindowId) -> Self {
         let id = NEXT_MENU_ID.fetch_add(1, Ordering::Relaxed);
-        Self { engine_id, id }
+        Self { id, window_id, engine_id: None }
+    }
+
+    /// Create new ID for menu spawned by engine.
+    pub fn with_engine(engine_id: EngineId) -> Self {
+        let id = NEXT_MENU_ID.fetch_add(1, Ordering::Relaxed);
+        Self { id, window_id: engine_id.window_id(), engine_id: Some(engine_id) }
     }
 
     /// Get the menu's engine.
-    pub fn engine_id(&self) -> EngineId {
+    pub fn engine_id(&self) -> Option<EngineId> {
         self.engine_id
     }
 
     /// Get the menu's window.
     pub fn window_id(&self) -> WindowId {
-        self.engine_id.window_id()
+        self.window_id
     }
 }
 
@@ -473,4 +536,9 @@ enum TouchAction {
     #[default]
     Tap,
     Drag,
+}
+
+/// Target position for scrolling a menu.
+pub enum ScrollTarget {
+    End,
 }

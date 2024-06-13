@@ -7,7 +7,7 @@ use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
-use crate::ui::overlay::option_menu::{OptionMenu, OptionMenuId, OptionMenuItem};
+use crate::ui::overlay::option_menu::{OptionMenu, OptionMenuId, OptionMenuItem, ScrollTarget};
 use crate::ui::overlay::tabs::Tabs;
 use crate::ui::Renderer;
 use crate::{gl, rect_contains, Position, Size, State, WindowId};
@@ -260,25 +260,32 @@ impl Overlay {
         &mut self.popups.tabs
     }
 
-    /// Show a dropdown menu.
+    /// Show an option menu.
     pub fn open_option_menu<I>(
         &mut self,
         id: OptionMenuId,
         position: Position,
-        item_size: Size,
+        item_width: u32,
         scale: f64,
         items: I,
     ) where
         I: Iterator<Item = OptionMenuItem>,
     {
         let queue = self.queue.clone();
-        let option_menu = OptionMenu::new(id, queue, position, item_size, self.size, scale, items);
+        let option_menu = OptionMenu::new(id, queue, position, item_width, self.size, scale, items);
         self.popups.option_menus.push(option_menu);
     }
 
-    /// Hide a dropdown menu.
+    /// Hide an option menu.
     pub fn close_option_menu(&mut self, id: OptionMenuId) {
         self.popups.option_menus.retain(|menu| menu.id() != id);
+    }
+
+    /// Scroll an option menu.
+    pub fn scroll_option_menu(&mut self, id: OptionMenuId, target: ScrollTarget) {
+        if let Some(menu) = self.popups.option_menus.iter_mut().find(|menu| menu.id() == id) {
+            menu.scroll(target);
+        }
     }
 }
 

@@ -121,10 +121,10 @@ pub trait Engine {
     fn clear_focus(&mut self);
 
     /// Submit option menu item selection.
-    fn option_menu_submit(&mut self, menu_id: OptionMenuId, index: usize);
+    fn submit_option_menu(&mut self, menu_id: OptionMenuId, index: usize);
 
     /// Close option menu.
-    fn option_menu_close(&mut self, menu_id: Option<OptionMenuId>);
+    fn close_option_menu(&mut self, menu_id: Option<OptionMenuId>);
 
     /// Notify engine that entering fullscreen was successful.
     fn confirm_enter_fullscreen(&mut self);

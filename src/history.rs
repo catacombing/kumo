@@ -7,6 +7,10 @@ use std::rc::Rc;
 use std::sync::RwLock;
 
 use rusqlite::Connection as SqliteConnection;
+use smallvec::SmallVec;
+
+/// Maximum scored history matches compared.
+pub const MAX_MATCHES: usize = 25;
 
 /// Browser history.
 #[derive(Clone)]
@@ -111,6 +115,43 @@ impl History {
 
         Some(uri.to_string(!input_uri.scheme.is_empty()))
     }
+
+    /// Get history matches for the input in ascending relevance.
+    pub fn matches(&self, input: &str) -> SmallVec<[HistoryMatch; MAX_MATCHES]> {
+        // Empty input always results in no matches.
+        if input.is_empty() {
+            return SmallVec::new();
+        }
+
+        // Get up to `MAX_MATCHES` matching URIs.
+        let entries = self.entries.read().unwrap();
+        let mut matches: SmallVec<_> = entries
+            .iter()
+            .filter_map(|(uri, entry)| {
+                let uri_str = uri.to_string(true);
+
+                // Score match by number of occurences, preferring a match at the start.
+                let mut score = uri_str.matches(input).count();
+                score += entry.title.matches(input).count();
+                if uri.base.starts_with(input) || entry.title.starts_with(input) {
+                    score += 1_000;
+                }
+
+                // Ignore URIs without any match.
+                (score != 0).then(|| HistoryMatch {
+                    score,
+                    title: entry.title.clone(),
+                    uri: uri_str,
+                })
+            })
+            .take(MAX_MATCHES)
+            .collect();
+
+        // Sort matches based on their score.
+        matches.sort_by_key(|m: &HistoryMatch| m.score);
+
+        matches
+    }
 }
 
 /// DB for persisting history data.
@@ -172,6 +213,13 @@ impl HistoryDb {
 
         Ok(())
     }
+}
+
+/// Match for a history query.
+pub struct HistoryMatch {
+    pub uri: String,
+    pub title: String,
+    score: usize,
 }
 
 /// Single entry in the browser history.
@@ -249,21 +297,26 @@ impl HistoryUri {
     }
 
     fn to_string(&self, include_scheme: bool) -> String {
-        let mut uri = String::new();
+        // Calculate the maximum possible length for allocation purposes.
+        let path_len: usize = self.path.iter().map(|path| path.len() + "/".len()).sum();
+        let max_len = self.scheme.len() + "://".len() + self.base.len() + "/".len() + path_len;
+        let mut uri = String::with_capacity(max_len);
 
         if include_scheme {
-            uri = format!("{}://", self.scheme);
+            uri.push_str(&self.scheme);
+            uri.push_str("://");
         }
 
-        uri += &self.base;
+        uri.push_str(&self.base);
 
         // Add trailing slash if it's only the base.
         if self.path.is_empty() {
-            uri = format!("{uri}/");
+            uri.push('/');
         }
 
         for segment in &self.path {
-            uri = format!("{uri}/{segment}");
+            uri.push('/');
+            uri.push_str(segment);
         }
 
         uri

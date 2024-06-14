@@ -83,7 +83,7 @@ pub trait UiHandler {
 
 impl UiHandler for State {
     fn load_uri(&mut self, window_id: WindowId, uri: String) {
-        if let Some(window) = self.windows.get(&window_id) {
+        if let Some(window) = self.windows.get_mut(&window_id) {
             window.load_uri(uri);
         }
     }

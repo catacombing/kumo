@@ -285,7 +285,7 @@ impl Window {
     }
 
     /// Load a URI with the active tab.
-    pub fn load_uri(&self, uri: String) {
+    pub fn load_uri(&mut self, uri: String) {
         // Perform search if URI is not a recognized URI.
         let uri = match build_uri(uri.trim()) {
             Some(uri) => uri,
@@ -295,6 +295,12 @@ impl Window {
         if let Some(engine) = self.tabs.get(&self.active_tab) {
             engine.load_uri(&uri);
         }
+
+        // Close open option menus.
+        self.close_history_menu();
+
+        // Clear URI bar focus.
+        self.set_keyboard_focus(KeyboardFocus::None);
     }
 
     /// Redraw the window.
@@ -807,10 +813,6 @@ impl Window {
         // Load the selected URI.
         let uri = self.history_menu_matches.swap_remove(index).uri;
         self.load_uri(uri);
-        self.set_keyboard_focus(KeyboardFocus::None);
-
-        // Close the menu.
-        self.close_option_menu(menu_id);
     }
 
     /// Show history options menu.

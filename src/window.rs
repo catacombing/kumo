@@ -812,6 +812,7 @@ impl Window {
 
         // Load the selected URI.
         let uri = self.history_menu_matches.swap_remove(index).uri;
+        self.ui.set_uri(&uri);
         self.load_uri(uri);
     }
 

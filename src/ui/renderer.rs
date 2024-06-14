@@ -450,11 +450,10 @@ impl TextureBuilder {
             let mut virtual_text = layout.text().to_string();
             text_without_virtual = Some(virtual_text.clone());
 
-            let mut preedit_end = text_options.cursor_pos as usize;
             if has_preedit {
                 // Insert preedit text.
-                let preedit_start = preedit_end;
-                preedit_end += text_options.preedit.0.len();
+                let preedit_start = text_options.cursor_pos as usize;
+                let preedit_end = preedit_start + text_options.preedit.0.len();
                 virtual_text.insert_str(preedit_start, &text_options.preedit.0);
 
                 // Add underline below preedit text.
@@ -468,16 +467,15 @@ impl TextureBuilder {
 
             if has_autocomplete {
                 // Insert autocomplete text.
-                let autocomplete_start = preedit_end;
-                let autocomplete_end = autocomplete_start + text_options.autocomplete.len();
-                virtual_text.insert_str(preedit_end, &text_options.autocomplete);
+                let autocomplete_start = virtual_text.len();
+                virtual_text.push_str(&text_options.autocomplete);
 
                 // Set color for autocomplete text.
                 let attributes = layout.attributes().unwrap_or_default();
                 let [r, g, b] = text_options.autocomplete_color;
                 let mut col_attr = AttrColor::new_foreground(r, g, b);
                 col_attr.set_start_index(autocomplete_start as u32);
-                col_attr.set_end_index(autocomplete_end as u32);
+                col_attr.set_end_index(virtual_text.len() as u32);
                 attributes.insert(col_attr);
                 layout.set_attributes(Some(&attributes));
             }

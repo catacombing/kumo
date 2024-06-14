@@ -1049,7 +1049,8 @@ impl TextField {
             },
             (Keysym::Tab, false, false) => {
                 // Ignore tab without completion available.
-                if self.autocomplete.is_empty() {
+                let text = self.text();
+                if self.autocomplete.is_empty() || self.cursor_index() < text.len() as i32 {
                     return;
                 }
 
@@ -1061,7 +1062,7 @@ impl TextField {
                     .skip_while(|(_, b)| !AUTOCOMPLETE_SEPARATORS.contains(b))
                     .find_map(|(i, b)| (!AUTOCOMPLETE_SEPARATORS.contains(&b)).then_some(i))
                     .unwrap_or(self.autocomplete.len());
-                let text = format!("{}{}", self.text(), &self.autocomplete[..complete_index]);
+                let text = format!("{}{}", text, &self.autocomplete[..complete_index]);
                 self.set_text(&text);
                 self.emit_text_changed();
             },

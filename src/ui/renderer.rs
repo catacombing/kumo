@@ -2,7 +2,7 @@
 
 use std::ffi::{CStr, CString};
 use std::num::NonZeroU32;
-use std::ops::Range;
+use std::ops::{Deref, Range};
 use std::ptr::NonNull;
 use std::{cmp, mem, ptr};
 
@@ -354,15 +354,14 @@ pub struct TextureBuilder {
     image_surface: ImageSurface,
     context: Context,
     size: Size<i32>,
-    scale: f64,
 }
 
 impl TextureBuilder {
-    pub fn new(size: Size<i32>, scale: f64) -> Self {
+    pub fn new(size: Size<i32>) -> Self {
         let image_surface = ImageSurface::create(Format::ARgb32, size.width, size.height).unwrap();
         let context = Context::new(&image_surface).unwrap();
 
-        Self { image_surface, context, scale, size }
+        Self { image_surface, context, size }
     }
 
     /// Fill entire buffer with a single color.
@@ -372,13 +371,7 @@ impl TextureBuilder {
     }
 
     /// Draw text within the specified bounds.
-    pub fn rasterize(&self, layout: &Layout, text_options: &TextOptions) {
-        // Set description if necessary.
-        if layout.font_description().is_none() {
-            let font = Self::font_description(text_options.font_size, self.scale);
-            layout.set_font_description(Some(&font));
-        }
-
+    pub fn rasterize(&self, layout: &TextLayout, text_options: &TextOptions) {
         // Limit text size to builder limits.
         let position = text_options.position;
         let size = match text_options.size {
@@ -430,7 +423,7 @@ impl TextureBuilder {
             let draw_caret = |index| {
                 let (selection_cursor, _) = layout.cursor_pos(index);
                 let caret_x = position.x + selection_cursor.x() as f64 / PANGO_SCALE as f64;
-                let caret_size = CARET_SIZE * self.scale;
+                let caret_size = CARET_SIZE * layout.scale;
                 self.context.move_to(caret_x, text_y);
                 self.context.line_to(caret_x + caret_size, text_y - caret_size);
                 self.context.line_to(caret_x - caret_size, text_y - caret_size);
@@ -543,14 +536,6 @@ impl TextureBuilder {
 
         Texture::new(&data, width, height)
     }
-
-    /// Get the font description for the specified size.
-    pub fn font_description(font_size: u8, scale: f64) -> FontDescription {
-        let font_desc = format!("sans {}px", font_size);
-        let mut font = FontDescription::from_string(&font_desc);
-        font.set_absolute_size(font.size() as f64 * scale);
-        font
-    }
 }
 
 /// Options for text rendering.
@@ -564,7 +549,6 @@ pub struct TextOptions {
     size: Option<Size<i32>>,
     show_cursor: bool,
     cursor_pos: i32,
-    font_size: u8,
 }
 
 impl TextOptions {
@@ -573,7 +557,6 @@ impl TextOptions {
             autocomplete_color: [50_000; 3],
             text_color: [1.; 3],
             cursor_pos: -1,
-            font_size: 16,
             autocomplete: Default::default(),
             show_cursor: Default::default(),
             selection: Default::default(),
@@ -632,15 +615,56 @@ impl TextOptions {
             (self.cursor_pos, self.cursor_pos)
         }
     }
-
-    /// Set the font size.
-    pub fn set_font_size(&mut self, size: u8) {
-        self.font_size = size;
-    }
 }
 
 impl Default for TextOptions {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Font layout with font description.
+pub struct TextLayout {
+    layout: Layout,
+    font: FontDescription,
+    font_size: u8,
+    scale: f64,
+}
+
+impl TextLayout {
+    pub fn new(font_size: u8, scale: f64) -> Self {
+        // Create pango layout.
+        let image_surface = ImageSurface::create(Format::ARgb32, 0, 0).unwrap();
+        let context = Context::new(&image_surface).unwrap();
+        let layout = pangocairo::functions::create_layout(&context);
+
+        // Set font description.
+        let font_desc = format!("sans {}px", font_size);
+        let mut font = FontDescription::from_string(&font_desc);
+        font.set_absolute_size(font.size() as f64 * scale);
+        layout.set_font_description(Some(&font));
+
+        Self { layout, font, font_size, scale }
+    }
+
+    /// Update the font scale.
+    pub fn set_scale(&mut self, scale: f64) {
+        if scale == self.scale {
+            return;
+        }
+        self.scale = scale;
+
+        // Update font size.
+        let pango_size = self.font_size as i32 * PANGO_SCALE;
+        self.font.set_absolute_size(pango_size as f64 * scale);
+        self.layout.set_font_description(Some(&self.font));
+    }
+}
+
+impl Deref for TextLayout {
+    type Target = Layout;
+
+    fn deref(&self) -> &Self::Target {
+        &self.layout
     }
 }

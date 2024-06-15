@@ -7,8 +7,7 @@ use std::ops::{Bound, Range, RangeBounds};
 use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose};
 use funq::MtQueueHandle;
 use glutin::display::Display;
-use pangocairo::cairo::{Context, Format, ImageSurface};
-use pangocairo::pango::{Alignment, Layout, SCALE as PANGO_SCALE};
+use pangocairo::pango::{Alignment, SCALE as PANGO_SCALE};
 use smallvec::SmallVec;
 use smithay_client_toolkit::compositor::{CompositorState, Region};
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
@@ -17,7 +16,7 @@ use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_vie
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::history::{HistoryMatch, MAX_MATCHES};
-use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
+use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBuilder};
 use crate::window::{TextInputChange, TextInputState};
 use crate::{gl, rect_contains, History, Position, Size, State, WindowId};
 
@@ -28,7 +27,10 @@ mod renderer;
 pub const TOOLBAR_HEIGHT: f64 = 50.;
 
 /// Logical height of the UI/content separator.
-const SEPARATOR_HEIGHT: f64 = 1.5;
+pub const SEPARATOR_HEIGHT: f64 = 2.;
+
+/// Font size at scale 1.
+const FONT_SIZE: u8 = 16;
 
 /// Logical width and height of the tabs button.
 const TABS_BUTTON_SIZE: u32 = 28;
@@ -599,9 +601,9 @@ impl Uribar {
     }
 
     /// Draw the URI bar into an OpenGL texture.
-    fn draw(&self) -> Texture {
+    fn draw(&mut self) -> Texture {
         // Draw background color.
-        let builder = TextureBuilder::new(self.size.into(), self.scale);
+        let builder = TextureBuilder::new(self.size.into());
         builder.clear(URIBAR_BG);
 
         // Set text rendering options.
@@ -626,7 +628,9 @@ impl Uribar {
         }
 
         // Draw URI bar.
-        builder.rasterize(self.text_field.layout(), &text_options);
+        let layout = self.text_field.layout();
+        layout.set_scale(self.scale);
+        builder.rasterize(layout, &text_options);
 
         // Convert cairo buffer to texture.
         builder.build()
@@ -714,7 +718,7 @@ impl TabsButton {
     fn draw(&mut self, tab_count_label: &str) -> Texture {
         // Render button outline.
         let size = self.size();
-        let builder = TextureBuilder::new(size.into(), self.scale);
+        let builder = TextureBuilder::new(size.into());
         builder.clear(UI_BG);
         builder.context().set_source_rgb(URIBAR_FG[0], URIBAR_FG[1], URIBAR_FG[2]);
         builder.context().rectangle(0., 0., size.width as f64, size.height as f64);
@@ -722,11 +726,7 @@ impl TabsButton {
         builder.context().stroke().unwrap();
 
         // Render tab count text.
-        let layout = {
-            let image_surface = ImageSurface::create(Format::ARgb32, 0, 0).unwrap();
-            let context = Context::new(&image_surface).unwrap();
-            pangocairo::functions::create_layout(&context)
-        };
+        let layout = TextLayout::new(FONT_SIZE, self.scale);
         layout.set_alignment(Alignment::Center);
         layout.set_text(tab_count_label);
         let mut text_options = TextOptions::new();
@@ -779,7 +779,7 @@ impl PrevButton {
     /// Draw the button into an OpenGL texture.
     fn draw(&mut self) -> Texture {
         let int_size = self.size();
-        let builder = TextureBuilder::new(int_size.into(), self.scale);
+        let builder = TextureBuilder::new(int_size.into());
         builder.clear(UI_BG);
 
         // Draw button arrow.
@@ -823,7 +823,7 @@ enum TouchFocusElement {
 
 /// Text input field.
 struct TextField {
-    layout: Layout,
+    layout: TextLayout,
     cursor_index: i32,
     cursor_offset: i32,
 
@@ -848,13 +848,8 @@ struct TextField {
 
 impl TextField {
     fn new() -> Self {
-        // Create pango layout.
-        let image_surface = ImageSurface::create(Format::ARgb32, 0, 0).unwrap();
-        let context = Context::new(&image_surface).unwrap();
-        let layout = pangocairo::functions::create_layout(&context);
-
         Self {
-            layout,
+            layout: TextLayout::new(FONT_SIZE, 1.),
             text_change_handler: Box::new(|_| {}),
             submit_handler: Box::new(|_| {}),
             change_cause: ChangeCause::Other,
@@ -910,8 +905,8 @@ impl TextField {
     }
 
     /// Get underlying pango layout.
-    fn layout(&self) -> &Layout {
-        &self.layout
+    fn layout(&mut self) -> &mut TextLayout {
+        &mut self.layout
     }
 
     /// Modify text selection.

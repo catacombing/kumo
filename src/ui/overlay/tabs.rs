@@ -4,12 +4,11 @@ use std::collections::HashMap;
 use std::mem;
 
 use funq::MtQueueHandle;
-use pangocairo::cairo::{Context, Format, ImageSurface};
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
 use crate::engine::{Engine, EngineId};
 use crate::ui::overlay::Popup;
-use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
+use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBuilder};
 use crate::{gl, rect_contains, Position, Size, State, WindowId};
 
 /// Tab text color of active tab.
@@ -506,11 +505,7 @@ impl TextureCache {
             }
 
             // Create pango layout.
-            let layout = {
-                let image_surface = ImageSurface::create(Format::ARgb32, 0, 0).unwrap();
-                let context = Context::new(&image_surface).unwrap();
-                pangocairo::functions::create_layout(&context)
-            };
+            let layout = TextLayout::new(FONT_SIZE, scale);
 
             // Fallback to URI if title is empty.
             if tab.title.trim().is_empty() {
@@ -521,7 +516,6 @@ impl TextureCache {
 
             // Configure text rendering options.
             let mut text_options = TextOptions::new();
-            text_options.set_font_size(FONT_SIZE);
             if tab.uri.1 {
                 text_options.text_color(ACTIVE_TAB_FG);
             } else {
@@ -536,7 +530,7 @@ impl TextureCache {
             text_options.size(text_size);
 
             // Render text to the texture.
-            let builder = TextureBuilder::new(tab_size.into(), scale);
+            let builder = TextureBuilder::new(tab_size.into());
             builder.clear(NEW_TAB_BG);
             builder.rasterize(&layout, &text_options);
 
@@ -609,7 +603,7 @@ impl NewTabButton {
     /// Draw the button into an OpenGL texture.
     fn draw(&self) -> Texture {
         // Clear with background color.
-        let builder = TextureBuilder::new(self.size.into(), self.scale);
+        let builder = TextureBuilder::new(self.size.into());
         builder.clear(TABS_BG);
 
         // Draw button background.

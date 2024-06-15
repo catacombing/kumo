@@ -1,17 +1,17 @@
 //! Dropdown like HTML <select> tags.
 
+use std::ops::Mul;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{cmp, mem};
 
+use bitflags::bitflags;
 use funq::MtQueueHandle;
-use pangocairo::cairo::{Context, Format, ImageSurface};
-use pangocairo::pango::Layout;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
 use crate::engine::EngineId;
 use crate::ui::overlay::Popup;
-use crate::ui::renderer::{Renderer, TextOptions, Texture, TextureBuilder};
-use crate::ui::TOOLBAR_HEIGHT;
+use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBuilder};
+use crate::ui::{SEPARATOR_HEIGHT, TOOLBAR_HEIGHT};
 use crate::window::WindowId;
 use crate::{gl, Position, Size, State};
 
@@ -23,10 +23,14 @@ const DISABLED_BG: [f64; 3] = BG;
 const SELECTED_FG: [f64; 3] = [0.09, 0.09, 0.09];
 const SELECTED_BG: [f64; 3] = [0.46, 0.16, 0.16];
 const DESCRIPTION_FG: [f64; 3] = [0.75, 0.75, 0.75];
+const BORDER_COLOR: [u8; 4] = [117, 42, 42, 255];
 
 // Option menu item padding.
 const X_PADDING: f64 = 15.;
 const Y_PADDING: f64 = 10.;
+
+// Border size at scale 1.
+const BORDER_SIZE: u32 = 2;
 
 /// Option item label font size.
 const LABEL_FONT_SIZE: u8 = 16;
@@ -87,6 +91,9 @@ pub struct OptionMenu {
     width: u32,
     scale: f64,
 
+    borders: Borders,
+    border: Option<Texture>,
+
     dirty: bool,
 }
 
@@ -103,32 +110,34 @@ impl OptionMenu {
     where
         I: Iterator<Item = OptionMenuItem>,
     {
-        let mut selection_index = None;
-        let items: Vec<_> = items
+        let mut menu = Self {
+            position,
+            queue,
+            scale,
+            id,
+            borders: Borders::all(),
+            width: item_width,
+            selection_index: Default::default(),
+            scroll_offset: Default::default(),
+            touch_state: Default::default(),
+            max_height: Default::default(),
+            border: Default::default(),
+            items: Default::default(),
+            dirty: Default::default(),
+        };
+
+        let item_width = menu.item_width();
+        menu.items = items
             .enumerate()
             .map(|(i, item)| {
                 // Update selected item.
                 if item.selected {
-                    selection_index = Some(i);
+                    menu.selection_index = Some(i);
                 }
 
                 OptionMenuRenderItem::new(item, item_width, scale)
             })
             .collect();
-
-        let mut menu = Self {
-            selection_index,
-            position,
-            queue,
-            items,
-            scale,
-            id,
-            width: item_width,
-            scroll_offset: Default::default(),
-            touch_state: Default::default(),
-            max_height: Default::default(),
-            dirty: Default::default(),
-        };
 
         // Set initial size constraints.
         menu.set_size(max_size);
@@ -150,13 +159,28 @@ impl OptionMenu {
         self.scroll_offset = scroll_offset;
     }
 
+    /// Update popup borders.
+    pub fn set_borders(&mut self, borders: Borders) {
+        self.borders = borders;
+    }
+
+    fn item_width(&self) -> u32 {
+        let border_widths = self.border_widths();
+        self.width - border_widths.left - border_widths.right
+    }
+
     /// Get index of item at the specified physical point.
     fn item_at(&self, mut position: Position<f64>) -> Option<usize> {
+        // Apply border offsets.
+        let borders = self.border_widths() * self.scale;
+        position.y -= borders.top as f64;
+        position.x -= borders.left as f64;
+
         // Apply current scroll offset.
         position.y += self.scroll_offset as f64;
 
         // Ignore points entirely outside the menu.
-        let physical_width = self.width as f64 * self.scale;
+        let physical_width = self.width as f64 * self.scale - (borders.left - borders.right) as f64;
         if position.x < 0. || position.y < 0. || position.x >= physical_width {
             return None;
         }
@@ -183,22 +207,42 @@ impl OptionMenu {
 
     /// Get maximum tab scroll offset.
     fn max_scroll_offset(&self) -> u32 {
+        let border_widths = self.border_widths() * self.scale;
+
         let max_height = (self.max_height as f64 * self.scale).round() as u32;
-        self.total_height().saturating_sub(max_height)
+        let border_size = border_widths.top + border_widths.bottom;
+
+        self.content_height().saturating_sub(max_height - border_size)
     }
 
     /// Get total option menu height in physical space.
     ///
-    /// This is the height of the popup without maximum height constraints.
-    fn total_height(&self) -> u32 {
+    /// This is the height of the menu's content without maximum height
+    /// constraints.
+    fn content_height(&self) -> u32 {
         self.items.iter().map(|item| item.height() as u32).sum()
     }
 
-    /// Get total option menu height in logical space.
+    /// Get total option menu content height in logical space.
     ///
     /// See [`Self::total_height`] for more details.
-    fn total_logical_height(&self) -> u32 {
-        (self.total_height() as f64 / self.scale).round() as u32
+    fn logical_content_height(&self) -> u32 {
+        (self.content_height() as f64 / self.scale).round() as u32
+    }
+
+    /// Logical border widths.
+    fn border_widths(&self) -> BorderWidths {
+        BorderWidths {
+            bottom: if self.borders.contains(Borders::BOTTOM) { BORDER_SIZE } else { 0 },
+            right: if self.borders.contains(Borders::RIGHT) { BORDER_SIZE } else { 0 },
+            left: if self.borders.contains(Borders::LEFT) { BORDER_SIZE } else { 0 },
+            top: if self.borders.contains(Borders::TOP) { BORDER_SIZE } else { 0 },
+        }
+    }
+
+    /// Logical height of the URI toolbar without separator.
+    fn toolbar_height(&self) -> u32 {
+        (TOOLBAR_HEIGHT - SEPARATOR_HEIGHT).round() as u32
     }
 }
 
@@ -213,18 +257,32 @@ impl Popup for OptionMenu {
         // Ensure offset is correct in case size changed.
         self.clamp_scroll_offset();
 
-        // Setup scissoring to crop last element when it should be partially visible.
+        // Calculate physical menu dimensions.
+        let mut position: Position<f32> = (self.position() * self.scale).into();
+        let size = self.size() * self.scale;
+
+        // Draw menu border.
+        unsafe {
+            let border = self.border.get_or_insert_with(|| Texture::new(&BORDER_COLOR, 1, 1));
+            renderer.draw_texture_at(border, position, Some(size.into()));
+        }
+
+        // Scissor crop last element when it should only be partially visible.
+        let borders = self.border_widths() * self.scale;
+        let toolbar_height = (self.toolbar_height() as f64 * self.scale).round();
+        let y = toolbar_height as i32 + borders.bottom as i32;
+        let height = (self.max_height as f64 * self.scale).round() as i32 - borders.bottom as i32;
         unsafe {
             gl::Enable(gl::SCISSOR_TEST);
-            let toolbar_height = (TOOLBAR_HEIGHT * self.scale).round() as i32;
-            let height = (self.max_height as f64 * self.scale).round() as i32;
-            gl::Scissor(0, toolbar_height, i32::MAX, height);
+            gl::Scissor(0, y, i32::MAX, height);
         }
+
+        // Calculate menu position.
+        position.x += borders.left as f32;
+        position.y += borders.top as f32 - self.scroll_offset;
 
         // Draw each option menu entry.
         let max_height = (self.max_height as f32 * self.scale as f32).round();
-        let mut position: Position<f32> = (self.position() * self.scale).into();
-        position.y -= self.scroll_offset;
         for (i, item) in self.items.iter_mut().enumerate() {
             // NOTE: This must be called on all textures to clear dirtiness flag.
             let selected = self.selection_index == Some(i);
@@ -243,31 +301,39 @@ impl Popup for OptionMenu {
     }
 
     fn position(&self) -> Position {
+        let border_widths = self.border_widths();
+
         // Ensure popup is within display area.
         let max_height = self.max_height as i32;
-        let y_end = self.position.y + self.total_logical_height() as i32;
-        let y = if y_end > max_height {
-            cmp::max(self.position.y - y_end + max_height, 0)
-        } else {
-            self.position.y
-        };
+        let height = self.logical_content_height() + border_widths.top + border_widths.bottom;
+        let y_end = self.position.y + height as i32;
+        let clamp_delta = cmp::max(y_end - max_height, 0);
+        let y = cmp::max(self.position.y - clamp_delta, 0);
 
         Position::new(self.position.x, y)
     }
 
     fn set_size(&mut self, size: Size) {
-        self.max_height = size.height - TOOLBAR_HEIGHT as u32;
+        self.max_height = size.height - self.toolbar_height();
         self.dirty = true;
     }
 
     fn size(&self) -> Size {
-        let height = cmp::min(self.max_height, self.total_logical_height());
+        let border_widths = self.border_widths();
+        let total_height = self.logical_content_height() + border_widths.top + border_widths.bottom;
+        let height = cmp::min(self.max_height, total_height);
+
         Size::new(self.width, height)
     }
 
     fn set_scale(&mut self, scale: f64) {
+        self.scale = scale;
+
+        // Update option menu entries.
+        let item_width = self.item_width();
         for item in &mut self.items {
             item.set_scale(scale);
+            item.set_width(item_width);
         }
     }
 
@@ -375,9 +441,9 @@ struct OptionMenuRenderItem {
     scale: f64,
 
     /// Pango layout for main text.
-    label_layout: Layout,
+    label_layout: TextLayout,
     /// Pange layout for description text.
-    description_layout: Option<Layout>,
+    description_layout: Option<TextLayout>,
     /// Whether item is selectable.
     disabled: bool,
 }
@@ -386,13 +452,7 @@ impl OptionMenuRenderItem {
     fn new(item: OptionMenuItem, item_width: u32, scale: f64) -> Self {
         // Create a new pango layout.
         let create_layout = |text: String, font_size: u8| {
-            let layout = {
-                let image_surface = ImageSurface::create(Format::ARgb32, 0, 0).unwrap();
-                let context = Context::new(&image_surface).unwrap();
-                pangocairo::functions::create_layout(&context)
-            };
-            let font = TextureBuilder::font_description(font_size, scale);
-            layout.set_font_description(Some(&font));
+            let layout = TextLayout::new(font_size, scale);
             layout.set_text(&text);
             layout.set_height(0);
             layout
@@ -440,7 +500,7 @@ impl OptionMenuRenderItem {
         let physical_size = Size::new(width, self.height());
 
         // Initialize as opaque texture.
-        let builder = TextureBuilder::new(physical_size, self.scale);
+        let builder = TextureBuilder::new(physical_size);
         builder.clear(bg);
 
         // Configure text rendering options.
@@ -482,8 +542,18 @@ impl OptionMenuRenderItem {
         label_height + description_height + y_padding
     }
 
+    /// Update item width.
+    fn set_width(&mut self, width: u32) {
+        self.width = width;
+        self.dirty = true;
+    }
+
     /// Update item scale.
     fn set_scale(&mut self, scale: f64) {
+        if let Some(layout) = &mut self.description_layout {
+            layout.set_scale(scale);
+        }
+        self.label_layout.set_scale(scale);
         self.scale = scale;
         self.dirty = true;
     }
@@ -541,4 +611,37 @@ enum TouchAction {
 /// Target position for scrolling a menu.
 pub enum ScrollTarget {
     End,
+}
+
+bitflags! {
+    /// Popup borders.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct Borders: u32 {
+        const TOP    = 0b0001;
+        const RIGHT  = 0b0010;
+        const BOTTOM = 0b0100;
+        const LEFT   = 0b1000;
+    }
+}
+
+// Popup border widths.
+#[derive(Debug)]
+struct BorderWidths {
+    bottom: u32,
+    right: u32,
+    left: u32,
+    top: u32,
+}
+
+impl Mul<f64> for BorderWidths {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Self {
+            bottom: (self.bottom as f64 * rhs).round() as u32,
+            right: (self.right as f64 * rhs).round() as u32,
+            left: (self.left as f64 * rhs).round() as u32,
+            top: (self.top as f64 * rhs).round() as u32,
+        }
+    }
 }

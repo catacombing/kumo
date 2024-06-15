@@ -26,7 +26,7 @@ use smithay_client_toolkit::shell::WaylandSurface;
 use crate::engine::webkit::{WebKitEngine, WebKitError};
 use crate::engine::{Engine, EngineId};
 use crate::history::{HistoryMatch, MAX_MATCHES};
-use crate::ui::overlay::option_menu::{OptionMenuId, OptionMenuItem, ScrollTarget};
+use crate::ui::overlay::option_menu::{Borders, OptionMenuId, OptionMenuItem, ScrollTarget};
 use crate::ui::overlay::Overlay;
 use crate::ui::{Ui, TOOLBAR_HEIGHT};
 use crate::uri::{SCHEMES, TLDS};
@@ -840,10 +840,12 @@ impl Window {
         });
 
         // Open new menu.
-        let menu_id = OptionMenuId::new(self.id);
         let position = Position::new(0, self.size.height as i32);
-        self.overlay.open_option_menu(menu_id, position, self.size.width, self.scale, items);
-        self.overlay.scroll_option_menu(menu_id, ScrollTarget::End);
+        let menu_id = OptionMenuId::new(self.id);
+        let width = self.size.width;
+        let menu = self.overlay.open_option_menu(menu_id, position, width, self.scale, items);
+        menu.set_borders(Borders::TOP);
+        menu.scroll(ScrollTarget::End);
         self.history_menu = Some(menu_id);
     }
 

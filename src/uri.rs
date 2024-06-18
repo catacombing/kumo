@@ -805,7 +805,6 @@ pub const TLDS: &[&str] = &[
     "NAB",
     "NAGOYA",
     "NAME",
-    "NATURA",
     "NAVY",
     "NBA",
     "NC",

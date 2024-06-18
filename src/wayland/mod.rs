@@ -1,6 +1,7 @@
 use std::io;
 
 use smithay_client_toolkit::reexports::client::{DispatchError, EventQueue};
+use tracing::error;
 use wayland_backend::client::{ReadEventsGuard, WaylandError};
 
 use crate::State;
@@ -30,7 +31,7 @@ impl WaylandDispatch for State {
             match err {
                 WaylandError::Io(io) if io.kind() == io::ErrorKind::WouldBlock => (),
                 err => {
-                    eprintln!("wayland dispatch failed: {err}");
+                    error!("wayland dispatch failed: {err}");
                     self.main_loop.quit();
                 },
             }

@@ -8,6 +8,7 @@ use std::sync::RwLock;
 
 use rusqlite::Connection as SqliteConnection;
 use smallvec::SmallVec;
+use tracing::error;
 
 /// Maximum scored history matches compared.
 pub const MAX_MATCHES: usize = 25;
@@ -32,14 +33,14 @@ impl History {
                 let entries = match db.load() {
                     Ok(entries) => Rc::new(RwLock::new(entries)),
                     Err(err) => {
-                        eprintln!("Could not load history: {err}");
+                        error!("Could not load history: {err}");
                         Default::default()
                     },
                 };
                 (Some(Rc::new(db)), entries)
             },
             Err(err) => {
-                eprintln!("Could not open history DB: {err}");
+                error!("Could not open history DB: {err}");
                 (None, Default::default())
             },
         };
@@ -59,7 +60,7 @@ impl History {
         // Update filesystem history.
         if let Some(db) = &self.db {
             if let Err(err) = db.visit(&uri) {
-                eprintln!("Failed to write URI to history: {err}");
+                error!("Failed to write URI to history: {err}");
             }
         }
 
@@ -81,7 +82,7 @@ impl History {
         // Update filesystem history.
         if let Some(db) = &self.db {
             if let Err(err) = db.set_title(uri, &title) {
-                eprintln!("Failed to write title to history: {err}");
+                error!("Failed to write title to history: {err}");
             }
         }
 

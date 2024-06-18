@@ -21,22 +21,24 @@ members = [
 ]
 
 [dependencies]
+bitflags = "2.5.0"
+dirs = "5.0.1"
 funq = { path = "./funq" }
+gio = "0.19.2"
+glib = "0.19.2"
 glutin = { version = "0.32.0", default-features = false, features = ["wayland"] }
+indexmap = "2.2.6"
+pangocairo = "0.19.2"
 raw-window-handle = "0.6.0"
+rusqlite = "0.31.0"
+smallvec = "1.13.2"
 smithay-client-toolkit = { version = "0.19.1", default-features = false, features = ["xkbcommon"] }
 thiserror = "1.0.57"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 wayland-backend = { version = "0.3.3", features = ["client_system"] }
 wpe-backend-fdo-sys = { path = "./wpe-backend-fdo-sys" }
 wpe-webkit = { path = "./wpe-webkit" }
-glib = "0.19.2"
-gio = "0.19.2"
-pangocairo = "0.19.2"
-indexmap = "2.2.6"
-dirs = "5.0.1"
-rusqlite = "0.31.0"
-smallvec = "1.13.2"
-bitflags = "2.5.0"
 
 [build-dependencies]
 gl_generator = "0.14.0"

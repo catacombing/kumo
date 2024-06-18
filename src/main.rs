@@ -18,6 +18,7 @@ use smithay_client_toolkit::reexports::client::{
     ConnectError, Connection, EventQueue, QueueHandle,
 };
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers, RepeatInfo};
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::engine::webkit::WebKitError;
 use crate::history::History;
@@ -52,6 +53,11 @@ enum Error {
 }
 
 fn main() -> Result<(), Error> {
+    // Setup logging.
+    let directives = env::var("RUST_LOG").unwrap_or("warn,kumo=info".into());
+    let env_filter = EnvFilter::builder().parse_lossy(directives);
+    FmtSubscriber::builder().with_env_filter(env_filter).with_line_number(true).init();
+
     let queue = Queue::new()?;
     let main_loop = MainLoop::new(None, true);
     let mut state = State::new(queue.local_handle(), main_loop.clone())?;

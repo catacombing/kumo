@@ -6,13 +6,16 @@ use std::sync::Once;
 use std::time::UNIX_EPOCH;
 
 use funq::StQueueHandle;
+use gio::Cancellable;
 use glib::object::ObjectExt;
+use glib::Bytes;
 use glutin::api::egl::Egl;
 use glutin::display::{AsRawDisplay, Display, RawDisplay};
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::{Connection, Proxy};
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
+use tracing::{error, trace, warn};
 use wpe_backend_fdo_sys::{
     wpe_fdo_egl_exported_image, wpe_fdo_egl_exported_image_get_egl_image,
     wpe_fdo_egl_exported_image_get_height, wpe_fdo_egl_exported_image_get_width,
@@ -42,8 +45,8 @@ use wpe_backend_fdo_sys::{
     wpe_view_backend_set_fullscreen_handler,
 };
 use wpe_webkit::{
-    Color, CookieAcceptPolicy, CookiePersistentStorage, NetworkSession, OptionMenu, WebView,
-    WebViewBackend, WebViewExt,
+    Color, CookieAcceptPolicy, CookiePersistentStorage, NetworkSession, OptionMenu,
+    UserContentFilterStore, WebView, WebViewBackend, WebViewExt,
 };
 
 use crate::engine::webkit::input_method_context::InputMethodContext;
@@ -54,6 +57,9 @@ use crate::window::TextInputChange;
 use crate::{Position, Size, State};
 
 mod input_method_context;
+
+/// Content filter store ID for the adblock json.
+const ADBLOCK_FILTER_ID: &str = "adblock";
 
 // Once for calling FDO initialization methods.
 static FDO_INIT: Once = Once::new();
@@ -333,6 +339,9 @@ impl WebKitEngine {
         unsafe {
             wpe_view_backend_add_activity_state(wpe_backend, state);
         };
+
+        // Load adblock content filter.
+        load_adblock(web_view.clone());
 
         // Get access to the OpenGL API.
         let Display::Egl(egl_display) = display;
@@ -811,6 +820,24 @@ unsafe extern "C" fn on_egl_image_export(
     state.queue.set_egl_image(state.engine_id, image);
 }
 
+/// Shared state leaked to fullscreen handler callback.
+struct FullscreenSharedState {
+    queue: StQueueHandle<State>,
+    engine_id: EngineId,
+}
+
+/// Fullscreen callback handler.
+unsafe extern "C" fn handle_fullscreen(state: *mut ffi::c_void, enable: bool) -> bool {
+    let state = match state.cast::<FullscreenSharedState>().as_mut() {
+        Some(state) => state,
+        None => return false,
+    };
+
+    state.queue.set_fullscreen(state.engine_id, enable);
+
+    true
+}
+
 /// Get WebKit network session using XDG-based backing storage.
 fn xdg_network_session() -> Option<NetworkSession> {
     // Create the network session using kumo-suffixed XDG directories.
@@ -829,20 +856,42 @@ fn xdg_network_session() -> Option<NetworkSession> {
     Some(network_session)
 }
 
-/// Shared state leaked to fullscreen handler callback.
-struct FullscreenSharedState {
-    queue: StQueueHandle<State>,
-    engine_id: EngineId,
-}
-
-/// Fullscreen callback handler.
-unsafe extern "C" fn handle_fullscreen(state: *mut ffi::c_void, enable: bool) -> bool {
-    let state = match state.cast::<FullscreenSharedState>().as_mut() {
-        Some(state) => state,
-        None => return false,
+/// Load the content filter for adblocking.
+fn load_adblock(web_view: WebView) {
+    // Initialize content filter cache at the default user data directory.
+    let filter_dir = match dirs::data_dir() {
+        Some(data_dir) => data_dir.join("kumo/default/content_filters"),
+        None => {
+            warn!("Missing user data directory, skipping adblock setup");
+            return;
+        },
+    };
+    let filter_store = match filter_dir.to_str() {
+        Some(filter_dir) => UserContentFilterStore::new(filter_dir),
+        None => {
+            warn!("Non-utf8 user data directory ({filter_dir:?}), skipping adblock setup");
+            return;
+        },
     };
 
-    state.queue.set_fullscreen(state.engine_id, enable);
+    // Attempt to load the adblock filter from the cache.
+    filter_store.clone().load(ADBLOCK_FILTER_ID, None::<&Cancellable>, move |filter| {
+        let content_manager = web_view.user_content_manager().unwrap();
 
-    true
+        // If the filter was in the cache, just add it to the content manager.
+        if let Ok(filter) = filter {
+            content_manager.add_filter(&filter);
+            trace!("Successfully initialized adblock filter from cache");
+            return;
+        }
+
+        // Load filter into the cache, then add it to the content manager.
+        let filter_bytes = Bytes::from_static(include_bytes!("../../../adblock.json"));
+        filter_store.save(ADBLOCK_FILTER_ID, &filter_bytes, None::<&Cancellable>, move |filter| {
+            match filter {
+                Ok(filter) => content_manager.add_filter(&filter),
+                Err(err) => error!("Could not load adblock filter: {err}"),
+            }
+        });
+    });
 }

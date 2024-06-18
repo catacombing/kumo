@@ -167,7 +167,7 @@ function = [
 name = "WPEWebKit.UserContentFilterStore"
 status = "generate"
 function = [
-    { name = "fetch_identifiers", ignore = true },
+    { name = "fetch_identifiers", manual = true },
 ]
 
 [[object]]

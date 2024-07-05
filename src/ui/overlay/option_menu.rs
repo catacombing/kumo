@@ -162,6 +162,12 @@ impl OptionMenu {
     /// Update popup borders.
     pub fn set_borders(&mut self, borders: Borders) {
         self.borders = borders;
+
+        // Resize option menu items.
+        let item_width = self.item_width();
+        for item in &mut self.items {
+            item.set_width(item_width);
+        }
     }
 
     fn item_width(&self) -> u32 {

@@ -388,11 +388,11 @@ impl TextureBuilder {
         };
 
         // Truncate text beyond specified bounds.
-        layout.set_width(size.width * PANGO_SCALE);
-        layout.set_ellipsize(EllipsizeMode::End);
-
-        // Do not break lines.
-        layout.set_height(0);
+        if text_options.ellipsize {
+            layout.set_width(size.width * PANGO_SCALE);
+            layout.set_ellipsize(EllipsizeMode::End);
+            layout.set_height(0);
+        }
 
         // Calculate text position.
         let (_, text_height) = layout.pixel_size();
@@ -549,6 +549,7 @@ pub struct TextOptions {
     size: Option<Size<i32>>,
     show_cursor: bool,
     cursor_pos: i32,
+    ellipsize: bool,
 }
 
 impl TextOptions {
@@ -556,6 +557,7 @@ impl TextOptions {
         Self {
             autocomplete_color: [50_000; 3],
             text_color: [1.; 3],
+            ellipsize: true,
             cursor_pos: -1,
             autocomplete: Default::default(),
             show_cursor: Default::default(),
@@ -614,6 +616,11 @@ impl TextOptions {
         } else {
             (self.cursor_pos, self.cursor_pos)
         }
+    }
+
+    /// Set whether text should be truncated with an ellipsis.
+    pub fn set_ellipsize(&mut self, ellipsize: bool) {
+        self.ellipsize = ellipsize;
     }
 }
 

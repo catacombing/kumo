@@ -7,6 +7,7 @@ use std::ops::{Bound, Range, RangeBounds};
 use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose};
 use funq::MtQueueHandle;
 use glutin::display::Display;
+use pangocairo::cairo::LinearGradient;
 use pangocairo::pango::{Alignment, SCALE as PANGO_SCALE};
 use smallvec::SmallVec;
 use smithay_client_toolkit::compositor::{CompositorState, Region};
@@ -555,6 +556,10 @@ impl Uribar {
         self.scale = scale;
         self.size = size;
 
+        // Update text field dimensions.
+        let field_width = self.size.width as f64 - (2. * X_PADDING * scale).round();
+        self.text_field.set_width(field_width);
+
         // Force redraw.
         self.dirty = true;
     }
@@ -603,20 +608,20 @@ impl Uribar {
     /// Draw the URI bar into an OpenGL texture.
     fn draw(&mut self) -> Texture {
         // Draw background color.
-        let builder = TextureBuilder::new(self.size.into());
+        let size = self.size.into();
+        let builder = TextureBuilder::new(size);
         builder.clear(URIBAR_BG);
 
         // Set text rendering options.
         let position: Position<f64> = self.text_position().into();
-        let width = self.size.width - 2 * position.x.round() as u32;
-        let size = Size::new(width, self.size.height);
         let mut text_options = TextOptions::new();
         text_options.cursor_position(self.text_field.cursor_index());
         text_options.autocomplete(self.text_field.autocomplete().into());
         text_options.preedit(self.text_field.preedit.clone());
         text_options.position(position);
-        text_options.size(size.into());
+        text_options.size(size);
         text_options.text_color(URIBAR_FG);
+        text_options.set_ellipsize(false);
 
         // Show cursor or selection when focused.
         if self.text_field.focused {
@@ -632,13 +637,33 @@ impl Uribar {
         layout.set_scale(self.scale);
         builder.rasterize(layout, &text_options);
 
+        // Draw start gradient to indicate available scroll content.
+        let size: Size<f64> = self.size.into();
+        let x_padding = (X_PADDING * self.scale).round();
+        let gradient = LinearGradient::new(0., 0., x_padding, 0.);
+        gradient.add_color_stop_rgba(0., URIBAR_BG[0], URIBAR_BG[1], URIBAR_BG[2], 255.);
+        gradient.add_color_stop_rgba(x_padding, URIBAR_BG[0], URIBAR_BG[1], URIBAR_BG[2], 0.);
+        builder.context().rectangle(0., 0., x_padding, size.height);
+        builder.context().set_source(gradient).unwrap();
+        builder.context().fill().unwrap();
+
+        // Draw end gradient to indicate available scroll content.
+        let x = size.width - x_padding;
+        let gradient = LinearGradient::new(x, 0., size.width, 0.);
+        gradient.add_color_stop_rgba(0., URIBAR_BG[0], URIBAR_BG[1], URIBAR_BG[2], 0.);
+        gradient.add_color_stop_rgba(x_padding, URIBAR_BG[0], URIBAR_BG[1], URIBAR_BG[2], 255.);
+        builder.context().rectangle(x, 0., size.width, size.height);
+        builder.context().set_source(gradient).unwrap();
+        builder.context().fill().unwrap();
+
         // Convert cairo buffer to texture.
         builder.build()
     }
 
     /// Get relative position of the text.
     fn text_position(&self) -> Position {
-        Position::new((X_PADDING * self.scale).round() as i32, 0)
+        let x = (X_PADDING * self.scale + self.text_field.scroll_offset).round() as i32;
+        Position::new(x, 0)
     }
 
     /// Handle touch press events.
@@ -826,10 +851,13 @@ struct TextField {
     layout: TextLayout,
     cursor_index: i32,
     cursor_offset: i32,
+    scroll_offset: f64,
+
+    width: f64,
 
     selection: Option<Range<i32>>,
 
-    last_touch: TouchHistory,
+    touch_state: TouchState,
 
     text_change_handler: Box<dyn FnMut(&mut Self)>,
     submit_handler: Box<dyn FnMut(String)>,
@@ -856,12 +884,14 @@ impl TextField {
             purpose: ContentPurpose::Normal,
             text_input_dirty: Default::default(),
             cursor_offset: Default::default(),
+            scroll_offset: Default::default(),
             autocomplete: Default::default(),
             cursor_index: Default::default(),
-            last_touch: Default::default(),
+            touch_state: Default::default(),
             selection: Default::default(),
             preedit: Default::default(),
             focused: Default::default(),
+            width: Default::default(),
             dirty: Default::default(),
         }
     }
@@ -899,6 +929,14 @@ impl TextField {
         self.dirty = true;
     }
 
+    /// Set the field width in pixels.
+    fn set_width(&mut self, width: f64) {
+        self.width = width;
+
+        // Ensure cursor is visible.
+        self.update_scroll_offset();
+    }
+
     /// Get current text content.
     fn text(&self) -> String {
         self.layout.text().to_string()
@@ -929,6 +967,9 @@ impl TextField {
 
         if start < end {
             self.selection = Some(start..end);
+
+            // Ensure selection end is visible.
+            self.update_scroll_offset();
 
             self.text_input_dirty = true;
             self.dirty = true;
@@ -1005,6 +1046,9 @@ impl TextField {
                         text.drain(start_index..end_index);
                         self.layout.set_text(&text);
                         self.emit_text_changed();
+
+                        // Ensure cursor is still visible.
+                        self.update_scroll_offset();
                     },
                 }
 
@@ -1117,24 +1161,26 @@ impl TextField {
         }
 
         // Get byte offset from X/Y position.
-        let x = (position.x * pangocairo::pango::SCALE as f64).round() as i32;
+        let x =
+            ((position.x - self.scroll_offset) * pangocairo::pango::SCALE as f64).round() as i32;
         let y = (position.y * pangocairo::pango::SCALE as f64).round() as i32;
         let (_, index, offset) = self.layout.xy_to_index(x, y);
         let byte_index = self.cursor_byte_index(index, offset);
 
         // Update touch history.
-        let multi_taps = self.last_touch.push(time, index, offset);
+        let multi_taps = self.touch_state.push(time, index, offset);
 
         // Handle single/double/triple-taps.
         match multi_taps {
             0 => {
                 // Whether touch is modifying one of the selection boundaries.
                 if let Some(selection) = self.selection.as_ref() {
-                    self.last_touch.moving_selection_start = selection.start == byte_index;
-                    self.last_touch.moving_selection_end = selection.end == byte_index;
+                    self.touch_state.moving_selection_start = selection.start == byte_index;
+                    self.touch_state.moving_selection_end = selection.end == byte_index;
                 }
 
-                if !self.last_touch.moving_selection_start && !self.last_touch.moving_selection_end
+                if !self.touch_state.moving_selection_start
+                    && !self.touch_state.moving_selection_end
                 {
                     // Update cursor index.
                     self.cursor_index = index;
@@ -1178,13 +1224,14 @@ impl TextField {
     pub fn touch_motion(&mut self, position: Position<f64>) {
         // Ignore if neither selection end is being moved.
         if self.selection.is_none()
-            || (!self.last_touch.moving_selection_start && !self.last_touch.moving_selection_end)
+            || (!self.touch_state.moving_selection_start && !self.touch_state.moving_selection_end)
         {
             return;
         }
 
         // Get byte offset from X/Y position.
-        let x = (position.x * pangocairo::pango::SCALE as f64).round() as i32;
+        let x =
+            ((position.x - self.scroll_offset) * pangocairo::pango::SCALE as f64).round() as i32;
         let y = (position.y * pangocairo::pango::SCALE as f64).round() as i32;
         let (_, index, offset) = self.layout.xy_to_index(x, y);
         let byte_index = self.cursor_byte_index(index, offset);
@@ -1192,9 +1239,9 @@ impl TextField {
         let selection = self.selection.as_mut().unwrap();
 
         // Update selection if it is at least one character wide.
-        if self.last_touch.moving_selection_start && byte_index != selection.end {
+        if self.touch_state.moving_selection_start && byte_index != selection.end {
             selection.start = byte_index;
-        } else if self.last_touch.moving_selection_end && byte_index != selection.start {
+        } else if self.touch_state.moving_selection_end && byte_index != selection.start {
             selection.end = byte_index;
         }
 
@@ -1202,10 +1249,13 @@ impl TextField {
         if selection.start > selection.end {
             mem::swap(&mut selection.start, &mut selection.end);
             mem::swap(
-                &mut self.last_touch.moving_selection_start,
-                &mut self.last_touch.moving_selection_end,
+                &mut self.touch_state.moving_selection_start,
+                &mut self.touch_state.moving_selection_end,
             );
         }
+
+        // Ensure selection end stays visible.
+        self.update_scroll_offset();
 
         self.text_input_dirty = true;
         self.dirty = true;
@@ -1228,6 +1278,9 @@ impl TextField {
         // Update cursor position.
         self.cursor_index = start as i32;
         self.cursor_offset = 0;
+
+        // Ensure cursor is visible.
+        self.update_scroll_offset();
 
         // Set reason for next IME update.
         self.change_cause = ChangeCause::InputMethod;
@@ -1253,6 +1306,9 @@ impl TextField {
         // Move cursor behind the new characters.
         self.cursor_index += text.len() as i32;
 
+        // Ensure cursor is visible.
+        self.update_scroll_offset();
+
         // Set reason for next IME update.
         self.change_cause = ChangeCause::InputMethod;
 
@@ -1270,6 +1326,9 @@ impl TextField {
         }
 
         self.preedit = (text, cursor_begin, cursor_end);
+
+        // Ensure preedit end is visible.
+        self.update_scroll_offset();
 
         self.text_input_dirty = true;
         self.dirty = true;
@@ -1372,6 +1431,9 @@ impl TextField {
             }
         }
 
+        // Ensure cursor is always visible.
+        self.update_scroll_offset();
+
         self.text_input_dirty = true;
         self.dirty = true;
     }
@@ -1399,6 +1461,48 @@ impl TextField {
         }
 
         index + offset
+    }
+
+    /// Update the scroll offset based on cursor position.
+    ///
+    /// This will scroll towards the cursor to ensure it is always visible.
+    fn update_scroll_offset(&mut self) {
+        // For cursor ranges we jump twice to make both ends visible when possible.
+        if let Some(selection) = &self.selection {
+            let end = selection.end;
+            self.update_scroll_offset_to(selection.start);
+            self.update_scroll_offset_to(end);
+        } else if self.preedit.0.is_empty() {
+            self.update_scroll_offset_to(self.cursor_index());
+        } else {
+            self.update_scroll_offset_to(self.preedit.1);
+            self.update_scroll_offset_to(self.preedit.2);
+        }
+    }
+
+    /// Update the scroll offset to include a specific cursor index.
+    fn update_scroll_offset_to(&mut self, cursor_index: i32) {
+        let (cursor_rect, _) = self.layout.cursor_pos(cursor_index);
+        let cursor_x = cursor_rect.x() as f64 / PANGO_SCALE as f64;
+
+        // Scroll text to the right if there's empty space after the cursor.
+        let text_len = self.text().len() as i32;
+        let whitespace_delta = self.width - cursor_x - self.scroll_offset;
+        if cursor_index == text_len && whitespace_delta > 0. {
+            self.scroll_offset = (self.scroll_offset + whitespace_delta).min(0.);
+            self.dirty = true;
+            return;
+        }
+
+        // Scroll cursor back into the visible range.
+        let delta = cursor_x + self.scroll_offset - self.width;
+        if delta > 0. {
+            self.scroll_offset -= delta;
+            self.dirty = true;
+        } else if cursor_x + self.scroll_offset < 0. {
+            self.scroll_offset = -cursor_x;
+            self.dirty = true;
+        }
     }
 }
 
@@ -1428,9 +1532,9 @@ impl Default for ImeState {
     }
 }
 
-/// Simplified touch history for double/triple-tap tracking.
+/// Touch event tracking.
 #[derive(Default)]
-struct TouchHistory {
+struct TouchState {
     last_touch: u32,
     cursor_index: i32,
     cursor_offset: i32,
@@ -1439,7 +1543,7 @@ struct TouchHistory {
     moving_selection_end: bool,
 }
 
-impl TouchHistory {
+impl TouchState {
     /// Add a new touch event.
     ///
     /// This returns the number of times consecutive taps (0-2).

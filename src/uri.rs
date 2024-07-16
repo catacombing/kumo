@@ -1041,7 +1041,6 @@ pub const TLDS: &[&str] = &[
     "SH",
     "SHANGRILA",
     "SHARP",
-    "SHAW",
     "SHELL",
     "SHIA",
     "SHIKSHA",

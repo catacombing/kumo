@@ -936,6 +936,9 @@ impl TextField {
         // Clear selection.
         self.selection = None;
 
+        // Reset scroll offset.
+        self.scroll_offset = 0.;
+
         self.text_input_dirty = true;
         self.dirty = true;
     }

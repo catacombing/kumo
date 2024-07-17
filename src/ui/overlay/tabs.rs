@@ -9,6 +9,7 @@ use smithay_client_toolkit::seat::keyboard::Modifiers;
 use crate::engine::{Engine, EngineId};
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBuilder};
+use crate::ui::MAX_TAP_DISTANCE;
 use crate::{gl, rect_contains, Position, Size, State, WindowId};
 
 /// Tab text color of active tab.
@@ -46,9 +47,6 @@ const NEW_TAB_BUTTON_HEIGHT: u32 = 60;
 
 /// Size of the "New Tab" button `+` icon.
 const NEW_TAB_ICON_SIZE: f64 = 30.;
-
-/// Square of the maximum distance before touch input is considered a drag.
-const MAX_TAP_DISTANCE: f64 = 400.;
 
 #[funq::callbacks(State)]
 trait TabsHandler {

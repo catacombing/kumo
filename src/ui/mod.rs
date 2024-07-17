@@ -30,6 +30,12 @@ pub const TOOLBAR_HEIGHT: f64 = 50.;
 /// Logical height of the UI/content separator.
 pub const SEPARATOR_HEIGHT: f64 = 2.;
 
+/// Square of the maximum distance before touch input is considered a drag.
+pub const MAX_TAP_DISTANCE: f64 = 400.;
+
+/// Maximum interval between taps to be considered a double/trible-tap.
+const MAX_MULTI_TAP_MILLIS: u32 = 300;
+
 /// Font size at scale 1.
 const FONT_SIZE: u8 = 16;
 
@@ -55,9 +61,6 @@ const URIBAR_BG: [f64; 3] = [0.15, 0.15, 0.15];
 
 /// Horizontal padding between elements and screen border.
 const X_PADDING: f64 = 10.;
-
-/// Maximum interval between taps to be considered a double/trible-tap.
-const MAX_MULTI_TAP_MILLIS: u32 = 300;
 
 /// Separator characters for tab completion.
 const AUTOCOMPLETE_SEPARATORS: &[u8] = &[b'/', b':', b' ', b'?', b'&'];
@@ -290,7 +293,7 @@ impl Ui {
         time: u32,
         id: i32,
         position: Position<f64>,
-        modifiers: Modifiers,
+        _modifiers: Modifiers,
     ) {
         // Only accept a single touch point in the UI.
         if self.touch_point.is_some() {
@@ -307,7 +310,7 @@ impl Ui {
 
         if rect_contains(uribar_position, uribar_size, position) {
             // Forward touch event.
-            self.uribar.touch_down(time, position - uribar_position, modifiers);
+            self.uribar.touch_down(time, position - uribar_position);
 
             self.touch_focus = TouchFocusElement::UriBar;
             self.keyboard_focus_uribar();
@@ -364,7 +367,8 @@ impl Ui {
         self.touch_point = None;
 
         match self.touch_focus {
-            TouchFocusElement::UriBar | TouchFocusElement::None => (),
+            // Forward touch event.
+            TouchFocusElement::UriBar => self.uribar.touch_up(),
             TouchFocusElement::TabsButton(position) => {
                 let uribar_x = self.uribar_position().x as f64;
                 let uribar_width = self.uribar_size().width as f64;
@@ -378,6 +382,7 @@ impl Ui {
                     self.queue.load_prev(self.window_id);
                 }
             },
+            TouchFocusElement::None => (),
         }
     }
 
@@ -667,11 +672,11 @@ impl Uribar {
     }
 
     /// Handle touch press events.
-    pub fn touch_down(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
+    pub fn touch_down(&mut self, time: u32, position: Position<f64>) {
         // Forward event to text field.
         let mut relative_position = position;
         relative_position.x -= X_PADDING * self.scale;
-        self.text_field.touch_down(time, relative_position, modifiers);
+        self.text_field.touch_down(time, relative_position);
     }
 
     /// Handle touch motion events.
@@ -680,6 +685,12 @@ impl Uribar {
         let mut relative_position = position;
         relative_position.x -= X_PADDING * self.scale;
         self.text_field.touch_motion(relative_position);
+    }
+
+    /// Handle touch release events.
+    pub fn touch_up(&mut self) {
+        // Forward event to text field.
+        self.text_field.touch_up();
     }
 }
 
@@ -1155,46 +1166,104 @@ impl TextField {
     }
 
     /// Handle touch press events.
-    pub fn touch_down(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
-        if modifiers.logo || modifiers.shift {
+    pub fn touch_down(&mut self, time: u32, position: Position<f64>) {
+        // Get byte offset from X/Y position.
+        let x = ((position.x - self.scroll_offset) * PANGO_SCALE as f64).round() as i32;
+        let y = (position.y * PANGO_SCALE as f64).round() as i32;
+        let (_, index, offset) = self.layout.xy_to_index(x, y);
+        let byte_index = self.cursor_byte_index(index, offset);
+
+        // Update touch state.
+        self.touch_state.down(time, position, byte_index);
+    }
+
+    /// Handle touch motion events.
+    pub fn touch_motion(&mut self, position: Position<f64>) {
+        // Update touch state.
+        let delta = self.touch_state.motion(position, self.selection.as_ref());
+
+        // Handle touch drag actions.
+        let action = self.touch_state.action;
+        match action {
+            // Scroll through URI text.
+            TouchAction::Drag => {
+                self.scroll_offset =
+                    (self.scroll_offset + delta.x).min(0.).max(self.min_scroll_offset());
+                self.dirty = true;
+            },
+            // Modify selection boundaries.
+            TouchAction::DragSelectionStart | TouchAction::DragSelectionEnd
+                if self.selection.is_some() =>
+            {
+                // Get byte offset from X/Y position.
+                let x = ((position.x - self.scroll_offset) * PANGO_SCALE as f64).round() as i32;
+                let y = (position.y * PANGO_SCALE as f64).round() as i32;
+                let (_, index, offset) = self.layout.xy_to_index(x, y);
+                let byte_index = self.cursor_byte_index(index, offset);
+
+                // Update selection if it is at least one character wide.
+                let selection = self.selection.as_mut().unwrap();
+                let modifies_start = action == TouchAction::DragSelectionStart;
+                if modifies_start && byte_index != selection.end {
+                    selection.start = byte_index;
+                } else if !modifies_start && byte_index != selection.start {
+                    selection.end = byte_index;
+                }
+
+                // Swap modified side when input carets "overtake" each other.
+                if selection.start > selection.end {
+                    mem::swap(&mut selection.start, &mut selection.end);
+                    self.touch_state.action = if modifies_start {
+                        TouchAction::DragSelectionEnd
+                    } else {
+                        TouchAction::DragSelectionStart
+                    };
+                }
+
+                // Ensure selection end stays visible.
+                self.update_scroll_offset();
+
+                self.text_input_dirty = true;
+                self.dirty = true;
+            },
+            // Ignore touch motion for tap actions.
+            _ => (),
+        }
+    }
+
+    /// Handle touch release events.
+    pub fn touch_up(&mut self) {
+        // Ignore release handling for drag actions.
+        if matches!(
+            self.touch_state.action,
+            TouchAction::Drag | TouchAction::DragSelectionStart | TouchAction::DragSelectionEnd
+        ) {
             return;
         }
 
         // Get byte offset from X/Y position.
-        let x =
-            ((position.x - self.scroll_offset) * pangocairo::pango::SCALE as f64).round() as i32;
-        let y = (position.y * pangocairo::pango::SCALE as f64).round() as i32;
+        let position = self.touch_state.last_position;
+        let x = ((position.x - self.scroll_offset) * PANGO_SCALE as f64).round() as i32;
+        let y = (position.y * PANGO_SCALE as f64).round() as i32;
         let (_, index, offset) = self.layout.xy_to_index(x, y);
         let byte_index = self.cursor_byte_index(index, offset);
 
-        // Update touch history.
-        let multi_taps = self.touch_state.push(time, index, offset);
-
         // Handle single/double/triple-taps.
-        match multi_taps {
-            0 => {
-                // Whether touch is modifying one of the selection boundaries.
-                if let Some(selection) = self.selection.as_ref() {
-                    self.touch_state.moving_selection_start = selection.start == byte_index;
-                    self.touch_state.moving_selection_end = selection.end == byte_index;
-                }
+        match self.touch_state.action {
+            // Move cursor to tap location.
+            TouchAction::Tap => {
+                // Update cursor index.
+                self.cursor_index = index;
+                self.cursor_offset = offset;
 
-                if !self.touch_state.moving_selection_start
-                    && !self.touch_state.moving_selection_end
-                {
-                    // Update cursor index.
-                    self.cursor_index = index;
-                    self.cursor_offset = offset;
+                // Clear selection.
+                self.selection = None;
 
-                    // Clear selection.
-                    self.selection = None;
-
-                    self.text_input_dirty = true;
-                    self.dirty = true;
-                }
+                self.text_input_dirty = true;
+                self.dirty = true;
             },
-            1 => {
-                // Select entire word at touch location.
+            // Select entire word at touch location.
+            TouchAction::DoubleTap => {
                 let text = self.text();
                 let mut word_start = 0;
                 let mut word_end = text.len() as i32;
@@ -1209,56 +1278,15 @@ impl TextField {
                 }
                 self.select(word_start..word_end);
             },
-            2 => {
-                // Select everything.
-                self.select(..);
+            // Select everything.
+            TouchAction::TripleTap => self.select(..),
+            TouchAction::Drag | TouchAction::DragSelectionStart | TouchAction::DragSelectionEnd => {
+                unreachable!()
             },
-            _ => unreachable!(),
         }
 
         // Ensure focus when receiving touch input.
         self.set_focus(true);
-    }
-
-    /// Handle touch motion events.
-    pub fn touch_motion(&mut self, position: Position<f64>) {
-        // Ignore if neither selection end is being moved.
-        if self.selection.is_none()
-            || (!self.touch_state.moving_selection_start && !self.touch_state.moving_selection_end)
-        {
-            return;
-        }
-
-        // Get byte offset from X/Y position.
-        let x =
-            ((position.x - self.scroll_offset) * pangocairo::pango::SCALE as f64).round() as i32;
-        let y = (position.y * pangocairo::pango::SCALE as f64).round() as i32;
-        let (_, index, offset) = self.layout.xy_to_index(x, y);
-        let byte_index = self.cursor_byte_index(index, offset);
-
-        let selection = self.selection.as_mut().unwrap();
-
-        // Update selection if it is at least one character wide.
-        if self.touch_state.moving_selection_start && byte_index != selection.end {
-            selection.start = byte_index;
-        } else if self.touch_state.moving_selection_end && byte_index != selection.start {
-            selection.end = byte_index;
-        }
-
-        // Swap modified side when input carets "overtake" each other.
-        if selection.start > selection.end {
-            mem::swap(&mut selection.start, &mut selection.end);
-            mem::swap(
-                &mut self.touch_state.moving_selection_start,
-                &mut self.touch_state.moving_selection_end,
-            );
-        }
-
-        // Ensure selection end stays visible.
-        self.update_scroll_offset();
-
-        self.text_input_dirty = true;
-        self.dirty = true;
     }
 
     /// Delete text around the current cursor position.
@@ -1504,6 +1532,11 @@ impl TextField {
             self.dirty = true;
         }
     }
+
+    /// Get the larges allowed scroll offset.
+    fn min_scroll_offset(&self) -> f64 {
+        -(self.layout.pixel_size().0 as f64 - self.width).max(0.)
+    }
 }
 
 impl Default for TextField {
@@ -1535,34 +1568,79 @@ impl Default for ImeState {
 /// Touch event tracking.
 #[derive(Default)]
 struct TouchState {
-    last_touch: u32,
-    cursor_index: i32,
-    cursor_offset: i32,
-    repeats: usize,
-    moving_selection_start: bool,
-    moving_selection_end: bool,
+    action: TouchAction,
+    last_time: u32,
+    last_position: Position<f64>,
+    last_motion_position: Position<f64>,
+    start_byte_index: i32,
 }
 
 impl TouchState {
-    /// Add a new touch event.
-    ///
-    /// This returns the number of times consecutive taps (0-2).
-    pub fn push(&mut self, time: u32, cursor_index: i32, cursor_offset: i32) -> usize {
-        if self.repeats < 2
-            && self.last_touch + MAX_MULTI_TAP_MILLIS >= time
-            && cursor_index == self.cursor_index
+    /// Update state from touch down event.
+    fn down(&mut self, time: u32, position: Position<f64>, byte_index: i32) {
+        // Update touch action.
+        let delta = position - self.last_position;
+        self.action = if self.last_time + MAX_MULTI_TAP_MILLIS >= time
+            && delta.x.powi(2) + delta.y.powi(2) <= MAX_TAP_DISTANCE
         {
-            self.repeats += 1;
+            match self.action {
+                TouchAction::Tap => TouchAction::DoubleTap,
+                TouchAction::DoubleTap => TouchAction::TripleTap,
+                _ => TouchAction::Tap,
+            }
         } else {
-            self.cursor_index = cursor_index;
-            self.cursor_offset = cursor_offset;
-            self.moving_selection_start = false;
-            self.moving_selection_end = false;
-            self.repeats = 0;
+            TouchAction::Tap
+        };
+
+        // Reset touch origin state.
+        self.start_byte_index = byte_index;
+        self.last_motion_position = position;
+        self.last_position = position;
+        self.last_time = time;
+    }
+
+    /// Update state from touch motion event.
+    ///
+    /// Returns the distance moved since the last touch down or motion.
+    fn motion(&mut self, position: Position<f64>, selection: Option<&Range<i32>>) -> Position<f64> {
+        // Update incremental delta.
+        let delta = position - self.last_motion_position;
+        self.last_motion_position = position;
+
+        // Never transfer out of drag/multi-tap states.
+        if self.action != TouchAction::Tap {
+            return delta;
         }
 
-        self.last_touch = time;
+        // Ignore drags below the tap deadzone.
+        let delta = position - self.last_position;
+        if delta.x.powi(2) + delta.y.powi(2) <= MAX_TAP_DISTANCE {
+            return delta;
+        }
 
-        self.repeats
+        // Check whether drag modifies selection or scrolls the URI bar.
+        self.action = match selection {
+            Some(selection) if selection.start == self.start_byte_index => {
+                TouchAction::DragSelectionStart
+            },
+            Some(selection) if selection.end == self.start_byte_index => {
+                TouchAction::DragSelectionEnd
+            },
+            _ => TouchAction::Drag,
+        };
+
+        delta
     }
+}
+
+/// Intention of a touch sequence.
+#[derive(Default, PartialEq, Eq, Copy, Clone)]
+enum TouchAction {
+    #[default]
+    Tap,
+    DoubleTap,
+    TripleTap,
+    Drag,
+    DragSelectionStart,
+    DragSelectionEnd,
 }

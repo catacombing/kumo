@@ -1177,7 +1177,7 @@ impl TextField {
         let byte_index = self.cursor_byte_index(index, offset);
 
         // Update touch state.
-        self.touch_state.down(time, position, byte_index);
+        self.touch_state.down(time, position, byte_index, self.focused);
     }
 
     /// Handle touch motion events.
@@ -1239,7 +1239,10 @@ impl TextField {
         // Ignore release handling for drag actions.
         if matches!(
             self.touch_state.action,
-            TouchAction::Drag | TouchAction::DragSelectionStart | TouchAction::DragSelectionEnd
+            TouchAction::Drag
+                | TouchAction::DragSelectionStart
+                | TouchAction::DragSelectionEnd
+                | TouchAction::Focus
         ) {
             return;
         }
@@ -1283,7 +1286,10 @@ impl TextField {
             },
             // Select everything.
             TouchAction::TripleTap => self.select(..),
-            TouchAction::Drag | TouchAction::DragSelectionStart | TouchAction::DragSelectionEnd => {
+            TouchAction::Drag
+            | TouchAction::DragSelectionStart
+            | TouchAction::DragSelectionEnd
+            | TouchAction::Focus => {
                 unreachable!()
             },
         }
@@ -1576,10 +1582,12 @@ struct TouchState {
 
 impl TouchState {
     /// Update state from touch down event.
-    fn down(&mut self, time: u32, position: Position<f64>, byte_index: i32) {
+    fn down(&mut self, time: u32, position: Position<f64>, byte_index: i32, focused: bool) {
         // Update touch action.
         let delta = position - self.last_position;
-        self.action = if self.last_time + MAX_MULTI_TAP_MILLIS >= time
+        self.action = if !focused {
+            TouchAction::Focus
+        } else if self.last_time + MAX_MULTI_TAP_MILLIS >= time
             && delta.x.powi(2) + delta.y.powi(2) <= MAX_TAP_DISTANCE
         {
             match self.action {
@@ -1642,4 +1650,5 @@ enum TouchAction {
     Drag,
     DragSelectionStart,
     DragSelectionEnd,
+    Focus,
 }

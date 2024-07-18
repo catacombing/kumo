@@ -1190,8 +1190,8 @@ impl TextField {
         match action {
             // Scroll through URI text.
             TouchAction::Drag => {
-                self.scroll_offset =
-                    (self.scroll_offset + delta.x).min(0.).max(self.min_scroll_offset());
+                self.scroll_offset += delta.x;
+                self.clamp_scroll_offset();
                 self.dirty = true;
             },
             // Modify selection boundaries.
@@ -1516,15 +1516,6 @@ impl TextField {
         let (cursor_rect, _) = self.layout.cursor_pos(cursor_index);
         let cursor_x = cursor_rect.x() as f64 / PANGO_SCALE as f64;
 
-        // Scroll text to the right if there's empty space after the cursor.
-        let text_len = self.text().len() as i32;
-        let whitespace_delta = self.width - cursor_x - self.scroll_offset;
-        if cursor_index == text_len && whitespace_delta > 0. {
-            self.scroll_offset = (self.scroll_offset + whitespace_delta).min(0.);
-            self.dirty = true;
-            return;
-        }
-
         // Scroll cursor back into the visible range.
         let delta = cursor_x + self.scroll_offset - self.width;
         if delta > 0. {
@@ -1534,11 +1525,16 @@ impl TextField {
             self.scroll_offset = -cursor_x;
             self.dirty = true;
         }
+
+        self.clamp_scroll_offset();
     }
 
-    /// Get the larges allowed scroll offset.
-    fn min_scroll_offset(&self) -> f64 {
-        -(self.layout.pixel_size().0 as f64 - self.width).max(0.)
+    /// Clamp the scroll offset to the field's limits.
+    fn clamp_scroll_offset(&mut self) {
+        let min_offset = -(self.layout.pixel_size().0 as f64 - self.width).max(0.);
+        let clamped_offset = self.scroll_offset.min(0.).max(min_offset);
+        self.dirty |= clamped_offset != self.scroll_offset;
+        self.scroll_offset = clamped_offset;
     }
 }
 

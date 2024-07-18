@@ -8,6 +8,10 @@ use std::{env, io};
 use funq::{MtQueueHandle, Queue, StQueueHandle};
 use glib::{source, ControlFlow, IOCondition, MainLoop, Priority, Source};
 use glutin::display::{Display, DisplayApiPreference};
+#[cfg(feature = "profiling")]
+use profiling::puffin;
+#[cfg(feature = "profiling")]
+use puffin_http::Server;
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
 use smithay_client_toolkit::reexports::client::globals::{self, GlobalError};
 use smithay_client_toolkit::reexports::client::protocol::wl_keyboard::WlKeyboard;
@@ -60,6 +64,13 @@ fn main() -> Result<(), Error> {
     FmtSubscriber::builder().with_env_filter(env_filter).with_line_number(true).init();
 
     info!("Started Kumo");
+
+    // Start profiling server.
+    #[cfg(feature = "profiling")]
+    let _server = {
+        puffin::set_scopes_on(true);
+        Server::new(&format!("0.0.0.0:{}", puffin_http::DEFAULT_PORT)).unwrap()
+    };
 
     let queue = Queue::new()?;
     let main_loop = MainLoop::new(None, true);

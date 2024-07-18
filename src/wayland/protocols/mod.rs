@@ -85,6 +85,7 @@ impl ProtocolStates {
 }
 
 impl CompositorHandler for State {
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn frame(
         &mut self,
         _connection: &Connection,
@@ -153,6 +154,7 @@ impl OutputHandler for State {
 delegate_output!(State);
 
 impl WindowHandler for State {
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn request_close(&mut self, _: &Connection, _: &QueueHandle<Self>, window: &Window) {
         let window = self.windows.values_mut().find(|w| w.xdg() == window);
         if let Some(window) = window {
@@ -161,6 +163,7 @@ impl WindowHandler for State {
         }
     }
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn configure(
         &mut self,
         _connection: &Connection,
@@ -178,6 +181,7 @@ delegate_xdg_shell!(State);
 delegate_xdg_window!(State);
 
 impl FractionalScaleHandler for State {
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn scale_factor_changed(
         &mut self,
         _connection: &Connection,
@@ -199,6 +203,7 @@ impl SeatHandler for State {
 
     fn new_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: WlSeat) {}
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn new_capability(
         &mut self,
         _connection: &Connection,
@@ -224,6 +229,7 @@ impl SeatHandler for State {
         }
     }
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn remove_capability(
         &mut self,
         _connection: &Connection,
@@ -257,6 +263,7 @@ impl SeatHandler for State {
 delegate_seat!(State);
 
 impl KeyboardHandler for State {
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn enter(
         &mut self,
         _connection: &Connection,
@@ -275,6 +282,7 @@ impl KeyboardHandler for State {
         self.keyboard_focus = Some(window.id());
     }
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn leave(
         &mut self,
         _connection: &Connection,
@@ -295,6 +303,7 @@ impl KeyboardHandler for State {
         self.keyboard_focus = None;
     }
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn press_key(
         &mut self,
         _connection: &Connection,
@@ -317,6 +326,7 @@ impl KeyboardHandler for State {
         window.press_key(event.raw_code, event.keysym, keyboard_state.modifiers);
     }
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn release_key(
         &mut self,
         _connection: &Connection,
@@ -340,6 +350,7 @@ impl KeyboardHandler for State {
         window.release_key(event.raw_code, event.keysym, modifiers);
     }
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn update_modifiers(
         &mut self,
         _connection: &Connection,
@@ -358,6 +369,7 @@ impl KeyboardHandler for State {
         keyboard_state.modifiers = modifiers;
     }
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn update_repeat_info(
         &mut self,
         _connection: &Connection,
@@ -382,6 +394,7 @@ pub trait KeyRepeat {
 }
 
 impl KeyRepeat for State {
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn repeat_key(&mut self) {
         let keyboard_state = match &mut self.keyboard {
             Some(keyboard_state) => keyboard_state,
@@ -407,6 +420,7 @@ impl KeyRepeat for State {
 }
 
 impl TouchHandler for State {
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn down(
         &mut self,
         _connection: &Connection,
@@ -433,6 +447,7 @@ impl TouchHandler for State {
         window.touch_down(&surface, time, id, position.into(), modifiers);
     }
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn up(
         &mut self,
         _connection: &Connection,
@@ -459,6 +474,7 @@ impl TouchHandler for State {
         window.touch_up(surface, time, id, modifiers);
     }
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn motion(
         &mut self,
         _connection: &Connection,
@@ -511,6 +527,7 @@ impl TouchHandler for State {
 delegate_touch!(State);
 
 impl PointerHandler for State {
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn pointer_frame(
         &mut self,
         _connection: &Connection,
@@ -566,6 +583,7 @@ delegate_registry!(State);
 
 /// zwp_text_input_v3 protocol implementation.
 impl State {
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn text_input_enter(&mut self, text_input: ZwpTextInputV3, surface: &WlSurface) {
         let window = match self.windows.values_mut().find(|window| window.owns_surface(surface)) {
             Some(window) => window,
@@ -575,6 +593,7 @@ impl State {
         window.text_input_enter(text_input);
     }
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn text_input_leave(&mut self, surface: &WlSurface) {
         let window = match self.windows.values_mut().find(|window| window.owns_surface(surface)) {
             Some(window) => window,
@@ -585,6 +604,7 @@ impl State {
     }
 
     /// Delete text around the current cursor position.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn delete_surrounding_text(
         &mut self,
         surface: &WlSurface,
@@ -600,6 +620,7 @@ impl State {
     }
 
     /// Insert text at the current cursor position.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn commit_string(&mut self, surface: &WlSurface, text: String) {
         let window = match self.windows.values_mut().find(|window| window.owns_surface(surface)) {
             Some(window) => window,
@@ -610,6 +631,7 @@ impl State {
     }
 
     /// Set preedit text at the current cursor position.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn preedit_string(
         &mut self,
         surface: &WlSurface,

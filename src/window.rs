@@ -10,6 +10,8 @@ use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, Z
 use funq::StQueueHandle;
 use glutin::display::Display;
 use indexmap::IndexMap;
+#[cfg(feature = "profiling")]
+use profiling::puffin::GlobalProfiler;
 use smallvec::SmallVec;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
@@ -309,6 +311,10 @@ impl Window {
         if self.closed || !self.initial_configure_done {
             return;
         }
+
+        // Notify profiler about frame start.
+        #[cfg(feature = "profiling")]
+        GlobalProfiler::lock().new_frame();
 
         // Mark window as stalled if no rendering is performed.
         self.stalled = true;

@@ -198,7 +198,7 @@ pub struct KeyboardState {
     modifiers: Modifiers,
 
     queue: MtQueueHandle<State>,
-    current_repeat: Option<(Source, u32, Keysym)>,
+    current_repeat: Option<(Source, u32)>,
 }
 
 impl Drop for KeyboardState {
@@ -222,7 +222,7 @@ impl KeyboardState {
     fn press_key(&mut self, raw: u32, keysym: Keysym) {
         // Update key repeat timers.
         if !keysym.is_modifier_key() {
-            self.request_repeat(raw, keysym, true);
+            self.request_repeat(raw, keysym);
         }
     }
 
@@ -235,7 +235,8 @@ impl KeyboardState {
     }
 
     /// Stage new key repetition.
-    fn request_repeat(&mut self, raw: u32, keysym: Keysym, initial: bool) {
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn request_repeat(&mut self, raw: u32, keysym: Keysym) {
         // Ensure all previous events are cleared.
         self.cancel_repeat();
 
@@ -244,20 +245,16 @@ impl KeyboardState {
             _ => return,
         };
 
-        // Stage new timer.
+        // Stage timer for initial delay.
         let mut queue = self.queue.clone();
-        let delay = if initial {
-            Duration::from_millis(delay as u64)
-        } else {
-            Duration::from_millis(1000 / rate.get() as u64)
-        };
-        let source = source::timeout_source_new(delay, None, Priority::DEFAULT, move || {
-            queue.repeat_key();
+        let delay = Duration::from_millis(delay as u64);
+        let delay_source = source::timeout_source_new(delay, None, Priority::DEFAULT, move || {
+            queue.repeat_key(raw, keysym, rate.get() as u64);
             ControlFlow::Break
         });
-        source.attach(None);
+        delay_source.attach(None);
 
-        self.current_repeat = Some((source, raw, keysym));
+        self.current_repeat = Some((delay_source, raw));
     }
 
     /// Cancel currently staged key repetition.
@@ -265,12 +262,6 @@ impl KeyboardState {
         if let Some((source, ..)) = self.current_repeat.take() {
             source.destroy();
         }
-    }
-
-    /// Get last pressed key for repetition.
-    fn repeat_key(&self) -> Option<(u32, Keysym, Modifiers)> {
-        let (_, raw, keysym) = self.current_repeat.as_ref()?;
-        Some((*raw, *keysym, self.modifiers))
     }
 }
 

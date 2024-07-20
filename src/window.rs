@@ -10,8 +10,6 @@ use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, Z
 use funq::StQueueHandle;
 use glutin::display::Display;
 use indexmap::IndexMap;
-#[cfg(feature = "profiling")]
-use profiling::puffin::GlobalProfiler;
 use smallvec::SmallVec;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
@@ -306,6 +304,7 @@ impl Window {
     }
 
     /// Redraw the window.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn draw(&mut self) {
         // Ignore rendering before initial configure or after shutdown.
         if self.closed || !self.initial_configure_done {
@@ -314,7 +313,7 @@ impl Window {
 
         // Notify profiler about frame start.
         #[cfg(feature = "profiling")]
-        GlobalProfiler::lock().new_frame();
+        profiling::finish_frame!();
 
         // Mark window as stalled if no rendering is performed.
         self.stalled = true;
@@ -494,6 +493,7 @@ impl Window {
     }
 
     /// Handle new key press.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
         match self.keyboard_focus {
             KeyboardFocus::Ui => self.ui.press_key(raw, keysym, modifiers),
@@ -514,6 +514,7 @@ impl Window {
     }
 
     /// Handle key release.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn release_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
         match self.keyboard_focus {
             KeyboardFocus::Browser => {

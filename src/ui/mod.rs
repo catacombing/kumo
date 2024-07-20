@@ -952,6 +952,7 @@ impl TextField {
     }
 
     /// Get current text content.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn text(&self) -> String {
         self.layout.text().to_string()
     }
@@ -1001,6 +1002,7 @@ impl TextField {
     }
 
     /// Handle new key press.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn press_key(&mut self, _raw: u32, keysym: Keysym, modifiers: Modifiers) {
         // Ignore input with logo/alt key held.
         if modifiers.logo || modifiers.alt {
@@ -1147,6 +1149,7 @@ impl TextField {
     /// Delete the selected text.
     ///
     /// This automatically places the cursor at the start of the selection.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn delete_selected(&mut self, selection: Range<i32>) {
         // Remove selected text from input.
         let range = selection.start as usize..selection.end as usize;
@@ -1449,7 +1452,10 @@ impl TextField {
         self.dirty = true;
     }
 
+    // TODO: ~1ms mean time.
+    //
     /// Move the text input cursor.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn move_cursor(&mut self, positions: i32) {
         for _ in 0..positions.abs() {
             let direction = positions;
@@ -1483,6 +1489,7 @@ impl TextField {
     }
 
     /// Get current cursor's byte offset.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn cursor_index(&self) -> i32 {
         self.cursor_byte_index(self.cursor_index, self.cursor_offset)
     }
@@ -1503,6 +1510,7 @@ impl TextField {
     /// Update the scroll offset based on cursor position.
     ///
     /// This will scroll towards the cursor to ensure it is always visible.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn update_scroll_offset(&mut self) {
         // For cursor ranges we jump twice to make both ends visible when possible.
         if let Some(selection) = &self.selection {

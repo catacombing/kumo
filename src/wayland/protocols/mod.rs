@@ -2,9 +2,11 @@
 
 use std::os::fd::OwnedFd;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use _text_input::zwp_text_input_manager_v3::{self, ZwpTextInputManagerV3};
 use _text_input::zwp_text_input_v3::{self, ZwpTextInputV3};
+use glib::{source, ControlFlow, Priority};
 use smithay_client_toolkit::compositor::{CompositorHandler, CompositorState};
 use smithay_client_toolkit::output::{OutputHandler, OutputState};
 use smithay_client_toolkit::reexports::client::globals::GlobalList;
@@ -390,32 +392,45 @@ delegate_keyboard!(State);
 
 #[funq::callbacks(State)]
 pub trait KeyRepeat {
-    fn repeat_key(&mut self);
+    /// Start key repetition.
+    fn repeat_key(&mut self, raw: u32, keysym: Keysym, rate: u64);
+
+    /// Send a key press to the focused window.
+    fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers);
 }
 
 impl KeyRepeat for State {
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn repeat_key(&mut self) {
-        let keyboard_state = match &mut self.keyboard {
+    fn repeat_key(&mut self, raw: u32, keysym: Keysym, rate: u64) {
+        let keyboard_state = match &self.keyboard {
             Some(keyboard_state) => keyboard_state,
             None => return,
         };
-        let (raw, keysym, modifiers) = match keyboard_state.repeat_key() {
-            Some(repeat_key) => repeat_key,
-            None => return,
-        };
 
-        // Once the timeout completed, we need to clear the GLib repeat source ID, since
-        // removing an invalid source ID causes a panic.
-        keyboard_state.current_repeat.take();
+        // Send the initial key press.
+        let modifiers = keyboard_state.modifiers;
+        KeyRepeat::press_key(self, raw, keysym, modifiers);
 
-        // Update pressed keys.
+        // Keep repeating the key until repetition is cancelled.
+        let mut queue = self.queue.handle();
+        let interval = Duration::from_millis(1000 / rate);
+        let source = source::timeout_source_new(interval, None, Priority::DEFAULT, move || {
+            queue.press_key(raw, keysym, modifiers);
+            ControlFlow::Continue
+        });
+        source.attach(None);
+
+        // Update the repeat source and clear the initial GLib delay source ID in the
+        // process, since calling `destroy` on a dead source causes a panic.
+        let keyboard_state = self.keyboard.as_mut().unwrap();
+        keyboard_state.current_repeat = Some((source, raw));
+    }
+
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
         if let Some(window) = self.keyboard_focus.and_then(|focus| self.windows.get_mut(&focus)) {
             window.press_key(raw, keysym, modifiers);
         }
-
-        // Request next repeat.
-        keyboard_state.request_repeat(raw, keysym, false);
     }
 }
 

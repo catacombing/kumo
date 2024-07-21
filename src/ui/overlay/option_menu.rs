@@ -523,7 +523,7 @@ impl OptionMenuRenderItem {
         // Calculate label text placement.
         let y_padding = (Y_PADDING * self.scale).round() as i32;
         let x_padding = (X_PADDING * self.scale).round() as i32;
-        let label_height = self.label_layout.pixel_size().1 + y_padding;
+        let label_height = self.label_layout.line_height() + y_padding;
         let label_width = physical_size.width - 2 * x_padding;
         text_options.position(Position::new(x_padding, 0).into());
         text_options.size(Size::new(label_width, label_height));
@@ -534,7 +534,7 @@ impl OptionMenuRenderItem {
         // Render text description.
         if let Some(description_layout) = &self.description_layout {
             // Calculate description text placement.
-            let description_height = description_layout.pixel_size().1 + y_padding;
+            let description_height = description_layout.line_height() + y_padding;
             let description_size = Size::new(label_width, description_height);
             text_options.position(Position::new(x_padding, label_height - y_padding).into());
             text_options.size(description_size);
@@ -551,8 +551,8 @@ impl OptionMenuRenderItem {
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn height(&self) -> i32 {
         let y_padding = (Y_PADDING * self.scale).round() as i32;
-        let label_height = self.label_layout.pixel_size().1;
-        let description_height = self.description_layout.as_ref().map_or(0, |l| l.pixel_size().1);
+        let label_height = self.label_layout.line_height();
+        let description_height = self.description_layout.as_ref().map_or(0, |l| l.line_height());
         label_height + description_height + y_padding
     }
 

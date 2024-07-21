@@ -4,8 +4,10 @@ use std::ffi::{CStr, CString};
 use std::num::NonZeroU32;
 use std::ops::{Deref, Range};
 use std::ptr::NonNull;
+use std::sync::OnceLock;
 use std::{cmp, mem, ptr};
 
+use dashmap::DashMap;
 use glutin::config::{Api, ConfigTemplateBuilder};
 use glutin::context::{ContextApi, ContextAttributesBuilder, PossiblyCurrentContext, Version};
 use glutin::display::Display;
@@ -396,7 +398,7 @@ impl TextureBuilder {
         }
 
         // Calculate text position.
-        let (_, text_height) = layout.pixel_size();
+        let text_height = layout.line_height();
         let text_y = position.y + size.height as f64 / 2. - text_height as f64 / 2.;
 
         // Handle text selection.
@@ -667,6 +669,25 @@ impl TextLayout {
         let pango_size = self.font_size as i32 * PANGO_SCALE;
         self.font.set_absolute_size(pango_size as f64 * scale);
         self.layout.set_font_description(Some(&self.font));
+    }
+
+    /// Get font's line height.
+    ///
+    /// This internally maintains a cache of the line heights at each font size.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn line_height(&self) -> i32 {
+        static CACHE: OnceLock<DashMap<u16, i32>> = OnceLock::new();
+        let cache = CACHE.get_or_init(DashMap::new);
+
+        // Get scaled font size with one decimal point.
+        let font_size = (self.font_size as f64 * self.scale * 10.).round() as u16;
+
+        // Calculate and cache line height.
+        *cache.entry(font_size).or_insert_with(|| {
+            // Get logical line height from font metrics.
+            let metrics = self.context().metrics(Some(&self.font), None);
+            metrics.height() / PANGO_SCALE
+        })
     }
 }
 

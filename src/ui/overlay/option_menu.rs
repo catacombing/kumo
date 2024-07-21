@@ -98,6 +98,7 @@ pub struct OptionMenu {
 }
 
 impl OptionMenu {
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn new<I>(
         id: OptionMenuId,
         queue: MtQueueHandle<State>,
@@ -151,6 +152,7 @@ impl OptionMenu {
     }
 
     /// Move scroll position.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn scroll(&mut self, target: ScrollTarget) {
         let scroll_offset = match target {
             ScrollTarget::End => self.max_scroll_offset() as f32,
@@ -160,6 +162,7 @@ impl OptionMenu {
     }
 
     /// Update popup borders.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn set_borders(&mut self, borders: Borders) {
         self.borders = borders;
 
@@ -212,6 +215,7 @@ impl OptionMenu {
     }
 
     /// Get maximum tab scroll offset.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn max_scroll_offset(&self) -> u32 {
         let border_widths = self.border_widths() * self.scale;
 
@@ -225,6 +229,7 @@ impl OptionMenu {
     ///
     /// This is the height of the menu's content without maximum height
     /// constraints.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn content_height(&self) -> u32 {
         self.items.iter().map(|item| item.height() as u32).sum()
     }
@@ -257,6 +262,7 @@ impl Popup for OptionMenu {
         self.dirty || self.items.iter().any(|item| item.dirty)
     }
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn draw(&mut self, renderer: &Renderer) {
         self.dirty = false;
 
@@ -491,6 +497,7 @@ impl OptionMenuRenderItem {
         self.texture.as_ref().unwrap()
     }
 
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn draw(&self, selected: bool) -> Texture {
         // Determine item colors.
         let (fg, description_fg, bg) = if self.disabled {
@@ -541,6 +548,7 @@ impl OptionMenuRenderItem {
     }
 
     /// Get the item's height.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn height(&self) -> i32 {
         let y_padding = (Y_PADDING * self.scale).round() as i32;
         let label_height = self.label_layout.pixel_size().1;

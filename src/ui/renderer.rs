@@ -371,6 +371,7 @@ impl TextureBuilder {
     }
 
     /// Draw text within the specified bounds.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn rasterize(&self, layout: &TextLayout, text_options: &TextOptions) {
         // Limit text size to builder limits.
         let position = text_options.position;
@@ -523,6 +524,7 @@ impl TextureBuilder {
     }
 
     /// Finalize the output texture.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn build(self) -> Texture {
         drop(self.context);
 

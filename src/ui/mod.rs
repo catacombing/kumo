@@ -222,6 +222,7 @@ impl Ui {
     /// Render current UI state.
     ///
     /// Returns `true` if rendering was performed.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn draw(&mut self, tab_count: usize, force_redraw: bool) -> bool {
         // Abort early if UI is up to date.
         let dirty = self.dirty();

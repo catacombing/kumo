@@ -824,6 +824,7 @@ impl Window {
     }
 
     /// Show history options menu.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn open_history_menu(&mut self, matches: SmallVec<[HistoryMatch; MAX_MATCHES]>) {
         // Close old menu.
         if let Some(menu_id) = self.history_menu.take() {

@@ -94,6 +94,7 @@ impl History {
     }
 
     /// Get autocomplete suggestion for an input.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn autocomplete(&self, input: &str) -> Option<String> {
         // Question marks suggest query parameters or search engine query, neither has
         // sensible autocomplete suggestions.
@@ -118,6 +119,7 @@ impl History {
     }
 
     /// Get history matches for the input in ascending relevance.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn matches(&self, input: &str) -> SmallVec<[HistoryMatch; MAX_MATCHES]> {
         // Empty input always results in no matches.
         if input.is_empty() {
@@ -161,6 +163,7 @@ struct HistoryDb {
 }
 
 impl HistoryDb {
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn new(path: &Path) -> rusqlite::Result<Self> {
         // Ensure necessary directories exist.
         if let Some(dir) = path.parent() {
@@ -183,6 +186,7 @@ impl HistoryDb {
     }
 
     /// Load history from file.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn load(&self) -> rusqlite::Result<HashMap<HistoryUri, HistoryEntry>> {
         let mut statement = self.connection.prepare("SELECT uri, title, views FROM history")?;
         let history = statement
@@ -198,6 +202,7 @@ impl HistoryDb {
     }
 
     /// Increment visits for a page.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn visit(&self, uri: &str) -> rusqlite::Result<()> {
         self.connection.execute(
             "INSERT INTO history (uri) VALUES (?1)
@@ -209,6 +214,7 @@ impl HistoryDb {
     }
 
     /// Update title for a URI.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn set_title(&self, uri: &str, title: &str) -> rusqlite::Result<()> {
         self.connection.execute("UPDATE history SET title=?1 WHERE uri=?2", [title, uri])?;
 

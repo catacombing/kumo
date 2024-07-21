@@ -114,6 +114,7 @@ impl Overlay {
     }
 
     /// Update Wayland surface regions.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn update_regions(&self) {
         // Update opaque region.
         if let Ok(region) = Region::new(&self.compositor) {
@@ -147,6 +148,7 @@ impl Overlay {
     /// Render current overlay state.
     ///
     /// Returns `true` if rendering was performed.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn draw(&mut self) -> bool {
         let mut popups = self.popups.iter().peekable();
 
@@ -261,6 +263,7 @@ impl Overlay {
     }
 
     /// Show an option menu.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn open_option_menu<I>(
         &mut self,
         id: OptionMenuId,

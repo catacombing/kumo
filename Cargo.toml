@@ -44,7 +44,7 @@ smithay-client-toolkit = { version = "0.19.1", default-features = false, feature
 thiserror = "1.0.57"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-wayland-backend = { version = "0.3.3", features = ["client_system"] }
+wayland-backend = { version = "=0.3.4", features = ["client_system"] }
 wpe-backend-fdo-sys = { path = "./wpe-backend-fdo-sys" }
 wpe-webkit = { path = "./wpe-webkit" }
 
@@ -53,3 +53,6 @@ gl_generator = "0.14.0"
 
 [dev-dependencies]
 reqwest = { version = "0.12.2", default-features = false, features = ["default-tls", "blocking"] }
+
+[patch.crates-io]
+wayland-backend = { git = "https://github.com/Smithay/wayland-rs", rev = "f0d51bbe5b778fb50721b107954b2b4d8495e2d9" }

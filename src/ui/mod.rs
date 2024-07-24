@@ -1453,8 +1453,6 @@ impl TextField {
         self.dirty = true;
     }
 
-    // TODO: ~1ms mean time.
-    //
     /// Move the text input cursor.
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn move_cursor(&mut self, positions: i32) {

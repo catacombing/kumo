@@ -314,6 +314,7 @@ pub struct Texture {
 
 impl Texture {
     /// Load a buffer as texture into OpenGL.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn new(buffer: &[u8], width: usize, height: usize) -> Self {
         assert!(buffer.len() == width * height * 4);
 

@@ -826,13 +826,11 @@ impl Window {
     /// Show history options menu.
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn open_history_menu(&mut self, matches: SmallVec<[HistoryMatch; MAX_MATCHES]>) {
-        // Close old menu.
-        if let Some(menu_id) = self.history_menu.take() {
-            self.close_option_menu(menu_id);
-        }
-
         // Skip new menu creation without matches.
         if matches.is_empty() {
+            // Close old menu.
+            self.close_history_menu();
+
             return;
         }
 
@@ -847,20 +845,34 @@ impl Window {
             OptionMenuItem { label, description, disabled: false, selected: false }
         });
 
-        // Open new menu.
-        let position = Position::new(0, self.size.height as i32);
-        let menu_id = OptionMenuId::new(self.id);
-        let width = self.size.width;
-        let menu = self.overlay.open_option_menu(menu_id, position, width, self.scale, items);
-        menu.set_borders(Borders::TOP);
-        menu.scroll(ScrollTarget::End);
-        self.history_menu = Some(menu_id);
+        match self.history_menu.and_then(|id| self.overlay.option_menu(id)) {
+            // Update contents of existing menu.
+            Some(menu) => {
+                menu.set_visible(true);
+                menu.set_items(items);
+                menu.scroll(ScrollTarget::End);
+            },
+            // Open new menu.
+            None => {
+                let menu_id = OptionMenuId::new(self.id);
+                let menu = self.overlay.open_option_menu(
+                    menu_id,
+                    Position::new(0, self.size.height as i32),
+                    self.size.width,
+                    self.scale,
+                    items,
+                );
+                menu.set_borders(Borders::TOP);
+                menu.scroll(ScrollTarget::End);
+                self.history_menu = Some(menu_id);
+            },
+        }
     }
 
     /// Hide history options menu.
     pub fn close_history_menu(&mut self) {
-        if let Some(menu_id) = self.history_menu.take() {
-            self.overlay.close_option_menu(menu_id);
+        if let Some(menu) = self.history_menu.and_then(|id| self.overlay.option_menu(id)) {
+            menu.set_visible(false);
         }
     }
 

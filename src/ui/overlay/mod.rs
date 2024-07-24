@@ -281,7 +281,12 @@ impl Overlay {
         self.popups.option_menus.last_mut().unwrap()
     }
 
-    /// Hide an option menu.
+    /// Get mutable reference to an option menu.
+    pub fn option_menu(&mut self, id: OptionMenuId) -> Option<&mut OptionMenu> {
+        self.popups.option_menus.iter_mut().find(|menu| menu.id() == id)
+    }
+
+    /// Permanently discard an option menu.
     pub fn close_option_menu(&mut self, id: OptionMenuId) {
         self.popups.option_menus.retain(|menu| menu.id() != id);
     }
@@ -318,20 +323,21 @@ impl Popups {
     /// Non-mutable popup iterator.
     fn iter(&self) -> Box<dyn Iterator<Item = &dyn Popup> + '_> {
         if self.tabs.visible() {
-            Box::new(self.option_menus.iter().map(|menu| menu as _).chain([&self.tabs as _]))
+            let option_menus = self.option_menus.iter().filter(|m| m.visible()).map(|m| m as _);
+            Box::new(option_menus.chain([&self.tabs as _]))
         } else {
-            Box::new(self.option_menus.iter().map(|menu| menu as _))
+            Box::new(self.option_menus.iter().filter(|menu| menu.visible()).map(|menu| menu as _))
         }
     }
 
     /// Mutable popup iterator.
     fn iter_mut(&mut self) -> Box<dyn Iterator<Item = &mut dyn Popup> + '_> {
         if self.tabs.visible() {
-            Box::new(
-                self.option_menus.iter_mut().map(|menu| menu as _).chain([&mut self.tabs as _]),
-            )
+            let option_menus = self.option_menus.iter_mut().filter(|m| m.visible()).map(|m| m as _);
+            Box::new(option_menus.chain([&mut self.tabs as _]))
         } else {
-            Box::new(self.option_menus.iter_mut().map(|menu| menu as _))
+            let iter = self.option_menus.iter_mut().filter(|menu| menu.visible()).map(|m| m as _);
+            Box::new(iter)
         }
     }
 }

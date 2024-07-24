@@ -79,6 +79,7 @@ impl OptionMenuHandler for State {
 pub struct OptionMenu {
     id: OptionMenuId,
     items: Vec<OptionMenuRenderItem>,
+    item_cache: Vec<OptionMenuRenderItem>,
     selection_index: Option<usize>,
 
     queue: MtQueueHandle<State>,
@@ -94,6 +95,7 @@ pub struct OptionMenu {
     borders: Borders,
     border: Option<Texture>,
 
+    visible: bool,
     dirty: bool,
 }
 
@@ -118,9 +120,11 @@ impl OptionMenu {
             id,
             borders: Borders::all(),
             width: item_width,
+            visible: true,
             selection_index: Default::default(),
             scroll_offset: Default::default(),
             touch_state: Default::default(),
+            item_cache: Default::default(),
             max_height: Default::default(),
             border: Default::default(),
             items: Default::default(),
@@ -146,9 +150,72 @@ impl OptionMenu {
         menu
     }
 
+    /// Update the items in this menu.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn set_items<I>(&mut self, items: I)
+    where
+        I: Iterator<Item = OptionMenuItem>,
+    {
+        /// Maximum number of items kept for caching purposes.
+        const MAX_CACHED_ITEMS: usize = 100;
+
+        // Add all existing entries to the beginning of the cache.
+        self.items.truncate(MAX_CACHED_ITEMS);
+        let items_len = self.items.len();
+        self.item_cache.truncate(MAX_CACHED_ITEMS - items_len);
+        self.item_cache.append(&mut self.items);
+        self.item_cache.rotate_right(items_len);
+
+        // Ensure selection doesn't point out of bounds.
+        self.selection_index = None;
+
+        // Try to load items from cache and create new ones if necessary.
+        let item_width = self.item_width();
+        self.items = items
+            .enumerate()
+            .map(|(i, item)| {
+                // Update selected item.
+                if item.selected {
+                    self.selection_index = Some(i);
+                }
+
+                // Look for existing item with this label and description.
+                let existing_index = self
+                    .item_cache
+                    .iter()
+                    .position(|i| i.label == item.label && i.description == item.description);
+
+                match existing_index {
+                    // Update existing item, to cache pango layout.
+                    Some(index) => {
+                        let mut existing = self.item_cache.swap_remove(index);
+                        existing.set_disabled(item.disabled);
+                        existing
+                    },
+                    // Create a new item.
+                    None => OptionMenuRenderItem::new(item, item_width, self.scale),
+                }
+            })
+            .collect();
+
+        self.scroll_offset = 0.;
+        self.dirty = true;
+    }
+
     /// Get the popup's ID,
     pub fn id(&self) -> OptionMenuId {
         self.id
+    }
+
+    /// Set visibility of the option menu.
+    pub fn set_visible(&mut self, visible: bool) {
+        self.dirty |= visible && self.visible != visible;
+        self.visible = visible;
+    }
+
+    /// Get visibility of the option menu.
+    pub fn visible(&self) -> bool {
+        self.visible
     }
 
     /// Move scroll position.
@@ -157,7 +224,7 @@ impl OptionMenu {
         let scroll_offset = match target {
             ScrollTarget::End => self.max_scroll_offset() as f32,
         };
-        self.dirty = self.scroll_offset != scroll_offset;
+        self.dirty |= self.scroll_offset != scroll_offset;
         self.scroll_offset = scroll_offset;
     }
 
@@ -259,7 +326,27 @@ impl OptionMenu {
 
 impl Popup for OptionMenu {
     fn dirty(&self) -> bool {
-        self.dirty || self.items.iter().any(|item| item.dirty)
+        if self.dirty {
+            return true;
+        }
+
+        // Get Y position of first item.
+        let max_height = (self.max_height as f32 * self.scale as f32).round();
+        let start_position = self.position().y as f32 + self.border_widths().top as f32;
+        let mut y = start_position * self.scale as f32 - self.scroll_offset;
+
+        // Check visible textures for dirtiness.
+        for item in &self.items {
+            let height = item.height() as f32;
+            if y >= max_height {
+                break;
+            } else if item.dirty && y + height >= 0. {
+                return true;
+            }
+            y += height;
+        }
+
+        false
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
@@ -296,16 +383,21 @@ impl Popup for OptionMenu {
         // Draw each option menu entry.
         let max_height = (self.max_height as f32 * self.scale as f32).round();
         for (i, item) in self.items.iter_mut().enumerate() {
-            // NOTE: This must be called on all textures to clear dirtiness flag.
-            let selected = self.selection_index == Some(i);
-            let texture = item.texture(selected);
-
             // Skip rendering out of bounds textures.
-            if position.y + texture.height as f32 >= 0. && position.y < max_height {
-                unsafe { renderer.draw_texture_at(texture, position, None) };
+            let height = item.height() as f32;
+            if position.y >= max_height {
+                break;
+            } else if position.y + height < 0. {
+                position.y += height;
+                continue;
             }
 
-            position.y += texture.height as f32;
+            // Create and draw the texture.
+            let selected = self.selection_index == Some(i);
+            let texture = item.texture(selected);
+            unsafe { renderer.draw_texture_at(texture, position, None) };
+
+            position.y += height;
         }
 
         // Disable scissoring again.
@@ -458,27 +550,34 @@ struct OptionMenuRenderItem {
     description_layout: Option<TextLayout>,
     /// Whether item is selectable.
     disabled: bool,
+
+    /// Text label used for layout creation.
+    label: String,
+    /// Text description used for layout creation.
+    description: String,
 }
 
 impl OptionMenuRenderItem {
     fn new(item: OptionMenuItem, item_width: u32, scale: f64) -> Self {
         // Create a new pango layout.
-        let create_layout = |text: String, font_size: u8| {
+        let create_layout = |text: &str, font_size: u8| {
             let layout = TextLayout::new(font_size, scale);
-            layout.set_text(&text);
+            layout.set_text(text);
             layout.set_height(0);
             layout
         };
 
         let description_layout = (!item.description.is_empty())
-            .then(|| create_layout(item.description, DESCRIPTION_FONT_SIZE));
-        let label_layout = create_layout(item.label, LABEL_FONT_SIZE);
+            .then(|| create_layout(&item.description, DESCRIPTION_FONT_SIZE));
+        let label_layout = create_layout(&item.label, LABEL_FONT_SIZE);
 
         OptionMenuRenderItem {
             description_layout,
             label_layout,
             scale,
+            description: item.description,
             disabled: item.disabled,
+            label: item.label,
             width: item_width,
             texture: None,
             dirty: true,
@@ -570,6 +669,12 @@ impl OptionMenuRenderItem {
         self.label_layout.set_scale(scale);
         self.scale = scale;
         self.dirty = true;
+    }
+
+    /// Update disabled status.
+    fn set_disabled(&mut self, disabled: bool) {
+        self.dirty |= self.disabled != disabled;
+        self.disabled = disabled;
     }
 }
 

@@ -63,7 +63,7 @@ const URIBAR_BG: [f64; 3] = [0.15, 0.15, 0.15];
 const X_PADDING: f64 = 10.;
 
 /// Separator characters for tab completion.
-const AUTOCOMPLETE_SEPARATORS: &[u8] = &[b'/', b':', b' ', b'?', b'&'];
+const AUTOCOMPLETE_SEPARATORS: &[u8] = b"/: ?&";
 
 #[funq::callbacks(State)]
 pub trait UiHandler {
@@ -1554,26 +1554,6 @@ impl TextField {
 impl Default for TextField {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-/// IME state for text input field.
-#[derive(PartialEq, Eq)]
-struct ImeState {
-    cursor_index: i32,
-    selection: Option<Range<i32>>,
-    surrounding_text: String,
-    purpose: ContentPurpose,
-}
-
-impl Default for ImeState {
-    fn default() -> Self {
-        Self {
-            purpose: ContentPurpose::Normal,
-            cursor_index: -1,
-            surrounding_text: Default::default(),
-            selection: Default::default(),
-        }
     }
 }
 

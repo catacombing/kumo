@@ -50,7 +50,8 @@ impl History {
 
     /// Increment URI visit count for history.
     pub fn visit(&self, uri: String) {
-        let history_uri = HistoryUri::new(&uri);
+        let mut history_uri = HistoryUri::new(&uri);
+        history_uri.normalize();
 
         // Ignore invalid URIs.
         if history_uri.base.is_empty() {
@@ -59,7 +60,8 @@ impl History {
 
         // Update filesystem history.
         if let Some(db) = &self.db {
-            if let Err(err) = db.visit(&uri) {
+            let normalized_uri = history_uri.to_string(true);
+            if let Err(err) = db.visit(&normalized_uri) {
                 error!("Failed to write URI to history: {err}");
             }
         }
@@ -72,7 +74,8 @@ impl History {
 
     /// Set the title for a URI.
     pub fn set_title(&self, uri: &str, title: String) {
-        let history_uri = HistoryUri::new(uri);
+        let mut history_uri = HistoryUri::new(uri);
+        history_uri.normalize();
 
         // Ignore invalid URIs.
         if history_uri.base.is_empty() {
@@ -81,7 +84,8 @@ impl History {
 
         // Update filesystem history.
         if let Some(db) = &self.db {
-            if let Err(err) = db.set_title(uri, &title) {
+            let normalized_uri = history_uri.to_string(true);
+            if let Err(err) = db.set_title(&normalized_uri, &title) {
                 error!("Failed to write title to history: {err}");
             }
         }
@@ -256,7 +260,6 @@ impl HistoryUri {
         // Extract scheme.
         let (scheme, mut uri) = uri.split_once(':').unwrap_or(("", uri));
         uri = uri.trim_start_matches('/');
-        uri = uri.trim_end_matches('/');
 
         // Extract base.
         let mut split = uri.split('/');
@@ -303,6 +306,15 @@ impl HistoryUri {
         true
     }
 
+    /// Trim redundant path segments.
+    ///
+    /// This removes path segments like double slashes or trailing slashes to
+    /// avoid bloating the history with multiple URIs per target resource.
+    fn normalize(&mut self) {
+        self.path.retain(|p| !p.is_empty())
+    }
+
+    /// Convert the URI back to its string representation.
     fn to_string(&self, include_scheme: bool) -> String {
         // Calculate the maximum possible length for allocation purposes.
         let path_len: usize = self.path.iter().map(|path| path.len() + "/".len()).sum();
@@ -342,77 +354,104 @@ mod tests {
 
     #[test]
     fn history_uri_parsing() {
-        let expected =
-            HistoryUri { scheme: "".into(), base: "example.org".into(), path: Vec::new() };
+        let build_uri = |scheme: &str, base: &str, path: &[&str]| HistoryUri {
+            scheme: scheme.into(),
+            base: base.into(),
+            path: path.iter().map(|s| String::from(*s)).collect(),
+        };
+
         let uri = HistoryUri::new("example.org");
+        let expected = build_uri("", "example.org", &[]);
         assert_eq!(uri, expected);
 
-        let expected =
-            HistoryUri { scheme: "".into(), base: "example.org".into(), path: vec!["path".into()] };
         let uri = HistoryUri::new("example.org/path");
+        let expected = build_uri("", "example.org", &["path"]);
         assert_eq!(uri, expected);
 
-        let expected = HistoryUri { scheme: "https".into(), base: "".into(), path: Vec::new() };
         let uri = HistoryUri::new("https:");
+        let expected = build_uri("https", "", &[]);
         assert_eq!(uri, expected);
 
-        let expected = HistoryUri { scheme: "https".into(), base: "".into(), path: Vec::new() };
         let uri = HistoryUri::new("https:/");
+        let expected = build_uri("https", "", &[]);
         assert_eq!(uri, expected);
 
-        let expected = HistoryUri { scheme: "https".into(), base: "".into(), path: Vec::new() };
         let uri = HistoryUri::new("https://");
+        let expected = build_uri("https", "", &[]);
         assert_eq!(uri, expected);
 
-        let expected =
-            HistoryUri { scheme: "https".into(), base: "example.org".into(), path: Vec::new() };
         let uri = HistoryUri::new("https://example.org");
+        let expected = build_uri("https", "example.org", &[]);
         assert_eq!(uri, expected);
 
-        let expected =
-            HistoryUri { scheme: "https".into(), base: "example.org".into(), path: Vec::new() };
         let uri = HistoryUri::new("https://example.org/");
+        let expected = build_uri("https", "example.org", &[""]);
         assert_eq!(uri, expected);
 
-        let expected = HistoryUri {
-            scheme: "https".into(),
-            base: "example.org".into(),
-            path: vec!["path".into()],
-        };
         let uri = HistoryUri::new("https://example.org/path");
+        let expected = build_uri("https", "example.org", &["path"]);
         assert_eq!(uri, expected);
 
-        let expected = HistoryUri {
-            scheme: "https".into(),
-            base: "example.org".into(),
-            path: vec!["path".into()],
-        };
         let uri = HistoryUri::new("https://example.org/path/");
+        let expected = build_uri("https", "example.org", &["path", ""]);
         assert_eq!(uri, expected);
 
-        let expected = HistoryUri {
-            scheme: "https".into(),
-            base: "example.org".into(),
-            path: vec!["path".into(), "segments".into()],
-        };
         let uri = HistoryUri::new("https://example.org/path/segments");
+        let expected = build_uri("https", "example.org", &["path", "segments"]);
         assert_eq!(uri, expected);
 
-        let expected = HistoryUri {
-            scheme: "https".into(),
-            base: "example.org".into(),
-            path: vec!["path".into(), "segments".into()],
-        };
         let uri = HistoryUri::new("https://example.org/path/segments?query=a");
+        let expected = build_uri("https", "example.org", &["path", "segments"]);
         assert_eq!(uri, expected);
 
-        let expected = HistoryUri {
-            scheme: "https".into(),
-            base: "example.org".into(),
-            path: vec!["path".into(), "segments".into()],
-        };
         let uri = HistoryUri::new("https://example.org/path/segments?query=a&other=b");
+        let expected = build_uri("https", "example.org", &["path", "segments"]);
         assert_eq!(uri, expected);
+
+        let uri = HistoryUri::new("https://example.org//");
+        let expected = build_uri("https", "example.org", &["", ""]);
+        assert_eq!(uri, expected);
+
+        let uri = HistoryUri::new("https://example.org/path//segment");
+        let expected = build_uri("https", "example.org", &["path", "", "segment"]);
+        assert_eq!(uri, expected);
+    }
+
+    #[test]
+    fn normalize_normalized_uri() {
+        let mut uri = HistoryUri::new("https://example.org");
+        uri.normalize();
+        assert_eq!(uri, uri);
+
+        let mut uri = HistoryUri::new("https://example.org/test/ing");
+        uri.normalize();
+        assert_eq!(uri, uri);
+    }
+
+    #[test]
+    fn normalize_trailing_slash() {
+        let mut uri = HistoryUri::new("https://example.org/");
+        uri.normalize();
+        assert_eq!(uri, HistoryUri::new("https://example.org"));
+
+        let mut uri = HistoryUri::new("https://example.org/test/");
+        uri.normalize();
+        assert_eq!(uri, HistoryUri::new("https://example.org/test"));
+    }
+
+    #[test]
+    fn normalize_multi_slash() {
+        let mut uri = HistoryUri::new("https://example.org//");
+        uri.normalize();
+        assert_eq!(uri, HistoryUri::new("https://example.org"));
+
+        let mut uri = HistoryUri::new("https://example.org/test//");
+        uri.normalize();
+        assert_eq!(uri, HistoryUri::new("https://example.org/test"));
+
+        let mut uri = HistoryUri::new("https://example.org/test///ing");
+        uri.normalize();
+        assert_eq!(uri, HistoryUri::new("https://example.org/test/ing"));
     }
 
     #[test]
@@ -432,5 +471,8 @@ mod tests {
         assert!(!uri.autocomplete(&"org".into()));
         assert!(uri.autocomplete(&"example.org/path/segments".into()));
         assert!(!uri.autocomplete(&"other.org/p".into()));
+        assert!(!uri.autocomplete(&"example.org/path/segmen/".into()));
+        assert!(!uri.autocomplete(&"example.org/path//segment".into()));
+        assert!(!uri.autocomplete(&"example.org//".into()));
     }
 }

@@ -292,6 +292,34 @@ impl OptionMenu {
         self.content_height().saturating_sub(max_height - border_size)
     }
 
+    /// Get the physical menu position.
+    fn physical_position(&self) -> Position {
+        let border_widths = self.border_widths() * self.scale;
+        let max_height = (self.max_height as f64 * self.scale).round() as i32;
+        let position = self.position * self.scale;
+
+        // Ensure popup is within display area.
+        let height = self.content_height() + border_widths.top + border_widths.bottom;
+        let y_end = position.y + height as i32;
+        let clamp_delta = cmp::max(y_end - max_height, 0);
+        let y = cmp::max(position.y - clamp_delta, 0);
+
+        Position::new(position.x, y)
+    }
+
+    /// Get the physical menu size.
+    fn physical_size(&self) -> Size {
+        let border_widths = self.border_widths() * self.scale;
+        let max_height = (self.max_height as f64 * self.scale).round() as u32;
+
+        let total_height = self.content_height() + border_widths.top + border_widths.bottom;
+        let height = cmp::min(max_height, total_height);
+
+        let width = (self.width as f64 * self.scale).round() as u32;
+
+        Size::new(width, height)
+    }
+
     /// Get total option menu height in physical space.
     ///
     /// This is the height of the menu's content without maximum height
@@ -299,13 +327,6 @@ impl OptionMenu {
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn content_height(&self) -> u32 {
         self.items.iter().map(|item| item.height() as u32).sum()
-    }
-
-    /// Get total option menu content height in logical space.
-    ///
-    /// See [`Self::total_height`] for more details.
-    fn logical_content_height(&self) -> u32 {
-        (self.content_height() as f64 / self.scale).round() as u32
     }
 
     /// Logical border widths.
@@ -357,8 +378,8 @@ impl Popup for OptionMenu {
         self.clamp_scroll_offset();
 
         // Calculate physical menu dimensions.
-        let mut position: Position<f32> = (self.position() * self.scale).into();
-        let size = self.size() * self.scale;
+        let mut position: Position<f32> = self.physical_position().into();
+        let size = self.physical_size();
 
         // Draw menu border.
         unsafe {
@@ -405,16 +426,7 @@ impl Popup for OptionMenu {
     }
 
     fn position(&self) -> Position {
-        let border_widths = self.border_widths();
-
-        // Ensure popup is within display area.
-        let max_height = self.max_height as i32;
-        let height = self.logical_content_height() + border_widths.top + border_widths.bottom;
-        let y_end = self.position.y + height as i32;
-        let clamp_delta = cmp::max(y_end - max_height, 0);
-        let y = cmp::max(self.position.y - clamp_delta, 0);
-
-        Position::new(self.position.x, y)
+        self.physical_position() * (1. / self.scale)
     }
 
     fn set_size(&mut self, size: Size) {
@@ -423,11 +435,7 @@ impl Popup for OptionMenu {
     }
 
     fn size(&self) -> Size {
-        let border_widths = self.border_widths();
-        let total_height = self.logical_content_height() + border_widths.top + border_widths.bottom;
-        let height = cmp::min(self.max_height, total_height);
-
-        Size::new(self.width, height)
+        self.physical_size() * (1. / self.scale)
     }
 
     fn set_scale(&mut self, scale: f64) {

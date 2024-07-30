@@ -665,12 +665,16 @@ impl OptionMenuRenderItem {
 
     /// Update item width.
     fn set_width(&mut self, width: u32) {
+        self.dirty |= self.width != width;
         self.width = width;
-        self.dirty = true;
     }
 
     /// Update item scale.
     fn set_scale(&mut self, scale: f64) {
+        if self.scale == scale {
+            return;
+        }
+
         if let Some(layout) = &mut self.description_layout {
             layout.set_scale(scale);
         }

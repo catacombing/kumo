@@ -466,8 +466,10 @@ impl Window {
             }
         }
 
-        // Close history popup, so we don't need to resize it.
-        self.close_history_menu();
+        // Destroy history popup, so we don't need to resize it.
+        if let Some(id) = self.history_menu {
+            self.overlay.close_option_menu(id);
+        }
 
         self.unstall();
     }

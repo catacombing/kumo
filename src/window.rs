@@ -1175,7 +1175,15 @@ fn build_uri(mut input: &str) -> Option<Cow<'_, str>> {
     }
 
     // Abort if the domain contains any illegal characters.
-    if input.find(|c: char| !c.is_alphanumeric() && c != '-' && c != '.').is_some() {
+    if input.starts_with('[') && input.ends_with(']') {
+        // Handle IPv6 validation.
+        if input[1..input.len() - 1]
+            .find(|c| !matches!(c, '0'..='9' | 'a'..='f' | 'A'..='F' | ':'))
+            .is_some()
+        {
+            return None;
+        }
+    } else if input.find(|c: char| !c.is_alphanumeric() && c != '-' && c != '.').is_some() {
         return None;
     }
 
@@ -1184,13 +1192,21 @@ fn build_uri(mut input: &str) -> Option<Cow<'_, str>> {
         return Some(uri);
     }
 
+    // Skip TLD check for IPv4/6.
+    let ipv4_segments =
+        input.split('.').take_while(|s| s.chars().all(|c| c.is_ascii_digit())).take(5).count();
+    let is_ip = input.starts_with('[') || ipv4_segments == 4;
+    if is_ip {
+        return Some(Cow::Owned(format!("https://{uri}")));
+    }
+
     // Check for valid TLD.
     match input.rfind('.') {
+        // Accept missing TLD with explicitly specified ports.
+        None if has_port => Some(Cow::Owned(format!("https://{uri}"))),
         Some(tld_index) if TLDS.contains(&input[tld_index + 1..].to_uppercase().as_str()) => {
             Some(Cow::Owned(format!("https://{uri}")))
         },
-        // Accept no TLD only if a port was explicitly specified.
-        None if has_port => Some(Cow::Owned(format!("https://{uri}"))),
         _ => None,
     }
 }
@@ -1223,5 +1239,12 @@ mod tests {
         assert_eq!(build_uri("example.org:/").as_deref(), None);
         assert_eq!(build_uri("example:/").as_deref(), None);
         assert_eq!(build_uri("xxx:123:456").as_deref(), None);
+
+        assert_eq!(build_uri("http://[fe80::a]/index").as_deref(), Some("http://[fe80::a]/index"));
+        assert_eq!(build_uri("http://127.0.0.1:80/x").as_deref(), Some("http://127.0.0.1:80/x"));
+        assert_eq!(build_uri("[fe80::a]:80").as_deref(), Some("https://[fe80::a]:80"));
+        assert_eq!(build_uri("127.0.0.1:80").as_deref(), Some("https://127.0.0.1:80"));
+        assert_eq!(build_uri("[fe80::a]").as_deref(), Some("https://[fe80::a]"));
+        assert_eq!(build_uri("127.0.0.1").as_deref(), Some("https://127.0.0.1"));
     }
 }

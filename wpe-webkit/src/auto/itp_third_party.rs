@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::ITPFirstParty;
+use crate::{ffi, ITPFirstParty};
 
 glib::wrapper! {
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

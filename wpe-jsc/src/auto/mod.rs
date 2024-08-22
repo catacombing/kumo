@@ -27,12 +27,6 @@ pub use self::enums::{CheckSyntaxMode, CheckSyntaxResult, OptionType, TypedArray
 mod flags;
 pub use self::flags::ValuePropertyFlags;
 
-pub(crate) mod traits {
-    pub use super::context::ContextExt;
-    pub use super::exception::ExceptionExt;
-    pub use super::value::ValueExt;
-    pub use super::weak_value::WeakValueExt;
-}
 pub(crate) mod builders {
     pub use super::class::ClassBuilder;
     pub use super::context::ContextBuilder;

@@ -5,6 +5,8 @@
 
 use glib::translate::*;
 
+use crate::ffi;
+
 glib::wrapper! {
     #[doc(alias = "JSCVirtualMachine")]
     pub struct VirtualMachine(Object<ffi::JSCVirtualMachine, ffi::JSCVirtualMachineClass>);
@@ -15,8 +17,6 @@ glib::wrapper! {
 }
 
 impl VirtualMachine {
-    pub const NONE: Option<&'static VirtualMachine> = None;
-
     #[doc(alias = "jsc_virtual_machine_new")]
     pub fn new() -> VirtualMachine {
         unsafe { from_glib_full(ffi::jsc_virtual_machine_new()) }

@@ -6,6 +6,8 @@
 use glib::prelude::*;
 use glib::translate::*;
 
+use crate::ffi;
+
 glib::wrapper! {
     #[doc(alias = "WebKitPermissionRequest")]
     pub struct PermissionRequest(Interface<ffi::WebKitPermissionRequest, ffi::WebKitPermissionRequestInterface>);

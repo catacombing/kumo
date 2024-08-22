@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::AutoplayPolicy;
+use crate::{ffi, AutoplayPolicy};
 
 glib::wrapper! {
     #[doc(alias = "WebKitWebsitePolicies")]

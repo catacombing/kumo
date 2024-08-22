@@ -9,6 +9,8 @@ use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
 
+use crate::ffi;
+
 glib::wrapper! {
     #[doc(alias = "WebKitNotification")]
     pub struct Notification(Object<ffi::WebKitNotification, ffi::WebKitNotificationClass>);
@@ -71,7 +73,7 @@ impl Notification {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"clicked\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     clicked_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
@@ -93,7 +95,7 @@ impl Notification {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"closed\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     closed_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
@@ -116,7 +118,7 @@ impl Notification {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"notify::body\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_body_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
@@ -139,7 +141,7 @@ impl Notification {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"notify::id\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_id_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
@@ -162,7 +164,7 @@ impl Notification {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"notify::tag\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_tag_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
@@ -185,7 +187,7 @@ impl Notification {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"notify::title\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_title_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),

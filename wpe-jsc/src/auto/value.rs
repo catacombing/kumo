@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{Context, TypedArrayType, ValuePropertyFlags};
+use crate::{ffi, Context, TypedArrayType, ValuePropertyFlags};
 
 glib::wrapper! {
     #[doc(alias = "JSCValue")]
@@ -18,134 +18,120 @@ glib::wrapper! {
 }
 
 impl Value {
-    pub const NONE: Option<&'static Value> = None;
-
     //#[doc(alias = "jsc_value_new_array")]
-    // pub fn new_array(context: &impl IsA<Context>, first_item_type:
-    // glib::types::Type, : /*Unknown conversion*//*Unimplemented*/Basic: VarArgs)
-    // -> Value {    unsafe { TODO: call ffi:jsc_value_new_array() }
+    // pub fn new_array(context: &Context, first_item_type: glib::types::Type, :
+    // /*Unknown conversion*//*Unimplemented*/Basic: VarArgs) -> Value {
+    //    unsafe { TODO: call ffi:jsc_value_new_array() }
     //}
 
     //#[doc(alias = "jsc_value_new_array_buffer")]
-    // pub fn new_array_buffer(context: &impl IsA<Context>, data:
+    // pub fn new_array_buffer(context: &Context, data:
     // /*Unimplemented*/Option<Basic: Pointer>, size: usize, user_data:
     // /*Unimplemented*/Option<Basic: Pointer>) -> Option<Value> {    unsafe {
     // TODO: call ffi:jsc_value_new_array_buffer() }
     //}
 
     #[doc(alias = "jsc_value_new_array_from_garray")]
-    pub fn new_array_from_garray(context: &impl IsA<Context>, array: &[Value]) -> Value {
+    pub fn new_array_from_garray(context: &Context, array: &[Value]) -> Value {
         unsafe {
             from_glib_full(ffi::jsc_value_new_array_from_garray(
-                context.as_ref().to_glib_none().0,
+                context.to_glib_none().0,
                 array.to_glib_none().0,
             ))
         }
     }
 
     #[doc(alias = "jsc_value_new_array_from_strv")]
-    pub fn new_array_from_strv(context: &impl IsA<Context>, strv: &[&str]) -> Value {
+    pub fn new_array_from_strv(context: &Context, strv: &[&str]) -> Value {
         unsafe {
             from_glib_full(ffi::jsc_value_new_array_from_strv(
-                context.as_ref().to_glib_none().0,
+                context.to_glib_none().0,
                 strv.to_glib_none().0,
             ))
         }
     }
 
     #[doc(alias = "jsc_value_new_boolean")]
-    pub fn new_boolean(context: &impl IsA<Context>, value: bool) -> Value {
+    pub fn new_boolean(context: &Context, value: bool) -> Value {
         unsafe {
-            from_glib_full(ffi::jsc_value_new_boolean(
-                context.as_ref().to_glib_none().0,
-                value.into_glib(),
-            ))
+            from_glib_full(ffi::jsc_value_new_boolean(context.to_glib_none().0, value.into_glib()))
         }
     }
 
     #[doc(alias = "jsc_value_new_from_json")]
     #[doc(alias = "new_from_json")]
-    pub fn from_json(context: &impl IsA<Context>, json: &str) -> Value {
+    pub fn from_json(context: &Context, json: &str) -> Value {
         unsafe {
             from_glib_full(ffi::jsc_value_new_from_json(
-                context.as_ref().to_glib_none().0,
+                context.to_glib_none().0,
                 json.to_glib_none().0,
             ))
         }
     }
 
     //#[doc(alias = "jsc_value_new_function")]
-    // pub fn new_function<P: Fn() + 'static>(context: &impl IsA<Context>, name:
-    // Option<&str>, callback: P, user_data: /*Unimplemented*/Option<Basic:
-    // Pointer>, return_type: glib::types::Type, n_params: u32, : /*Unknown
+    // pub fn new_function<P: Fn() + 'static>(context: &Context, name: Option<&str>,
+    // callback: P, user_data: /*Unimplemented*/Option<Basic: Pointer>, return_type:
+    // glib::types::Type, n_params: u32, : /*Unknown
     // conversion*//*Unimplemented*/Basic: VarArgs) -> Value {    unsafe { TODO:
     // call ffi:jsc_value_new_function() }
     //}
 
     //#[doc(alias = "jsc_value_new_function_variadic")]
-    // pub fn new_function_variadic<P: Fn() + 'static>(context: &impl IsA<Context>,
-    // name: Option<&str>, callback: P, user_data: /*Unimplemented*/Option<Basic:
+    // pub fn new_function_variadic<P: Fn() + 'static>(context: &Context, name:
+    // Option<&str>, callback: P, user_data: /*Unimplemented*/Option<Basic:
     // Pointer>, return_type: glib::types::Type) -> Value {    unsafe { TODO:
     // call ffi:jsc_value_new_function_variadic() }
     //}
 
     //#[doc(alias = "jsc_value_new_functionv")]
-    // pub fn new_functionv<P: Fn() + 'static>(context: &impl IsA<Context>, name:
+    // pub fn new_functionv<P: Fn() + 'static>(context: &Context, name:
     // Option<&str>, callback: P, user_data: /*Unimplemented*/Option<Basic:
     // Pointer>, return_type: glib::types::Type, n_parameters: u32) -> Value {
     //    unsafe { TODO: call ffi:jsc_value_new_functionv() }
     //}
 
     #[doc(alias = "jsc_value_new_null")]
-    pub fn new_null(context: &impl IsA<Context>) -> Value {
-        unsafe { from_glib_full(ffi::jsc_value_new_null(context.as_ref().to_glib_none().0)) }
+    pub fn new_null(context: &Context) -> Value {
+        unsafe { from_glib_full(ffi::jsc_value_new_null(context.to_glib_none().0)) }
     }
 
     #[doc(alias = "jsc_value_new_number")]
-    pub fn new_number(context: &impl IsA<Context>, number: f64) -> Value {
-        unsafe {
-            from_glib_full(ffi::jsc_value_new_number(context.as_ref().to_glib_none().0, number))
-        }
+    pub fn new_number(context: &Context, number: f64) -> Value {
+        unsafe { from_glib_full(ffi::jsc_value_new_number(context.to_glib_none().0, number)) }
     }
 
     //#[doc(alias = "jsc_value_new_object")]
-    // pub fn new_object(context: &impl IsA<Context>, instance:
-    // /*Unimplemented*/Option<Basic: Pointer>, jsc_class: Option<&Class>) -> Value
-    // {    unsafe { TODO: call ffi:jsc_value_new_object() }
+    // pub fn new_object(context: &Context, instance: /*Unimplemented*/Option<Basic:
+    // Pointer>, jsc_class: Option<&Class>) -> Value {    unsafe { TODO: call
+    // ffi:jsc_value_new_object() }
     //}
 
     #[doc(alias = "jsc_value_new_string")]
-    pub fn new_string(context: &impl IsA<Context>, string: Option<&str>) -> Value {
+    pub fn new_string(context: &Context, string: Option<&str>) -> Value {
         unsafe {
             from_glib_full(ffi::jsc_value_new_string(
-                context.as_ref().to_glib_none().0,
+                context.to_glib_none().0,
                 string.to_glib_none().0,
             ))
         }
     }
 
     #[doc(alias = "jsc_value_new_string_from_bytes")]
-    pub fn new_string_from_bytes(
-        context: &impl IsA<Context>,
-        bytes: Option<&glib::Bytes>,
-    ) -> Value {
+    pub fn new_string_from_bytes(context: &Context, bytes: Option<&glib::Bytes>) -> Value {
         unsafe {
             from_glib_full(ffi::jsc_value_new_string_from_bytes(
-                context.as_ref().to_glib_none().0,
+                context.to_glib_none().0,
                 bytes.to_glib_none().0,
             ))
         }
     }
 
     #[doc(alias = "jsc_value_new_typed_array")]
-    pub fn new_typed_array(
-        context: &impl IsA<Context>,
-        type_: TypedArrayType,
-        length: usize,
-    ) -> Value {
+    pub fn new_typed_array(context: &Context, type_: TypedArrayType, length: usize) -> Value {
         unsafe {
             from_glib_full(ffi::jsc_value_new_typed_array(
-                context.as_ref().to_glib_none().0,
+                context.to_glib_none().0,
                 type_.into_glib(),
                 length,
             ))
@@ -153,8 +139,8 @@ impl Value {
     }
 
     #[doc(alias = "jsc_value_new_undefined")]
-    pub fn new_undefined(context: &impl IsA<Context>) -> Value {
-        unsafe { from_glib_full(ffi::jsc_value_new_undefined(context.as_ref().to_glib_none().0)) }
+    pub fn new_undefined(context: &Context) -> Value {
+        unsafe { from_glib_full(ffi::jsc_value_new_undefined(context.to_glib_none().0)) }
     }
 
     // rustdoc-stripper-ignore-next
@@ -167,12 +153,335 @@ impl Value {
     pub fn builder() -> ValueBuilder {
         ValueBuilder::new()
     }
+
+    //#[doc(alias = "jsc_value_array_buffer_get_data")]
+    // pub fn array_buffer_get_data(&self, size: usize) ->
+    // /*Unimplemented*/Option<Basic: Pointer> {    unsafe { TODO: call
+    // ffi:jsc_value_array_buffer_get_data() }
+    //}
+
+    #[doc(alias = "jsc_value_array_buffer_get_size")]
+    pub fn array_buffer_get_size(&self) -> usize {
+        unsafe { ffi::jsc_value_array_buffer_get_size(self.to_glib_none().0) }
+    }
+
+    //#[doc(alias = "jsc_value_constructor_call")]
+    //#[must_use]
+    // pub fn constructor_call(&self, first_parameter_type: glib::types::Type, :
+    // /*Unknown conversion*//*Unimplemented*/Basic: VarArgs) -> Option<Value> {
+    //    unsafe { TODO: call ffi:jsc_value_constructor_call() }
+    //}
+
+    #[doc(alias = "jsc_value_constructor_callv")]
+    #[must_use]
+    pub fn constructor_callv(&self, parameters: &[Value]) -> Option<Value> {
+        let n_parameters = parameters.len() as _;
+        unsafe {
+            from_glib_full(ffi::jsc_value_constructor_callv(
+                self.to_glib_none().0,
+                n_parameters,
+                parameters.to_glib_none().0,
+            ))
+        }
+    }
+
+    //#[doc(alias = "jsc_value_function_call")]
+    //#[must_use]
+    // pub fn function_call(&self, first_parameter_type: glib::types::Type, :
+    // /*Unknown conversion*//*Unimplemented*/Basic: VarArgs) -> Option<Value> {
+    //    unsafe { TODO: call ffi:jsc_value_function_call() }
+    //}
+
+    #[doc(alias = "jsc_value_function_callv")]
+    #[must_use]
+    pub fn function_callv(&self, parameters: &[Value]) -> Option<Value> {
+        let n_parameters = parameters.len() as _;
+        unsafe {
+            from_glib_full(ffi::jsc_value_function_callv(
+                self.to_glib_none().0,
+                n_parameters,
+                parameters.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "jsc_value_get_context")]
+    #[doc(alias = "get_context")]
+    pub fn context(&self) -> Option<Context> {
+        unsafe { from_glib_none(ffi::jsc_value_get_context(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_is_array")]
+    pub fn is_array(&self) -> bool {
+        unsafe { from_glib(ffi::jsc_value_is_array(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_is_array_buffer")]
+    pub fn is_array_buffer(&self) -> bool {
+        unsafe { from_glib(ffi::jsc_value_is_array_buffer(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_is_boolean")]
+    pub fn is_boolean(&self) -> bool {
+        unsafe { from_glib(ffi::jsc_value_is_boolean(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_is_constructor")]
+    pub fn is_constructor(&self) -> bool {
+        unsafe { from_glib(ffi::jsc_value_is_constructor(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_is_function")]
+    pub fn is_function(&self) -> bool {
+        unsafe { from_glib(ffi::jsc_value_is_function(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_is_null")]
+    pub fn is_null(&self) -> bool {
+        unsafe { from_glib(ffi::jsc_value_is_null(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_is_number")]
+    pub fn is_number(&self) -> bool {
+        unsafe { from_glib(ffi::jsc_value_is_number(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_is_object")]
+    pub fn is_object(&self) -> bool {
+        unsafe { from_glib(ffi::jsc_value_is_object(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_is_string")]
+    pub fn is_string(&self) -> bool {
+        unsafe { from_glib(ffi::jsc_value_is_string(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_is_typed_array")]
+    pub fn is_typed_array(&self) -> bool {
+        unsafe { from_glib(ffi::jsc_value_is_typed_array(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_is_undefined")]
+    pub fn is_undefined(&self) -> bool {
+        unsafe { from_glib(ffi::jsc_value_is_undefined(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_new_typed_array_with_buffer")]
+    #[must_use]
+    pub fn new_typed_array_with_buffer(
+        &self,
+        type_: TypedArrayType,
+        offset: usize,
+        length: isize,
+    ) -> Option<Value> {
+        unsafe {
+            from_glib_full(ffi::jsc_value_new_typed_array_with_buffer(
+                self.to_glib_none().0,
+                type_.into_glib(),
+                offset,
+                length,
+            ))
+        }
+    }
+
+    //#[doc(alias = "jsc_value_object_define_property_accessor")]
+    // pub fn object_define_property_accessor(&self, property_name: &str, flags:
+    // ValuePropertyFlags, property_type: glib::types::Type, getter: Option<Box_<dyn
+    // FnOnce() + 'static>>, setter: Option<Box_<dyn Fn() + 'static>>, user_data:
+    // /*Unimplemented*/Option<Basic: Pointer>) {    unsafe { TODO: call
+    // ffi:jsc_value_object_define_property_accessor() }
+    //}
+
+    #[doc(alias = "jsc_value_object_define_property_data")]
+    pub fn object_define_property_data(
+        &self,
+        property_name: &str,
+        flags: ValuePropertyFlags,
+        property_value: Option<&Value>,
+    ) {
+        unsafe {
+            ffi::jsc_value_object_define_property_data(
+                self.to_glib_none().0,
+                property_name.to_glib_none().0,
+                flags.into_glib(),
+                property_value.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "jsc_value_object_delete_property")]
+    pub fn object_delete_property(&self, name: &str) -> bool {
+        unsafe {
+            from_glib(ffi::jsc_value_object_delete_property(
+                self.to_glib_none().0,
+                name.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "jsc_value_object_enumerate_properties")]
+    pub fn object_enumerate_properties(&self) -> Vec<glib::GString> {
+        unsafe {
+            FromGlibPtrContainer::from_glib_full(ffi::jsc_value_object_enumerate_properties(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "jsc_value_object_get_property")]
+    #[must_use]
+    pub fn object_get_property(&self, name: &str) -> Option<Value> {
+        unsafe {
+            from_glib_full(ffi::jsc_value_object_get_property(
+                self.to_glib_none().0,
+                name.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "jsc_value_object_get_property_at_index")]
+    #[must_use]
+    pub fn object_get_property_at_index(&self, index: u32) -> Option<Value> {
+        unsafe {
+            from_glib_full(ffi::jsc_value_object_get_property_at_index(
+                self.to_glib_none().0,
+                index,
+            ))
+        }
+    }
+
+    #[doc(alias = "jsc_value_object_has_property")]
+    pub fn object_has_property(&self, name: &str) -> bool {
+        unsafe {
+            from_glib(ffi::jsc_value_object_has_property(
+                self.to_glib_none().0,
+                name.to_glib_none().0,
+            ))
+        }
+    }
+
+    //#[doc(alias = "jsc_value_object_invoke_method")]
+    //#[must_use]
+    // pub fn object_invoke_method(&self, name: &str, first_parameter_type:
+    // glib::types::Type, : /*Unknown conversion*//*Unimplemented*/Basic: VarArgs)
+    // -> Option<Value> {    unsafe { TODO: call
+    // ffi:jsc_value_object_invoke_method() }
+    //}
+
+    #[doc(alias = "jsc_value_object_invoke_methodv")]
+    #[must_use]
+    pub fn object_invoke_methodv(&self, name: &str, parameters: &[Value]) -> Option<Value> {
+        let n_parameters = parameters.len() as _;
+        unsafe {
+            from_glib_full(ffi::jsc_value_object_invoke_methodv(
+                self.to_glib_none().0,
+                name.to_glib_none().0,
+                n_parameters,
+                parameters.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "jsc_value_object_is_instance_of")]
+    pub fn object_is_instance_of(&self, name: &str) -> bool {
+        unsafe {
+            from_glib(ffi::jsc_value_object_is_instance_of(
+                self.to_glib_none().0,
+                name.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "jsc_value_object_set_property")]
+    pub fn object_set_property(&self, name: &str, property: &Value) {
+        unsafe {
+            ffi::jsc_value_object_set_property(
+                self.to_glib_none().0,
+                name.to_glib_none().0,
+                property.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "jsc_value_object_set_property_at_index")]
+    pub fn object_set_property_at_index(&self, index: u32, property: &Value) {
+        unsafe {
+            ffi::jsc_value_object_set_property_at_index(
+                self.to_glib_none().0,
+                index,
+                property.to_glib_none().0,
+            );
+        }
+    }
+
+    #[doc(alias = "jsc_value_to_boolean")]
+    pub fn to_boolean(&self) -> bool {
+        unsafe { from_glib(ffi::jsc_value_to_boolean(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_to_double")]
+    pub fn to_double(&self) -> f64 {
+        unsafe { ffi::jsc_value_to_double(self.to_glib_none().0) }
+    }
+
+    #[doc(alias = "jsc_value_to_int32")]
+    pub fn to_int32(&self) -> i32 {
+        unsafe { ffi::jsc_value_to_int32(self.to_glib_none().0) }
+    }
+
+    #[doc(alias = "jsc_value_to_json")]
+    pub fn to_json(&self, indent: u32) -> Option<glib::GString> {
+        unsafe { from_glib_full(ffi::jsc_value_to_json(self.to_glib_none().0, indent)) }
+    }
+
+    #[doc(alias = "jsc_value_to_string")]
+    #[doc(alias = "to_string")]
+    pub fn to_str(&self) -> glib::GString {
+        unsafe { from_glib_full(ffi::jsc_value_to_string(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_to_string_as_bytes")]
+    pub fn to_string_as_bytes(&self) -> Option<glib::Bytes> {
+        unsafe { from_glib_full(ffi::jsc_value_to_string_as_bytes(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "jsc_value_typed_array_get_buffer")]
+    #[must_use]
+    pub fn typed_array_get_buffer(&self) -> Option<Value> {
+        unsafe { from_glib_full(ffi::jsc_value_typed_array_get_buffer(self.to_glib_none().0)) }
+    }
+
+    //#[doc(alias = "jsc_value_typed_array_get_data")]
+    // pub fn typed_array_get_data(&self) -> (/*Unimplemented*/Option<Basic:
+    // Pointer>, usize) {    unsafe { TODO: call
+    // ffi:jsc_value_typed_array_get_data() }
+    //}
+
+    #[doc(alias = "jsc_value_typed_array_get_length")]
+    pub fn typed_array_get_length(&self) -> usize {
+        unsafe { ffi::jsc_value_typed_array_get_length(self.to_glib_none().0) }
+    }
+
+    #[doc(alias = "jsc_value_typed_array_get_offset")]
+    pub fn typed_array_get_offset(&self) -> usize {
+        unsafe { ffi::jsc_value_typed_array_get_offset(self.to_glib_none().0) }
+    }
+
+    #[doc(alias = "jsc_value_typed_array_get_size")]
+    pub fn typed_array_get_size(&self) -> usize {
+        unsafe { ffi::jsc_value_typed_array_get_size(self.to_glib_none().0) }
+    }
+
+    #[doc(alias = "jsc_value_typed_array_get_type")]
+    pub fn typed_array_get_type(&self) -> TypedArrayType {
+        unsafe { from_glib(ffi::jsc_value_typed_array_get_type(self.to_glib_none().0)) }
+    }
 }
 
 impl std::fmt::Display for Value {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.write_str(&ValueExt::to_str(self))
+        f.write_str(&self.to_str())
     }
 }
 
@@ -190,8 +499,8 @@ impl ValueBuilder {
         Self { builder: glib::object::Object::builder() }
     }
 
-    pub fn context(self, context: &impl IsA<Context>) -> Self {
-        Self { builder: self.builder.property("context", context.clone().upcast()) }
+    pub fn context(self, context: &Context) -> Self {
+        Self { builder: self.builder.property("context", context.clone()) }
     }
 
     // rustdoc-stripper-ignore-next
@@ -202,336 +511,3 @@ impl ValueBuilder {
         self.builder.build()
     }
 }
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Value>> Sealed for T {}
-}
-
-pub trait ValueExt: IsA<Value> + sealed::Sealed + 'static {
-    //#[doc(alias = "jsc_value_array_buffer_get_data")]
-    // fn array_buffer_get_data(&self, size: usize) ->
-    // /*Unimplemented*/Option<Basic: Pointer> {    unsafe { TODO: call
-    // ffi:jsc_value_array_buffer_get_data() }
-    //}
-
-    #[doc(alias = "jsc_value_array_buffer_get_size")]
-    fn array_buffer_get_size(&self) -> usize {
-        unsafe { ffi::jsc_value_array_buffer_get_size(self.as_ref().to_glib_none().0) }
-    }
-
-    //#[doc(alias = "jsc_value_constructor_call")]
-    //#[must_use]
-    // fn constructor_call(&self, first_parameter_type: glib::types::Type, :
-    // /*Unknown conversion*//*Unimplemented*/Basic: VarArgs) -> Option<Value> {
-    //    unsafe { TODO: call ffi:jsc_value_constructor_call() }
-    //}
-
-    #[doc(alias = "jsc_value_constructor_callv")]
-    #[must_use]
-    fn constructor_callv(&self, parameters: &[Value]) -> Option<Value> {
-        let n_parameters = parameters.len() as _;
-        unsafe {
-            from_glib_full(ffi::jsc_value_constructor_callv(
-                self.as_ref().to_glib_none().0,
-                n_parameters,
-                parameters.to_glib_none().0,
-            ))
-        }
-    }
-
-    //#[doc(alias = "jsc_value_function_call")]
-    //#[must_use]
-    // fn function_call(&self, first_parameter_type: glib::types::Type, : /*Unknown
-    // conversion*//*Unimplemented*/Basic: VarArgs) -> Option<Value> {    unsafe
-    // { TODO: call ffi:jsc_value_function_call() }
-    //}
-
-    #[doc(alias = "jsc_value_function_callv")]
-    #[must_use]
-    fn function_callv(&self, parameters: &[Value]) -> Option<Value> {
-        let n_parameters = parameters.len() as _;
-        unsafe {
-            from_glib_full(ffi::jsc_value_function_callv(
-                self.as_ref().to_glib_none().0,
-                n_parameters,
-                parameters.to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "jsc_value_get_context")]
-    #[doc(alias = "get_context")]
-    fn context(&self) -> Option<Context> {
-        unsafe { from_glib_none(ffi::jsc_value_get_context(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_is_array")]
-    fn is_array(&self) -> bool {
-        unsafe { from_glib(ffi::jsc_value_is_array(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_is_array_buffer")]
-    fn is_array_buffer(&self) -> bool {
-        unsafe { from_glib(ffi::jsc_value_is_array_buffer(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_is_boolean")]
-    fn is_boolean(&self) -> bool {
-        unsafe { from_glib(ffi::jsc_value_is_boolean(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_is_constructor")]
-    fn is_constructor(&self) -> bool {
-        unsafe { from_glib(ffi::jsc_value_is_constructor(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_is_function")]
-    fn is_function(&self) -> bool {
-        unsafe { from_glib(ffi::jsc_value_is_function(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_is_null")]
-    fn is_null(&self) -> bool {
-        unsafe { from_glib(ffi::jsc_value_is_null(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_is_number")]
-    fn is_number(&self) -> bool {
-        unsafe { from_glib(ffi::jsc_value_is_number(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_is_object")]
-    fn is_object(&self) -> bool {
-        unsafe { from_glib(ffi::jsc_value_is_object(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_is_string")]
-    fn is_string(&self) -> bool {
-        unsafe { from_glib(ffi::jsc_value_is_string(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_is_typed_array")]
-    fn is_typed_array(&self) -> bool {
-        unsafe { from_glib(ffi::jsc_value_is_typed_array(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_is_undefined")]
-    fn is_undefined(&self) -> bool {
-        unsafe { from_glib(ffi::jsc_value_is_undefined(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_new_typed_array_with_buffer")]
-    #[must_use]
-    fn new_typed_array_with_buffer(
-        &self,
-        type_: TypedArrayType,
-        offset: usize,
-        length: isize,
-    ) -> Option<Value> {
-        unsafe {
-            from_glib_full(ffi::jsc_value_new_typed_array_with_buffer(
-                self.as_ref().to_glib_none().0,
-                type_.into_glib(),
-                offset,
-                length,
-            ))
-        }
-    }
-
-    //#[doc(alias = "jsc_value_object_define_property_accessor")]
-    // fn object_define_property_accessor(&self, property_name: &str, flags:
-    // ValuePropertyFlags, property_type: glib::types::Type, getter: Option<Box_<dyn
-    // FnOnce() + 'static>>, setter: Option<Box_<dyn Fn() + 'static>>, user_data:
-    // /*Unimplemented*/Option<Basic: Pointer>) {    unsafe { TODO: call
-    // ffi:jsc_value_object_define_property_accessor() }
-    //}
-
-    #[doc(alias = "jsc_value_object_define_property_data")]
-    fn object_define_property_data(
-        &self,
-        property_name: &str,
-        flags: ValuePropertyFlags,
-        property_value: Option<&impl IsA<Value>>,
-    ) {
-        unsafe {
-            ffi::jsc_value_object_define_property_data(
-                self.as_ref().to_glib_none().0,
-                property_name.to_glib_none().0,
-                flags.into_glib(),
-                property_value.map(|p| p.as_ref()).to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "jsc_value_object_delete_property")]
-    fn object_delete_property(&self, name: &str) -> bool {
-        unsafe {
-            from_glib(ffi::jsc_value_object_delete_property(
-                self.as_ref().to_glib_none().0,
-                name.to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "jsc_value_object_enumerate_properties")]
-    fn object_enumerate_properties(&self) -> Vec<glib::GString> {
-        unsafe {
-            FromGlibPtrContainer::from_glib_full(ffi::jsc_value_object_enumerate_properties(
-                self.as_ref().to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "jsc_value_object_get_property")]
-    #[must_use]
-    fn object_get_property(&self, name: &str) -> Option<Value> {
-        unsafe {
-            from_glib_full(ffi::jsc_value_object_get_property(
-                self.as_ref().to_glib_none().0,
-                name.to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "jsc_value_object_get_property_at_index")]
-    #[must_use]
-    fn object_get_property_at_index(&self, index: u32) -> Option<Value> {
-        unsafe {
-            from_glib_full(ffi::jsc_value_object_get_property_at_index(
-                self.as_ref().to_glib_none().0,
-                index,
-            ))
-        }
-    }
-
-    #[doc(alias = "jsc_value_object_has_property")]
-    fn object_has_property(&self, name: &str) -> bool {
-        unsafe {
-            from_glib(ffi::jsc_value_object_has_property(
-                self.as_ref().to_glib_none().0,
-                name.to_glib_none().0,
-            ))
-        }
-    }
-
-    //#[doc(alias = "jsc_value_object_invoke_method")]
-    //#[must_use]
-    // fn object_invoke_method(&self, name: &str, first_parameter_type:
-    // glib::types::Type, : /*Unknown conversion*//*Unimplemented*/Basic: VarArgs)
-    // -> Option<Value> {    unsafe { TODO: call
-    // ffi:jsc_value_object_invoke_method() }
-    //}
-
-    #[doc(alias = "jsc_value_object_invoke_methodv")]
-    #[must_use]
-    fn object_invoke_methodv(&self, name: &str, parameters: &[Value]) -> Option<Value> {
-        let n_parameters = parameters.len() as _;
-        unsafe {
-            from_glib_full(ffi::jsc_value_object_invoke_methodv(
-                self.as_ref().to_glib_none().0,
-                name.to_glib_none().0,
-                n_parameters,
-                parameters.to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "jsc_value_object_is_instance_of")]
-    fn object_is_instance_of(&self, name: &str) -> bool {
-        unsafe {
-            from_glib(ffi::jsc_value_object_is_instance_of(
-                self.as_ref().to_glib_none().0,
-                name.to_glib_none().0,
-            ))
-        }
-    }
-
-    #[doc(alias = "jsc_value_object_set_property")]
-    fn object_set_property(&self, name: &str, property: &impl IsA<Value>) {
-        unsafe {
-            ffi::jsc_value_object_set_property(
-                self.as_ref().to_glib_none().0,
-                name.to_glib_none().0,
-                property.as_ref().to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "jsc_value_object_set_property_at_index")]
-    fn object_set_property_at_index(&self, index: u32, property: &impl IsA<Value>) {
-        unsafe {
-            ffi::jsc_value_object_set_property_at_index(
-                self.as_ref().to_glib_none().0,
-                index,
-                property.as_ref().to_glib_none().0,
-            );
-        }
-    }
-
-    #[doc(alias = "jsc_value_to_boolean")]
-    fn to_boolean(&self) -> bool {
-        unsafe { from_glib(ffi::jsc_value_to_boolean(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_to_double")]
-    fn to_double(&self) -> f64 {
-        unsafe { ffi::jsc_value_to_double(self.as_ref().to_glib_none().0) }
-    }
-
-    #[doc(alias = "jsc_value_to_int32")]
-    fn to_int32(&self) -> i32 {
-        unsafe { ffi::jsc_value_to_int32(self.as_ref().to_glib_none().0) }
-    }
-
-    #[doc(alias = "jsc_value_to_json")]
-    fn to_json(&self, indent: u32) -> Option<glib::GString> {
-        unsafe { from_glib_full(ffi::jsc_value_to_json(self.as_ref().to_glib_none().0, indent)) }
-    }
-
-    #[doc(alias = "jsc_value_to_string")]
-    #[doc(alias = "to_string")]
-    fn to_str(&self) -> glib::GString {
-        unsafe { from_glib_full(ffi::jsc_value_to_string(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_to_string_as_bytes")]
-    fn to_string_as_bytes(&self) -> Option<glib::Bytes> {
-        unsafe { from_glib_full(ffi::jsc_value_to_string_as_bytes(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "jsc_value_typed_array_get_buffer")]
-    #[must_use]
-    fn typed_array_get_buffer(&self) -> Option<Value> {
-        unsafe {
-            from_glib_full(ffi::jsc_value_typed_array_get_buffer(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    //#[doc(alias = "jsc_value_typed_array_get_data")]
-    // fn typed_array_get_data(&self) -> (/*Unimplemented*/Option<Basic: Pointer>,
-    // usize) {    unsafe { TODO: call ffi:jsc_value_typed_array_get_data() }
-    //}
-
-    #[doc(alias = "jsc_value_typed_array_get_length")]
-    fn typed_array_get_length(&self) -> usize {
-        unsafe { ffi::jsc_value_typed_array_get_length(self.as_ref().to_glib_none().0) }
-    }
-
-    #[doc(alias = "jsc_value_typed_array_get_offset")]
-    fn typed_array_get_offset(&self) -> usize {
-        unsafe { ffi::jsc_value_typed_array_get_offset(self.as_ref().to_glib_none().0) }
-    }
-
-    #[doc(alias = "jsc_value_typed_array_get_size")]
-    fn typed_array_get_size(&self) -> usize {
-        unsafe { ffi::jsc_value_typed_array_get_size(self.as_ref().to_glib_none().0) }
-    }
-
-    #[doc(alias = "jsc_value_typed_array_get_type")]
-    fn typed_array_get_type(&self) -> TypedArrayType {
-        unsafe { from_glib(ffi::jsc_value_typed_array_get_type(self.as_ref().to_glib_none().0)) }
-    }
-}
-
-impl<O: IsA<Value>> ValueExt for O {}

@@ -1,7 +1,7 @@
 [options]
 library = "WPEWebKit"
 version = "2.0"
-min_cfg_version = "2.42"
+min_cfg_version = "2.45"
 target_path = "."
 girs_directories = ["/usr/share/gir-1.0/", "../gir-files"]
 work_mode = "sys"
@@ -13,4 +13,5 @@ external_libraries = [
     "wpe",
     "Soup",
     "WPEJavaScriptCore",
+    "WPEPlatform",
 ]

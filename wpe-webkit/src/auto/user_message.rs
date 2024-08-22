@@ -6,6 +6,8 @@
 use glib::prelude::*;
 use glib::translate::*;
 
+use crate::ffi;
+
 glib::wrapper! {
     #[doc(alias = "WebKitUserMessage")]
     pub struct UserMessage(Object<ffi::WebKitUserMessage, ffi::WebKitUserMessageClass>);
@@ -55,6 +57,7 @@ impl UserMessage {
 
     #[doc(alias = "webkit_user_message_get_fd_list")]
     #[doc(alias = "get_fd_list")]
+    #[doc(alias = "fd-list")]
     pub fn fd_list(&self) -> Option<gio::UnixFDList> {
         unsafe { from_glib_none(ffi::webkit_user_message_get_fd_list(self.to_glib_none().0)) }
     }

@@ -9,7 +9,7 @@ use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
 
-use crate::{ApplicationInfo, WebView};
+use crate::{ffi, ApplicationInfo, WebView};
 
 glib::wrapper! {
     #[doc(alias = "WebKitAutomationSession")]
@@ -83,7 +83,7 @@ impl AutomationSession {
             connect_raw(
                 self.as_ptr() as *mut _,
                 signal_name.as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     create_web_view_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),

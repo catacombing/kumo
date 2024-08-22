@@ -1,0 +1,62 @@
+[options]
+library = "WPEPlatform"
+version = "2.0"
+min_cfg_version = "2.0"
+target_path = "."
+girs_directories = ["/usr/share/gir-1.0/", "../gir-files"]
+work_mode = "normal"
+single_version_file = true
+deprecate_by_min_version = true
+generate_builder = true
+generate = [
+    "WPEPlatform.Buffer",
+    "WPEPlatform.BufferDMABufFormats",
+    "WPEPlatform.BufferDMABufFormatsBuilder",
+    "WPEPlatform.BufferDMABufFormatUsage",
+    "WPEPlatform.BufferError",
+    "WPEPlatform.BufferSHM",
+    "WPEPlatform.Color",
+    "WPEPlatform.Display",
+    "WPEPlatform.DisplayError",
+    "WPEPlatform.EGLError",
+    "WPEPlatform.Event",
+    "WPEPlatform.EventType",
+    "WPEPlatform.Gesture",
+    "WPEPlatform.GestureController",
+    "WPEPlatform.InputHints",
+    "WPEPlatform.InputMethodContext",
+    "WPEPlatform.InputMethodUnderline",
+    "WPEPlatform.InputPurpose",
+    "WPEPlatform.InputSource",
+    "WPEPlatform.Keymap",
+    #"WPEPlatform.KeymapEntry",
+    "WPEPlatform.KeymapXKB",
+    "WPEPlatform.Modifiers",
+    "WPEPlatform.Monitor",
+    "WPEPlatform.PixelFormat",
+    "WPEPlatform.Rectangle",
+    "WPEPlatform.Toplevel",
+    "WPEPlatform.ToplevelState",
+    "WPEPlatform.ViewError",
+]
+
+manual = [
+    "GLib.Bytes",
+    "GLib.DestroyNotify",
+    "GLib.Error",
+]
+
+[[object]]
+name = "WPEPlatform.View"
+status = "generate"
+function = [
+    { name = "set_opaque_rectangles", manual = true },
+    { name = "render_buffer", manual = true },
+]
+
+[[object]]
+name = "WPEPlatform.BufferDMABuf"
+status = "generate"
+function = [
+    { name = "new", manual = true },
+]

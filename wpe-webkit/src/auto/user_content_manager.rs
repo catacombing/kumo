@@ -9,7 +9,7 @@ use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
 
-use crate::{ScriptMessageReply, UserContentFilter, UserScript, UserStyleSheet};
+use crate::{ffi, ScriptMessageReply, UserContentFilter, UserScript, UserStyleSheet};
 
 glib::wrapper! {
     #[doc(alias = "WebKitUserContentManager")]
@@ -68,7 +68,11 @@ impl UserContentManager {
     }
 
     #[doc(alias = "webkit_user_content_manager_register_script_message_handler_with_reply")]
-    pub fn register_script_message_handler_with_reply(&self, name: &str, world_name: &str) -> bool {
+    pub fn register_script_message_handler_with_reply(
+        &self,
+        name: &str,
+        world_name: Option<&str>,
+    ) -> bool {
         unsafe {
             from_glib(ffi::webkit_user_content_manager_register_script_message_handler_with_reply(
                 self.to_glib_none().0,
@@ -176,7 +180,7 @@ impl UserContentManager {
             connect_raw(
                 self.as_ptr() as *mut _,
                 signal_name.as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     script_message_received_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
@@ -215,7 +219,7 @@ impl UserContentManager {
             connect_raw(
                 self.as_ptr() as *mut _,
                 signal_name.as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     script_message_with_reply_received_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),

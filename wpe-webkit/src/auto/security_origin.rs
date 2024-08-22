@@ -5,6 +5,8 @@
 
 use glib::translate::*;
 
+use crate::ffi;
+
 glib::wrapper! {
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct SecurityOrigin(Shared<ffi::WebKitSecurityOrigin>);

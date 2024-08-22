@@ -6,6 +6,8 @@
 use glib::prelude::*;
 use glib::translate::*;
 
+use crate::ffi;
+
 glib::wrapper! {
     #[doc(alias = "WebKitURISchemeResponse")]
     pub struct URISchemeResponse(Object<ffi::WebKitURISchemeResponse, ffi::WebKitURISchemeResponseClass>);

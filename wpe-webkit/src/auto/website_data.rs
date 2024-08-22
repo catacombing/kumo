@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::WebsiteDataTypes;
+use crate::{ffi, WebsiteDataTypes};
 
 glib::wrapper! {
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

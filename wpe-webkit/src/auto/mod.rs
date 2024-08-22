@@ -205,11 +205,13 @@ mod website_data;
 pub use self::website_data::WebsiteData;
 
 mod enums;
+#[allow(deprecated)]
+pub use self::enums::InsecureContentEvent;
 pub use self::enums::{
     AuthenticationScheme, AutomationBrowsingContextPresentation, AutoplayPolicy, CacheModel,
     ContextMenuAction, CookieAcceptPolicy, CookiePersistentStorage, CredentialPersistence,
-    DownloadError, FeatureStatus, InputPurpose, InsecureContentEvent, JavascriptError, LoadEvent,
-    MediaCaptureState, MediaError, NavigationType, NetworkError, NetworkProxyMode, PermissionState,
+    DownloadError, FeatureStatus, InputPurpose, JavascriptError, LoadEvent, MediaCaptureState,
+    MediaError, NavigationType, NetworkError, NetworkProxyMode, PermissionState,
     PolicyDecisionType, PolicyError, SaveMode, ScriptDialogType, SnapshotError, TLSErrorsPolicy,
     UserContentFilterError, UserContentInjectedFrames, UserMessageError, UserScriptInjectionTime,
     UserStyleLevel, WebExtensionMode, WebProcessTerminationReason,

@@ -9,6 +9,8 @@ use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
 
+use crate::ffi;
+
 glib::wrapper! {
     #[doc(alias = "WebKitEditorState")]
     pub struct EditorState(Object<ffi::WebKitEditorState, ffi::WebKitEditorStateClass>);
@@ -21,6 +23,7 @@ glib::wrapper! {
 impl EditorState {
     #[doc(alias = "webkit_editor_state_get_typing_attributes")]
     #[doc(alias = "get_typing_attributes")]
+    #[doc(alias = "typing-attributes")]
     pub fn typing_attributes(&self) -> u32 {
         unsafe { ffi::webkit_editor_state_get_typing_attributes(self.to_glib_none().0) }
     }
@@ -50,6 +53,28 @@ impl EditorState {
         unsafe { from_glib(ffi::webkit_editor_state_is_undo_available(self.to_glib_none().0)) }
     }
 
+    #[doc(alias = "changed")]
+    pub fn connect_changed<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn changed_trampoline<F: Fn(&EditorState) + 'static>(
+            this: *mut ffi::WebKitEditorState,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"changed\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    changed_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
     #[doc(alias = "typing-attributes")]
     pub fn connect_typing_attributes_notify<F: Fn(&Self) + 'static>(
         &self,
@@ -68,7 +93,7 @@ impl EditorState {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"notify::typing-attributes\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_typing_attributes_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),

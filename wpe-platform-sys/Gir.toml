@@ -1,0 +1,13 @@
+[options]
+library = "WPEPlatform"
+version = "2.0"
+min_cfg_version = "2.0"
+target_path = "."
+girs_directories = ["/usr/share/gir-1.0/", "../gir-files"]
+work_mode = "sys"
+single_version_file = true
+external_libraries = [
+    "GLib",
+    "GObject",
+    "xkbcommon",
+]

@@ -10,7 +10,7 @@ use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
 
 use crate::{
-    AutomationSession, CacheModel, GeolocationManager, MemoryPressureSettings, NetworkSession,
+    ffi, AutomationSession, CacheModel, GeolocationManager, MemoryPressureSettings, NetworkSession,
     SecurityManager, SecurityOrigin, URISchemeRequest, UserMessage,
 };
 
@@ -103,6 +103,7 @@ impl WebContext {
 
     #[doc(alias = "webkit_web_context_get_time_zone_override")]
     #[doc(alias = "get_time_zone_override")]
+    #[doc(alias = "time-zone-override")]
     pub fn time_zone_override(&self) -> Option<glib::GString> {
         unsafe {
             from_glib_none(ffi::webkit_web_context_get_time_zone_override(self.to_glib_none().0))
@@ -267,7 +268,7 @@ impl WebContext {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"automation-started\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     automation_started_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
@@ -294,7 +295,7 @@ impl WebContext {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"initialize-notification-permissions\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     initialize_notification_permissions_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
@@ -321,7 +322,7 @@ impl WebContext {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"initialize-web-process-extensions\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     initialize_web_process_extensions_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
@@ -349,7 +350,7 @@ impl WebContext {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"user-message-received\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     user_message_received_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),

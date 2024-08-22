@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::ScriptDialogType;
+use crate::{ffi, ScriptDialogType};
 
 glib::wrapper! {
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

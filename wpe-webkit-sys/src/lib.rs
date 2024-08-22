@@ -3,7 +3,7 @@
 // from ../gir-files
 // DO NOT EDIT
 
-#![allow(non_camel_case_types, non_upper_case_globals, non_snake_case, dead_code)]
+#![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 #![allow(
     clippy::approx_constant,
     clippy::type_complexity,
@@ -17,12 +17,16 @@ use glib::{gboolean, gconstpointer, gpointer, GType};
 #[allow(unused_imports)]
 use libc::{
     c_char, c_double, c_float, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort, c_void,
-    intptr_t, size_t, ssize_t, uintptr_t, FILE,
+    intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE,
 };
-use wpe_sys::*;
+#[cfg(unix)]
+#[allow(unused_imports)]
+use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
+use wpe::wpe_view_backend;
 use {
     gio_sys as gio, glib_sys as glib, gobject_sys as gobject, soup_sys as soup,
-    wpe_java_script_core_sys as wpe_java_script_core,
+    wpe_java_script_core_sys as wpe_java_script_core, wpe_platform_sys as wpe_platform,
+    wpe_sys as wpe,
 };
 
 // Enums
@@ -252,8 +256,8 @@ pub const WEBKIT_EDITING_COMMAND_REDO: &[u8] = b"Redo\0";
 pub const WEBKIT_EDITING_COMMAND_SELECT_ALL: &[u8] = b"SelectAll\0";
 pub const WEBKIT_EDITING_COMMAND_UNDO: &[u8] = b"Undo\0";
 pub const WEBKIT_MAJOR_VERSION: c_int = 2;
-pub const WEBKIT_MICRO_VERSION: c_int = 5;
-pub const WEBKIT_MINOR_VERSION: c_int = 42;
+pub const WEBKIT_MICRO_VERSION: c_int = 3;
+pub const WEBKIT_MINOR_VERSION: c_int = 45;
 
 // Flags
 pub type WebKitEditorTypingAttributes = c_uint;
@@ -311,6 +315,7 @@ pub type WebKitURISchemeRequestCallback =
 
 // Records
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitApplicationInfo {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -441,6 +446,7 @@ impl ::std::fmt::Debug for WebKitCookieManagerClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitCredential {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -495,6 +501,7 @@ impl ::std::fmt::Debug for WebKitEditorStateClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitFeature {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -507,6 +514,7 @@ impl ::std::fmt::Debug for WebKitFeature {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitFeatureList {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -589,6 +597,7 @@ impl ::std::fmt::Debug for WebKitGeolocationPermissionRequestClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitGeolocationPosition {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -615,6 +624,7 @@ impl ::std::fmt::Debug for WebKitHitTestResultClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitITPFirstParty {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -627,6 +637,7 @@ impl ::std::fmt::Debug for WebKitITPFirstParty {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitITPThirdParty {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -657,12 +668,8 @@ pub struct WebKitInputMethodContextClass {
             *mut c_uint,
         ),
     >,
-    pub filter_key_event: Option<
-        unsafe extern "C" fn(
-            *mut WebKitInputMethodContext,
-            *mut wpe_input_keyboard_event,
-        ) -> gboolean,
-    >,
+    pub filter_key_event:
+        Option<unsafe extern "C" fn(*mut WebKitInputMethodContext, gpointer) -> gboolean>,
     pub notify_focus_in: Option<unsafe extern "C" fn(*mut WebKitInputMethodContext)>,
     pub notify_focus_out: Option<unsafe extern "C" fn(*mut WebKitInputMethodContext)>,
     pub notify_cursor_area:
@@ -727,6 +734,7 @@ impl ::std::fmt::Debug for WebKitInputMethodContextClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct _WebKitInputMethodContextPrivate {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -735,6 +743,7 @@ pub struct _WebKitInputMethodContextPrivate {
 pub type WebKitInputMethodContextPrivate = _WebKitInputMethodContextPrivate;
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitInputMethodUnderline {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -761,6 +770,7 @@ impl ::std::fmt::Debug for WebKitMediaKeySystemPermissionRequestClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitMemoryPressureSettings {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -773,6 +783,7 @@ impl ::std::fmt::Debug for WebKitMemoryPressureSettings {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitNavigationAction {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -799,6 +810,7 @@ impl ::std::fmt::Debug for WebKitNavigationPolicyDecisionClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitNetworkProxySettings {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -867,6 +879,7 @@ impl ::std::fmt::Debug for WebKitOptionMenuClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitOptionMenuItem {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -897,6 +910,7 @@ impl ::std::fmt::Debug for WebKitPermissionRequestInterface {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitPermissionStateQuery {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -939,6 +953,7 @@ impl ::std::fmt::Debug for WebKitPolicyDecisionClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct _WebKitPolicyDecisionPrivate {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -947,6 +962,7 @@ pub struct _WebKitPolicyDecisionPrivate {
 pub type WebKitPolicyDecisionPrivate = _WebKitPolicyDecisionPrivate;
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct _WebKitPrintOperation {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -989,6 +1005,7 @@ impl ::std::fmt::Debug for WebKitResponsePolicyDecisionClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitScriptDialog {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1001,6 +1018,7 @@ impl ::std::fmt::Debug for WebKitScriptDialog {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitScriptMessageReply {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1027,6 +1045,7 @@ impl ::std::fmt::Debug for WebKitSecurityManagerClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitSecurityOrigin {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1109,6 +1128,7 @@ impl ::std::fmt::Debug for WebKitURISchemeResponseClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitUserContentFilter {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1177,6 +1197,7 @@ impl ::std::fmt::Debug for WebKitUserMessageClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitUserScript {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1189,6 +1210,7 @@ impl ::std::fmt::Debug for WebKitUserScript {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitUserStyleSheet {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1229,6 +1251,7 @@ impl ::std::fmt::Debug for WebKitWebResourceClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitWebViewBackend {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1418,6 +1441,7 @@ impl ::std::fmt::Debug for WebKitWebViewClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct _WebKitWebViewPrivate {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1426,6 +1450,7 @@ pub struct _WebKitWebViewPrivate {
 pub type WebKitWebViewPrivate = _WebKitWebViewPrivate;
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitWebViewSessionState {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1438,6 +1463,7 @@ impl ::std::fmt::Debug for WebKitWebViewSessionState {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitWebsiteData {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1507,6 +1533,7 @@ impl ::std::fmt::Debug for WebKitWindowPropertiesClass {
 
 // Classes
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitAuthenticationRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1519,6 +1546,7 @@ impl ::std::fmt::Debug for WebKitAuthenticationRequest {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitAutomationSession {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1531,6 +1559,7 @@ impl ::std::fmt::Debug for WebKitAutomationSession {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitBackForwardList {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1543,6 +1572,7 @@ impl ::std::fmt::Debug for WebKitBackForwardList {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitBackForwardListItem {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1555,6 +1585,7 @@ impl ::std::fmt::Debug for WebKitBackForwardListItem {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitContextMenu {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1567,6 +1598,7 @@ impl ::std::fmt::Debug for WebKitContextMenu {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitContextMenuItem {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1579,6 +1611,7 @@ impl ::std::fmt::Debug for WebKitContextMenuItem {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitCookieManager {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1591,6 +1624,7 @@ impl ::std::fmt::Debug for WebKitCookieManager {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitDeviceInfoPermissionRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1603,6 +1637,7 @@ impl ::std::fmt::Debug for WebKitDeviceInfoPermissionRequest {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitDownload {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1615,6 +1650,7 @@ impl ::std::fmt::Debug for WebKitDownload {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitEditorState {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1627,6 +1663,7 @@ impl ::std::fmt::Debug for WebKitEditorState {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitFileChooserRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1639,6 +1676,7 @@ impl ::std::fmt::Debug for WebKitFileChooserRequest {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitFindController {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1651,6 +1689,7 @@ impl ::std::fmt::Debug for WebKitFindController {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitFormSubmissionRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1663,6 +1702,7 @@ impl ::std::fmt::Debug for WebKitFormSubmissionRequest {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitGeolocationManager {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1675,6 +1715,7 @@ impl ::std::fmt::Debug for WebKitGeolocationManager {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitGeolocationPermissionRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1687,6 +1728,7 @@ impl ::std::fmt::Debug for WebKitGeolocationPermissionRequest {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitHitTestResult {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1715,6 +1757,7 @@ impl ::std::fmt::Debug for WebKitInputMethodContext {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitMediaKeySystemPermissionRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1727,6 +1770,7 @@ impl ::std::fmt::Debug for WebKitMediaKeySystemPermissionRequest {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitNavigationPolicyDecision {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1739,6 +1783,7 @@ impl ::std::fmt::Debug for WebKitNavigationPolicyDecision {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitNetworkSession {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1751,6 +1796,7 @@ impl ::std::fmt::Debug for WebKitNetworkSession {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitNotification {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1763,6 +1809,7 @@ impl ::std::fmt::Debug for WebKitNotification {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitNotificationPermissionRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1775,6 +1822,7 @@ impl ::std::fmt::Debug for WebKitNotificationPermissionRequest {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitOptionMenu {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1803,6 +1851,7 @@ impl ::std::fmt::Debug for WebKitPolicyDecision {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitResponsePolicyDecision {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1815,6 +1864,7 @@ impl ::std::fmt::Debug for WebKitResponsePolicyDecision {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitSecurityManager {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1827,6 +1877,7 @@ impl ::std::fmt::Debug for WebKitSecurityManager {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitSettings {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1839,6 +1890,7 @@ impl ::std::fmt::Debug for WebKitSettings {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitURIRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1851,6 +1903,7 @@ impl ::std::fmt::Debug for WebKitURIRequest {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitURIResponse {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1863,6 +1916,7 @@ impl ::std::fmt::Debug for WebKitURIResponse {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitURISchemeRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1875,6 +1929,7 @@ impl ::std::fmt::Debug for WebKitURISchemeRequest {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitURISchemeResponse {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1887,6 +1942,7 @@ impl ::std::fmt::Debug for WebKitURISchemeResponse {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitUserContentFilterStore {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1899,6 +1955,7 @@ impl ::std::fmt::Debug for WebKitUserContentFilterStore {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitUserContentManager {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1911,6 +1968,7 @@ impl ::std::fmt::Debug for WebKitUserContentManager {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitUserMediaPermissionRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1923,6 +1981,7 @@ impl ::std::fmt::Debug for WebKitUserMediaPermissionRequest {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitUserMessage {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1935,6 +1994,7 @@ impl ::std::fmt::Debug for WebKitUserMessage {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitWebContext {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1947,6 +2007,7 @@ impl ::std::fmt::Debug for WebKitWebContext {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitWebResource {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1975,6 +2036,7 @@ impl ::std::fmt::Debug for WebKitWebView {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitWebsiteDataAccessPermissionRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1987,6 +2049,7 @@ impl ::std::fmt::Debug for WebKitWebsiteDataAccessPermissionRequest {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitWebsiteDataManager {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1999,6 +2062,7 @@ impl ::std::fmt::Debug for WebKitWebsiteDataManager {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitWebsitePolicies {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2011,6 +2075,7 @@ impl ::std::fmt::Debug for WebKitWebsitePolicies {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitWindowProperties {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2024,6 +2089,7 @@ impl ::std::fmt::Debug for WebKitWindowProperties {
 
 // Interfaces
 #[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitPermissionRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2036,6 +2102,7 @@ impl ::std::fmt::Debug for WebKitPermissionRequest {
 }
 
 #[link(name = "WPEWebKit-2.0")]
+#[link(name = "WPEPlatform-2.0")]
 extern "C" {
 
     //=========================================================================
@@ -2880,6 +2947,7 @@ extern "C" {
     pub fn webkit_context_menu_item_get_submenu(
         item: *mut WebKitContextMenuItem,
     ) -> *mut WebKitContextMenu;
+    pub fn webkit_context_menu_item_get_title(item: *mut WebKitContextMenuItem) -> *const c_char;
     pub fn webkit_context_menu_item_is_separator(item: *mut WebKitContextMenuItem) -> gboolean;
     pub fn webkit_context_menu_item_set_submenu(
         item: *mut WebKitContextMenuItem,
@@ -3134,7 +3202,7 @@ extern "C" {
     pub fn webkit_input_method_context_get_type() -> GType;
     pub fn webkit_input_method_context_filter_key_event(
         context: *mut WebKitInputMethodContext,
-        key_event: *mut wpe_input_keyboard_event,
+        key_event: gpointer,
     ) -> gboolean;
     pub fn webkit_input_method_context_get_input_hints(
         context: *mut WebKitInputMethodContext,
@@ -3383,6 +3451,12 @@ extern "C" {
     pub fn webkit_settings_get_all_features() -> *mut WebKitFeatureList;
     pub fn webkit_settings_get_development_features() -> *mut WebKitFeatureList;
     pub fn webkit_settings_get_experimental_features() -> *mut WebKitFeatureList;
+    pub fn webkit_settings_apply_from_key_file(
+        settings: *mut WebKitSettings,
+        key_file: *mut glib::GKeyFile,
+        group_name: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
     pub fn webkit_settings_get_allow_file_access_from_file_urls(
         settings: *mut WebKitSettings,
     ) -> gboolean;
@@ -3401,6 +3475,9 @@ extern "C" {
     pub fn webkit_settings_get_default_monospace_font_size(settings: *mut WebKitSettings) -> u32;
     pub fn webkit_settings_get_disable_web_security(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_draw_compositing_indicators(
+        settings: *mut WebKitSettings,
+    ) -> gboolean;
+    pub fn webkit_settings_get_enable_2d_canvas_acceleration(
         settings: *mut WebKitSettings,
     ) -> gboolean;
     pub fn webkit_settings_get_enable_caret_browsing(settings: *mut WebKitSettings) -> gboolean;
@@ -3520,6 +3597,10 @@ extern "C" {
         disabled: gboolean,
     );
     pub fn webkit_settings_set_draw_compositing_indicators(
+        settings: *mut WebKitSettings,
+        enabled: gboolean,
+    );
+    pub fn webkit_settings_set_enable_2d_canvas_acceleration(
         settings: *mut WebKitSettings,
         enabled: gboolean,
     );
@@ -4100,6 +4181,9 @@ extern "C" {
     pub fn webkit_web_view_get_default_content_security_policy(
         web_view: *mut WebKitWebView,
     ) -> *const c_char;
+    pub fn webkit_web_view_get_display(
+        web_view: *mut WebKitWebView,
+    ) -> *mut wpe_platform::WPEDisplay;
     pub fn webkit_web_view_get_display_capture_state(
         web_view: *mut WebKitWebView,
     ) -> WebKitMediaCaptureState;
@@ -4147,6 +4231,8 @@ extern "C" {
     pub fn webkit_web_view_get_window_properties(
         web_view: *mut WebKitWebView,
     ) -> *mut WebKitWindowProperties;
+    pub fn webkit_web_view_get_wpe_view(web_view: *mut WebKitWebView)
+        -> *mut wpe_platform::WPEView;
     pub fn webkit_web_view_get_zoom_level(web_view: *mut WebKitWebView) -> c_double;
     pub fn webkit_web_view_go_back(web_view: *mut WebKitWebView);
     pub fn webkit_web_view_go_forward(web_view: *mut WebKitWebView);
@@ -4263,6 +4349,7 @@ extern "C" {
     pub fn webkit_web_view_set_zoom_level(web_view: *mut WebKitWebView, zoom_level: c_double);
     pub fn webkit_web_view_stop_loading(web_view: *mut WebKitWebView);
     pub fn webkit_web_view_terminate_web_process(web_view: *mut WebKitWebView);
+    pub fn webkit_web_view_toggle_inspector(web_view: *mut WebKitWebView);
     pub fn webkit_web_view_try_close(web_view: *mut WebKitWebView);
 
     //=========================================================================

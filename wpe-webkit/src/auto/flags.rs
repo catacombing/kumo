@@ -7,6 +7,8 @@ use glib::bitflags::bitflags;
 use glib::prelude::*;
 use glib::translate::*;
 
+use crate::ffi;
+
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[doc(alias = "WebKitEditorTypingAttributes")]

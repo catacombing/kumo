@@ -6,6 +6,8 @@
 use glib::prelude::*;
 use glib::translate::*;
 
+use crate::ffi;
+
 glib::wrapper! {
     #[doc(alias = "WebKitWindowProperties")]
     pub struct WindowProperties(Object<ffi::WebKitWindowProperties, ffi::WebKitWindowPropertiesClass>);
@@ -29,12 +31,14 @@ impl WindowProperties {
 
     #[doc(alias = "webkit_window_properties_get_fullscreen")]
     #[doc(alias = "get_fullscreen")]
+    #[doc(alias = "fullscreen")]
     pub fn is_fullscreen(&self) -> bool {
         unsafe { from_glib(ffi::webkit_window_properties_get_fullscreen(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "webkit_window_properties_get_locationbar_visible")]
     #[doc(alias = "get_locationbar_visible")]
+    #[doc(alias = "locationbar-visible")]
     pub fn is_locationbar_visible(&self) -> bool {
         unsafe {
             from_glib(ffi::webkit_window_properties_get_locationbar_visible(self.to_glib_none().0))
@@ -43,6 +47,7 @@ impl WindowProperties {
 
     #[doc(alias = "webkit_window_properties_get_menubar_visible")]
     #[doc(alias = "get_menubar_visible")]
+    #[doc(alias = "menubar-visible")]
     pub fn is_menubar_visible(&self) -> bool {
         unsafe {
             from_glib(ffi::webkit_window_properties_get_menubar_visible(self.to_glib_none().0))
@@ -51,12 +56,14 @@ impl WindowProperties {
 
     #[doc(alias = "webkit_window_properties_get_resizable")]
     #[doc(alias = "get_resizable")]
+    #[doc(alias = "resizable")]
     pub fn is_resizable(&self) -> bool {
         unsafe { from_glib(ffi::webkit_window_properties_get_resizable(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "webkit_window_properties_get_scrollbars_visible")]
     #[doc(alias = "get_scrollbars_visible")]
+    #[doc(alias = "scrollbars-visible")]
     pub fn is_scrollbars_visible(&self) -> bool {
         unsafe {
             from_glib(ffi::webkit_window_properties_get_scrollbars_visible(self.to_glib_none().0))
@@ -65,6 +72,7 @@ impl WindowProperties {
 
     #[doc(alias = "webkit_window_properties_get_statusbar_visible")]
     #[doc(alias = "get_statusbar_visible")]
+    #[doc(alias = "statusbar-visible")]
     pub fn is_statusbar_visible(&self) -> bool {
         unsafe {
             from_glib(ffi::webkit_window_properties_get_statusbar_visible(self.to_glib_none().0))
@@ -73,6 +81,7 @@ impl WindowProperties {
 
     #[doc(alias = "webkit_window_properties_get_toolbar_visible")]
     #[doc(alias = "get_toolbar_visible")]
+    #[doc(alias = "toolbar-visible")]
     pub fn is_toolbar_visible(&self) -> bool {
         unsafe {
             from_glib(ffi::webkit_window_properties_get_toolbar_visible(self.to_glib_none().0))

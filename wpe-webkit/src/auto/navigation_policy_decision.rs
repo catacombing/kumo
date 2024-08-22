@@ -9,7 +9,7 @@ use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
 
-use crate::{NavigationAction, PolicyDecision};
+use crate::{ffi, NavigationAction, PolicyDecision};
 
 glib::wrapper! {
     #[doc(alias = "WebKitNavigationPolicyDecision")]
@@ -23,6 +23,7 @@ glib::wrapper! {
 impl NavigationPolicyDecision {
     #[doc(alias = "webkit_navigation_policy_decision_get_navigation_action")]
     #[doc(alias = "get_navigation_action")]
+    #[doc(alias = "navigation-action")]
     pub fn navigation_action(&self) -> Option<NavigationAction> {
         unsafe {
             from_glib_none(ffi::webkit_navigation_policy_decision_get_navigation_action(
@@ -51,7 +52,7 @@ impl NavigationPolicyDecision {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"notify::navigation-action\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_navigation_action_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),

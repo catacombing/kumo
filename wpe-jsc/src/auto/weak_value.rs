@@ -9,7 +9,7 @@ use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
 
-use crate::Value;
+use crate::{ffi, Value};
 
 glib::wrapper! {
     #[doc(alias = "JSCWeakValue")]
@@ -21,11 +21,9 @@ glib::wrapper! {
 }
 
 impl WeakValue {
-    pub const NONE: Option<&'static WeakValue> = None;
-
     #[doc(alias = "jsc_weak_value_new")]
-    pub fn new(value: &impl IsA<Value>) -> WeakValue {
-        unsafe { from_glib_full(ffi::jsc_weak_value_new(value.as_ref().to_glib_none().0)) }
+    pub fn new(value: &Value) -> WeakValue {
+        unsafe { from_glib_full(ffi::jsc_weak_value_new(value.to_glib_none().0)) }
     }
 
     // rustdoc-stripper-ignore-next
@@ -37,6 +35,34 @@ impl WeakValue {
     /// used to create [`WeakValue`] objects.
     pub fn builder() -> WeakValueBuilder {
         WeakValueBuilder::new()
+    }
+
+    #[doc(alias = "jsc_weak_value_get_value")]
+    #[doc(alias = "get_value")]
+    pub fn value(&self) -> Option<Value> {
+        unsafe { from_glib_full(ffi::jsc_weak_value_get_value(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "cleared")]
+    pub fn connect_cleared<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn cleared_trampoline<F: Fn(&WeakValue) + 'static>(
+            this: *mut ffi::JSCWeakValue,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                b"cleared\0".as_ptr() as *const _,
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    cleared_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
     }
 }
 
@@ -60,8 +86,8 @@ impl WeakValueBuilder {
         Self { builder: glib::object::Object::builder() }
     }
 
-    pub fn value(self, value: &impl IsA<Value>) -> Self {
-        Self { builder: self.builder.property("value", value.clone().upcast()) }
+    pub fn value(self, value: &Value) -> Self {
+        Self { builder: self.builder.property("value", value.clone()) }
     }
 
     // rustdoc-stripper-ignore-next
@@ -72,40 +98,3 @@ impl WeakValueBuilder {
         self.builder.build()
     }
 }
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::WeakValue>> Sealed for T {}
-}
-
-pub trait WeakValueExt: IsA<WeakValue> + sealed::Sealed + 'static {
-    #[doc(alias = "jsc_weak_value_get_value")]
-    #[doc(alias = "get_value")]
-    fn value(&self) -> Option<Value> {
-        unsafe { from_glib_full(ffi::jsc_weak_value_get_value(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "cleared")]
-    fn connect_cleared<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn cleared_trampoline<P: IsA<WeakValue>, F: Fn(&P) + 'static>(
-            this: *mut ffi::JSCWeakValue,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(WeakValue::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"cleared\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
-                    cleared_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-}
-
-impl<O: IsA<WeakValue>> WeakValueExt for O {}

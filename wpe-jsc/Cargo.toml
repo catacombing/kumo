@@ -16,8 +16,8 @@ rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-libc = "0.2"
-glib = "0.19.0"
+libc.workspace = true
+glib.workspace = true
 
 [dependencies.ffi]
 package = "wpe-jsc-sys"

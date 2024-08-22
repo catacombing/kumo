@@ -13,7 +13,7 @@ build = "build.rs"
 
 [package.metadata.system-deps.wpe_webkit_2_0]
 name = "wpe-webkit-2.0"
-version = "2.42"
+version = "2.45"
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
@@ -22,9 +22,18 @@ all-features = true
 
 [dependencies]
 libc = "0.2"
-glib-sys = "0.19.0"
-gobject-sys = "0.19.0"
-gio-sys = "0.19.0"
+
+[dependencies.glib-sys]
+workspace = true
+
+[dependencies.gobject-sys]
+workspace = true
+
+[dependencies.gio-sys]
+workspace = true
+
+[dependencies.soup-sys]
+workspace = true
 
 [dependencies.wpe-sys]
 package = "libwpe-sys"
@@ -34,15 +43,12 @@ path = "../libwpe-sys"
 package = "wpe-jsc-sys"
 path = "../wpe-jsc-sys"
 
-[dependencies.soup-sys]
-package = "soup3-sys"
-version = "0.6.0"
+[dependencies.wpe-platform-sys]
+path = "../wpe-platform-sys"
 
 [build-dependencies]
-system-deps = "6"
+system-deps = "7"
 
 [dev-dependencies]
 shell-words = "1.0.0"
 tempfile = "3"
-
-[features]

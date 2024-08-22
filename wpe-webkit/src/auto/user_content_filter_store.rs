@@ -9,7 +9,7 @@ use std::pin::Pin;
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::UserContentFilter;
+use crate::{ffi, UserContentFilter};
 
 glib::wrapper! {
     #[doc(alias = "WebKitUserContentFilterStore")]

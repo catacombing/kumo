@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ContextMenu, ContextMenuAction};
+use crate::{ffi, ContextMenu, ContextMenuAction};
 
 glib::wrapper! {
     #[doc(alias = "WebKitContextMenuItem")]
@@ -85,6 +85,12 @@ impl ContextMenuItem {
     #[doc(alias = "get_submenu")]
     pub fn submenu(&self) -> Option<ContextMenu> {
         unsafe { from_glib_none(ffi::webkit_context_menu_item_get_submenu(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_context_menu_item_get_title")]
+    #[doc(alias = "get_title")]
+    pub fn title(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_context_menu_item_get_title(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "webkit_context_menu_item_is_separator")]

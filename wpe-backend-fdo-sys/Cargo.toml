@@ -16,4 +16,4 @@ links = "wpebackend-fdo"
 libwpe-sys = { path = "../libwpe-sys" }
 
 [build-dependencies]
-pkg-config = "0.3.30"
+pkg-config.workspace = true

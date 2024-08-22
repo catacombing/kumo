@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::Context;
+use crate::{ffi, Context};
 
 glib::wrapper! {
     #[doc(alias = "JSCClass")]
@@ -108,8 +108,8 @@ impl ClassBuilder {
         Self { builder: glib::object::Object::builder() }
     }
 
-    pub fn context(self, context: &impl IsA<Context>) -> Self {
-        Self { builder: self.builder.property("context", context.clone().upcast()) }
+    pub fn context(self, context: &Context) -> Self {
+        Self { builder: self.builder.property("context", context.clone()) }
     }
 
     pub fn name(self, name: impl Into<glib::GString>) -> Self {

@@ -5,6 +5,8 @@
 
 use glib::translate::*;
 
+use crate::ffi;
+
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "JSCCheckSyntaxMode")]

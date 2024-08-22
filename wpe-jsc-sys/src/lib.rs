@@ -17,8 +17,11 @@ use glib::{gboolean, gconstpointer, gpointer, GType};
 #[allow(unused_imports)]
 use libc::{
     c_char, c_double, c_float, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort, c_void,
-    intptr_t, size_t, ssize_t, uintptr_t, FILE,
+    intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE,
 };
+#[cfg(unix)]
+#[allow(unused_imports)]
+use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
 use {glib_sys as glib, gobject_sys as gobject};
 
 // Enums
@@ -59,8 +62,8 @@ pub const JSC_TYPED_ARRAY_FLOAT64: JSCTypedArrayType = 11;
 
 // Constants
 pub const JSC_MAJOR_VERSION: c_int = 2;
-pub const JSC_MICRO_VERSION: c_int = 5;
-pub const JSC_MINOR_VERSION: c_int = 42;
+pub const JSC_MICRO_VERSION: c_int = 3;
+pub const JSC_MINOR_VERSION: c_int = 45;
 pub const JSC_OPTIONS_USE_DFG: &[u8] = b"useDFGJIT\0";
 pub const JSC_OPTIONS_USE_FTL: &[u8] = b"useFTLJIT\0";
 pub const JSC_OPTIONS_USE_JIT: &[u8] = b"useJIT\0";
@@ -223,6 +226,7 @@ impl ::std::fmt::Debug for JSCWeakValueClass {
 
 // Classes
 #[repr(C)]
+#[allow(dead_code)]
 pub struct JSCClass {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -235,6 +239,7 @@ impl ::std::fmt::Debug for JSCClass {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct JSCContext {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -247,6 +252,7 @@ impl ::std::fmt::Debug for JSCContext {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct JSCException {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -259,6 +265,7 @@ impl ::std::fmt::Debug for JSCException {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct JSCValue {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -271,6 +278,7 @@ impl ::std::fmt::Debug for JSCValue {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct JSCVirtualMachine {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -283,6 +291,7 @@ impl ::std::fmt::Debug for JSCVirtualMachine {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct JSCWeakValue {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,

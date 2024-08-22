@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{URISchemeResponse, WebView};
+use crate::{ffi, URISchemeResponse, WebView};
 
 glib::wrapper! {
     #[doc(alias = "WebKitURISchemeRequest")]

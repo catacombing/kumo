@@ -9,7 +9,7 @@ use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
 
-use crate::GeolocationPosition;
+use crate::{ffi, GeolocationPosition};
 
 glib::wrapper! {
     #[doc(alias = "WebKitGeolocationManager")]
@@ -33,6 +33,7 @@ impl GeolocationManager {
 
     #[doc(alias = "webkit_geolocation_manager_get_enable_high_accuracy")]
     #[doc(alias = "get_enable_high_accuracy")]
+    #[doc(alias = "enable-high-accuracy")]
     pub fn enables_high_accuracy(&self) -> bool {
         unsafe {
             from_glib(ffi::webkit_geolocation_manager_get_enable_high_accuracy(
@@ -65,7 +66,7 @@ impl GeolocationManager {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"start\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     start_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
@@ -87,7 +88,7 @@ impl GeolocationManager {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"stop\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     stop_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
@@ -115,7 +116,7 @@ impl GeolocationManager {
             connect_raw(
                 self.as_ptr() as *mut _,
                 b"notify::enable-high-accuracy\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<_, unsafe extern "C" fn()>(
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_high_accuracy_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),

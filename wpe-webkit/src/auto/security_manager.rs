@@ -5,6 +5,8 @@
 
 use glib::translate::*;
 
+use crate::ffi;
+
 glib::wrapper! {
     #[doc(alias = "WebKitSecurityManager")]
     pub struct SecurityManager(Object<ffi::WebKitSecurityManager, ffi::WebKitSecurityManagerClass>);

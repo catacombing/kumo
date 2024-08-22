@@ -10,4 +10,4 @@ edition = "2021"
 
 [dependencies]
 funq_derive = { path = "./funq_derive" }
-rustix = { version = "0.38.31", features = ["event"] }
+rustix.workspace = true

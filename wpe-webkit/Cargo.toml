@@ -16,10 +16,11 @@ rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-gio = "0.19.2"
-glib = "0.19.0"
-gobject-sys = "0.19.0"
-libc = "0.2"
+gio.workspace = true
+glib.workspace = true
+gobject-sys.workspace = true
+libc.workspace = true
+soup.workspace = true
 
 [dependencies.ffi]
 package = "wpe-webkit-sys"
@@ -33,6 +34,6 @@ path = "../libwpe-sys"
 package = "wpe-jsc"
 path = "../wpe-jsc"
 
-[dependencies.soup]
-package = "soup3"
-version = "0.6.0"
+[dependencies.wpe-platform]
+package = "wpe-platform"
+path = "../wpe-platform"

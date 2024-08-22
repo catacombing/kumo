@@ -8,6 +8,10 @@ rust-version = "1.76.0"
 license = "GPL-3.0"
 edition = "2021"
 
+[features]
+default = []
+profiling = ["dep:profiling", "dep:puffin_http"]
+
 [workspace]
 members = [
     "funq",
@@ -16,21 +20,37 @@ members = [
     "wpe-backend-fdo-sys",
     "wpe-jsc",
     "wpe-jsc-sys",
+    "wpe-platform",
+    "wpe-platform-sys",
     "wpe-webkit",
     "wpe-webkit-sys",
 ]
 
-[features]
-default = []
-profiling = ["dep:profiling", "dep:puffin_http"]
+# Workspace member dependencies are defined here for consistency and easier updates.
+[workspace.dependencies]
+gio = "0.20.1"
+gio-sys = "0.20.1"
+glib = "0.20.1"
+glib-sys = "0.20.1"
+gobject-sys = "0.20.1"
+libc = "0.2.158"
+pkg-config = "0.3.30"
+proc-macro2 = "1.0.78"
+quote = "1.0.35"
+rustix = { version = "0.38.31", features = ["event"] }
+soup = { package = "soup3", version = "0.7.0" }
+soup-sys = { package = "soup3-sys", version = "0.7.0" }
+syn = { version = "2.0.51", features = ["full", "extra-traits"] }
+xkbcommon-sys = "1.4.1"
 
+# Dependencies only used by the binary.
 [dependencies]
 bitflags = "2.5.0"
 dashmap = "6.0.1"
 dirs = "5.0.1"
 funq = { path = "./funq" }
-gio = "0.19.2"
-glib = "0.19.2"
+gio.workspace = true
+glib.workspace = true
 glutin = { version = "0.32.0", default-features = false, features = ["wayland"] }
 indexmap = "2.2.6"
 pangocairo = "0.20.0"

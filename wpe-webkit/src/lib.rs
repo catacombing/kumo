@@ -5,6 +5,7 @@ pub use auto::builders::*;
 pub use auto::traits::*;
 pub use auto::*;
 pub use cookie_manager::*;
+pub use ffi;
 pub use input_method_context::*;
 pub use network_session::*;
 pub use user_content_filter_store::*;

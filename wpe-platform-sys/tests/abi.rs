@@ -353,7 +353,6 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) WPE_EVENT_TOUCH_MOVE", "11"),
     ("(gint) WPE_EVENT_TOUCH_UP", "10"),
     ("(gint) WPE_GESTURE_DRAG", "2"),
-    ("(gint) WPE_GESTURE_LONG_PRESS", "3"),
     ("(gint) WPE_GESTURE_NONE", "0"),
     ("(gint) WPE_GESTURE_TAP", "1"),
     ("(guint) WPE_INPUT_HINT_EMOJI", "512"),

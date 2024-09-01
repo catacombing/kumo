@@ -1,13 +1,15 @@
 //! Wayland protocol handling.
 
-use std::os::fd::OwnedFd;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use _dmabuf::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1;
+use _dmabuf::zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1;
 use _text_input::zwp_text_input_manager_v3::{self, ZwpTextInputManagerV3};
 use _text_input::zwp_text_input_v3::{self, ZwpTextInputV3};
 use glib::{source, ControlFlow, Priority};
 use smithay_client_toolkit::compositor::{CompositorHandler, CompositorState};
+use smithay_client_toolkit::dmabuf::{DmabufFeedback, DmabufHandler, DmabufState};
 use smithay_client_toolkit::output::{OutputHandler, OutputState};
 use smithay_client_toolkit::reexports::client::globals::GlobalList;
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
@@ -17,7 +19,8 @@ use smithay_client_toolkit::reexports::client::protocol::wl_pointer::WlPointer;
 use smithay_client_toolkit::reexports::client::protocol::wl_seat::WlSeat;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::protocol::wl_touch::WlTouch;
-use smithay_client_toolkit::reexports::client::{Connection, Dispatch, Proxy, QueueHandle};
+use smithay_client_toolkit::reexports::client::{Connection, Dispatch, QueueHandle};
+use smithay_client_toolkit::reexports::protocols::wp::linux_dmabuf::zv1::client as _dmabuf;
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
 use smithay_client_toolkit::registry::{ProvidesRegistryState, RegistryState};
 use smithay_client_toolkit::seat::keyboard::{
@@ -30,17 +33,15 @@ use smithay_client_toolkit::shell::xdg::window::{Window, WindowConfigure, Window
 use smithay_client_toolkit::shell::xdg::XdgShell;
 use smithay_client_toolkit::subcompositor::SubcompositorState;
 use smithay_client_toolkit::{
-    delegate_compositor, delegate_keyboard, delegate_output, delegate_pointer, delegate_registry,
-    delegate_seat, delegate_subcompositor, delegate_touch, delegate_xdg_shell, delegate_xdg_window,
-    registry_handlers,
+    delegate_compositor, delegate_dmabuf, delegate_keyboard, delegate_output, delegate_pointer,
+    delegate_registry, delegate_seat, delegate_subcompositor, delegate_touch, delegate_xdg_shell,
+    delegate_xdg_window, registry_handlers,
 };
-use wayland_backend::client::{Backend, ObjectData, ObjectId};
-use wayland_backend::protocol::Message;
 
 use crate::wayland::protocols::fractional_scale::{FractionalScaleHandler, FractionalScaleManager};
 use crate::wayland::protocols::viewporter::Viewporter;
 use crate::window::WindowHandler as _;
-use crate::{KeyboardState, State};
+use crate::{CurrentRepeat, KeyboardState, State};
 
 pub mod fractional_scale;
 pub mod viewporter;
@@ -52,6 +53,7 @@ pub struct ProtocolStates {
     pub compositor: CompositorState,
     pub viewporter: Viewporter,
     pub xdg_shell: XdgShell,
+    pub dmabuf: DmabufState,
 
     text_input: TextInputManager,
     registry: RegistryState,
@@ -69,8 +71,12 @@ impl ProtocolStates {
         let subcompositor = SubcompositorState::bind(wl_compositor, globals, queue).unwrap();
         let viewporter = Viewporter::new(globals, queue).unwrap();
         let xdg_shell = XdgShell::bind(globals, queue).unwrap();
+        let dmabuf = DmabufState::new(globals, queue);
         let output = OutputState::new(globals, queue);
         let seat = SeatState::new(globals, queue);
+
+        // Immediately request default DMA buffer feedback.
+        let _ = dmabuf.get_default_feedback(queue);
 
         Self {
             fractional_scale,
@@ -80,6 +86,7 @@ impl ProtocolStates {
             text_input,
             xdg_shell,
             registry,
+            dmabuf,
             output,
             seat,
         }
@@ -318,14 +325,14 @@ impl KeyboardHandler for State {
             Some(keyboard_state) => keyboard_state,
             None => return,
         };
-        keyboard_state.press_key(event.raw_code, event.keysym);
+        keyboard_state.press_key(event.time, event.raw_code, event.keysym);
 
         // Update pressed keys.
         let window = match self.keyboard_focus.and_then(|focus| self.windows.get_mut(&focus)) {
             Some(focus) => focus,
             None => return,
         };
-        window.press_key(event.raw_code, event.keysym, keyboard_state.modifiers);
+        window.press_key(event.time, event.raw_code, event.keysym, keyboard_state.modifiers);
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
@@ -349,7 +356,7 @@ impl KeyboardHandler for State {
             None => return,
         };
         let modifiers = keyboard_state.modifiers;
-        window.release_key(event.raw_code, event.keysym, modifiers);
+        window.release_key(event.time, event.raw_code, event.keysym, modifiers);
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
@@ -402,18 +409,18 @@ pub trait KeyRepeat {
 impl KeyRepeat for State {
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn repeat_key(&mut self, raw: u32, keysym: Keysym, rate: u64) {
-        let keyboard_state = match &self.keyboard {
-            Some(keyboard_state) => keyboard_state,
+        let modifiers = match &self.keyboard {
+            Some(KeyboardState { modifiers, .. }) => *modifiers,
             None => return,
         };
 
         // Send the initial key press.
-        let modifiers = keyboard_state.modifiers;
         KeyRepeat::press_key(self, raw, keysym, modifiers);
 
         // Keep repeating the key until repetition is cancelled.
         let mut queue = self.queue.handle();
-        let interval = Duration::from_millis(1000 / rate);
+        let interval_ms = 1000 / rate;
+        let interval = Duration::from_millis(interval_ms);
         let source = source::timeout_source_new(interval, None, Priority::DEFAULT, move || {
             queue.press_key(raw, keysym, modifiers);
             ControlFlow::Continue
@@ -422,14 +429,23 @@ impl KeyRepeat for State {
 
         // Update the repeat source and clear the initial GLib delay source ID in the
         // process, since calling `destroy` on a dead source causes a panic.
-        let keyboard_state = self.keyboard.as_mut().unwrap();
-        keyboard_state.current_repeat = Some((source, raw));
+        if let Some(current_repeat) = &mut self.keyboard.as_mut().unwrap().current_repeat {
+            *current_repeat =
+                CurrentRepeat::new(source, raw, current_repeat.time, interval_ms as u32);
+        }
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
+        // Get timestamp for the key event.
+        let time =
+            match self.keyboard.as_mut().and_then(|keyboard| keyboard.current_repeat.as_mut()) {
+                Some(current_repeat) => current_repeat.next_time(),
+                None => return,
+            };
+
         if let Some(window) = self.keyboard_focus.and_then(|focus| self.windows.get_mut(&focus)) {
-            window.press_key(raw, keysym, modifiers);
+            window.press_key(time, raw, keysym, modifiers);
         }
     }
 }
@@ -568,15 +584,20 @@ impl PointerHandler for State {
             // Dispatch event to the window.
             let surface = &event.surface;
             match event.kind {
-                PointerEventKind::Enter { .. } | PointerEventKind::Leave { .. } => (),
+                PointerEventKind::Enter { .. } => {
+                    window.pointer_enter(surface, position, modifiers)
+                },
+                PointerEventKind::Leave { .. } => {
+                    window.pointer_leave(surface, position, modifiers)
+                },
                 PointerEventKind::Motion { time } => {
                     window.pointer_motion(surface, time, position, modifiers)
                 },
                 PointerEventKind::Press { time, button, .. } => {
-                    window.pointer_button(surface, time, position, button, 1, modifiers)
+                    window.pointer_button(surface, time, position, button, true, modifiers)
                 },
                 PointerEventKind::Release { time, button, .. } => {
-                    window.pointer_button(surface, time, position, button, 0, modifiers)
+                    window.pointer_button(surface, time, position, button, false, modifiers)
                 },
                 PointerEventKind::Axis { time, horizontal, vertical, .. } => {
                     window.pointer_axis(surface, time, position, horizontal, vertical, modifiers)
@@ -586,6 +607,46 @@ impl PointerHandler for State {
     }
 }
 delegate_pointer!(State);
+
+impl DmabufHandler for State {
+    fn dmabuf_state(&mut self) -> &mut DmabufState {
+        &mut self.protocol_states.dmabuf
+    }
+
+    fn dmabuf_feedback(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &ZwpLinuxDmabufFeedbackV1,
+        feedback: DmabufFeedback,
+    ) {
+        // Update globally shared feedback.
+        self.dmabuf_feedback.replace(Some(feedback));
+
+        // Notify windows, to update their engines.
+        for window in self.windows.values_mut() {
+            window.dmabuf_feedback_changed();
+        }
+    }
+
+    fn created(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &ZwpLinuxBufferParamsV1,
+        _: WlBuffer,
+    ) {
+    }
+
+    fn failed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &ZwpLinuxBufferParamsV1) {}
+
+    fn released(&mut self, _: &Connection, _: &QueueHandle<Self>, buffer: &WlBuffer) {
+        for window in self.windows.values_mut() {
+            window.buffer_released(buffer);
+        }
+    }
+}
+delegate_dmabuf!(State);
 
 impl ProvidesRegistryState for State {
     registry_handlers![OutputState];
@@ -659,7 +720,7 @@ impl State {
             None => return,
         };
 
-        window.preedit_string(text, cursor_begin, cursor_end);
+        window.set_preedit_string(text, cursor_begin, cursor_end);
     }
 }
 
@@ -762,34 +823,4 @@ impl Dispatch<ZwpTextInputV3, Arc<Mutex<TextInputState>>> for State {
             _ => unreachable!(),
         }
     }
-}
-
-/// Foreign WlBuffer object data.
-pub struct BufferData {
-    connection: Connection,
-}
-
-impl BufferData {
-    pub fn new(connection: Connection) -> Arc<Self> {
-        Arc::new(Self { connection })
-    }
-}
-
-impl ObjectData for BufferData {
-    fn event(
-        self: Arc<Self>,
-        _backend: &Backend,
-        msg: Message<ObjectId, OwnedFd>,
-    ) -> Option<Arc<dyn ObjectData>> {
-        // Destroy buffer on release.
-        if msg.opcode == 0 {
-            if let Ok(buffer) = WlBuffer::from_id(&self.connection, msg.sender_id) {
-                buffer.destroy();
-            }
-        }
-
-        None
-    }
-
-    fn destroyed(&self, _object_id: ObjectId) {}
 }

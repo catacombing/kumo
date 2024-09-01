@@ -580,8 +580,6 @@ pub enum Gesture {
     Tap,
     #[doc(alias = "WPE_GESTURE_DRAG")]
     Drag,
-    #[doc(alias = "WPE_GESTURE_LONG_PRESS")]
-    LongPress,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -596,7 +594,6 @@ impl IntoGlib for Gesture {
             Self::None => ffi::WPE_GESTURE_NONE,
             Self::Tap => ffi::WPE_GESTURE_TAP,
             Self::Drag => ffi::WPE_GESTURE_DRAG,
-            Self::LongPress => ffi::WPE_GESTURE_LONG_PRESS,
             Self::__Unknown(value) => value,
         }
     }
@@ -610,7 +607,6 @@ impl FromGlib<ffi::WPEGesture> for Gesture {
             ffi::WPE_GESTURE_NONE => Self::None,
             ffi::WPE_GESTURE_TAP => Self::Tap,
             ffi::WPE_GESTURE_DRAG => Self::Drag,
-            ffi::WPE_GESTURE_LONG_PRESS => Self::LongPress,
             value => Self::__Unknown(value),
         }
     }

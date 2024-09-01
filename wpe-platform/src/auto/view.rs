@@ -175,6 +175,11 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
         unsafe { ffi::wpe_view_get_width(self.as_ref().to_glib_none().0) }
     }
 
+    #[doc(alias = "wpe_view_lock_pointer")]
+    fn lock_pointer(&self) -> bool {
+        unsafe { from_glib(ffi::wpe_view_lock_pointer(self.as_ref().to_glib_none().0)) }
+    }
+
     #[doc(alias = "wpe_view_map")]
     fn map(&self) {
         unsafe {
@@ -249,6 +254,11 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
         unsafe {
             ffi::wpe_view_set_visible(self.as_ref().to_glib_none().0, visible.into_glib());
         }
+    }
+
+    #[doc(alias = "wpe_view_unlock_pointer")]
+    fn unlock_pointer(&self) -> bool {
+        unsafe { from_glib(ffi::wpe_view_unlock_pointer(self.as_ref().to_glib_none().0)) }
     }
 
     #[doc(alias = "wpe_view_unmap")]

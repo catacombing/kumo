@@ -1,9 +1,11 @@
 //! Browser window handling.
 
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
 use std::ops::Range;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, ZwpTextInputV3};
@@ -11,6 +13,8 @@ use funq::StQueueHandle;
 use glutin::display::Display;
 use indexmap::IndexMap;
 use smallvec::SmallVec;
+use smithay_client_toolkit::dmabuf::DmabufFeedback;
+use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
 use smithay_client_toolkit::reexports::csd_frame::WindowState;
@@ -37,8 +41,8 @@ use crate::{History, Position, Size, State};
 const SEARCH_URI: &str = "https://duckduckgo.com/?q=";
 
 // Default window size.
-const DEFAULT_WIDTH: u32 = 1280;
-const DEFAULT_HEIGHT: u32 = 720;
+const DEFAULT_WIDTH: u32 = 360;
+const DEFAULT_HEIGHT: u32 = 640;
 
 #[funq::callbacks(State)]
 pub trait WindowHandler {
@@ -72,8 +76,9 @@ pub struct Window {
     active_tab: EngineId,
     overlay: Overlay,
 
-    text_input: Option<TextInput>,
+    dmabuf_feedback: Rc<RefCell<Option<DmabufFeedback>>>,
     wayland_queue: QueueHandle<State>,
+    text_input: Option<TextInput>,
     initial_configure_done: bool,
     engine_viewport: WpViewport,
     engine_surface: WlSurface,
@@ -94,7 +99,7 @@ pub struct Window {
     keyboard_focus: KeyboardFocus,
 
     fullscreen_request: Option<EngineId>,
-    fullscreen: bool,
+    fullscreened: bool,
 
     stalled: bool,
     closed: bool,
@@ -109,6 +114,7 @@ impl Window {
         queue: StQueueHandle<State>,
         wayland_queue: QueueHandle<State>,
         history: History,
+        dmabuf_feedback: Rc<RefCell<Option<DmabufFeedback>>>,
     ) -> Result<Self, WebKitError> {
         // Create UI renderer.
         let id = WindowId::new();
@@ -162,6 +168,7 @@ impl Window {
         ui.set_size(size);
 
         let mut window = Self {
+            dmabuf_feedback,
             engine_viewport,
             engine_surface,
             wayland_queue,
@@ -183,7 +190,7 @@ impl Window {
             history_menu: Default::default(),
             touch_points: Default::default(),
             text_input: Default::default(),
-            fullscreen: Default::default(),
+            fullscreened: Default::default(),
             closed: Default::default(),
             dirty: Default::default(),
             tabs: Default::default(),
@@ -213,10 +220,17 @@ impl Window {
     /// Add a tab to the window.
     pub fn add_tab(&mut self, focus_uribar: bool) -> Result<EngineId, WebKitError> {
         // Create a new browser engine.
-        let size = self.engine_size();
         let engine_id = EngineId::new(self.id);
-        let engine =
-            WebKitEngine::new(&self.egl_display, self.queue.clone(), engine_id, size, self.scale)?;
+        let engine = WebKitEngine::new(
+            &self.egl_display,
+            self.wayland_queue.clone(),
+            self.queue.clone(),
+            engine_id,
+            self.engine_size(),
+            self.scale,
+            self.dmabuf_feedback.borrow().as_ref(),
+        )?;
+
         self.tabs.insert(engine_id, Box::new(engine));
 
         // Switch the active tab.
@@ -341,9 +355,19 @@ impl Window {
 
                     // Render buffer if it requires a redraw.
                     if engine.dirty() || self.dirty {
+                        // Update opaque region.
+                        self.engine_surface.set_opaque_region(engine.opaque_region());
+
                         // Attach engine buffer to primary surface.
                         self.engine_surface.attach(Some(engine_buffer), 0, 0);
-                        self.engine_surface.damage(0, 0, dst_width, dst_height);
+                        match engine.take_buffer_damage() {
+                            Some(damage_rects) => {
+                                for (x, y, width, height) in damage_rects {
+                                    self.engine_surface.damage_buffer(x, y, width, height);
+                                }
+                            },
+                            None => self.engine_surface.damage(0, 0, dst_width, dst_height),
+                        }
                         self.engine_surface.commit();
 
                         // Request new engine frame.
@@ -367,7 +391,7 @@ impl Window {
         }
 
         // Draw UI.
-        if !overlay_opaque && !self.fullscreen {
+        if !overlay_opaque && !self.fullscreened {
             let ui_rendered = self.ui.draw(self.tabs.len(), self.dirty);
             self.stalled &= !ui_rendered;
         }
@@ -433,7 +457,7 @@ impl Window {
 
         // Short-circuit if nothing changed.
         let size_unchanged = self.size == size;
-        if size_unchanged && self.fullscreen == is_fullscreen {
+        if size_unchanged && self.fullscreened == is_fullscreen {
             // Still force redraw for the initial configure.
             if !was_done {
                 self.unstall();
@@ -441,7 +465,7 @@ impl Window {
 
             return;
         }
-        self.fullscreen = is_fullscreen;
+        self.fullscreened = is_fullscreen;
         self.size = size;
 
         // Resize window's browser engines.
@@ -459,11 +483,7 @@ impl Window {
         // Acknowledge pending engine fullscreen requests.
         if Some(self.active_tab) == self.fullscreen_request.take() {
             let active_tab = self.tabs.get_mut(&self.active_tab).unwrap();
-            if self.fullscreen {
-                active_tab.confirm_enter_fullscreen();
-            } else {
-                active_tab.confirm_leave_fullscreen();
-            }
+            active_tab.set_fullscreen(self.fullscreened);
         }
 
         // Destroy history popup, so we don't need to resize it.
@@ -496,7 +516,7 @@ impl Window {
 
     /// Handle new key press.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    pub fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
+    pub fn press_key(&mut self, time: u32, raw: u32, keysym: Keysym, modifiers: Modifiers) {
         match self.keyboard_focus {
             KeyboardFocus::Ui => self.ui.press_key(raw, keysym, modifiers),
             KeyboardFocus::Browser => {
@@ -504,7 +524,7 @@ impl Window {
                     Some(engine) => engine,
                     None => return,
                 };
-                engine.press_key(raw, keysym, modifiers);
+                engine.press_key(time, raw, keysym, modifiers);
             },
             KeyboardFocus::None => (),
         }
@@ -517,11 +537,11 @@ impl Window {
 
     /// Handle key release.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    pub fn release_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
+    pub fn release_key(&mut self, time: u32, raw: u32, keysym: Keysym, modifiers: Modifiers) {
         match self.keyboard_focus {
             KeyboardFocus::Browser => {
                 if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
-                    engine.release_key(raw, keysym, modifiers);
+                    engine.release_key(time, raw, keysym, modifiers);
                 }
             },
             // Ui has no release handling need (yet).
@@ -562,7 +582,7 @@ impl Window {
         time: u32,
         position: Position<f64>,
         button: u32,
-        state: u32,
+        down: bool,
         modifiers: Modifiers,
     ) {
         if &self.engine_surface == surface {
@@ -570,14 +590,16 @@ impl Window {
 
             // Use real pointer events for the browser engine.
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
-                engine.pointer_button(time, position, button, state, modifiers);
+                engine.pointer_button(time, position, button, down, modifiers);
             }
         } else {
             // Emulate touch for non-engine purposes.
-            match state {
-                0 if button == BTN_LEFT => self.touch_up(surface, time, -1, modifiers),
-                1 if button == BTN_LEFT => self.touch_down(surface, time, -1, position, modifiers),
-                _ => (),
+            if button == BTN_LEFT {
+                if down {
+                    self.touch_down(surface, time, -1, position, modifiers);
+                } else {
+                    self.touch_up(surface, time, -1, modifiers);
+                }
             }
         }
 
@@ -606,6 +628,34 @@ impl Window {
         }
     }
 
+    /// Handle pointer enter events.
+    pub fn pointer_enter(
+        &mut self,
+        surface: &WlSurface,
+        position: Position<f64>,
+        modifiers: Modifiers,
+    ) {
+        if &self.engine_surface == surface {
+            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+                engine.pointer_enter(position, modifiers);
+            }
+        }
+    }
+
+    /// Handle pointer leave events.
+    pub fn pointer_leave(
+        &mut self,
+        surface: &WlSurface,
+        position: Position<f64>,
+        modifiers: Modifiers,
+    ) {
+        if &self.engine_surface == surface {
+            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+                engine.pointer_leave(position, modifiers);
+            }
+        }
+    }
+
     /// Handle touch press events.
     pub fn touch_down(
         &mut self,
@@ -626,7 +676,7 @@ impl Window {
                 // Close all dropdowns when interacting with the page.
                 engine.close_option_menu(None);
 
-                engine.touch_down(&self.touch_points, time, id, modifiers);
+                engine.touch_down(time, id, position, modifiers);
             }
         } else if self.ui.surface() == surface {
             // Close all dropdowns when clicking on the UI.
@@ -650,7 +700,9 @@ impl Window {
         // Forward events to corresponding surface.
         if &self.engine_surface == surface {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
-                engine.touch_up(&self.touch_points, time, id, modifiers);
+                if let Some(position) = self.touch_points.get(&id) {
+                    engine.touch_up(time, id, *position, modifiers);
+                }
             }
         } else if self.ui.surface() == surface {
             self.ui.touch_up(time, id, modifiers);
@@ -681,7 +733,7 @@ impl Window {
         // Forward events to corresponding surface.
         if &self.engine_surface == surface {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
-                engine.touch_motion(&self.touch_points, time, id, modifiers);
+                engine.touch_motion(time, id, position, modifiers);
             }
         } else if self.ui.surface() == surface {
             self.ui.touch_motion(time, id, position, modifiers);
@@ -736,15 +788,15 @@ impl Window {
     }
 
     /// Set preedit text at the current cursor position.
-    pub fn preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
+    pub fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
         match self.keyboard_focus {
-            KeyboardFocus::Ui => self.ui.preedit_string(text, cursor_begin, cursor_end),
+            KeyboardFocus::Ui => self.ui.set_preedit_string(text, cursor_begin, cursor_end),
             KeyboardFocus::Browser => {
                 let engine = match self.tabs.get_mut(&self.active_tab) {
                     Some(engine) => engine,
                     None => return,
                 };
-                engine.preedit_string(text, cursor_begin, cursor_end);
+                engine.set_preedit_string(text, cursor_begin, cursor_end);
             },
             KeyboardFocus::None => (),
         }
@@ -910,7 +962,7 @@ impl Window {
 
     /// Size allocated to the browser engine's buffer.
     pub fn engine_size(&self) -> Size {
-        if self.fullscreen {
+        if self.fullscreened {
             Size::new(self.size.width, self.size.height)
         } else {
             Size::new(self.size.width, self.size.height - TOOLBAR_HEIGHT as u32)
@@ -943,6 +995,22 @@ impl Window {
         if focus != KeyboardFocus::Browser {
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.clear_focus();
+            }
+        }
+    }
+
+    /// Handle DMA buffer release.
+    pub fn buffer_released(&mut self, buffer: &WlBuffer) {
+        for (_, engine) in &mut self.tabs {
+            engine.buffer_released(buffer);
+        }
+    }
+
+    /// Notify window about DMA buffer feedback change.
+    pub fn dmabuf_feedback_changed(&mut self) {
+        if let Some(feedback) = &*self.dmabuf_feedback.borrow() {
+            for (_, engine) in &mut self.tabs {
+                engine.dmabuf_feedback(feedback);
             }
         }
     }

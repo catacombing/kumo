@@ -16,6 +16,7 @@ rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
+glib-sys.workspace = true
 glib.workspace = true
 gobject-sys.workspace = true
 libc.workspace = true

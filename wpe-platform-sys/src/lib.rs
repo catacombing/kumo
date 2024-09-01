@@ -61,7 +61,6 @@ pub type WPEGesture = c_int;
 pub const WPE_GESTURE_NONE: WPEGesture = 0;
 pub const WPE_GESTURE_TAP: WPEGesture = 1;
 pub const WPE_GESTURE_DRAG: WPEGesture = 2;
-pub const WPE_GESTURE_LONG_PRESS: WPEGesture = 3;
 
 pub type WPEInputPurpose = c_int;
 pub const WPE_INPUT_PURPOSE_FREE_FORM: WPEInputPurpose = 0;
@@ -2539,6 +2538,7 @@ pub struct WPEDisplayClass {
     pub get_monitor: Option<unsafe extern "C" fn(*mut WPEDisplay, c_uint) -> *mut WPEMonitor>,
     pub get_drm_device: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *const c_char>,
     pub get_drm_render_node: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *const c_char>,
+    pub use_explicit_sync: Option<unsafe extern "C" fn(*mut WPEDisplay) -> gboolean>,
     pub create_input_method_context:
         Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEInputMethodContext>,
     pub padding: [gpointer; 32],
@@ -2557,6 +2557,7 @@ impl ::std::fmt::Debug for WPEDisplayClass {
             .field("get_monitor", &self.get_monitor)
             .field("get_drm_device", &self.get_drm_device)
             .field("get_drm_render_node", &self.get_drm_render_node)
+            .field("use_explicit_sync", &self.use_explicit_sync)
             .field("create_input_method_context", &self.create_input_method_context)
             .field("padding", &self.padding)
             .finish()
@@ -2816,6 +2817,7 @@ pub struct WPEToplevelClass {
     pub resize: Option<unsafe extern "C" fn(*mut WPEToplevel, c_int, c_int) -> gboolean>,
     pub set_fullscreen: Option<unsafe extern "C" fn(*mut WPEToplevel, gboolean) -> gboolean>,
     pub set_maximized: Option<unsafe extern "C" fn(*mut WPEToplevel, gboolean) -> gboolean>,
+    pub set_minimized: Option<unsafe extern "C" fn(*mut WPEToplevel) -> gboolean>,
     pub get_preferred_dma_buf_formats:
         Option<unsafe extern "C" fn(*mut WPEToplevel) -> *mut WPEBufferDMABufFormats>,
     pub padding: [gpointer; 32],
@@ -2831,6 +2833,7 @@ impl ::std::fmt::Debug for WPEToplevelClass {
             .field("resize", &self.resize)
             .field("set_fullscreen", &self.set_fullscreen)
             .field("set_maximized", &self.set_maximized)
+            .field("set_minimized", &self.set_minimized)
             .field("get_preferred_dma_buf_formats", &self.get_preferred_dma_buf_formats)
             .field("padding", &self.padding)
             .finish()
@@ -2859,6 +2862,8 @@ pub struct WPEViewClass {
             *mut *mut glib::GError,
         ) -> gboolean,
     >,
+    pub lock_pointer: Option<unsafe extern "C" fn(*mut WPEView) -> gboolean>,
+    pub unlock_pointer: Option<unsafe extern "C" fn(*mut WPEView) -> gboolean>,
     pub set_cursor_from_name: Option<unsafe extern "C" fn(*mut WPEView, *const c_char)>,
     pub set_cursor_from_bytes: Option<
         unsafe extern "C" fn(
@@ -2882,6 +2887,8 @@ impl ::std::fmt::Debug for WPEViewClass {
         f.debug_struct(&format!("WPEViewClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .field("render_buffer", &self.render_buffer)
+            .field("lock_pointer", &self.lock_pointer)
+            .field("unlock_pointer", &self.unlock_pointer)
             .field("set_cursor_from_name", &self.set_cursor_from_name)
             .field("set_cursor_from_bytes", &self.set_cursor_from_bytes)
             .field("set_opaque_rectangles", &self.set_opaque_rectangles)
@@ -3341,7 +3348,13 @@ extern "C" {
     pub fn wpe_buffer_dma_buf_get_modifier(buffer: *mut WPEBufferDMABuf) -> u64;
     pub fn wpe_buffer_dma_buf_get_n_planes(buffer: *mut WPEBufferDMABuf) -> u32;
     pub fn wpe_buffer_dma_buf_get_offset(buffer: *mut WPEBufferDMABuf, plane: u32) -> u32;
+    pub fn wpe_buffer_dma_buf_get_release_fence(buffer: *mut WPEBufferDMABuf) -> c_int;
+    pub fn wpe_buffer_dma_buf_get_rendering_fence(buffer: *mut WPEBufferDMABuf) -> c_int;
     pub fn wpe_buffer_dma_buf_get_stride(buffer: *mut WPEBufferDMABuf, plane: u32) -> u32;
+    pub fn wpe_buffer_dma_buf_set_release_fence(buffer: *mut WPEBufferDMABuf, fd: c_int);
+    pub fn wpe_buffer_dma_buf_set_rendering_fence(buffer: *mut WPEBufferDMABuf, fd: c_int);
+    pub fn wpe_buffer_dma_buf_take_release_fence(buffer: *mut WPEBufferDMABuf) -> c_int;
+    pub fn wpe_buffer_dma_buf_take_rendering_fence(buffer: *mut WPEBufferDMABuf) -> c_int;
 
     //=========================================================================
     // WPEBufferDMABufFormats
@@ -3417,6 +3430,7 @@ extern "C" {
     pub fn wpe_display_monitor_added(display: *mut WPEDisplay, monitor: *mut WPEMonitor);
     pub fn wpe_display_monitor_removed(display: *mut WPEDisplay, monitor: *mut WPEMonitor);
     pub fn wpe_display_set_primary(display: *mut WPEDisplay);
+    pub fn wpe_display_use_explicit_sync(display: *mut WPEDisplay) -> gboolean;
 
     //=========================================================================
     // WPEInputMethodContext
@@ -3533,6 +3547,7 @@ extern "C" {
     pub fn wpe_toplevel_get_size(toplevel: *mut WPEToplevel, width: *mut c_int, height: *mut c_int);
     pub fn wpe_toplevel_get_state(toplevel: *mut WPEToplevel) -> WPEToplevelState;
     pub fn wpe_toplevel_maximize(toplevel: *mut WPEToplevel) -> gboolean;
+    pub fn wpe_toplevel_minimize(toplevel: *mut WPEToplevel) -> gboolean;
     pub fn wpe_toplevel_monitor_changed(toplevel: *mut WPEToplevel);
     pub fn wpe_toplevel_preferred_dma_buf_formats_changed(toplevel: *mut WPEToplevel);
     pub fn wpe_toplevel_resize(toplevel: *mut WPEToplevel, width: c_int, height: c_int)
@@ -3576,6 +3591,7 @@ extern "C" {
     pub fn wpe_view_get_toplevel_state(view: *mut WPEView) -> WPEToplevelState;
     pub fn wpe_view_get_visible(view: *mut WPEView) -> gboolean;
     pub fn wpe_view_get_width(view: *mut WPEView) -> c_int;
+    pub fn wpe_view_lock_pointer(view: *mut WPEView) -> gboolean;
     pub fn wpe_view_map(view: *mut WPEView);
     pub fn wpe_view_render_buffer(
         view: *mut WPEView,
@@ -3606,6 +3622,7 @@ extern "C" {
     );
     pub fn wpe_view_set_toplevel(view: *mut WPEView, toplevel: *mut WPEToplevel);
     pub fn wpe_view_set_visible(view: *mut WPEView, visible: gboolean);
+    pub fn wpe_view_unlock_pointer(view: *mut WPEView) -> gboolean;
     pub fn wpe_view_unmap(view: *mut WPEView);
 
     //=========================================================================

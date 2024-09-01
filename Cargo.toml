@@ -17,7 +17,6 @@ members = [
     "funq",
     "funq/funq_derive",
     "libwpe-sys",
-    "wpe-backend-fdo-sys",
     "wpe-jsc",
     "wpe-jsc-sys",
     "wpe-platform",
@@ -51,7 +50,8 @@ dirs = "5.0.1"
 funq = { path = "./funq" }
 gio.workspace = true
 glib.workspace = true
-glutin = { version = "0.32.0", default-features = false, features = ["wayland"] }
+# glutin = { version = "0.32.0", default-features = false, features = ["wayland"] }
+glutin = { path = "../../rust-windowing/glutin/glutin", default-features = false, features = ["wayland"] }
 indexmap = "2.2.6"
 pangocairo = "0.20.0"
 pango = { version = "0.20.0", features = ["v1_44"] }
@@ -65,8 +65,11 @@ thiserror = "1.0.57"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 wayland-backend = { version = "=0.3.4", features = ["client_system"] }
-wpe-backend-fdo-sys = { path = "./wpe-backend-fdo-sys" }
 wpe-webkit = { path = "./wpe-webkit" }
+wpe-platform = { path = "./wpe-platform" }
+rustix.workspace = true
+drm = { path = "../../smithay/drm-rs" }
+libc.workspace = true
 
 [build-dependencies]
 gl_generator = "0.14.0"

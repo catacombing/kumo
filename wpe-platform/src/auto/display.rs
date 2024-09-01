@@ -142,6 +142,11 @@ pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
         }
     }
 
+    #[doc(alias = "wpe_display_use_explicit_sync")]
+    fn use_explicit_sync(&self) -> bool {
+        unsafe { from_glib(ffi::wpe_display_use_explicit_sync(self.as_ref().to_glib_none().0)) }
+    }
+
     #[doc(alias = "monitor-added")]
     fn connect_monitor_added<F: Fn(&Self, &Monitor) + 'static>(&self, f: F) -> SignalHandlerId {
         unsafe extern "C" fn monitor_added_trampoline<

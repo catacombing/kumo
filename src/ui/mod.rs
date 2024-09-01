@@ -402,9 +402,9 @@ impl Ui {
     }
 
     /// Set preedit text at the current cursor position.
-    pub fn preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
+    pub fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
         if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
-            self.uribar.text_field.preedit_string(text, cursor_begin, cursor_end);
+            self.uribar.text_field.set_preedit_string(text, cursor_begin, cursor_end);
         }
     }
 
@@ -1358,7 +1358,7 @@ impl TextField {
     }
 
     /// Set preedit text at the current cursor position.
-    fn preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
+    fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
         // Delete selection as soon as preedit starts.
         if !text.is_empty() {
             if let Some(selection) = self.selection.take() {

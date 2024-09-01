@@ -59,10 +59,46 @@ impl BufferDMABuf {
         unsafe { ffi::wpe_buffer_dma_buf_get_offset(self.to_glib_none().0, plane) }
     }
 
+    #[doc(alias = "wpe_buffer_dma_buf_get_release_fence")]
+    #[doc(alias = "get_release_fence")]
+    pub fn release_fence(&self) -> i32 {
+        unsafe { ffi::wpe_buffer_dma_buf_get_release_fence(self.to_glib_none().0) }
+    }
+
+    #[doc(alias = "wpe_buffer_dma_buf_get_rendering_fence")]
+    #[doc(alias = "get_rendering_fence")]
+    pub fn rendering_fence(&self) -> i32 {
+        unsafe { ffi::wpe_buffer_dma_buf_get_rendering_fence(self.to_glib_none().0) }
+    }
+
     #[doc(alias = "wpe_buffer_dma_buf_get_stride")]
     #[doc(alias = "get_stride")]
     pub fn stride(&self, plane: u32) -> u32 {
         unsafe { ffi::wpe_buffer_dma_buf_get_stride(self.to_glib_none().0, plane) }
+    }
+
+    #[doc(alias = "wpe_buffer_dma_buf_set_release_fence")]
+    pub fn set_release_fence(&self, fd: i32) {
+        unsafe {
+            ffi::wpe_buffer_dma_buf_set_release_fence(self.to_glib_none().0, fd);
+        }
+    }
+
+    #[doc(alias = "wpe_buffer_dma_buf_set_rendering_fence")]
+    pub fn set_rendering_fence(&self, fd: i32) {
+        unsafe {
+            ffi::wpe_buffer_dma_buf_set_rendering_fence(self.to_glib_none().0, fd);
+        }
+    }
+
+    #[doc(alias = "wpe_buffer_dma_buf_take_release_fence")]
+    pub fn take_release_fence(&self) -> i32 {
+        unsafe { ffi::wpe_buffer_dma_buf_take_release_fence(self.to_glib_none().0) }
+    }
+
+    #[doc(alias = "wpe_buffer_dma_buf_take_rendering_fence")]
+    pub fn take_rendering_fence(&self) -> i32 {
+        unsafe { ffi::wpe_buffer_dma_buf_take_rendering_fence(self.to_glib_none().0) }
     }
 }
 

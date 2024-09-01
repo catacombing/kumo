@@ -1,4 +1,4 @@
-//! Dropdown like HTML <select> tags.
+//! Dropdown like HTML `<select>` tags.
 
 use std::ops::Mul;
 use std::sync::atomic::{AtomicUsize, Ordering};

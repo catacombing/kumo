@@ -1,84 +1,70 @@
-use std::any::Any;
-use std::collections::HashMap;
-use std::ffi::{self, CString};
-use std::ptr;
-use std::sync::Once;
-use std::time::UNIX_EPOCH;
+//! WebKit browser engine.
 
+use std::any::Any;
+use std::ffi::CStr;
+use std::ops::Deref;
+use std::os::fd::BorrowedFd;
+
+use _dmabuf::zwp_linux_buffer_params_v1::Flags as DmabufFlags;
 use funq::StQueueHandle;
 use gio::Cancellable;
-use glib::object::ObjectExt;
+use glib::object::{Cast, ObjectExt};
+use glib::prelude::*;
 use glib::Bytes;
-use glutin::api::egl::Egl;
-use glutin::display::{AsRawDisplay, Display, RawDisplay};
+use glutin::display::Display;
+use smithay_client_toolkit::compositor::Region;
+use smithay_client_toolkit::dmabuf::{DmabufFeedback, DmabufState};
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
-use smithay_client_toolkit::reexports::client::{Connection, Proxy};
+use smithay_client_toolkit::reexports::client::protocol::wl_region::WlRegion;
+use smithay_client_toolkit::reexports::client::{Proxy, QueueHandle};
+use smithay_client_toolkit::reexports::protocols::wp::linux_dmabuf::zv1::client as _dmabuf;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
 use tracing::{error, trace, warn};
-use wpe_backend_fdo_sys::{
-    wpe_fdo_egl_exported_image, wpe_fdo_egl_exported_image_get_egl_image,
-    wpe_fdo_egl_exported_image_get_height, wpe_fdo_egl_exported_image_get_width,
-    wpe_fdo_initialize_for_egl_display, wpe_input_axis_2d_event, wpe_input_axis_event,
-    wpe_input_axis_event_type_wpe_input_axis_event_type_mask_2d,
-    wpe_input_axis_event_type_wpe_input_axis_event_type_motion_smooth, wpe_input_keyboard_event,
-    wpe_input_modifier_wpe_input_keyboard_modifier_alt,
-    wpe_input_modifier_wpe_input_keyboard_modifier_control,
-    wpe_input_modifier_wpe_input_keyboard_modifier_meta,
-    wpe_input_modifier_wpe_input_keyboard_modifier_shift, wpe_input_pointer_event,
-    wpe_input_pointer_event_type_wpe_input_pointer_event_type_button,
-    wpe_input_pointer_event_type_wpe_input_pointer_event_type_motion, wpe_input_touch_event,
-    wpe_input_touch_event_raw, wpe_input_touch_event_type,
-    wpe_input_touch_event_type_wpe_input_touch_event_type_down,
-    wpe_input_touch_event_type_wpe_input_touch_event_type_motion,
-    wpe_input_touch_event_type_wpe_input_touch_event_type_up, wpe_loader_init,
-    wpe_view_activity_state_wpe_view_activity_state_focused,
-    wpe_view_activity_state_wpe_view_activity_state_in_window,
-    wpe_view_activity_state_wpe_view_activity_state_visible, wpe_view_backend_add_activity_state,
-    wpe_view_backend_dispatch_axis_event, wpe_view_backend_dispatch_keyboard_event,
-    wpe_view_backend_dispatch_pointer_event, wpe_view_backend_dispatch_set_device_scale_factor,
-    wpe_view_backend_dispatch_set_size, wpe_view_backend_dispatch_touch_event,
-    wpe_view_backend_exportable_fdo, wpe_view_backend_exportable_fdo_dispatch_frame_complete,
-    wpe_view_backend_exportable_fdo_egl_client, wpe_view_backend_exportable_fdo_egl_create,
-    wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image,
-    wpe_view_backend_exportable_fdo_get_view_backend, wpe_view_backend_remove_activity_state,
-    wpe_view_backend_set_fullscreen_handler,
-};
+use wpe_platform::ffi::WPERectangle;
+use wpe_platform::{Buffer, BufferDMABuf, BufferExt, BufferSHM, EventType};
 use wpe_webkit::{
     Color, CookieAcceptPolicy, CookiePersistentStorage, NetworkSession, OptionMenu,
-    UserContentFilterStore, WebView, WebViewBackend, WebViewExt,
+    UserContentFilterStore, WebView, WebViewExt,
 };
 
-use crate::engine::webkit::input_method_context::InputMethodContext;
+use crate::engine::webkit::platform::WebKitDisplay;
 use crate::engine::{Engine, EngineId, BG};
 use crate::ui::overlay::option_menu::{OptionMenuId, OptionMenuItem};
-use crate::wayland::protocols::BufferData;
 use crate::window::TextInputChange;
 use crate::{Position, Size, State};
 
 mod input_method_context;
+mod platform;
 
 /// Content filter store ID for the adblock json.
 const ADBLOCK_FILTER_ID: &str = "adblock";
 
-// Once for calling FDO initialization methods.
-static FDO_INIT: Once = Once::new();
+/// Maximum number of buffers kept for release tracking.
+///
+/// If the number of buffers pending release exceeds this number,
+/// then the oldest buffer is automatically assumed to be released.
+const MAX_PENDING_BUFFERS: usize = 3;
+
+/// EGL device string ID for the DRM render node.
+const EGL_DRM_RENDER_NODE_FILE_EXT: i32 = 0x3377;
 
 /// WebKit-specific errors.
 #[derive(thiserror::Error, Debug)]
-pub enum WebKitError {
-    #[error("backend creation failed")]
-    BackendCreation,
-    #[error("could not load libWPEBackend-fdo-1.0.so, make sure it is installed")]
-    FdoLibInit,
-    #[error("failed to initialize fdo egl backend")]
-    EglInit,
-}
+pub enum WebKitError {}
 
 #[funq::callbacks(State, thread_local)]
 trait WebKitHandler {
-    /// Update the engine's underlying EGL image.
-    fn set_egl_image(&mut self, engine_id: EngineId, image: *mut wpe_fdo_egl_exported_image);
+    /// Handle a new WebKit frame.
+    fn render_buffer(
+        &mut self,
+        engine_id: EngineId,
+        buffer: Buffer,
+        damage_rects: Vec<WPERectangle>,
+    );
+
+    /// Update buffer's opaque region.
+    fn set_opaque_rectangles(&mut self, engine_id: EngineId, rects: Vec<WPERectangle>);
 
     /// Update current URI for an engine.
     fn set_engine_uri(&mut self, engine_id: EngineId, uri: String);
@@ -102,7 +88,12 @@ trait WebKitHandler {
 }
 
 impl WebKitHandler for State {
-    fn set_egl_image(&mut self, engine_id: EngineId, image: *mut wpe_fdo_egl_exported_image) {
+    fn render_buffer(
+        &mut self,
+        engine_id: EngineId,
+        buffer: Buffer,
+        damage_rects: Vec<WPERectangle>,
+    ) {
         let window = match self.windows.get_mut(&engine_id.window_id()) {
             Some(window) => window,
             None => return,
@@ -116,32 +107,62 @@ impl WebKitHandler for State {
             None => return,
         };
 
-        // Request new image if submitted one is of incorrect size.
-        unsafe {
-            let width = wpe_fdo_egl_exported_image_get_width(image);
-            let height = wpe_fdo_egl_exported_image_get_height(image);
-            let desired_width =
-                (webkit_engine.target_size.width as f32 * webkit_engine.scale).round() as u32;
-            let desired_height =
-                (webkit_engine.target_size.height as f32 * webkit_engine.scale).round() as u32;
-
-            if desired_width != width || desired_height != height {
-                webkit_engine.frame_done();
-                wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image(
-                    webkit_engine.exportable,
-                    image,
-                );
+        // Update engine's buffer.
+        match buffer.downcast::<BufferDMABuf>() {
+            Ok(dma_buffer) => {
+                webkit_engine.import_buffer(&self.protocol_states.dmabuf, dma_buffer, damage_rects)
+            },
+            Err(buffer) => {
+                if buffer.is::<BufferSHM>() {
+                    error!("WebKit SHM buffers are not supported");
+                } else {
+                    error!("Unknown WebKit buffer format");
+                }
+                webkit_engine.cleanup_buffer(&buffer);
                 return;
-            }
+            },
         }
-
-        // Update engine's WlBuffer.
-        webkit_engine.import_image(&self.connection, &self.egl_display, image);
 
         // Offer new WlBuffer to window.
         if window.active_tab() == engine_id {
             window.unstall();
         }
+    }
+
+    fn set_opaque_rectangles(&mut self, engine_id: EngineId, rects: Vec<WPERectangle>) {
+        let window = match self.windows.get_mut(&engine_id.window_id()) {
+            Some(window) => window,
+            None => return,
+        };
+        let engine = match window.tabs_mut().get_mut(&engine_id) {
+            Some(engine) => engine,
+            None => return,
+        };
+        let webkit_engine = match engine.as_any().downcast_mut::<WebKitEngine>() {
+            Some(webkit_engine) => webkit_engine,
+            None => return,
+        };
+
+        match Region::new(&self.protocol_states.compositor) {
+            Ok(region) => {
+                // Convert WebKit's buffer scale to surface scale.
+                //
+                // We intentionally round the rect size down here to avoid rendering artifacts.
+                for rect in rects {
+                    let x = (rect.x as f64 / webkit_engine.scale).ceil() as i32;
+                    let y = (rect.y as f64 / webkit_engine.scale).ceil() as i32;
+                    let width = (rect.width as f64 / webkit_engine.scale).floor() as i32;
+                    let height = (rect.height as f64 / webkit_engine.scale).floor() as i32;
+                    region.add(x, y, width, height);
+                }
+
+                webkit_engine.set_opaque_region(Some(region));
+            },
+            Err(err) => {
+                error!("Could not create Wayland region: {err}");
+                webkit_engine.set_opaque_region(None);
+            },
+        };
     }
 
     fn set_engine_uri(&mut self, engine_id: EngineId, uri: String) {
@@ -225,77 +246,56 @@ impl WebKitHandler for State {
     }
 }
 
+// TODO: Platform API 2.0:
+//  - IME doesn't work
+//
 /// WebKit browser engine.
 pub struct WebKitEngine {
-    input_method_context: InputMethodContext,
-    backend: WebViewBackend,
-    web_view: WebView,
-
-    exportable: *mut wpe_view_backend_exportable_fdo,
-    image: *mut wpe_fdo_egl_exported_image,
-    buffer: Option<WlBuffer>,
-
-    target_size: Size,
-    buffer_size: Size,
-    scale: f32,
-
-    // Mouse pointer state.
-    pointer_button: u32,
-    pointer_state: u32,
-
-    egl: &'static Egl,
-
     id: EngineId,
-
+    web_view: WebView,
     option_menu: Option<(OptionMenuId, OptionMenu)>,
+    wayland_queue: QueueHandle<State>,
+    opaque_region: Option<Region>,
+
+    webkit_display: WebKitDisplay,
+    buffer: Option<(WaylandBuffer, BufferDMABuf)>,
+    buffer_damage: Option<Vec<WPERectangle>>,
+    buffers_pending_release: [Option<(WaylandBuffer, BufferDMABuf)>; MAX_PENDING_BUFFERS],
+
+    buffer_size: Size,
+    scale: f64,
 
     dirty: bool,
-}
-
-impl Drop for WebKitEngine {
-    fn drop(&mut self) {
-        unsafe {
-            // Free EGL image.
-            if !self.image.is_null() {
-                wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image(
-                    self.exportable,
-                    self.image,
-                );
-            }
-        }
-    }
 }
 
 impl WebKitEngine {
     pub fn new(
         display: &Display,
+        wayland_queue: QueueHandle<State>,
         queue: StQueueHandle<State>,
         engine_id: EngineId,
         size: Size,
         scale: f64,
+        dmabuf_feedback: Option<&DmabufFeedback>,
     ) -> Result<Self, WebKitError> {
-        // Ensure FDO is initialized.
-        let mut result = Ok(());
-        FDO_INIT.call_once(|| result = Self::init_fdo(display));
-        result?;
-
-        // Create web view backend.
-        let backend_queue = queue.clone();
-        let (mut backend, exportable) = unsafe {
-            // Create EGL FDO backend.
-            let exportable = create_exportable_backend(engine_id, backend_queue, size);
-            let egl_backend = wpe_view_backend_exportable_fdo_get_view_backend(exportable);
-            if egl_backend.is_null() {
-                return Err(WebKitError::BackendCreation);
-            }
-
-            (WebViewBackend::new(egl_backend), exportable)
+        // Get the DRM render node.
+        let Display::Egl(egl_display) = display;
+        let device = egl_display.device().expect("get DRM device");
+        let device_ptr = device.raw_device();
+        let egl = egl_display.egl();
+        let render_node = unsafe {
+            let ptr = egl.QueryDeviceStringEXT(device_ptr, EGL_DRM_RENDER_NODE_FILE_EXT);
+            CStr::from_ptr(ptr).into()
         };
+
+        // Create WebKit platform.
+        let webkit_display =
+            WebKitDisplay::new(queue.clone(), engine_id, render_node, size, scale, dmabuf_feedback);
 
         // Create web view with initial blank page.
         let network_session = xdg_network_session().unwrap_or_else(NetworkSession::new_ephemeral);
         let web_view =
-            WebView::builder().network_session(&network_session).backend(&backend).build();
+            WebView::builder().network_session(&network_session).display(&webkit_display).build();
         web_view.load_uri("about:blank");
 
         // Set browser background color.
@@ -321,147 +321,102 @@ impl WebKitEngine {
             true
         });
 
-        // Setup input handler.
-        let input_method_context = InputMethodContext::new();
-        web_view.set_input_method_context(Some(&input_method_context));
-
-        // Setup fullscreen handler.
-        let state = Box::into_raw(Box::new(FullscreenSharedState { queue, engine_id })).cast();
-        let wpe_backend = unsafe { backend.wpe_backend() };
-        unsafe {
-            wpe_view_backend_set_fullscreen_handler(wpe_backend, Some(handle_fullscreen), state);
-        }
-
-        // Set initial activity state.
-        let state = wpe_view_activity_state_wpe_view_activity_state_visible
-            | wpe_view_activity_state_wpe_view_activity_state_in_window
-            | wpe_view_activity_state_wpe_view_activity_state_focused;
-        unsafe {
-            wpe_view_backend_add_activity_state(wpe_backend, state);
-        };
-
         // Load adblock content filter.
         load_adblock(web_view.clone());
 
-        // Get access to the OpenGL API.
-        let Display::Egl(egl_display) = display;
-        let egl = egl_display.egl();
-
-        let mut engine = Self {
-            input_method_context,
-            exportable,
+        Ok(Self {
+            // input_method_context,
+            webkit_display,
+            wayland_queue,
             web_view,
-            backend,
-            target_size: size,
-            egl,
-            image: ptr::null_mut(),
             id: engine_id,
-            scale: 1.0,
-            pointer_button: Default::default(),
-            pointer_state: Default::default(),
+            scale,
+            buffers_pending_release: Default::default(),
+            opaque_region: Default::default(),
+            buffer_damage: Default::default(),
             buffer_size: Default::default(),
             option_menu: Default::default(),
             buffer: Default::default(),
             dirty: Default::default(),
-        };
-
-        // Update engine scale.
-        engine.set_scale(scale);
-
-        Ok(engine)
+        })
     }
 
-    /// Import a new EGLImage as WlBuffer.
-    fn import_image(
+    /// Import a new DMA buffer.
+    fn import_buffer(
         &mut self,
-        connection: &Connection,
-        egl_display: &Display,
-        image: *mut wpe_fdo_egl_exported_image,
+        dmabuf_state: &DmabufState,
+        buffer: BufferDMABuf,
+        damage_rects: Vec<WPERectangle>,
     ) {
-        // Require redraw.
+        let wayland_queue = &self.wayland_queue;
+        let params = match dmabuf_state.create_params(wayland_queue) {
+            Ok(params) => params,
+            Err(err) => {
+                error!("Failed creating params for WebKit buffer: {err}");
+                self.cleanup_buffer(&buffer);
+                return;
+            },
+        };
+
+        // Add parameters for each plane.
+        let modifier = buffer.modifier();
+        for plane_index in 0..buffer.n_planes() {
+            let offset = buffer.offset(plane_index);
+            let stride = buffer.stride(plane_index);
+            let fd = unsafe { BorrowedFd::borrow_raw(buffer.fd(plane_index)) };
+            params.add(fd, plane_index, offset, stride, modifier);
+        }
+
+        // Create the WlBuffer.
+        let width = buffer.width();
+        let height = buffer.height();
+        let format = buffer.format();
+        let flags = DmabufFlags::empty();
+        let (wl_buffer, _) = params.create_immed(width, height, format, flags, wayland_queue);
+        let wl_buffer = WaylandBuffer(wl_buffer);
+
+        // Ensure buffer was created successfully.
+        if !wl_buffer.is_alive() {
+            error!("WebKit buffer creation failed");
+            self.cleanup_buffer(&buffer);
+            return;
+        }
+
+        // Setup release tracking for the old buffer.
+        if let Some((wl_buffer, dmabuf)) = self.buffer.take() {
+            // Assume release if the maximum number of pending buffers is reached.
+            self.buffers_pending_release.rotate_right(1);
+            if let Some((_, dmabuf)) = self.buffers_pending_release[0].take() {
+                self.webkit_display.buffer_released(&dmabuf);
+            }
+
+            self.buffers_pending_release[0] = Some((wl_buffer, dmabuf));
+        }
+
+        // Update buffer and flag engine as dirty.
+        self.buffer_size = Size::new(width as u32, height as u32);
+        self.buffer_damage = Some(damage_rects);
+        self.buffer = Some((wl_buffer, buffer));
         self.dirty = true;
-
-        // Free previous image.
-        if !self.image.is_null() {
-            unsafe {
-                wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image(
-                    self.exportable,
-                    self.image,
-                );
-            }
-        }
-
-        self.buffer_size = self.target_size * self.scale as f64;
-        self.image = image;
-
-        let RawDisplay::Egl(raw_display) = egl_display.raw_display();
-
-        // Convert EGLImage to WlBuffer.
-        let object_id = unsafe {
-            let egl_image = wpe_fdo_egl_exported_image_get_egl_image(self.image);
-            let raw_wl_buffer = self.egl.CreateWaylandBufferFromImageWL(raw_display, egl_image);
-            let data = BufferData::new(connection.clone());
-            connection.backend().manage_object(WlBuffer::interface(), raw_wl_buffer.cast(), data)
-        };
-        self.buffer = Some(WlBuffer::from_id(connection, object_id).unwrap());
     }
 
-    /// Initialize the WPEBackend-fdo library.
-    fn init_fdo(display: &Display) -> Result<(), WebKitError> {
-        unsafe {
-            let RawDisplay::Egl(display) = display.raw_display();
-
-            let backend_lib = CString::new("libWPEBackend-fdo-1.0.so").unwrap();
-            if !wpe_loader_init(backend_lib.as_ptr()) {
-                return Err(WebKitError::FdoLibInit);
-            }
-
-            if !wpe_fdo_initialize_for_egl_display(display as *mut _) {
-                return Err(WebKitError::EglInit);
-            }
-
-            Ok(())
-        }
+    /// Dispose buffer that wasn't rendered.
+    fn cleanup_buffer(&self, buffer: &impl IsA<Buffer>) {
+        self.webkit_display.frame_done(buffer);
+        self.webkit_display.buffer_released(buffer);
     }
 
-    /// Emit a touch input event.
-    fn touch_event(
-        &mut self,
-        touch_points: &[wpe_input_touch_event_raw],
-        time: u32,
-        id: i32,
-        modifiers: Modifiers,
-        type_: wpe_input_touch_event_type,
-    ) {
-        let mut event = wpe_input_touch_event {
-            type_,
-            time,
-            id,
-            touchpoints_length: touch_points.len() as u64,
-            modifiers: wpe_modifiers(modifiers),
-            touchpoints: touch_points.as_ptr(),
-        };
-
-        unsafe {
-            let wpe_backend = self.backend.wpe_backend();
-            wpe_view_backend_dispatch_touch_event(wpe_backend, &mut event);
-        }
+    /// Update the engine surface's opaque region.
+    fn set_opaque_region(&mut self, region: Option<Region>) {
+        self.opaque_region = region;
     }
 
     /// Update engine focus.
     fn set_focused(&mut self, focused: bool) {
         // Force text-input update.
-        self.input_method_context.mark_text_input_dirty();
+        self.webkit_display.input_method_context().mark_text_input_dirty();
 
-        let state = wpe_view_activity_state_wpe_view_activity_state_focused;
-        unsafe {
-            let backend = self.backend.wpe_backend();
-            if focused {
-                wpe_view_backend_add_activity_state(backend, state);
-            } else {
-                wpe_view_backend_remove_activity_state(backend, state);
-            }
-        }
+        self.webkit_display.set_focus(focused);
     }
 }
 
@@ -470,61 +425,88 @@ impl Engine for WebKitEngine {
         self.id
     }
 
-    fn wl_buffer(&self) -> Option<&WlBuffer> {
-        self.buffer.as_ref()
-    }
-
     fn dirty(&self) -> bool {
         self.dirty
     }
 
-    fn frame_done(&mut self) {
-        self.dirty = false;
-
-        unsafe {
-            wpe_view_backend_exportable_fdo_dispatch_frame_complete(self.exportable);
-        }
-    }
-
-    fn set_size(&mut self, size: Size) {
-        self.target_size = size;
-
-        unsafe {
-            let wpe_backend = self.backend.wpe_backend();
-            wpe_view_backend_dispatch_set_size(wpe_backend, size.width, size.height);
-        }
+    fn wl_buffer(&self) -> Option<&WlBuffer> {
+        self.buffer.as_ref().map(|(wl_buffer, _)| wl_buffer.deref())
     }
 
     fn buffer_size(&self) -> Size {
         self.buffer_size
     }
 
-    fn set_scale(&mut self, scale: f64) {
-        // Clamp scale to WebKit's limits.
+    fn take_buffer_damage(&mut self) -> Option<Vec<(i32, i32, i32, i32)>> {
+        match self.buffer_damage.take() {
+            Some(damage) if damage.is_empty() => None,
+            Some(damage) => Some(
+                damage
+                    .into_iter()
+                    .map(|damage| (damage.x, damage.y, damage.width, damage.height))
+                    .collect(),
+            ),
+            None => Some(Vec::new()),
+        }
+    }
+
+    fn frame_done(&mut self) {
+        self.dirty = false;
+
+        if let Some((_, dmabuf)) = &mut self.buffer {
+            self.webkit_display.frame_done(dmabuf);
+        }
+    }
+
+    fn buffer_released(&mut self, released_buffer: &WlBuffer) {
+        // Release matching pending buffer.
         //
-        // https://webplatformforembedded.github.io/libwpe/view-backend.html#wpe_view_backend_dispatch_set_device_scale_factor
-        self.scale = scale.clamp(0.05, 5.0) as f32;
+        // We intentionally do not check the current buffer here, since it might be
+        // attached again in the future and we cannot determine if it should be
+        // released or not.
+        for i in 0..self.buffers_pending_release.len() {
+            let dmabuf = match &self.buffers_pending_release[i] {
+                Some((wl_buffer, dmabuf)) if released_buffer == wl_buffer.deref() => dmabuf,
+                Some(_) => continue,
+                None => break,
+            };
 
-        unsafe {
-            let wpe_backend = self.backend.wpe_backend();
-            wpe_view_backend_dispatch_set_device_scale_factor(wpe_backend, self.scale);
+            // Notify WebKit about buffer release.
+            self.webkit_display.buffer_released(dmabuf);
+
+            // Remove the buffer from the pending buffers.
+            self.buffers_pending_release[i] = None;
+            self.buffers_pending_release[i..].rotate_left(1);
+
+            break;
         }
     }
 
-    fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
-        let mut event = wpe_keyboard_event(raw, keysym, modifiers, true);
-        unsafe {
-            let wpe_backend = self.backend.wpe_backend();
-            wpe_view_backend_dispatch_keyboard_event(wpe_backend, &mut event);
-        }
+    /// Update DMA buffer feedback.
+    fn dmabuf_feedback(&mut self, feedback: &DmabufFeedback) {
+        self.webkit_display.dmabuf_feedback(feedback);
     }
 
-    fn release_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
-        let mut event = wpe_keyboard_event(raw, keysym, modifiers, false);
-        unsafe {
-            let wpe_backend = self.backend.wpe_backend();
-            wpe_view_backend_dispatch_keyboard_event(wpe_backend, &mut event);
-        }
+    /// Get the buffer's opaque region.
+    fn opaque_region(&self) -> Option<&WlRegion> {
+        self.opaque_region.as_ref().map(|region| region.wl_region())
+    }
+
+    fn set_size(&mut self, size: Size) {
+        self.webkit_display.set_size(size.width as i32, size.height as i32);
+    }
+
+    fn set_scale(&mut self, scale: f64) {
+        self.scale = scale;
+        self.webkit_display.set_scale(scale);
+    }
+
+    fn press_key(&mut self, time: u32, raw: u32, keysym: Keysym, modifiers: Modifiers) {
+        self.webkit_display.key(time, raw, keysym, modifiers, true);
+    }
+
+    fn release_key(&mut self, time: u32, raw: u32, keysym: Keysym, modifiers: Modifiers) {
+        self.webkit_display.key(time, raw, keysym, modifiers, false);
     }
 
     fn pointer_axis(
@@ -535,27 +517,7 @@ impl Engine for WebKitEngine {
         vertical: AxisScroll,
         modifiers: Modifiers,
     ) {
-        let type_ = wpe_input_axis_event_type_wpe_input_axis_event_type_motion_smooth
-            | wpe_input_axis_event_type_wpe_input_axis_event_type_mask_2d;
-
-        let mut axis_event = wpe_input_axis_2d_event {
-            base: wpe_input_axis_event {
-                type_,
-                time,
-                x: (position.x * self.scale as f64).round() as i32,
-                y: (position.y * self.scale as f64).round() as i32,
-                modifiers: wpe_modifiers(modifiers),
-                axis: 0,
-                value: 0,
-            },
-            x_axis: horizontal.absolute,
-            y_axis: -vertical.absolute,
-        };
-
-        unsafe {
-            let wpe_backend = self.backend.wpe_backend();
-            wpe_view_backend_dispatch_axis_event(wpe_backend, &mut axis_event.base);
-        }
+        self.webkit_display.pointer_axis(time, position, horizontal, vertical, modifiers);
     }
 
     fn pointer_button(
@@ -563,85 +525,36 @@ impl Engine for WebKitEngine {
         time: u32,
         position: Position<f64>,
         button: u32,
-        state: u32,
+        down: bool,
         modifiers: Modifiers,
     ) {
         self.set_focused(true);
-
-        self.pointer_button = button;
-        self.pointer_state = state;
-
-        let mut event = wpe_input_pointer_event {
-            button: button - 271,
-            state,
-            time,
-            type_: wpe_input_pointer_event_type_wpe_input_pointer_event_type_button,
-            x: (position.x * self.scale as f64).round() as i32,
-            y: (position.y * self.scale as f64).round() as i32,
-            modifiers: wpe_modifiers(modifiers),
-        };
-
-        unsafe {
-            let wpe_backend = self.backend.wpe_backend();
-            wpe_view_backend_dispatch_pointer_event(wpe_backend, &mut event);
-        }
+        self.webkit_display.pointer_button(time, position, button, down, modifiers);
     }
 
     fn pointer_motion(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
-        let button = if self.pointer_state == 0 { 0 } else { self.pointer_button - 271 };
-
-        let mut event = wpe_input_pointer_event {
-            button,
-            time,
-            type_: wpe_input_pointer_event_type_wpe_input_pointer_event_type_motion,
-            x: (position.x * self.scale as f64).round() as i32,
-            y: (position.y * self.scale as f64).round() as i32,
-            modifiers: wpe_modifiers(modifiers),
-            state: self.pointer_state,
-        };
-
-        unsafe {
-            let wpe_backend = self.backend.wpe_backend();
-            wpe_view_backend_dispatch_pointer_event(wpe_backend, &mut event);
-        }
+        self.webkit_display.pointer_motion(time, position, modifiers, EventType::PointerMove);
     }
 
-    fn touch_down(
-        &mut self,
-        touch_points: &HashMap<i32, Position<f64>>,
-        time: u32,
-        id: i32,
-        modifiers: Modifiers,
-    ) {
+    fn pointer_enter(&mut self, position: Position<f64>, modifiers: Modifiers) {
+        self.webkit_display.pointer_motion(0, position, modifiers, EventType::PointerEnter);
+    }
+
+    fn pointer_leave(&mut self, position: Position<f64>, modifiers: Modifiers) {
+        self.webkit_display.pointer_motion(0, position, modifiers, EventType::PointerLeave);
+    }
+
+    fn touch_down(&mut self, time: u32, id: i32, position: Position<f64>, modifiers: Modifiers) {
         self.set_focused(true);
-
-        let event_type = wpe_input_touch_event_type_wpe_input_touch_event_type_down;
-        let touch_points = wpe_touch_points(touch_points, self.scale, time, id, event_type);
-        self.touch_event(&touch_points, time, id, modifiers, event_type);
+        self.webkit_display.touch(time, id, position, modifiers, EventType::TouchDown);
     }
 
-    fn touch_up(
-        &mut self,
-        touch_points: &HashMap<i32, Position<f64>>,
-        time: u32,
-        id: i32,
-        modifiers: Modifiers,
-    ) {
-        let event_type = wpe_input_touch_event_type_wpe_input_touch_event_type_up;
-        let touch_points = wpe_touch_points(touch_points, self.scale, time, id, event_type);
-        self.touch_event(&touch_points, time, id, modifiers, event_type);
+    fn touch_up(&mut self, time: u32, id: i32, position: Position<f64>, modifiers: Modifiers) {
+        self.webkit_display.touch(time, id, position, modifiers, EventType::TouchUp);
     }
 
-    fn touch_motion(
-        &mut self,
-        touch_points: &HashMap<i32, Position<f64>>,
-        time: u32,
-        id: i32,
-        modifiers: Modifiers,
-    ) {
-        let event_type = wpe_input_touch_event_type_wpe_input_touch_event_type_motion;
-        let touch_points = wpe_touch_points(touch_points, self.scale, time, id, event_type);
-        self.touch_event(&touch_points, time, id, modifiers, event_type);
+    fn touch_motion(&mut self, time: u32, id: i32, position: Position<f64>, modifiers: Modifiers) {
+        self.webkit_display.touch(time, id, position, modifiers, EventType::TouchMove);
     }
 
     fn load_uri(&self, uri: &str) {
@@ -661,21 +574,30 @@ impl Engine for WebKitEngine {
     }
 
     fn text_input_state(&self) -> TextInputChange {
-        self.input_method_context.text_input_state()
+        self.webkit_display.input_method_context().text_input_state()
     }
 
     fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32) {
-        self.input_method_context
+        self.webkit_display
+            .input_method_context()
             .emit_by_name::<()>("delete-surrounding", &[&before_length, &after_length]);
     }
 
     fn commit_string(&mut self, text: String) {
-        self.input_method_context.emit_by_name::<()>("committed", &[&text]);
+        self.webkit_display.input_method_context().emit_by_name::<()>("committed", &[&text]);
     }
 
-    fn preedit_string(&mut self, _text: String, _cursor_begin: i32, _cursor_end: i32) {
-        // NOTE: WebKit supports signaling preedit start/change/finish, but
-        // doesn't support forwarding the preedit text itself.
+    fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
+        self.webkit_display.input_method_context().emit_by_name::<()>("preedit-started", &[]);
+
+        self.webkit_display.input_method_context().set_preedit_string(
+            text,
+            cursor_begin,
+            cursor_end,
+        );
+
+        self.webkit_display.input_method_context().emit_by_name::<()>("preedit-changed", &[]);
+        self.webkit_display.input_method_context().emit_by_name::<()>("preedit-finished", &[]);
     }
 
     fn clear_focus(&mut self) {
@@ -699,143 +621,13 @@ impl Engine for WebKitEngine {
         }
     }
 
-    fn confirm_enter_fullscreen(&mut self) {
-        unsafe {
-            let backend = self.backend.wpe_backend();
-            wpe_backend_fdo_sys::wpe_view_backend_dispatch_did_enter_fullscreen(backend);
-        }
-    }
-
-    fn confirm_leave_fullscreen(&mut self) {
-        unsafe {
-            let backend = self.backend.wpe_backend();
-            wpe_backend_fdo_sys::wpe_view_backend_dispatch_did_exit_fullscreen(backend);
-        }
+    fn set_fullscreen(&mut self, fullscreened: bool) {
+        self.webkit_display.set_fullscreen(fullscreened);
     }
 
     fn as_any(&mut self) -> &mut dyn Any {
         self
     }
-}
-
-/// Construct WPE keyboard event from its components.
-fn wpe_keyboard_event(
-    raw: u32,
-    keysym: Keysym,
-    modifiers: Modifiers,
-    pressed: bool,
-) -> wpe_input_keyboard_event {
-    // Get system time in seconds.
-    let elapsed = UNIX_EPOCH.elapsed().unwrap_or_default();
-    let time = elapsed.as_secs() as u32;
-
-    wpe_input_keyboard_event {
-        pressed,
-        time,
-        modifiers: wpe_modifiers(modifiers),
-        hardware_key_code: raw,
-        key_code: keysym.raw(),
-    }
-}
-
-/// Convert Wayland modifiers to WPE modifiers.
-fn wpe_modifiers(modifiers: Modifiers) -> u32 {
-    let mut wpe_modifiers = 0;
-    if modifiers.ctrl {
-        wpe_modifiers += wpe_input_modifier_wpe_input_keyboard_modifier_control;
-    }
-    if modifiers.shift {
-        wpe_modifiers += wpe_input_modifier_wpe_input_keyboard_modifier_shift;
-    }
-    if modifiers.alt {
-        wpe_modifiers += wpe_input_modifier_wpe_input_keyboard_modifier_alt;
-    }
-    if modifiers.logo {
-        wpe_modifiers += wpe_input_modifier_wpe_input_keyboard_modifier_meta;
-    }
-    wpe_modifiers
-}
-
-/// Convert touch points to WPE touch events.
-fn wpe_touch_points(
-    touch_points: &HashMap<i32, Position<f64>>,
-    scale: f32,
-    time: u32,
-    main_id: i32,
-    main_type: wpe_input_touch_event_type,
-) -> Vec<wpe_input_touch_event_raw> {
-    touch_points
-        .iter()
-        .map(|(&point_id, Position { x, y })| {
-            // Pretend all existing touch points just moved in place.
-            let type_ = if main_id == point_id {
-                main_type
-            } else {
-                wpe_input_touch_event_type_wpe_input_touch_event_type_motion
-            };
-
-            let x = (x * scale as f64).round() as i32;
-            let y = (y * scale as f64).round() as i32;
-
-            wpe_input_touch_event_raw { type_, time, id: point_id, x, y }
-        })
-        .collect()
-}
-
-/// Shared state leaked to FDO backend callbacks.
-struct ExportableSharedState {
-    queue: StQueueHandle<State>,
-    engine_id: EngineId,
-}
-
-/// Create the exportable FDO EGL backend.
-unsafe fn create_exportable_backend(
-    engine_id: EngineId,
-    queue: StQueueHandle<State>,
-    size: Size,
-) -> *mut wpe_view_backend_exportable_fdo {
-    let client = wpe_view_backend_exportable_fdo_egl_client {
-        export_fdo_egl_image: Some(on_egl_image_export),
-        export_shm_buffer: None,
-        export_egl_image: None,
-        _wpe_reserved0: None,
-        _wpe_reserved1: None,
-    };
-
-    let client = Box::into_raw(Box::new(client));
-    let state = Box::into_raw(Box::new(ExportableSharedState { engine_id, queue }));
-    wpe_view_backend_exportable_fdo_egl_create(client, state.cast(), size.width, size.height)
-}
-
-/// Handle EGL backend image export.
-unsafe extern "C" fn on_egl_image_export(
-    state: *mut ffi::c_void,
-    image: *mut wpe_fdo_egl_exported_image,
-) {
-    let state = match state.cast::<ExportableSharedState>().as_mut() {
-        Some(state) => state,
-        None => return,
-    };
-
-    state.queue.set_egl_image(state.engine_id, image);
-}
-
-/// Shared state leaked to fullscreen handler callback.
-struct FullscreenSharedState {
-    queue: StQueueHandle<State>,
-    engine_id: EngineId,
-}
-
-/// Fullscreen callback handler.
-unsafe extern "C" fn handle_fullscreen(state: *mut ffi::c_void, enable: bool) -> bool {
-    let state = match state.cast::<FullscreenSharedState>().as_mut() {
-        Some(state) => state,
-        None => return false,
-    };
-
-    state.queue.set_fullscreen(state.engine_id, enable);
-
-    true
 }
 
 /// Get WebKit network session using XDG-based backing storage.
@@ -894,4 +686,21 @@ fn load_adblock(web_view: WebView) {
             }
         });
     });
+}
+
+/// WlBuffer wrapper to ensure `destroy()` is called on drop.
+struct WaylandBuffer(WlBuffer);
+
+impl Drop for WaylandBuffer {
+    fn drop(&mut self) {
+        self.destroy()
+    }
+}
+
+impl Deref for WaylandBuffer {
+    type Target = WlBuffer;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }

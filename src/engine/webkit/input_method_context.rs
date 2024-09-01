@@ -1,4 +1,4 @@
-//! IME handler.
+//! IME subclass implementation.
 
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::Object;
@@ -13,13 +13,16 @@ mod imp {
     use glib::object::Cast;
     use glib::subclass::prelude::*;
     use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
-    use wpe_webkit::{InputHints, InputMethodContextExt, InputMethodContextImpl, InputPurpose};
+    use wpe_platform::{
+        InputHints, InputMethodContextExt, InputMethodContextImpl, InputPurpose, PreeditString,
+    };
 
     use crate::window::{TextInputChange, TextInputState};
 
     #[derive(Default)]
     pub struct InputMethodContext {
         text_input_state: Cell<Option<TextInputState>>,
+        preedit_string: Cell<Option<PreeditString>>,
         dirty: AtomicBool,
     }
 
@@ -39,8 +42,7 @@ mod imp {
 
             // Map WebKit purpose to Wayland purpose.
             let context_obj = self.obj();
-            let webkit_context =
-                unsafe { context_obj.unsafe_cast_ref::<wpe_webkit::InputMethodContext>() };
+            let webkit_context = context_obj.upcast_ref::<wpe_platform::InputMethodContext>();
             text_input_state.purpose = match webkit_context.input_purpose() {
                 InputPurpose::Digits => ContentPurpose::Digits,
                 InputPurpose::Number => ContentPurpose::Number,
@@ -65,6 +67,12 @@ mod imp {
             TextInputChange::Dirty(text_input_state)
         }
 
+        /// Update the current preedit text.
+        pub fn set_preedit_string(&self, text: String, cursor_begin: i32, cursor_end: i32) {
+            let preedit_string = PreeditString { text, cursor_begin, cursor_end };
+            self.preedit_string.replace(Some(preedit_string));
+        }
+
         /// Mark text input state as dirty.
         ///
         /// This is useful to force a resubmission when switching between
@@ -75,19 +83,20 @@ mod imp {
     }
 
     impl InputMethodContextImpl for InputMethodContext {
-        fn notify_focus_in(&self) {
+        fn focus_in(&self) {
             self.text_input_state.set(Some(TextInputState::default()));
+            self.preedit_string.replace(None);
 
             self.dirty.store(true, Ordering::Relaxed);
         }
 
-        fn notify_focus_out(&self) {
+        fn focus_out(&self) {
             self.text_input_state.take();
 
             self.dirty.store(true, Ordering::Relaxed);
         }
 
-        fn notify_cursor_area(&self, x: i32, y: i32, width: i32, height: i32) {
+        fn set_cursor_area(&self, x: i32, y: i32, width: i32, height: i32) {
             if let Some(mut text_input_state) = self.text_input_state.take() {
                 text_input_state.cursor_rect = (x, y, width, height);
                 self.text_input_state.set(Some(text_input_state));
@@ -96,7 +105,7 @@ mod imp {
             }
         }
 
-        fn notify_surrounding(&self, text: &str, cursor_index: u32, selection_index: u32) {
+        fn set_surrounding(&self, text: &str, cursor_index: u32, selection_index: u32) {
             let selection_index = selection_index as i32;
             let cursor_index = cursor_index as i32;
             if let Some(mut text_input_state) = self.text_input_state.take() {
@@ -111,11 +120,15 @@ mod imp {
             }
         }
 
+        fn preedit_string(&self) -> Option<PreeditString> {
+            let preedit_string = self.preedit_string.take();
+            self.preedit_string.set(preedit_string.clone());
+            preedit_string
+        }
+
         fn reset(&self) {
             if self.text_input_state.take().is_some() {
-                self.text_input_state.set(Some(TextInputState::default()));
-
-                self.dirty.store(true, Ordering::Relaxed);
+                self.focus_in();
             }
         }
     }
@@ -124,16 +137,16 @@ mod imp {
 
     #[glib::object_subclass]
     impl ObjectSubclass for InputMethodContext {
-        type ParentType = wpe_webkit::InputMethodContext;
+        type ParentType = wpe_platform::InputMethodContext;
         type Type = super::InputMethodContext;
 
-        const NAME: &'static str = "WebkitInputMethodContext";
+        const NAME: &'static str = "KumoWebKitInputMethodContext";
     }
 }
 
 glib::wrapper! {
     pub struct InputMethodContext(ObjectSubclass<imp::InputMethodContext>)
-        @extends wpe_webkit::InputMethodContext;
+        @extends wpe_platform::InputMethodContext;
 }
 
 impl InputMethodContext {
@@ -144,6 +157,11 @@ impl InputMethodContext {
     /// Get current IME text_input state.
     pub fn text_input_state(&self) -> TextInputChange {
         self.imp().text_input_state()
+    }
+
+    /// Update the current preedit text.
+    pub fn set_preedit_string(&self, text: String, cursor_begin: i32, cursor_end: i32) {
+        self.imp().set_preedit_string(text, cursor_begin, cursor_end)
     }
 
     /// Mark text input state as dirty.

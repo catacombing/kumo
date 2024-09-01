@@ -167,6 +167,11 @@ pub trait ToplevelExt: IsA<Toplevel> + sealed::Sealed + 'static {
         unsafe { from_glib(ffi::wpe_toplevel_maximize(self.as_ref().to_glib_none().0)) }
     }
 
+    #[doc(alias = "wpe_toplevel_minimize")]
+    fn minimize(&self) -> bool {
+        unsafe { from_glib(ffi::wpe_toplevel_minimize(self.as_ref().to_glib_none().0)) }
+    }
+
     #[doc(alias = "wpe_toplevel_monitor_changed")]
     fn monitor_changed(&self) {
         unsafe {

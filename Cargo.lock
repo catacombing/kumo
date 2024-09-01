@@ -336,6 +336,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 
 [[package]]
+name = "drm"
+version = "0.12.0"
+dependencies = [
+ "bitflags 2.6.0",
+ "bytemuck",
+ "drm-ffi",
+ "drm-fourcc",
+ "rustix",
+]
+
+[[package]]
+name = "drm-ffi"
+version = "0.8.0"
+dependencies = [
+ "drm-sys",
+ "rustix",
+]
+
+[[package]]
+name = "drm-fourcc"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0aafbcdb8afc29c1a7ee5fbe53b5d62f4565b35a042a662ca9fecd0b54dae6f4"
+
+[[package]]
+name = "drm-sys"
+version = "0.7.0"
+dependencies = [
+ "libc",
+ "linux-raw-sys 0.6.5",
+]
+
+[[package]]
 name = "either"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -606,8 +639,6 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 [[package]]
 name = "glutin"
 version = "0.32.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2491aa3090f682ddd920b184491844440fdd14379c7eef8f5bc10ef7fb3242fd"
 dependencies = [
  "bitflags 2.6.0",
  "cfg_aliases",
@@ -627,8 +658,6 @@ dependencies = [
 [[package]]
 name = "glutin_egl_sys"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cae99fff4d2850dbe6fb8c1fa8e4fead5525bab715beaacfccf3fb994e01c827"
 dependencies = [
  "gl_generator",
  "windows-sys 0.52.0",
@@ -827,12 +856,14 @@ dependencies = [
  "bitflags 2.6.0",
  "dashmap",
  "dirs",
+ "drm",
  "funq",
  "gio",
  "gl_generator",
  "glib",
  "glutin",
  "indexmap",
+ "libc",
  "pango",
  "pangocairo",
  "profiling",
@@ -840,13 +871,14 @@ dependencies = [
  "raw-window-handle",
  "reqwest",
  "rusqlite",
+ "rustix",
  "smallvec",
  "smithay-client-toolkit",
  "thiserror",
  "tracing",
  "tracing-subscriber",
  "wayland-backend",
- "wpe-backend-fdo-sys",
+ "wpe-platform",
  "wpe-webkit",
 ]
 
@@ -910,6 +942,12 @@ name = "linux-raw-sys"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78b3ae25bc7c8c38cec158d1f2757ee79e9b3740fbc7ccf0e59e4b08d793fa89"
+
+[[package]]
+name = "linux-raw-sys"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a385b1be4e5c3e362ad2ffa73c392e53f031eaa5b7d648e64cd87f27f6063d7"
 
 [[package]]
 name = "lock_api"
@@ -1559,7 +1597,7 @@ dependencies = [
  "bitflags 2.6.0",
  "errno",
  "libc",
- "linux-raw-sys",
+ "linux-raw-sys 0.4.14",
  "windows-sys 0.52.0",
 ]
 
@@ -2501,14 +2539,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wpe-backend-fdo-sys"
-version = "0.1.0"
-dependencies = [
- "libwpe-sys",
- "pkg-config",
-]
-
-[[package]]
 name = "wpe-jsc"
 version = "0.1.0"
 dependencies = [
@@ -2534,6 +2564,7 @@ name = "wpe-platform"
 version = "0.1.0"
 dependencies = [
  "glib",
+ "glib-sys",
  "gobject-sys",
  "libc",
  "wpe-platform-sys",

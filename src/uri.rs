@@ -1454,7 +1454,7 @@ pub const TLDS: &[&str] = &[
 ///
 /// This is used for autocomplete, so entries are sorted by autocomplete
 /// priority.
-pub const SCHEMES: &[&str] = &["https", "http", "file"];
+pub const SCHEMES: &[&str] = &["https", "http", "file", "data"];
 
 #[cfg(test)]
 mod tests {

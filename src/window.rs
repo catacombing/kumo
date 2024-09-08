@@ -1231,6 +1231,7 @@ mod tests {
         assert_eq!(build_uri("https:123").as_deref(), Some("https:123"));
         assert_eq!(build_uri("https:123:456").as_deref(), Some("https:123:456"));
         assert_eq!(build_uri("/test:123").as_deref(), Some("file:///test:123"));
+        assert_eq!(build_uri("data:text/HTML,<input>").as_deref(), Some("data:text/HTML,<input>"));
 
         assert_eq!(build_uri("example org").as_deref(), None);
         assert_eq!(build_uri("ftp://example.org").as_deref(), None);

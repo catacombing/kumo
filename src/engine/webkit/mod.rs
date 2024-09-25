@@ -1,7 +1,6 @@
 //! WebKit browser engine.
 
 use std::any::Any;
-use std::ffi::CStr;
 use std::ops::Deref;
 use std::os::fd::BorrowedFd;
 
@@ -45,9 +44,6 @@ const ADBLOCK_FILTER_ID: &str = "adblock";
 /// If the number of buffers pending release exceeds this number,
 /// then the oldest buffer is automatically assumed to be released.
 const MAX_PENDING_BUFFERS: usize = 3;
-
-/// EGL device string ID for the DRM render node.
-const EGL_DRM_RENDER_NODE_FILE_EXT: i32 = 0x3377;
 
 /// WebKit-specific errors.
 #[derive(thiserror::Error, Debug)]
@@ -246,9 +242,6 @@ impl WebKitHandler for State {
     }
 }
 
-// TODO: Platform API 2.0:
-//  - IME doesn't work
-//
 /// WebKit browser engine.
 pub struct WebKitEngine {
     id: EngineId,
@@ -281,12 +274,7 @@ impl WebKitEngine {
         // Get the DRM render node.
         let Display::Egl(egl_display) = display;
         let device = egl_display.device().expect("get DRM device");
-        let device_ptr = device.raw_device();
-        let egl = egl_display.egl();
-        let render_node = unsafe {
-            let ptr = egl.QueryDeviceStringEXT(device_ptr, EGL_DRM_RENDER_NODE_FILE_EXT);
-            CStr::from_ptr(ptr).into()
-        };
+        let render_node = device.drm_render_device_node_path().expect("get render node");
 
         // Create WebKit platform.
         let webkit_display =

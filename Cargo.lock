@@ -337,7 +337,9 @@ checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 
 [[package]]
 name = "drm"
-version = "0.12.0"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d000ffcf7a146ee52444a31b78ac82f981ebba5de6fb19f0b1052d98c8e5f308"
 dependencies = [
  "bitflags 2.6.0",
  "bytemuck",
@@ -348,7 +350,9 @@ dependencies = [
 
 [[package]]
 name = "drm-ffi"
-version = "0.8.0"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8e41459d99a9b529845f6d2c909eb9adf3b6d2f82635ae40be8de0601726e8b"
 dependencies = [
  "drm-sys",
  "rustix",
@@ -362,7 +366,9 @@ checksum = "0aafbcdb8afc29c1a7ee5fbe53b5d62f4565b35a042a662ca9fecd0b54dae6f4"
 
 [[package]]
 name = "drm-sys"
-version = "0.7.0"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bafb66c8dbc944d69e15cfcc661df7e703beffbaec8bd63151368b06c5f9858c"
 dependencies = [
  "libc",
  "linux-raw-sys 0.6.5",
@@ -638,7 +644,9 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
 name = "glutin"
-version = "0.32.0"
+version = "0.32.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec69412a0bf07ea7607e638b415447857a808846c2b685a43c8aa18bc6d5e499"
 dependencies = [
  "bitflags 2.6.0",
  "cfg_aliases",
@@ -658,6 +666,8 @@ dependencies = [
 [[package]]
 name = "glutin_egl_sys"
 version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cae99fff4d2850dbe6fb8c1fa8e4fead5525bab715beaacfccf3fb994e01c827"
 dependencies = [
  "gl_generator",
  "windows-sys 0.52.0",

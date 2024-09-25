@@ -50,8 +50,7 @@ dirs = "5.0.1"
 funq = { path = "./funq" }
 gio.workspace = true
 glib.workspace = true
-# glutin = { version = "0.32.0", default-features = false, features = ["wayland"] }
-glutin = { path = "../../rust-windowing/glutin/glutin", default-features = false, features = ["wayland"] }
+glutin = { version = "0.32.1", default-features = false, features = ["wayland"] }
 indexmap = "2.2.6"
 pangocairo = "0.20.0"
 pango = { version = "0.20.0", features = ["v1_44"] }
@@ -68,7 +67,7 @@ wayland-backend = { version = "=0.3.4", features = ["client_system"] }
 wpe-webkit = { path = "./wpe-webkit" }
 wpe-platform = { path = "./wpe-platform" }
 rustix.workspace = true
-drm = { path = "../../smithay/drm-rs" }
+drm = "0.14.0"
 libc.workspace = true
 
 [build-dependencies]

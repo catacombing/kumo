@@ -1,7 +1,8 @@
 //! WPEPlatform implementation.
 
 use std::ffi::CString;
-use std::path::PathBuf;
+use std::os::unix::ffi::OsStrExt;
+use std::path::{Path, PathBuf};
 
 use _dmabuf::zwp_linux_dmabuf_feedback_v1::TrancheFlags;
 use drm::node::DrmNode;
@@ -319,12 +320,13 @@ impl WebKitDisplay {
     pub fn new(
         queue: StQueueHandle<State>,
         engine_id: EngineId,
-        render_node: CString,
+        render_node: &Path,
         size: Size,
         scale: f64,
         feedback: Option<&DmabufFeedback>,
     ) -> Self {
         let display: Self = Object::new();
+        let render_node = CString::new(render_node.as_os_str().as_bytes()).unwrap();
         display.imp().init(queue, engine_id, render_node, feedback.and_then(webkit_formats));
         display.set_size(size.width as i32, size.height as i32);
         display.set_scale(scale);

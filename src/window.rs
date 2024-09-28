@@ -32,7 +32,7 @@ use crate::engine::{Engine, EngineId};
 use crate::history::{HistoryMatch, MAX_MATCHES};
 use crate::ui::overlay::option_menu::{Borders, OptionMenuId, OptionMenuItem, ScrollTarget};
 use crate::ui::overlay::Overlay;
-use crate::ui::{Ui, TOOLBAR_HEIGHT};
+use crate::ui::Ui;
 use crate::uri::{SCHEMES, TLDS};
 use crate::wayland::protocols::ProtocolStates;
 use crate::{History, Position, Size, State};
@@ -965,7 +965,7 @@ impl Window {
         if self.fullscreened {
             Size::new(self.size.width, self.size.height)
         } else {
-            Size::new(self.size.width, self.size.height - TOOLBAR_HEIGHT as u32)
+            Size::new(self.size.width, self.size.height - Ui::toolbar_height())
         }
     }
 

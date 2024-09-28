@@ -11,7 +11,7 @@ use smithay_client_toolkit::seat::keyboard::Modifiers;
 use crate::engine::EngineId;
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::{SEPARATOR_HEIGHT, TOOLBAR_HEIGHT};
+use crate::ui::Ui;
 use crate::window::WindowId;
 use crate::{gl, Position, Size, State};
 
@@ -338,11 +338,6 @@ impl OptionMenu {
             top: if self.borders.contains(Borders::TOP) { BORDER_SIZE } else { 0 },
         }
     }
-
-    /// Logical height of the URI toolbar without separator.
-    fn toolbar_height(&self) -> u32 {
-        (TOOLBAR_HEIGHT - SEPARATOR_HEIGHT).round() as u32
-    }
 }
 
 impl Popup for OptionMenu {
@@ -389,7 +384,7 @@ impl Popup for OptionMenu {
 
         // Scissor crop last element when it should only be partially visible.
         let borders = self.border_widths() * self.scale;
-        let toolbar_height = (self.toolbar_height() as f64 * self.scale).round();
+        let toolbar_height = (Ui::toolbar_height() as f64 * self.scale).round();
         let y = toolbar_height as i32 + borders.bottom as i32;
         let height = (self.max_height as f64 * self.scale).round() as i32 - borders.bottom as i32;
         unsafe {
@@ -430,7 +425,7 @@ impl Popup for OptionMenu {
     }
 
     fn set_size(&mut self, size: Size) {
-        self.max_height = size.height - self.toolbar_height();
+        self.max_height = size.height - Ui::toolbar_height();
         self.dirty = true;
     }
 

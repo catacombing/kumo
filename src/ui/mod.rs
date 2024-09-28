@@ -24,17 +24,17 @@ use crate::{gl, rect_contains, History, Position, Size, State, WindowId};
 pub mod overlay;
 mod renderer;
 
-/// Logical height of the non-browser UI.
-pub const TOOLBAR_HEIGHT: f64 = 50.;
-
-/// Logical height of the UI/content separator.
-pub const SEPARATOR_HEIGHT: f64 = 2.;
-
 /// Square of the maximum distance before touch input is considered a drag.
 pub const MAX_TAP_DISTANCE: f64 = 400.;
 
 /// Maximum interval between taps to be considered a double/trible-tap.
 const MAX_MULTI_TAP_MILLIS: u32 = 300;
+
+/// Logical height of the non-browser UI.
+const TOOLBAR_HEIGHT: u32 = 50;
+
+/// Logical height of the UI/content separator.
+const SEPARATOR_HEIGHT: u32 = 2;
 
 /// Font size at scale 1.
 const FONT_SIZE: u8 = 16;
@@ -441,9 +441,14 @@ impl Ui {
         self.dirty || self.uribar.dirty()
     }
 
+    /// Logical height of the URI toolbar without separator.
+    pub fn toolbar_height() -> u32 {
+        TOOLBAR_HEIGHT - SEPARATOR_HEIGHT
+    }
+
     /// Physical position of the URI bar.
     fn uribar_position(&self) -> Position {
-        let available_height = (TOOLBAR_HEIGHT - SEPARATOR_HEIGHT) * self.scale;
+        let available_height = Self::toolbar_height() as f64 * self.scale;
         let vertical_padding = available_height * (1. - URIBAR_HEIGHT_PERCENTAGE) / 2.;
         let y = self.size.height as f64 * self.scale - available_height + vertical_padding;
 
@@ -457,7 +462,7 @@ impl Ui {
 
     /// Physical size of the URI bar.
     fn uribar_size(&self) -> Size {
-        let available_height = (TOOLBAR_HEIGHT - SEPARATOR_HEIGHT) * self.scale;
+        let available_height = Self::toolbar_height() as f64 * self.scale;
         let height = available_height * URIBAR_HEIGHT_PERCENTAGE;
 
         let tabs_button_start = self.tabs_button_position().x as f64;
@@ -470,7 +475,7 @@ impl Ui {
 
     /// Physical position of the tabs button.
     fn tabs_button_position(&self) -> Position {
-        let available_height = (TOOLBAR_HEIGHT - SEPARATOR_HEIGHT) * self.scale;
+        let available_height = Self::toolbar_height() as f64 * self.scale;
         let vertical_padding = (available_height - TABS_BUTTON_SIZE as f64 * self.scale) / 2.;
 
         let x = ((self.size.width - TABS_BUTTON_SIZE) as f64 - X_PADDING) * self.scale;
@@ -481,7 +486,7 @@ impl Ui {
 
     /// Physical position of the previous page button.
     fn prev_button_position(&self) -> Position {
-        let available_height = (TOOLBAR_HEIGHT - SEPARATOR_HEIGHT) * self.scale;
+        let available_height = Self::toolbar_height() as f64 * self.scale;
         let vertical_padding = (available_height - PREV_BUTTON_SIZE as f64 * self.scale) / 2.;
 
         let x = (X_PADDING * self.scale).round() as i32;
@@ -492,14 +497,14 @@ impl Ui {
 
     /// Physical position of the toolbar separator.
     fn separator_position(&self) -> Position {
-        let y = (self.size.height as f64 - TOOLBAR_HEIGHT) * self.scale;
+        let y = (self.size.height - Self::toolbar_height()) as f64 * self.scale;
         Position::new(0, y.round() as i32)
     }
 
     /// Physical size of the toolbar separator.
     fn separator_size(&self) -> Size<f32> {
         let mut physical_size = self.size * self.scale;
-        physical_size.height = (SEPARATOR_HEIGHT * self.scale).round() as u32;
+        physical_size.height = (SEPARATOR_HEIGHT as f64 * self.scale).round() as u32;
         physical_size.into()
     }
 }

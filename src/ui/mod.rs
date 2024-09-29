@@ -11,6 +11,7 @@ use pangocairo::cairo::LinearGradient;
 use pangocairo::pango::{Alignment, SCALE as PANGO_SCALE};
 use smallvec::SmallVec;
 use smithay_client_toolkit::compositor::{CompositorState, Region};
+use smithay_client_toolkit::reexports::client::protocol::wl_subsurface::WlSubsurface;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
@@ -21,6 +22,7 @@ use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBui
 use crate::window::{TextInputChange, TextInputState};
 use crate::{gl, rect_contains, History, Position, Size, State, WindowId};
 
+pub mod engine_backdrop;
 pub mod overlay;
 mod renderer;
 
@@ -132,6 +134,7 @@ pub struct Ui {
     renderer: Renderer,
 
     surface: WlSurface,
+    subsurface: WlSubsurface,
     viewport: WpViewport,
     compositor: CompositorState,
 
@@ -154,11 +157,13 @@ pub struct Ui {
 }
 
 impl Ui {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         window_id: WindowId,
         queue: MtQueueHandle<State>,
         display: Display,
         surface: WlSurface,
+        subsurface: WlSubsurface,
         viewport: WpViewport,
         compositor: CompositorState,
         history: History,
@@ -168,6 +173,7 @@ impl Ui {
 
         let mut ui = Self {
             compositor,
+            subsurface,
             window_id,
             viewport,
             renderer,
@@ -193,7 +199,10 @@ impl Ui {
 
     /// Update the logical UI size.
     pub fn set_size(&mut self, size: Size) {
-        self.size = size;
+        let toolbar_height = Self::toolbar_height();
+        self.subsurface.set_position(0, (size.height - toolbar_height) as i32);
+
+        self.size = Size::new(size.width, toolbar_height);
         self.dirty = true;
 
         // Update opaque region.
@@ -448,57 +457,45 @@ impl Ui {
 
     /// Physical position of the URI bar.
     fn uribar_position(&self) -> Position {
-        let available_height = Self::toolbar_height() as f64 * self.scale;
-        let vertical_padding = available_height * (1. - URIBAR_HEIGHT_PERCENTAGE) / 2.;
-        let y = self.size.height as f64 * self.scale - available_height + vertical_padding;
-
         let horizontal_padding = X_PADDING * self.scale;
         let prev_button_x = self.prev_button_position().x;
         let prev_button_width = self.prev_button.size().width as i32;
         let x = prev_button_x + prev_button_width + horizontal_padding.round() as i32;
+
+        let y = self.size.height as f64 * self.scale * (1. - URIBAR_HEIGHT_PERCENTAGE) / 2.;
 
         Position::new(x, y.round() as i32)
     }
 
     /// Physical size of the URI bar.
     fn uribar_size(&self) -> Size {
-        let available_height = Self::toolbar_height() as f64 * self.scale;
-        let height = available_height * URIBAR_HEIGHT_PERCENTAGE;
-
         let tabs_button_start = self.tabs_button_position().x as f64;
         let prev_button_x = self.prev_button_position().x as f64;
         let prev_button_end = prev_button_x + self.prev_button.size().width as f64;
         let width = tabs_button_start - prev_button_end - X_PADDING * self.scale * 2.;
+
+        let height = self.size.height as f64 * self.scale * URIBAR_HEIGHT_PERCENTAGE;
 
         Size::new(width.round() as u32, height.round() as u32)
     }
 
     /// Physical position of the tabs button.
     fn tabs_button_position(&self) -> Position {
-        let available_height = Self::toolbar_height() as f64 * self.scale;
-        let vertical_padding = (available_height - TABS_BUTTON_SIZE as f64 * self.scale) / 2.;
-
         let x = ((self.size.width - TABS_BUTTON_SIZE) as f64 - X_PADDING) * self.scale;
-        let y = self.size.height as f64 * self.scale - available_height + vertical_padding;
-
+        let y = (self.size.height - TABS_BUTTON_SIZE) as f64 * self.scale / 2.;
         Position::new(x.round() as i32, y.round() as i32)
     }
 
     /// Physical position of the previous page button.
     fn prev_button_position(&self) -> Position {
-        let available_height = Self::toolbar_height() as f64 * self.scale;
-        let vertical_padding = (available_height - PREV_BUTTON_SIZE as f64 * self.scale) / 2.;
-
         let x = (X_PADDING * self.scale).round() as i32;
-        let y = self.size.height as f64 * self.scale - available_height + vertical_padding;
-
+        let y = (self.size.height - PREV_BUTTON_SIZE) as f64 * self.scale / 2.;
         Position::new(x, y.round() as i32)
     }
 
     /// Physical position of the toolbar separator.
     fn separator_position(&self) -> Position {
-        let y = (self.size.height - Self::toolbar_height()) as f64 * self.scale;
-        Position::new(0, y.round() as i32)
+        Position::new(0, 0)
     }
 
     /// Physical size of the toolbar separator.

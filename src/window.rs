@@ -30,6 +30,7 @@ use smithay_client_toolkit::shell::WaylandSurface;
 use crate::engine::webkit::{WebKitEngine, WebKitError};
 use crate::engine::{Engine, EngineId};
 use crate::history::{HistoryMatch, MAX_MATCHES};
+use crate::ui::engine_backdrop::EngineBackdrop;
 use crate::ui::overlay::option_menu::{Borders, OptionMenuId, OptionMenuItem, ScrollTarget};
 use crate::ui::overlay::Overlay;
 use crate::ui::Ui;
@@ -90,6 +91,8 @@ pub struct Window {
 
     queue: StQueueHandle<State>,
 
+    engine_backdrop: EngineBackdrop,
+
     ui: Ui,
     history_menu_matches: SmallVec<[HistoryMatch; MAX_MATCHES]>,
     history_menu: Option<OptionMenuId>,
@@ -116,33 +119,30 @@ impl Window {
         history: History,
         dmabuf_feedback: Rc<RefCell<Option<DmabufFeedback>>>,
     ) -> Result<Self, WebKitError> {
-        // Create UI renderer.
         let id = WindowId::new();
+
+        // Create all surfaces and subsurfaces.
         let surface = protocol_states.compositor.create_surface(&wayland_queue);
-        let ui_viewport = protocol_states.viewporter.viewport(&wayland_queue, &surface);
-        let mut ui = Ui::new(
-            id,
-            queue.handle(),
-            egl_display.clone(),
-            surface.clone(),
-            ui_viewport,
-            protocol_states.compositor.clone(),
-            history,
-        );
-
-        // Enable fractional scaling.
-        protocol_states.fractional_scale.fractional_scaling(&wayland_queue, &surface);
-
-        // Create engine surface.
-        let (_, engine_surface) =
+        let (engine_subsurface, engine_surface) =
             protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
-        let engine_viewport = protocol_states.viewporter.viewport(&wayland_queue, &engine_surface);
-
-        // Create overlay UI surface.
         let (overlay_subsurface, overlay_surface) =
             protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
+        let (ui_subsurface, ui_surface) =
+            protocol_states.subcompositor.create_subsurface(surface.clone(), &wayland_queue);
+
+        // Ensure correct surface ordering.
+        engine_subsurface.place_above(&surface);
+        overlay_subsurface.place_above(&engine_surface);
+        overlay_subsurface.place_above(&ui_surface);
+
+        // Create a viewport for each surface.
+        let backdrop_viewport = protocol_states.viewporter.viewport(&wayland_queue, &surface);
+        let engine_viewport = protocol_states.viewporter.viewport(&wayland_queue, &engine_surface);
         let overlay_viewport =
             protocol_states.viewporter.viewport(&wayland_queue, &overlay_surface);
+        let ui_viewport = protocol_states.viewporter.viewport(&wayland_queue, &ui_surface);
+
+        // Create overlay UI renderer.
         let mut overlay = Overlay::new(
             id,
             queue.handle(),
@@ -151,7 +151,30 @@ impl Window {
             overlay_viewport,
             protocol_states.compositor.clone(),
         );
-        overlay_subsurface.place_above(&engine_surface);
+
+        // Create UI renderer.
+        let mut ui = Ui::new(
+            id,
+            queue.handle(),
+            egl_display.clone(),
+            ui_surface,
+            ui_subsurface,
+            ui_viewport,
+            protocol_states.compositor.clone(),
+            history,
+        );
+
+        // Create engine backdrop.
+        let mut engine_backdrop = EngineBackdrop::new(
+            egl_display.clone(),
+            surface.clone(),
+            backdrop_viewport,
+            protocol_states,
+            wayland_queue.clone(),
+        );
+
+        // Enable fractional scaling.
+        protocol_states.fractional_scale.fractional_scaling(&wayland_queue, &surface);
 
         // Create XDG window.
         let decorations = WindowDecorations::RequestServer;
@@ -164,10 +187,12 @@ impl Window {
         let active_tab = EngineId::new(id);
 
         // Resize UI elements to the initial window size.
+        engine_backdrop.set_size(size);
         overlay.set_size(size);
         ui.set_size(size);
 
         let mut window = Self {
+            engine_backdrop,
             dmabuf_feedback,
             engine_viewport,
             engine_surface,
@@ -390,6 +415,10 @@ impl Window {
             }
         }
 
+        // Draw engine backdrop.
+        let backdrop_rendered = self.engine_backdrop.draw();
+        self.stalled &= !backdrop_rendered;
+
         // Draw UI.
         if !overlay_opaque && !self.fullscreened {
             let ui_rendered = self.ui.draw(self.tabs.len(), self.dirty);
@@ -476,6 +505,7 @@ impl Window {
 
         // Resize UI element surface.
         if !size_unchanged {
+            self.engine_backdrop.set_size(self.size);
             self.overlay.set_size(self.size);
             self.ui.set_size(self.size);
         }
@@ -508,6 +538,7 @@ impl Window {
         }
 
         // Resize UI.
+        self.engine_backdrop.set_scale(scale);
         self.overlay.set_scale(scale);
         self.ui.set_scale(scale);
 
@@ -951,6 +982,7 @@ impl Window {
     /// Check whether a surface is owned by this window.
     pub fn owns_surface(&self, surface: &WlSurface) -> bool {
         &self.engine_surface == surface
+            || self.xdg.wl_surface() == surface
             || self.ui.surface() == surface
             || self.overlay.surface() == surface
     }

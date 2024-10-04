@@ -300,7 +300,6 @@ pub const TLDS: &[&str] = &[
     "CYMRU",
     "CYOU",
     "CZ",
-    "DABUR",
     "DAD",
     "DANCE",
     "DATA",

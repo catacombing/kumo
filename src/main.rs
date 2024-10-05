@@ -1,11 +1,12 @@
 use std::cell::RefCell;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::os::fd::{AsFd, AsRawFd};
 use std::ptr::NonNull;
 use std::rc::Rc;
 use std::time::Duration;
-use std::{env, io};
+use std::{env, io, mem};
 
 use funq::{MtQueueHandle, Queue, StQueueHandle};
 use glib::{source, ControlFlow, IOCondition, MainLoop, Priority, Source};
@@ -82,14 +83,62 @@ fn main() -> Result<(), Error> {
     // Create our initial window.
     let window_id = state.create_window()?;
 
-    // Spawn a new tab for every CLI argument.
-    let window = state.windows.get_mut(&window_id).unwrap();
-    for (i, arg) in env::args().skip(1).enumerate() {
-        if i > 0 {
-            window.add_tab(false)?;
+    // Create an empty tab for loading a new page.
+    let get_empty_tab = |window: &mut Window| -> Result<_, Error> {
+        if window.tabs().len() > 1 {
+            Ok(window.add_tab(false)?)
         } else {
             window.set_keyboard_focus(KeyboardFocus::None);
+            Ok(window.active_tab())
         }
+    };
+
+    // Get all sessions requiring restoration, sorted by PID and window ID.
+    let mut orphan_sessions = state.history.orphan_sessions();
+    orphan_sessions.sort_by(|a, b| match a.pid.cmp(&b.pid) {
+        Ordering::Equal => a.window_id.cmp(&b.window_id),
+        ordering => ordering,
+    });
+
+    // Restore all orphan sessions.
+    let mut window = state.windows.get_mut(&window_id).unwrap();
+    let mut session_window_id = None;
+    let mut session_pid = None;
+    for entry in &mut orphan_sessions {
+        // Create new window if session's process or window changed.
+        if session_pid != Some(entry.pid) || session_window_id != Some(entry.window_id) {
+            // Create a new window.
+            if session_pid.is_some() || session_window_id.is_some() {
+                let new_window_id = state.create_window()?;
+                window = state.windows.get_mut(&new_window_id).unwrap();
+            }
+
+            session_window_id = Some(entry.window_id);
+            session_pid = Some(entry.pid);
+        }
+
+        // Restore the session in a new empty tab.
+        let engine_id = get_empty_tab(window)?;
+        if let Some(engine) = window.tabs().get(&engine_id) {
+            engine.restore_session(mem::take(&mut entry.session_data));
+            engine.load_uri(&entry.uri);
+        }
+    }
+
+    // Update database with the adopted sessions.
+    //
+    // NOTE: Calling `load_uri` automatically causes the session to be persisted
+    // once the page is loaded, however we explicitly sync here to avoid session
+    // loss due to a racing condition.
+    for window in state.windows.values() {
+        window.persist_session(&state.history);
+    }
+    state.history.delete_orphan_sessions(orphan_sessions.iter().map(|s| s.pid));
+
+    // Spawn a new tab for every CLI argument.
+    let window = state.windows.get_mut(&window_id).unwrap();
+    for arg in env::args().skip(1) {
+        get_empty_tab(window)?;
         window.load_uri(arg);
     }
 

@@ -24,7 +24,7 @@ use wpe_platform::ffi::WPERectangle;
 use wpe_platform::{Buffer, BufferDMABuf, BufferExt, BufferSHM, EventType};
 use wpe_webkit::{
     Color, CookieAcceptPolicy, CookiePersistentStorage, NetworkSession, OptionMenu,
-    UserContentFilterStore, WebView, WebViewExt,
+    UserContentFilterStore, WebView, WebViewExt, WebViewSessionState,
 };
 
 use crate::engine::webkit::platform::WebKitDisplay;
@@ -284,7 +284,6 @@ impl WebKitEngine {
         let network_session = xdg_network_session().unwrap_or_else(NetworkSession::new_ephemeral);
         let web_view =
             WebView::builder().network_session(&network_session).display(&webkit_display).build();
-        web_view.load_uri("about:blank");
 
         // Set browser background color.
         let mut color = Color::new(BG[0], BG[1], BG[2], 1.);
@@ -611,6 +610,18 @@ impl Engine for WebKitEngine {
 
     fn set_fullscreen(&mut self, fullscreened: bool) {
         self.webkit_display.set_fullscreen(fullscreened);
+    }
+
+    fn session(&self) -> Vec<u8> {
+        self.web_view
+            .session_state()
+            .and_then(|session| session.serialize())
+            .map_or(Vec::new(), |session| session.to_vec())
+    }
+
+    fn restore_session(&self, session: Vec<u8>) {
+        let session = WebViewSessionState::new(&Bytes::from_owned(session));
+        self.web_view.restore_session_state(&session);
     }
 
     fn as_any(&mut self) -> &mut dyn Any {

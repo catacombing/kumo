@@ -29,14 +29,14 @@ use smithay_client_toolkit::shell::WaylandSurface;
 
 use crate::engine::webkit::{WebKitEngine, WebKitError};
 use crate::engine::{Engine, EngineId};
-use crate::history::{HistoryMatch, MAX_MATCHES};
+use crate::history::{History, HistoryMatch, SessionRecord, MAX_MATCHES};
 use crate::ui::engine_backdrop::EngineBackdrop;
 use crate::ui::overlay::option_menu::{Borders, OptionMenuId, OptionMenuItem, ScrollTarget};
 use crate::ui::overlay::Overlay;
 use crate::ui::Ui;
 use crate::uri::{SCHEMES, TLDS};
 use crate::wayland::protocols::ProtocolStates;
-use crate::{History, Position, Size, State};
+use crate::{Position, Size, State};
 
 /// Search engine base URI.
 const SEARCH_URI: &str = "https://duckduckgo.com/?q=";
@@ -277,7 +277,7 @@ impl Window {
     }
 
     /// Close a tabs.
-    pub fn close_tab(&mut self, engine_id: EngineId) {
+    pub fn close_tab(&mut self, history: &History, engine_id: EngineId) {
         // Remove engine and get the position it was in.
         let index = match self.tabs.shift_remove_full(&engine_id) {
             Some((index, ..)) => index,
@@ -298,6 +298,9 @@ impl Window {
 
         // Update tabs popup.
         self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
+
+        // Update browser sessions.
+        self.persist_session(history);
 
         // Force tabs UI redraw.
         self.dirty = true;
@@ -857,6 +860,17 @@ impl Window {
 
         // Increment URI visit count for history.
         history.visit(uri);
+
+        // Update browser session.
+        self.persist_session(history);
+    }
+
+    /// Update the window's browser session.
+    ///
+    /// This is used to recover the browser session when restarting Kumo.
+    pub fn persist_session(&self, history: &History) {
+        let session: Vec<_> = self.tabs.values().map(SessionRecord::from).collect();
+        history.set_session(self.id, session);
     }
 
     /// Update an engine's title.
@@ -1056,6 +1070,11 @@ impl WindowId {
     pub fn new() -> Self {
         static NEXT_WINDOW_ID: AtomicUsize = AtomicUsize::new(0);
         Self(NEXT_WINDOW_ID.fetch_add(1, Ordering::Relaxed))
+    }
+
+    /// Get the raw window ID value.
+    pub fn as_raw(&self) -> usize {
+        self.0
     }
 }
 

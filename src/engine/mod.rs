@@ -137,6 +137,12 @@ pub trait Engine {
     /// Notify engine about change to the fullscreen state.
     fn set_fullscreen(&mut self, fulscreened: bool);
 
+    /// Get a serialized version of the current session.
+    fn session(&self) -> Vec<u8>;
+
+    /// Restore a browser session.
+    fn restore_session(&self, session: Vec<u8>);
+
     fn as_any(&mut self) -> &mut dyn Any;
 }
 

@@ -17,10 +17,8 @@ use crate::wayland::protocols::ProtocolStates;
 use crate::{gl, Size, State};
 
 // Fallback color when waiting for engine frame.
-// const SPB_COLOR: u32 = u32::MAX / 10;
-// const GL_COLOR: [f64; 3] = [0.1, 0.1, 0.1];
-const SPB_COLOR: u32 = u32::MAX / 2;
-const GL_COLOR: [f64; 3] = [1.0, 0., 1.0];
+const SPB_COLOR: u32 = u32::MAX / 10;
+const GL_COLOR: [f64; 3] = [0.1, 0.1, 0.1];
 
 /// Single-color engine backdrop surface.
 pub struct EngineBackdrop {

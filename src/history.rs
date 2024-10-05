@@ -1,5 +1,6 @@
 //! Browser history.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
@@ -136,6 +137,9 @@ impl History {
             return SmallVec::new();
         }
 
+        // Perform case-sensitive search if any uppercase characters are in the query.
+        let is_case_sensitive = input.chars().any(|c| c.is_uppercase());
+
         // Get up to `MAX_MATCHES` matching URIs.
         let entries = self.entries.read().unwrap();
         let mut matches: SmallVec<_> = entries
@@ -143,10 +147,19 @@ impl History {
             .filter_map(|(uri, entry)| {
                 let uri_str = uri.to_string(true);
 
+                let mut match_uri = Cow::Borrowed(&uri_str);
+                let mut title = Cow::Borrowed(&entry.title);
+
+                // Convert to lowercase for case-insensitive search.
+                if !is_case_sensitive {
+                    match_uri = Cow::Owned(match_uri.to_lowercase());
+                    title = Cow::Owned(title.to_lowercase());
+                }
+
                 // Score match by number of occurences, preferring a match at the start.
-                let mut score = uri_str.matches(input).count();
-                score += entry.title.matches(input).count();
-                if uri.base.starts_with(input) || entry.title.starts_with(input) {
+                let mut score = match_uri.matches(input).count();
+                score += title.matches(input).count();
+                if uri.base.starts_with(input) || title.starts_with(input) {
                     score += 1_000;
                 }
 

@@ -84,12 +84,14 @@ fn main() -> Result<(), Error> {
     let window_id = state.create_window()?;
 
     // Create an empty tab for loading a new page.
-    let get_empty_tab = |window: &mut Window| -> Result<_, Error> {
-        if window.tabs().len() > 1 {
-            Ok(window.add_tab(false)?)
-        } else {
+    let mut is_first_tab = true;
+    let get_empty_tab = |window: &mut Window, is_first_tab: &mut bool| -> Result<_, Error> {
+        if *is_first_tab {
             window.set_keyboard_focus(KeyboardFocus::None);
+            *is_first_tab = false;
             Ok(window.active_tab())
+        } else {
+            Ok(window.add_tab(false)?)
         }
     };
 
@@ -111,6 +113,7 @@ fn main() -> Result<(), Error> {
             if session_pid.is_some() || session_window_id.is_some() {
                 let new_window_id = state.create_window()?;
                 window = state.windows.get_mut(&new_window_id).unwrap();
+                is_first_tab = true;
             }
 
             session_window_id = Some(entry.window_id);
@@ -118,7 +121,7 @@ fn main() -> Result<(), Error> {
         }
 
         // Restore the session in a new empty tab.
-        let engine_id = get_empty_tab(window)?;
+        let engine_id = get_empty_tab(window, &mut is_first_tab)?;
         if let Some(engine) = window.tabs().get(&engine_id) {
             engine.restore_session(mem::take(&mut entry.session_data));
             engine.load_uri(&entry.uri);
@@ -138,7 +141,7 @@ fn main() -> Result<(), Error> {
     // Spawn a new tab for every CLI argument.
     let window = state.windows.get_mut(&window_id).unwrap();
     for arg in env::args().skip(1) {
-        get_empty_tab(window)?;
+        get_empty_tab(window, &mut is_first_tab)?;
         window.load_uri(arg);
     }
 

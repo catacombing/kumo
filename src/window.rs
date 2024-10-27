@@ -896,17 +896,19 @@ impl Window {
         &mut self,
         menu_id: OptionMenuId,
         position: Position,
-        item_width: u32,
+        item_width: Option<u32>,
         items: I,
     ) where
         I: Iterator<Item = OptionMenuItem>,
     {
         self.overlay.open_option_menu(menu_id, position, item_width, self.scale, items);
+        self.unstall();
     }
 
     /// Remove a dropdown popup.
     pub fn close_option_menu(&mut self, menu_id: OptionMenuId) {
         self.overlay.close_option_menu(menu_id);
+        self.unstall();
     }
 
     /// Handle submission for option menu spawned by the window.

@@ -16,6 +16,7 @@ use profiling::puffin;
 #[cfg(feature = "profiling")]
 use puffin_http::Server;
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
+use smithay_client_toolkit::data_device_manager::data_source::CopyPasteSource;
 use smithay_client_toolkit::dmabuf::DmabufFeedback;
 use smithay_client_toolkit::reexports::client::globals::{self, GlobalError};
 use smithay_client_toolkit::reexports::client::protocol::wl_keyboard::WlKeyboard;
@@ -179,6 +180,7 @@ pub struct State {
     keyboard: Option<KeyboardState>,
     pointer: Option<WlPointer>,
     touch: Option<WlTouch>,
+    clipboard: ClipboardState,
 
     windows: HashMap<WindowId, Window>,
     keyboard_focus: Option<WindowId>,
@@ -214,6 +216,7 @@ impl State {
             keyboard_focus: Default::default(),
             touch_focus: Default::default(),
             text_input: Default::default(),
+            clipboard: Default::default(),
             keyboard: Default::default(),
             windows: Default::default(),
             pointer: Default::default(),
@@ -246,6 +249,21 @@ impl State {
     /// Get access to the Wayland queue.
     fn wayland_queue(&self) -> QueueHandle<Self> {
         self.wayland_queue.as_ref().unwrap().handle()
+    }
+
+    /// Update the seat's clipboard content.
+    fn set_clipboard(&mut self, text: String) {
+        let wayland_queue = self.wayland_queue();
+        let serial = self.clipboard.next_serial();
+
+        let copy_paste_source = self
+            .protocol_states
+            .data_device_manager
+            .create_copy_paste_source(&wayland_queue, ["text/plain"]);
+        copy_paste_source.set_selection(&self.protocol_states.data_device, serial);
+        self.clipboard.source = Some(copy_paste_source);
+
+        self.clipboard.text = text;
     }
 }
 
@@ -340,6 +358,21 @@ impl CurrentRepeat {
     pub fn next_time(&mut self) -> u32 {
         self.time += self.interval;
         self.time
+    }
+}
+
+/// Clipboard content cache.
+#[derive(Default)]
+struct ClipboardState {
+    serial: u32,
+    text: String,
+    source: Option<CopyPasteSource>,
+}
+
+impl ClipboardState {
+    fn next_serial(&mut self) -> u32 {
+        self.serial += 1;
+        self.serial
     }
 }
 

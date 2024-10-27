@@ -268,7 +268,7 @@ impl Overlay {
         &mut self,
         id: OptionMenuId,
         position: Position,
-        item_width: u32,
+        item_width: impl Into<Option<u32>>,
         scale: f64,
         items: I,
     ) -> &mut OptionMenu

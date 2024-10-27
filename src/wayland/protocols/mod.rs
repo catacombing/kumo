@@ -1,5 +1,6 @@
 //! Wayland protocol handling.
 
+use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -10,10 +11,17 @@ use _text_input::zwp_text_input_manager_v3::{self, ZwpTextInputManagerV3};
 use _text_input::zwp_text_input_v3::{self, ZwpTextInputV3};
 use glib::{source, ControlFlow, Priority};
 use smithay_client_toolkit::compositor::{CompositorHandler, CompositorState};
+use smithay_client_toolkit::data_device_manager::data_device::{DataDevice, DataDeviceHandler};
+use smithay_client_toolkit::data_device_manager::data_offer::{DataOfferHandler, DragOffer};
+use smithay_client_toolkit::data_device_manager::data_source::DataSourceHandler;
+use smithay_client_toolkit::data_device_manager::{DataDeviceManagerState, WritePipe};
 use smithay_client_toolkit::dmabuf::{DmabufFeedback, DmabufHandler, DmabufState};
 use smithay_client_toolkit::output::{OutputHandler, OutputState};
 use smithay_client_toolkit::reexports::client::globals::GlobalList;
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::{self, WlBuffer};
+use smithay_client_toolkit::reexports::client::protocol::wl_data_device::WlDataDevice;
+use smithay_client_toolkit::reexports::client::protocol::wl_data_device_manager::DndAction;
+use smithay_client_toolkit::reexports::client::protocol::wl_data_source::WlDataSource;
 use smithay_client_toolkit::reexports::client::protocol::wl_keyboard::WlKeyboard;
 use smithay_client_toolkit::reexports::client::protocol::wl_output::{Transform, WlOutput};
 use smithay_client_toolkit::reexports::client::protocol::wl_pointer::WlPointer;
@@ -35,9 +43,9 @@ use smithay_client_toolkit::shell::xdg::window::{Window, WindowConfigure, Window
 use smithay_client_toolkit::shell::xdg::XdgShell;
 use smithay_client_toolkit::subcompositor::SubcompositorState;
 use smithay_client_toolkit::{
-    delegate_compositor, delegate_dmabuf, delegate_keyboard, delegate_output, delegate_pointer,
-    delegate_registry, delegate_seat, delegate_subcompositor, delegate_touch, delegate_xdg_shell,
-    delegate_xdg_window, registry_handlers,
+    delegate_compositor, delegate_data_device, delegate_dmabuf, delegate_keyboard, delegate_output,
+    delegate_pointer, delegate_registry, delegate_seat, delegate_subcompositor, delegate_touch,
+    delegate_xdg_shell, delegate_xdg_window, registry_handlers,
 };
 
 use crate::wayland::protocols::fractional_scale::{FractionalScaleHandler, FractionalScaleManager};
@@ -51,9 +59,11 @@ pub mod viewporter;
 #[derive(Debug)]
 pub struct ProtocolStates {
     pub single_pixel_buffer: Option<WpSinglePixelBufferManagerV1>,
+    pub data_device_manager: DataDeviceManagerState,
     pub fractional_scale: FractionalScaleManager,
     pub subcompositor: SubcompositorState,
     pub compositor: CompositorState,
+    pub data_device: DataDevice,
     pub viewporter: Viewporter,
     pub xdg_shell: XdgShell,
     pub dmabuf: DmabufState,
@@ -79,14 +89,21 @@ impl ProtocolStates {
         let dmabuf = DmabufState::new(globals, queue);
         let output = OutputState::new(globals, queue);
         let seat = SeatState::new(globals, queue);
+        let data_device_manager = DataDeviceManagerState::bind(globals, queue).unwrap();
+
+        // Get data device for the default seat.
+        let default_seat = seat.seats().next().unwrap();
+        let data_device = data_device_manager.get_data_device(queue, &default_seat);
 
         // Immediately request default DMA buffer feedback.
         let _ = dmabuf.get_default_feedback(queue);
 
         Self {
             single_pixel_buffer,
+            data_device_manager,
             fractional_scale,
             subcompositor,
+            data_device,
             compositor,
             viewporter,
             text_input,
@@ -613,6 +630,76 @@ impl PointerHandler for State {
     }
 }
 delegate_pointer!(State);
+
+impl DataDeviceHandler for State {
+    fn enter(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &WlDataDevice,
+        _: f64,
+        _: f64,
+        _: &WlSurface,
+    ) {
+    }
+
+    fn leave(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataDevice) {}
+
+    fn motion(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataDevice, _: f64, _: f64) {}
+
+    fn selection(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataDevice) {}
+
+    fn drop_performed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataDevice) {}
+}
+impl DataSourceHandler for State {
+    fn accept_mime(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &WlDataSource,
+        _: Option<String>,
+    ) {
+    }
+
+    fn send_request(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &WlDataSource,
+        _: String,
+        mut pipe: WritePipe,
+    ) {
+        let _ = pipe.write_all(self.clipboard.text.as_bytes());
+    }
+
+    fn cancelled(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataSource) {}
+
+    fn dnd_dropped(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataSource) {}
+
+    fn dnd_finished(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataSource) {}
+
+    fn action(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &WlDataSource, _: DndAction) {}
+}
+impl DataOfferHandler for State {
+    fn source_actions(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &mut DragOffer,
+        _: DndAction,
+    ) {
+    }
+
+    fn selected_action(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &mut DragOffer,
+        _: DndAction,
+    ) {
+    }
+}
+delegate_data_device!(State);
 
 impl DmabufHandler for State {
     fn dmabuf_state(&mut self) -> &mut DmabufState {

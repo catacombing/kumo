@@ -1,6 +1,7 @@
 //! WebKit browser engine.
 
 use std::any::Any;
+use std::borrow::Cow;
 use std::ops::Deref;
 use std::os::fd::BorrowedFd;
 
@@ -23,15 +24,16 @@ use tracing::{error, trace, warn};
 use wpe_platform::ffi::WPERectangle;
 use wpe_platform::{Buffer, BufferDMABuf, BufferExt, BufferSHM, EventType};
 use wpe_webkit::{
-    Color, CookieAcceptPolicy, CookiePersistentStorage, NetworkSession, OptionMenu,
-    UserContentFilterStore, WebView, WebViewExt, WebViewSessionState,
+    Color, CookieAcceptPolicy, CookiePersistentStorage, HitTestResult, HitTestResultContext,
+    NetworkSession, OptionMenu, OptionMenuItem as WebKitOptionMenuItem, UserContentFilterStore,
+    WebView, WebViewExt, WebViewSessionState,
 };
 
 use crate::engine::webkit::platform::WebKitDisplay;
 use crate::engine::{Engine, EngineId, BG};
 use crate::ui::overlay::option_menu::{OptionMenuId, OptionMenuItem};
 use crate::window::TextInputChange;
-use crate::{Position, Size, State};
+use crate::{KeyboardFocus, Position, Size, State, WindowId};
 
 mod input_method_context;
 mod platform;
@@ -68,19 +70,23 @@ trait WebKitHandler {
     /// Update current title for an engine.
     fn set_engine_title(&mut self, engine_id: EngineId, title: String);
 
-    /// Open dropdown popup.
-    fn open_option_menu(
-        &mut self,
-        engine_id: EngineId,
-        option_menu: OptionMenu,
-        rect: (i32, i32, i32, i32),
-    );
+    /// Open popup.
+    fn open_menu(&mut self, engine_id: EngineId, menu: Menu, rect: Option<(i32, i32, i32, i32)>);
 
-    /// Close dropdown popup.
-    fn close_option_menu(&mut self, menu_id: OptionMenuId);
+    /// Close popup.
+    fn close_menu(&mut self, menu_id: OptionMenuId);
 
     /// Handle fullscreen enter/leave.
     fn set_fullscreen(&mut self, engine_id: EngineId, enable: bool);
+
+    /// Open URI in a new tab.
+    fn open_in_tab(&mut self, window_id: WindowId, uri: String);
+
+    /// Open URI in a new window.
+    fn open_in_window(&mut self, uri: String);
+
+    /// Write text to the system clipboard.
+    fn set_clipboard(&mut self, text: String);
 }
 
 impl WebKitHandler for State {
@@ -177,12 +183,7 @@ impl WebKitHandler for State {
         }
     }
 
-    fn open_option_menu(
-        &mut self,
-        engine_id: EngineId,
-        option_menu: OptionMenu,
-        (x, y, width, height): (i32, i32, i32, i32),
-    ) {
+    fn open_menu(&mut self, engine_id: EngineId, menu: Menu, rect: Option<(i32, i32, i32, i32)>) {
         let window = match self.windows.get_mut(&engine_id.window_id()) {
             Some(window) => window,
             None => return,
@@ -198,8 +199,8 @@ impl WebKitHandler for State {
 
         // Get properties from WebKit menu items.
         let mut items = Vec::new();
-        for i in 0..option_menu.n_items() {
-            if let Some(mut item) = option_menu.item(i) {
+        for i in 0..menu.n_items() {
+            if let Some(mut item) = menu.item(i) {
                 if let Some(label) = item.label() {
                     items.push(OptionMenuItem {
                         label: label.into(),
@@ -212,27 +213,53 @@ impl WebKitHandler for State {
         }
 
         // Get popup position.
-        let position = Position::new(x, y + height);
+        let (position, item_width) = match rect {
+            Some((x, y, width, height)) => (Position::new(x, y + height), Some(width as u32)),
+            None => {
+                let position = webkit_engine.last_input_position;
+                (Position::new(position.x.round() as i32, position.y.round() as i32), None)
+            },
+        };
 
         // Hookup close callback.
         let menu_id = OptionMenuId::with_engine(engine_id);
         let close_queue = self.queue.clone();
-        option_menu.connect_close(move |_| close_queue.clone().close_option_menu(menu_id));
+        menu.connect_close(move || close_queue.clone().close_menu(menu_id));
 
         // Update engine's active popup for close/activate handling.
-        if let Some((_, option_menu)) = webkit_engine.option_menu.take() {
-            option_menu.close();
+        if let Some((menu_id, _)) = webkit_engine.menu.take() {
+            webkit_engine.close_option_menu(Some(menu_id));
         }
-        webkit_engine.option_menu = Some((menu_id, option_menu));
+        webkit_engine.menu = Some((menu_id, menu));
 
         // Show the popup.
-        window.open_option_menu(menu_id, position, width as u32, items.into_iter());
+        window.open_option_menu(menu_id, position, item_width, items.into_iter());
     }
 
-    fn close_option_menu(&mut self, menu_id: OptionMenuId) {
-        if let Some(window) = self.windows.get_mut(&menu_id.window_id()) {
-            window.close_option_menu(menu_id);
+    fn close_menu(&mut self, menu_id: OptionMenuId) {
+        let window = match self.windows.get_mut(&menu_id.window_id()) {
+            Some(window) => window,
+            None => return,
+        };
+        let engine_id = match menu_id.engine_id() {
+            Some(engine_id) => engine_id,
+            None => return,
+        };
+        let engine = match window.tabs_mut().get_mut(&engine_id) {
+            Some(engine) => engine,
+            None => return,
+        };
+        let webkit_engine = match engine.as_any().downcast_mut::<WebKitEngine>() {
+            Some(webkit_engine) => webkit_engine,
+            None => return,
+        };
+
+        // Clear engine's option menu if it matches the menu's ID.
+        if webkit_engine.menu.as_ref().map_or(false, |(id, _)| menu_id == *id) {
+            webkit_engine.menu = None;
         }
+
+        window.close_option_menu(menu_id);
     }
 
     fn set_fullscreen(&mut self, engine_id: EngineId, enable: bool) {
@@ -240,15 +267,46 @@ impl WebKitHandler for State {
             window.request_fullscreen(engine_id, enable);
         }
     }
+
+    /// Open URI in a new tab.
+    fn open_in_tab(&mut self, window_id: WindowId, uri: String) {
+        let window = match self.windows.get_mut(&window_id) {
+            Some(window) => window,
+            None => return,
+        };
+
+        if let Some(engine) = window.add_tab(false).ok().and_then(|id| window.tabs().get(&id)) {
+            engine.load_uri(&uri);
+        }
+    }
+
+    /// Open URI in a new window.
+    fn open_in_window(&mut self, uri: String) {
+        let window = match self.create_window().ok().and_then(|id| self.windows.get_mut(&id)) {
+            Some(window) => window,
+            None => return,
+        };
+
+        window.set_keyboard_focus(KeyboardFocus::None);
+        if let Some(engine) = window.tabs().get(&window.active_tab()) {
+            engine.load_uri(&uri);
+        }
+    }
+
+    /// Offer text to the system clipboard.
+    fn set_clipboard(&mut self, text: String) {
+        self.set_clipboard(text);
+    }
 }
 
 /// WebKit browser engine.
 pub struct WebKitEngine {
     id: EngineId,
     web_view: WebView,
-    option_menu: Option<(OptionMenuId, OptionMenu)>,
+    menu: Option<(OptionMenuId, Menu)>,
     wayland_queue: QueueHandle<State>,
     opaque_region: Option<Region>,
+    queue: StQueueHandle<State>,
 
     webkit_display: WebKitDisplay,
     buffer: Option<(WaylandBuffer, BufferDMABuf)>,
@@ -257,6 +315,8 @@ pub struct WebKitEngine {
 
     buffer_size: Size,
     scale: f64,
+
+    last_input_position: Position<f64>,
 
     dirty: bool,
 }
@@ -304,7 +364,15 @@ impl WebKitEngine {
         // Listen for option menu open events.
         let option_menu_queue = queue.clone();
         web_view.connect_show_option_menu(move |_, menu, rect| {
-            option_menu_queue.clone().open_option_menu(engine_id, menu.clone(), rect.geometry());
+            option_menu_queue.clone().open_menu(engine_id, menu.into(), Some(rect.geometry()));
+            true
+        });
+
+        // Listen for context menu open events.
+        let context_menu_queue = queue.clone();
+        web_view.connect_context_menu(move |_, _, hit_test_result| {
+            let menu = Menu::ContextMenu(hit_test_result.clone().into());
+            context_menu_queue.clone().open_menu(engine_id, menu, None);
             true
         });
 
@@ -316,15 +384,17 @@ impl WebKitEngine {
             webkit_display,
             wayland_queue,
             web_view,
-            id: engine_id,
             scale,
+            queue,
+            id: engine_id,
             buffers_pending_release: Default::default(),
+            last_input_position: Default::default(),
             opaque_region: Default::default(),
             buffer_damage: Default::default(),
             buffer_size: Default::default(),
-            option_menu: Default::default(),
             buffer: Default::default(),
             dirty: Default::default(),
+            menu: Default::default(),
         })
     }
 
@@ -517,6 +587,7 @@ impl Engine for WebKitEngine {
     ) {
         self.set_focused(true);
         self.webkit_display.pointer_button(time, position, button, down, modifiers);
+        self.last_input_position = position;
     }
 
     fn pointer_motion(&mut self, time: u32, position: Position<f64>, modifiers: Modifiers) {
@@ -534,6 +605,7 @@ impl Engine for WebKitEngine {
     fn touch_down(&mut self, time: u32, id: i32, position: Position<f64>, modifiers: Modifiers) {
         self.set_focused(true);
         self.webkit_display.touch(time, id, position, modifiers, EventType::TouchDown);
+        self.last_input_position = position;
     }
 
     fn touch_up(&mut self, time: u32, id: i32, position: Position<f64>, modifiers: Modifiers) {
@@ -592,18 +664,27 @@ impl Engine for WebKitEngine {
     }
 
     fn submit_option_menu(&mut self, menu_id: OptionMenuId, index: usize) {
-        if let Some((id, menu)) = &self.option_menu {
-            if *id == menu_id {
-                menu.activate_item(index as u32);
-            }
+        if self.menu.as_ref().map_or(false, |(id, _)| *id == menu_id) {
+            let (id, menu) = self.menu.take().unwrap();
+
+            // Activate selected option.
+            menu.activate_item(self, index as u32);
+
+            // Close our option menu UI.
+            self.queue.close_menu(id);
         }
     }
 
     fn close_option_menu(&mut self, menu_id: Option<OptionMenuId>) {
-        if let Some((id, menu)) = &self.option_menu {
+        if let Some((id, menu)) = &self.menu {
             if menu_id.map_or(true, |menu_id| *id == menu_id) {
+                // Notify menu about being closed from our end.
                 menu.close();
-                self.option_menu = None;
+
+                // Close our option menu UI.
+                self.queue.close_menu(*id);
+
+                self.menu = None;
             }
         }
     }
@@ -701,5 +782,202 @@ impl Deref for WaylandBuffer {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+/// WebKit popup menu.
+#[derive(Debug)]
+enum Menu {
+    /// Right-click menu.
+    ContextMenu(ContextMenu),
+    /// Dropdown menu.
+    OptionMenu(OptionMenu),
+}
+
+impl Menu {
+    /// Number of items in the menu.
+    fn n_items(&self) -> u32 {
+        match self {
+            Self::ContextMenu(menu) => menu.n_items(),
+            Self::OptionMenu(menu) => menu.n_items(),
+        }
+    }
+
+    /// Get the item at the specified index.
+    fn item(&self, index: u32) -> Option<MenuItem> {
+        match self {
+            Self::ContextMenu(menu) => {
+                let item = menu.item(index)?;
+                Some(MenuItem::ContextMenuItem(item))
+            },
+            Self::OptionMenu(menu) => {
+                let item = menu.item(index)?;
+                Some(MenuItem::OptionMenuItem(item))
+            },
+        }
+    }
+
+    /// Listen for menu close.
+    fn connect_close<F>(&self, f: F)
+    where
+        F: Fn() + 'static,
+    {
+        match self {
+            Self::ContextMenu(_) => (),
+            Self::OptionMenu(menu) => {
+                menu.connect_close(move |_| f());
+            },
+        }
+    }
+
+    /// Notify menu about its termination.
+    fn close(&self) {
+        match self {
+            Self::ContextMenu(_) => (),
+            Self::OptionMenu(menu) => menu.close(),
+        }
+    }
+
+    /// Activate item at the specified position.
+    fn activate_item(&self, engine: &mut WebKitEngine, index: u32) {
+        match self {
+            Self::ContextMenu(menu) => menu.activate_item(engine, index),
+            Self::OptionMenu(menu) => menu.activate_item(index),
+        }
+    }
+}
+
+impl From<&OptionMenu> for Menu {
+    fn from(menu: &OptionMenu) -> Menu {
+        Self::OptionMenu(menu.clone())
+    }
+}
+
+/// WebKit popup menu item.
+enum MenuItem {
+    /// Right-click menu item.
+    ContextMenuItem(ContextMenuItem),
+    /// Dropdown menu item.
+    OptionMenuItem(WebKitOptionMenuItem),
+}
+
+impl MenuItem {
+    /// Get the text of the item.
+    fn label<'a>(&mut self) -> Option<Cow<'a, str>> {
+        match self {
+            Self::ContextMenuItem(item) => Some(item.label().into()),
+            Self::OptionMenuItem(item) => item.label().map(|label| label.to_string().into()),
+        }
+    }
+
+    /// Check whether an item is enabled.
+    fn is_enabled(&mut self) -> bool {
+        match self {
+            Self::ContextMenuItem(_) => true,
+            Self::OptionMenuItem(item) => item.is_enabled(),
+        }
+    }
+
+    /// Check whether an item is selected.
+    fn is_selected(&mut self) -> bool {
+        match self {
+            Self::ContextMenuItem(_) => false,
+            Self::OptionMenuItem(item) => item.is_selected(),
+        }
+    }
+}
+
+/// Custom context menu based on a hit test.
+#[derive(Debug)]
+struct ContextMenu {
+    hit_test_result: HitTestResult,
+    context: HitTestResultContext,
+}
+
+impl From<HitTestResult> for ContextMenu {
+    fn from(hit_test_result: HitTestResult) -> Self {
+        let context = HitTestResultContext::from_bits(hit_test_result.context())
+            .unwrap_or(HitTestResultContext::empty());
+        Self { hit_test_result, context }
+    }
+}
+
+impl ContextMenu {
+    /// Number of items in the menu.
+    fn n_items(&self) -> u32 {
+        let mut n_items = 0;
+        if self.context.contains(HitTestResultContext::DOCUMENT) {
+            n_items += 1;
+        }
+        if self.context.contains(HitTestResultContext::LINK) {
+            n_items += 3;
+        }
+        n_items
+    }
+
+    /// Get the item at the specified index.
+    #[allow(clippy::single_match)]
+    fn item(&self, mut index: u32) -> Option<ContextMenuItem> {
+        if self.context.contains(HitTestResultContext::DOCUMENT) {
+            match index {
+                0 => return Some(ContextMenuItem::Reload),
+                _ => (),
+            }
+            index -= 1;
+        }
+        if self.context.contains(HitTestResultContext::LINK) {
+            match index {
+                0 => return Some(ContextMenuItem::OpenInNewTab),
+                1 => return Some(ContextMenuItem::OpenInNewWindow),
+                2 => return Some(ContextMenuItem::CopyLink),
+                _ => (),
+            }
+            // index -= 3;
+        }
+        None
+    }
+
+    /// Activate item at the specified position.
+    fn activate_item(&self, engine: &mut WebKitEngine, index: u32) {
+        match self.item(index) {
+            Some(ContextMenuItem::Reload) => engine.web_view.reload(),
+            Some(ContextMenuItem::OpenInNewTab) => {
+                if let Some(uri) = self.hit_test_result.link_uri() {
+                    let window_id = engine.id.window_id();
+                    engine.queue.open_in_tab(window_id, uri.into());
+                }
+            },
+            Some(ContextMenuItem::OpenInNewWindow) => {
+                if let Some(uri) = self.hit_test_result.link_uri() {
+                    engine.queue.open_in_window(uri.into());
+                }
+            },
+            Some(ContextMenuItem::CopyLink) => {
+                if let Some(uri) = self.hit_test_result.link_uri() {
+                    engine.queue.set_clipboard(uri.into());
+                }
+            },
+            None => (),
+        }
+    }
+}
+
+/// Custom context menu item based on a hit test.
+#[derive(Debug)]
+enum ContextMenuItem {
+    Reload,
+    OpenInNewTab,
+    OpenInNewWindow,
+    CopyLink,
+}
+
+impl ContextMenuItem {
+    fn label(&self) -> &'static str {
+        match self {
+            Self::Reload => "Reload",
+            Self::OpenInNewTab => "Open in New Tab",
+            Self::OpenInNewWindow => "Open in New Window",
+            Self::CopyLink => "Copy Link",
+        }
     }
 }

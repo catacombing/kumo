@@ -89,6 +89,7 @@ pub struct OptionMenu {
 
     position: Position,
     max_height: u32,
+    max_width: u32,
     width: u32,
     scale: f64,
 
@@ -100,12 +101,16 @@ pub struct OptionMenu {
 }
 
 impl OptionMenu {
+    /// Create a new menu.
+    ///
+    /// The `item_width` is the maximum logical width of the container including
+    /// the borders, rather than the internal item width.
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn new<I>(
         id: OptionMenuId,
         queue: MtQueueHandle<State>,
         position: Position,
-        item_width: u32,
+        width: impl Into<Option<u32>>,
         max_size: Size,
         scale: f64,
         items: I,
@@ -113,25 +118,28 @@ impl OptionMenu {
     where
         I: Iterator<Item = OptionMenuItem>,
     {
+        let width = width.into();
         let mut menu = Self {
             position,
             queue,
             scale,
             id,
+            width: width.unwrap_or(0),
             borders: Borders::all(),
-            width: item_width,
             visible: true,
             selection_index: Default::default(),
             scroll_offset: Default::default(),
             touch_state: Default::default(),
             item_cache: Default::default(),
             max_height: Default::default(),
+            max_width: Default::default(),
             border: Default::default(),
             items: Default::default(),
             dirty: Default::default(),
         };
 
-        let item_width = menu.item_width();
+        let item_width = width.map_or(0, |_| menu.item_width());
+        let mut max_item_width = 0;
         menu.items = items
             .enumerate()
             .map(|(i, item)| {
@@ -140,9 +148,32 @@ impl OptionMenu {
                     menu.selection_index = Some(i);
                 }
 
-                OptionMenuRenderItem::new(item, item_width, scale)
+                let item = OptionMenuRenderItem::new(item, item_width, scale);
+
+                // Find maximum item width if no menu width was specified.
+                if item_width == 0 {
+                    let item_width = item.maximum_text_width().try_into().unwrap_or(0);
+                    max_item_width = max_item_width.max(item_width);
+                }
+
+                item
             })
             .collect();
+
+        // Update width of each item if it was dynamically calculated.
+        if max_item_width != 0 {
+            // Convert to logical and add text padding.
+            max_item_width = ((max_item_width as f64 / scale).ceil() + X_PADDING * 2.) as u32;
+
+            // Set width for each item.
+            for item in &mut menu.items {
+                item.width = max_item_width;
+            }
+
+            // Set container width.
+            let border_widths = menu.border_widths();
+            menu.width = border_widths.left + border_widths.right + max_item_width;
+        }
 
         // Set initial size constraints.
         menu.set_size(max_size);
@@ -296,6 +327,7 @@ impl OptionMenu {
     fn physical_position(&self) -> Position {
         let border_widths = self.border_widths() * self.scale;
         let max_height = (self.max_height as f64 * self.scale).round() as i32;
+        let max_width = (self.max_width as f64 * self.scale).round() as i32;
         let position = self.position * self.scale;
 
         // Ensure popup is within display area.
@@ -303,8 +335,10 @@ impl OptionMenu {
         let y_end = position.y + height as i32;
         let clamp_delta = cmp::max(y_end - max_height, 0);
         let y = cmp::max(position.y - clamp_delta, 0);
+        let width = (self.width as f64 * self.scale).round() as i32;
+        let x = cmp::min(position.x, max_width - width);
 
-        Position::new(position.x, y)
+        Position::new(x, y)
     }
 
     /// Get the physical menu size.
@@ -426,6 +460,7 @@ impl Popup for OptionMenu {
 
     fn set_size(&mut self, size: Size) {
         self.max_height = size.height - Ui::toolbar_height();
+        self.max_width = size.width;
         self.dirty = true;
     }
 
@@ -682,6 +717,14 @@ impl OptionMenuRenderItem {
     fn set_disabled(&mut self, disabled: bool) {
         self.dirty |= self.disabled != disabled;
         self.disabled = disabled;
+    }
+
+    /// Get maximum physical width of this item's text.
+    fn maximum_text_width(&self) -> i32 {
+        let description_width =
+            self.description_layout.as_ref().map_or(0, |layout| layout.pixel_size().0);
+        let label_width = self.label_layout.pixel_size().0;
+        label_width.max(description_width)
     }
 }
 

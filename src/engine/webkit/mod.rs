@@ -31,7 +31,7 @@ use wpe_webkit::{
 
 use crate::engine::webkit::platform::WebKitDisplay;
 use crate::engine::{Engine, EngineId, BG};
-use crate::ui::overlay::option_menu::{OptionMenuId, OptionMenuItem};
+use crate::ui::overlay::option_menu::{Anchor, OptionMenuId, OptionMenuItem, OptionMenuPosition};
 use crate::window::TextInputChange;
 use crate::{KeyboardFocus, Position, Size, State, WindowId};
 
@@ -213,11 +213,15 @@ impl WebKitHandler for State {
         }
 
         // Get popup position.
-        let (position, item_width) = match rect {
-            Some((x, y, width, height)) => (Position::new(x, y + height), Some(width as u32)),
+        let (menu_position, item_width) = match rect {
+            Some((x, y, width, height)) => {
+                (Position::new(x, y + height).into(), Some(width as u32))
+            },
             None => {
                 let position = webkit_engine.last_input_position;
-                (Position::new(position.x.round() as i32, position.y.round() as i32), None)
+                let position = Position::new(position.x.round() as i32, position.y.round() as i32);
+                let menu_position = OptionMenuPosition::new(position, Anchor::BottomRight);
+                (menu_position, None)
             },
         };
 
@@ -233,7 +237,7 @@ impl WebKitHandler for State {
         webkit_engine.menu = Some((menu_id, menu));
 
         // Show the popup.
-        window.open_option_menu(menu_id, position, item_width, items.into_iter());
+        window.open_option_menu(menu_id, menu_position, item_width, items.into_iter());
     }
 
     fn close_menu(&mut self, menu_id: OptionMenuId) {
@@ -929,9 +933,9 @@ impl ContextMenu {
         }
         if self.context.contains(HitTestResultContext::LINK) {
             match index {
-                0 => return Some(ContextMenuItem::OpenInNewTab),
+                0 => return Some(ContextMenuItem::CopyLink),
                 1 => return Some(ContextMenuItem::OpenInNewWindow),
-                2 => return Some(ContextMenuItem::CopyLink),
+                2 => return Some(ContextMenuItem::OpenInNewTab),
                 _ => (),
             }
             // index -= 3;

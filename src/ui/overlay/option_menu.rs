@@ -109,7 +109,7 @@ impl OptionMenu {
     pub fn new<I>(
         id: OptionMenuId,
         queue: MtQueueHandle<State>,
-        position: Position,
+        position: impl Into<OptionMenuPosition>,
         width: impl Into<Option<u32>>,
         max_size: Size,
         scale: f64,
@@ -118,12 +118,14 @@ impl OptionMenu {
     where
         I: Iterator<Item = OptionMenuItem>,
     {
+        let menu_position = position.into();
         let width = width.into();
+
         let mut menu = Self {
-            position,
             queue,
             scale,
             id,
+            position: menu_position.position,
             width: width.unwrap_or(0),
             borders: Borders::all(),
             visible: true,
@@ -177,6 +179,13 @@ impl OptionMenu {
 
         // Set initial size constraints.
         menu.set_size(max_size);
+
+        // Offset menu if an anchor was defined.
+        if let Anchor::BottomRight = menu_position.anchor {
+            let size = menu.physical_size() / scale;
+            menu.position.x = cmp::max(0, menu.position.x - size.width as i32);
+            menu.position.y = cmp::max(0, menu.position.y - size.height as i32);
+        }
 
         menu
     }
@@ -455,7 +464,7 @@ impl Popup for OptionMenu {
     }
 
     fn position(&self) -> Position {
-        self.physical_position() * (1. / self.scale)
+        self.physical_position() / self.scale
     }
 
     fn set_size(&mut self, size: Size) {
@@ -465,7 +474,7 @@ impl Popup for OptionMenu {
     }
 
     fn size(&self) -> Size {
-        self.physical_size() * (1. / self.scale)
+        self.physical_size() / self.scale
     }
 
     fn set_scale(&mut self, scale: f64) {
@@ -813,4 +822,32 @@ impl Mul<f64> for BorderWidths {
             top: (self.top as f64 * rhs).round() as u32,
         }
     }
+}
+
+/// Location of a popup menu.
+pub struct OptionMenuPosition {
+    position: Position,
+    anchor: Anchor,
+}
+
+impl OptionMenuPosition {
+    pub fn new(position: Position, anchor: Anchor) -> Self {
+        Self { position, anchor }
+    }
+}
+
+impl From<Position> for OptionMenuPosition {
+    fn from(position: Position) -> Self {
+        Self { position, anchor: Anchor::default() }
+    }
+}
+
+/// Menu position anchor.
+///
+/// Defines the corner of the option menu at which the origin point is located.
+#[derive(Default)]
+pub enum Anchor {
+    #[default]
+    TopLeft,
+    BottomRight,
 }

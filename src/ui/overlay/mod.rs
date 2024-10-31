@@ -7,7 +7,9 @@ use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
-use crate::ui::overlay::option_menu::{OptionMenu, OptionMenuId, OptionMenuItem};
+use crate::ui::overlay::option_menu::{
+    OptionMenu, OptionMenuId, OptionMenuItem, OptionMenuPosition,
+};
 use crate::ui::overlay::tabs::Tabs;
 use crate::ui::Renderer;
 use crate::{gl, rect_contains, Position, Size, State, WindowId};
@@ -267,7 +269,7 @@ impl Overlay {
     pub fn open_option_menu<I>(
         &mut self,
         id: OptionMenuId,
-        position: Position,
+        position: impl Into<OptionMenuPosition>,
         item_width: impl Into<Option<u32>>,
         scale: f64,
         items: I,

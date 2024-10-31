@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use std::os::fd::{AsFd, AsRawFd};
 use std::ptr::NonNull;
 use std::rc::Rc;
@@ -433,6 +433,16 @@ impl Mul<f64> for Position<f64> {
     }
 }
 
+impl Div<f64> for Position {
+    type Output = Self;
+
+    fn div(mut self, scale: f64) -> Self {
+        self.x = (self.x as f64 / scale).round() as i32;
+        self.y = (self.y as f64 / scale).round() as i32;
+        self
+    }
+}
+
 impl<T: Add<T, Output = T>> Add<Position<T>> for Position<T> {
     type Output = Self;
 
@@ -524,6 +534,16 @@ impl Mul<f64> for Size<f64> {
     fn mul(mut self, scale: f64) -> Self {
         self.width *= scale;
         self.height *= scale;
+        self
+    }
+}
+
+impl Div<f64> for Size {
+    type Output = Self;
+
+    fn div(mut self, scale: f64) -> Self {
+        self.width = (self.width as f64 / scale).round() as u32;
+        self.height = (self.height as f64 / scale).round() as u32;
         self
     }
 }

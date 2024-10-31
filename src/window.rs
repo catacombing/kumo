@@ -32,7 +32,9 @@ use crate::engine::webkit::{WebKitEngine, WebKitError};
 use crate::engine::{Engine, EngineId};
 use crate::history::{History, HistoryMatch, SessionRecord, MAX_MATCHES};
 use crate::ui::engine_backdrop::EngineBackdrop;
-use crate::ui::overlay::option_menu::{Borders, OptionMenuId, OptionMenuItem, ScrollTarget};
+use crate::ui::overlay::option_menu::{
+    Borders, OptionMenuId, OptionMenuItem, OptionMenuPosition, ScrollTarget,
+};
 use crate::ui::overlay::Overlay;
 use crate::ui::Ui;
 use crate::uri::{SCHEMES, TLDS};
@@ -904,7 +906,7 @@ impl Window {
     pub fn open_option_menu<I>(
         &mut self,
         menu_id: OptionMenuId,
-        position: Position,
+        position: impl Into<OptionMenuPosition>,
         item_width: Option<u32>,
         items: I,
     ) where

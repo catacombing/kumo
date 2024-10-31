@@ -57,17 +57,18 @@ pub trait WindowHandler {
 impl WindowHandler for State {
     fn close_window(&mut self, window_id: WindowId) {
         // Remove the window and mark it as closed.
-        self.windows.retain(|id, window| {
-            let retain = *id != window_id;
-            if !retain {
-                window.closed = true;
-            }
-            retain
-        });
+        let mut removed = match self.windows.remove(&window_id) {
+            Some(removed) => removed,
+            None => return,
+        };
+        removed.closed = true;
 
-        // Quit if all windows were closed.
         if self.windows.is_empty() {
+            // Quit if all windows were closed.
             self.main_loop.quit();
+        } else {
+            // Delete session if this wasn't the last window.
+            self.history.set_session(removed.id, Vec::new());
         }
     }
 }

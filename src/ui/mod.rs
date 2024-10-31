@@ -153,6 +153,7 @@ pub struct Ui {
     queue: MtQueueHandle<State>,
     window_id: WindowId,
 
+    last_tab_count: usize,
     dirty: bool,
 }
 
@@ -182,6 +183,7 @@ impl Ui {
             queue,
             touch_focus: TouchFocusElement::UriBar,
             scale: 1.0,
+            last_tab_count: Default::default(),
             keyboard_focus: Default::default(),
             touch_point: Default::default(),
             tabs_button: Default::default(),
@@ -235,9 +237,10 @@ impl Ui {
     pub fn draw(&mut self, tab_count: usize, force_redraw: bool) -> bool {
         // Abort early if UI is up to date.
         let dirty = self.dirty();
-        if !dirty && !force_redraw {
+        if !dirty && !force_redraw && self.last_tab_count == tab_count {
             return false;
         }
+        self.last_tab_count = tab_count;
         self.dirty = false;
 
         // Update viewporter logical render size.

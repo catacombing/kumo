@@ -67,7 +67,7 @@ impl TabsHandler for State {
             None => return,
         };
 
-        let _ = window.add_tab(true);
+        let _ = window.add_tab(true, true);
     }
 
     fn set_active_tab(&mut self, engine_id: EngineId) {

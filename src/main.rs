@@ -92,7 +92,7 @@ fn main() -> Result<(), Error> {
             *is_first_tab = false;
             Ok(window.active_tab())
         } else {
-            Ok(window.add_tab(false)?)
+            Ok(window.add_tab(false, true)?)
         }
     };
 

@@ -222,7 +222,7 @@ impl Window {
         };
 
         // Create initial browser tab.
-        window.add_tab(true)?;
+        window.add_tab(true, true)?;
 
         Ok(window)
     }
@@ -243,7 +243,11 @@ impl Window {
     }
 
     /// Add a tab to the window.
-    pub fn add_tab(&mut self, focus_uribar: bool) -> Result<EngineId, WebKitError> {
+    pub fn add_tab(
+        &mut self,
+        focus_uribar: bool,
+        switch_focus: bool,
+    ) -> Result<EngineId, WebKitError> {
         // Create a new browser engine.
         let engine_id = EngineId::new(self.id);
         let engine = WebKitEngine::new(
@@ -259,7 +263,9 @@ impl Window {
         self.tabs.insert(engine_id, Box::new(engine));
 
         // Switch the active tab.
-        self.active_tab = engine_id;
+        if switch_focus {
+            self.active_tab = engine_id;
+        }
 
         // Update tabs popup.
         self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
@@ -269,7 +275,9 @@ impl Window {
             self.set_keyboard_focus(KeyboardFocus::Ui);
             self.ui.keyboard_focus_uribar();
         }
-        self.ui.set_uri("");
+        if switch_focus {
+            self.ui.set_uri("");
+        }
 
         self.unstall();
 

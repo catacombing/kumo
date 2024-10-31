@@ -275,7 +275,9 @@ impl WebKitHandler for State {
             None => return,
         };
 
-        if let Some(engine) = window.add_tab(false).ok().and_then(|id| window.tabs().get(&id)) {
+        if let Some(engine) =
+            window.add_tab(false, false).ok().and_then(|id| window.tabs().get(&id))
+        {
             engine.load_uri(&uri);
         }
     }

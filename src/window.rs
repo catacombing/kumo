@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
 use std::ops::Range;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -335,9 +336,9 @@ impl Window {
     }
 
     /// Load a URI with the active tab.
-    pub fn load_uri(&mut self, uri: String) {
+    pub fn load_uri(&mut self, uri: String, allow_relative_paths: bool) {
         // Perform search if URI is not a recognized URI.
-        let uri = match build_uri(uri.trim()) {
+        let uri = match build_uri(uri.trim(), allow_relative_paths) {
             Some(uri) => uri,
             None => Cow::Owned(format!("{SEARCH_URI}{uri}")),
         };
@@ -929,7 +930,7 @@ impl Window {
         // Load the selected URI.
         let uri = self.history_menu_matches.swap_remove(index).uri;
         self.ui.set_uri(&uri);
-        self.load_uri(uri);
+        self.load_uri(uri, false);
     }
 
     /// Show history options menu.
@@ -1254,12 +1255,22 @@ pub enum TextInputChange {
 /// | `"/home"`                     | `Some("file:///home")`                      |
 /// | `"example org"`               | `None`                                      |
 /// | `"ftp://example.org"`         | `None`                                      |
-fn build_uri(mut input: &str) -> Option<Cow<'_, str>> {
+fn build_uri(mut input: &str, allow_relative_paths: bool) -> Option<Cow<'_, str>> {
     let uri = Cow::Borrowed(input);
 
     // If input starts with `/`, we assume it's a path.
-    if input.starts_with('/') {
+    if uri.starts_with('/') {
         return Some(Cow::Owned(format!("file://{uri}")));
+    }
+
+    // Allow relative paths at startup by checking against the filesystem.
+    if allow_relative_paths {
+        let path = Path::new(&*uri);
+        if path.exists() {
+            if let Some(absolute) = path.canonicalize().ok().as_deref().and_then(Path::to_str) {
+                return Some(Cow::Owned(format!("file://{absolute}")));
+            }
+        }
     }
 
     // Parse scheme, short-circuiting if an unknown scheme was found.
@@ -1342,39 +1353,61 @@ fn build_uri(mut input: &str) -> Option<Cow<'_, str>> {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+
     use super::*;
 
     #[test]
     fn extract_uri() {
-        assert_eq!(build_uri("https://example.org").as_deref(), Some("https://example.org"));
-        assert_eq!(build_uri("example.org").as_deref(), Some("https://example.org"));
-        assert_eq!(build_uri("x.org/space path").as_deref(), Some("https://x.org/space path"));
-        assert_eq!(build_uri("/home/user").as_deref(), Some("file:///home/user"));
-        assert_eq!(build_uri("https://x.org:666").as_deref(), Some("https://x.org:666"));
-        assert_eq!(build_uri("example.org:666").as_deref(), Some("https://example.org:666"));
-        assert_eq!(build_uri("https://example:666").as_deref(), Some("https://example:666"));
-        assert_eq!(build_uri("example:666").as_deref(), Some("https://example:666"));
-        assert_eq!(build_uri("example:666/x").as_deref(), Some("https://example:666/x"));
-        assert_eq!(build_uri("https://exa-mple.org").as_deref(), Some("https://exa-mple.org"));
-        assert_eq!(build_uri("exa-mple.org").as_deref(), Some("https://exa-mple.org"));
-        assert_eq!(build_uri("https:123").as_deref(), Some("https:123"));
-        assert_eq!(build_uri("https:123:456").as_deref(), Some("https:123:456"));
-        assert_eq!(build_uri("/test:123").as_deref(), Some("file:///test:123"));
-        assert_eq!(build_uri("data:text/HTML,<input>").as_deref(), Some("data:text/HTML,<input>"));
+        assert_eq!(build_uri("https://example.org", false).as_deref(), Some("https://example.org"));
+        assert_eq!(build_uri("example.org", false).as_deref(), Some("https://example.org"));
+        assert_eq!(
+            build_uri("x.org/space path", false).as_deref(),
+            Some("https://x.org/space path")
+        );
+        assert_eq!(build_uri("/home/user", false).as_deref(), Some("file:///home/user"));
+        assert_eq!(build_uri("https://x.org:666", false).as_deref(), Some("https://x.org:666"));
+        assert_eq!(build_uri("example.org:666", false).as_deref(), Some("https://example.org:666"));
+        assert_eq!(build_uri("https://example:666", false).as_deref(), Some("https://example:666"));
+        assert_eq!(build_uri("example:666", false).as_deref(), Some("https://example:666"));
+        assert_eq!(build_uri("example:666/x", false).as_deref(), Some("https://example:666/x"));
+        assert_eq!(
+            build_uri("https://exa-mple.org", false).as_deref(),
+            Some("https://exa-mple.org")
+        );
+        assert_eq!(build_uri("exa-mple.org", false).as_deref(), Some("https://exa-mple.org"));
+        assert_eq!(build_uri("https:123", false).as_deref(), Some("https:123"));
+        assert_eq!(build_uri("https:123:456", false).as_deref(), Some("https:123:456"));
+        assert_eq!(build_uri("/test:123", false).as_deref(), Some("file:///test:123"));
+        assert_eq!(
+            build_uri("data:text/HTML,<input>", false).as_deref(),
+            Some("data:text/HTML,<input>")
+        );
 
-        assert_eq!(build_uri("example org").as_deref(), None);
-        assert_eq!(build_uri("ftp://example.org").as_deref(), None);
-        assert_eq!(build_uri("space in scheme:example.org").as_deref(), None);
-        assert_eq!(build_uri("example.invalidtld").as_deref(), None);
-        assert_eq!(build_uri("example.org:/").as_deref(), None);
-        assert_eq!(build_uri("example:/").as_deref(), None);
-        assert_eq!(build_uri("xxx:123:456").as_deref(), None);
+        assert_eq!(build_uri("example org", false).as_deref(), None);
+        assert_eq!(build_uri("ftp://example.org", false).as_deref(), None);
+        assert_eq!(build_uri("space in scheme:example.org", false).as_deref(), None);
+        assert_eq!(build_uri("example.invalidtld", false).as_deref(), None);
+        assert_eq!(build_uri("example.org:/", false).as_deref(), None);
+        assert_eq!(build_uri("example:/", false).as_deref(), None);
+        assert_eq!(build_uri("xxx:123:456", false).as_deref(), None);
 
-        assert_eq!(build_uri("http://[fe80::a]/index").as_deref(), Some("http://[fe80::a]/index"));
-        assert_eq!(build_uri("http://127.0.0.1:80/x").as_deref(), Some("http://127.0.0.1:80/x"));
-        assert_eq!(build_uri("[fe80::a]:80").as_deref(), Some("https://[fe80::a]:80"));
-        assert_eq!(build_uri("127.0.0.1:80").as_deref(), Some("https://127.0.0.1:80"));
-        assert_eq!(build_uri("[fe80::a]").as_deref(), Some("https://[fe80::a]"));
-        assert_eq!(build_uri("127.0.0.1").as_deref(), Some("https://127.0.0.1"));
+        assert_eq!(
+            build_uri("http://[fe80::a]/index", false).as_deref(),
+            Some("http://[fe80::a]/index")
+        );
+        assert_eq!(
+            build_uri("http://127.0.0.1:80/x", false).as_deref(),
+            Some("http://127.0.0.1:80/x")
+        );
+        assert_eq!(build_uri("[fe80::a]:80", false).as_deref(), Some("https://[fe80::a]:80"));
+        assert_eq!(build_uri("127.0.0.1:80", false).as_deref(), Some("https://127.0.0.1:80"));
+        assert_eq!(build_uri("[fe80::a]", false).as_deref(), Some("https://[fe80::a]"));
+        assert_eq!(build_uri("127.0.0.1", false).as_deref(), Some("https://127.0.0.1"));
+
+        let cwd = env::current_dir().unwrap().to_string_lossy().into_owned();
+        let expected = format!("file://{cwd}/src/main.rs");
+        assert_eq!(build_uri("./src/main.rs", true).as_deref(), Some(expected.as_str()));
+        assert_eq!(build_uri("src/main.rs", true).as_deref(), Some(expected.as_str()));
     }
 }

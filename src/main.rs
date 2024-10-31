@@ -143,7 +143,7 @@ fn main() -> Result<(), Error> {
     let window = state.windows.get_mut(&window_id).unwrap();
     for arg in env::args().skip(1) {
         get_empty_tab(window, &mut is_first_tab)?;
-        window.load_uri(arg);
+        window.load_uri(arg, true);
     }
 
     // Register Wayland socket with GLib event loop.

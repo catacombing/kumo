@@ -912,12 +912,17 @@ impl ContextMenu {
     /// Number of items in the menu.
     fn n_items(&self) -> u32 {
         let mut n_items = 0;
+
         if self.context.contains(HitTestResultContext::DOCUMENT) {
             n_items += 1;
         }
-        if self.context.contains(HitTestResultContext::LINK) {
+
+        if self.context.intersects(
+            HitTestResultContext::LINK | HitTestResultContext::IMAGE | HitTestResultContext::MEDIA,
+        ) {
             n_items += 3;
         }
+
         n_items
     }
 
@@ -931,7 +936,10 @@ impl ContextMenu {
             }
             index -= 1;
         }
-        if self.context.contains(HitTestResultContext::LINK) {
+
+        if self.context.intersects(
+            HitTestResultContext::LINK | HitTestResultContext::IMAGE | HitTestResultContext::MEDIA,
+        ) {
             match index {
                 0 => return Some(ContextMenuItem::CopyLink),
                 1 => return Some(ContextMenuItem::OpenInNewWindow),
@@ -940,6 +948,7 @@ impl ContextMenu {
             }
             // index -= 3;
         }
+
         None
     }
 
@@ -948,22 +957,35 @@ impl ContextMenu {
         match self.item(index) {
             Some(ContextMenuItem::Reload) => engine.web_view.reload(),
             Some(ContextMenuItem::OpenInNewTab) => {
-                if let Some(uri) = self.hit_test_result.link_uri() {
+                if let Some(uri) = self.uri() {
                     let window_id = engine.id.window_id();
-                    engine.queue.open_in_tab(window_id, uri.into());
+                    engine.queue.open_in_tab(window_id, uri);
                 }
             },
             Some(ContextMenuItem::OpenInNewWindow) => {
-                if let Some(uri) = self.hit_test_result.link_uri() {
-                    engine.queue.open_in_window(uri.into());
+                if let Some(uri) = self.uri() {
+                    engine.queue.open_in_window(uri);
                 }
             },
             Some(ContextMenuItem::CopyLink) => {
-                if let Some(uri) = self.hit_test_result.link_uri() {
-                    engine.queue.set_clipboard(uri.into());
+                if let Some(uri) = self.uri() {
+                    engine.queue.set_clipboard(uri);
                 }
             },
             None => (),
+        }
+    }
+
+    /// Get URI for the context menu's target resourc.
+    fn uri(&self) -> Option<String> {
+        if self.context.contains(HitTestResultContext::LINK) {
+            self.hit_test_result.link_uri().map(String::from)
+        } else if self.context.contains(HitTestResultContext::IMAGE) {
+            self.hit_test_result.image_uri().map(String::from)
+        } else if self.context.contains(HitTestResultContext::MEDIA) {
+            self.hit_test_result.media_uri().map(String::from)
+        } else {
+            None
         }
     }
 }

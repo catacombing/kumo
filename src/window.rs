@@ -1,7 +1,6 @@
 //! Browser window handling.
 
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
 use std::ops::Range;
@@ -28,9 +27,11 @@ use smithay_client_toolkit::shell::xdg::window::{
 };
 use smithay_client_toolkit::shell::WaylandSurface;
 
-use crate::engine::webkit::{WebKitEngine, WebKitError};
+use crate::engine::webkit::WebKitError;
 use crate::engine::{Engine, EngineId};
-use crate::history::{History, HistoryMatch, SessionRecord, MAX_MATCHES};
+use crate::storage::history::{History, HistoryMatch, MAX_MATCHES};
+use crate::storage::session::{Session, SessionRecord};
+use crate::storage::Storage;
 use crate::ui::engine_backdrop::EngineBackdrop;
 use crate::ui::overlay::option_menu::{
     Borders, OptionMenuId, OptionMenuItem, OptionMenuPosition, ScrollTarget,
@@ -39,7 +40,7 @@ use crate::ui::overlay::Overlay;
 use crate::ui::Ui;
 use crate::uri::{SCHEMES, TLDS};
 use crate::wayland::protocols::ProtocolStates;
-use crate::{Position, Size, State};
+use crate::{Position, Size, State, WebKitState};
 
 /// Search engine base URI.
 const SEARCH_URI: &str = "https://duckduckgo.com/?q=";
@@ -68,7 +69,7 @@ impl WindowHandler for State {
             self.main_loop.quit();
         } else {
             // Delete session if this wasn't the last window.
-            self.history.set_session(removed.id, Vec::new());
+            self.storage.session.persist(removed.id, Vec::new());
         }
     }
 }
@@ -78,26 +79,25 @@ pub struct Window {
     id: WindowId,
 
     tabs: IndexMap<EngineId, Box<dyn Engine>>,
+    engine_state: Rc<WebKitState>,
     active_tab: EngineId,
-    overlay: Overlay,
 
-    dmabuf_feedback: Rc<RefCell<Option<DmabufFeedback>>>,
     wayland_queue: QueueHandle<State>,
     text_input: Option<TextInput>,
     initial_configure_done: bool,
     engine_viewport: WpViewport,
     engine_surface: WlSurface,
     connection: Connection,
-    egl_display: Display,
     xdg: XdgWindow,
     scale: f64,
     size: Size,
 
     queue: StQueueHandle<State>,
 
+    ui: Ui,
+    overlay: Overlay,
     engine_backdrop: EngineBackdrop,
 
-    ui: Ui,
     history_menu_matches: SmallVec<[HistoryMatch; MAX_MATCHES]>,
     history_menu: Option<OptionMenuId>,
 
@@ -121,7 +121,7 @@ impl Window {
         queue: StQueueHandle<State>,
         wayland_queue: QueueHandle<State>,
         history: History,
-        dmabuf_feedback: Rc<RefCell<Option<DmabufFeedback>>>,
+        engine_state: Rc<WebKitState>,
     ) -> Result<Self, WebKitError> {
         let id = WindowId::new();
 
@@ -170,7 +170,7 @@ impl Window {
 
         // Create engine backdrop.
         let mut engine_backdrop = EngineBackdrop::new(
-            egl_display.clone(),
+            egl_display,
             surface.clone(),
             backdrop_viewport,
             protocol_states,
@@ -197,11 +197,10 @@ impl Window {
 
         let mut window = Self {
             engine_backdrop,
-            dmabuf_feedback,
             engine_viewport,
             engine_surface,
             wayland_queue,
-            egl_display,
+            engine_state,
             connection,
             active_tab,
             overlay,
@@ -254,15 +253,7 @@ impl Window {
     ) -> Result<EngineId, WebKitError> {
         // Create a new browser engine.
         let engine_id = EngineId::new(self.id);
-        let engine = WebKitEngine::new(
-            &self.egl_display,
-            self.wayland_queue.clone(),
-            self.queue.clone(),
-            engine_id,
-            self.engine_size(),
-            self.scale,
-            self.dmabuf_feedback.borrow().as_ref(),
-        )?;
+        let engine = self.engine_state.create_engine(engine_id, self.engine_size(), self.scale)?;
 
         self.tabs.insert(engine_id, Box::new(engine));
 
@@ -289,7 +280,7 @@ impl Window {
     }
 
     /// Close a tabs.
-    pub fn close_tab(&mut self, history: &History, engine_id: EngineId) {
+    pub fn close_tab(&mut self, session: &Session, engine_id: EngineId) {
         // Remove engine and get the position it was in.
         let index = match self.tabs.shift_remove_full(&engine_id) {
             Some((index, ..)) => index,
@@ -312,7 +303,7 @@ impl Window {
         self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
 
         // Update browser sessions.
-        self.persist_session(history);
+        self.persist_session(session);
 
         // Force tabs UI redraw.
         self.dirty = true;
@@ -856,7 +847,7 @@ impl Window {
     }
 
     /// Update an engine's URI.
-    pub fn set_engine_uri(&mut self, history: &History, engine_id: EngineId, uri: String) {
+    pub fn set_engine_uri(&mut self, storage: &Storage, engine_id: EngineId, uri: String) {
         // Update UI if the URI change is for the active tab.
         if engine_id == self.active_tab {
             self.ui.set_uri(&uri);
@@ -871,18 +862,18 @@ impl Window {
         self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
 
         // Increment URI visit count for history.
-        history.visit(uri);
+        storage.history.visit(uri);
 
         // Update browser session.
-        self.persist_session(history);
+        self.persist_session(&storage.session);
     }
 
     /// Update the window's browser session.
     ///
     /// This is used to recover the browser session when restarting Kumo.
-    pub fn persist_session(&self, history: &History) {
+    pub fn persist_session(&self, session_storage: &Session) {
         let session: Vec<_> = self.tabs.values().map(SessionRecord::from).collect();
-        history.set_session(self.id, session);
+        session_storage.persist(self.id, session);
     }
 
     /// Update an engine's title.
@@ -1067,11 +1058,9 @@ impl Window {
     }
 
     /// Notify window about DMA buffer feedback change.
-    pub fn dmabuf_feedback_changed(&mut self) {
-        if let Some(feedback) = &*self.dmabuf_feedback.borrow() {
-            for (_, engine) in &mut self.tabs {
-                engine.dmabuf_feedback(feedback);
-            }
+    pub fn dmabuf_feedback_changed(&mut self, new_feedback: &DmabufFeedback) {
+        for (_, engine) in &mut self.tabs {
+            engine.dmabuf_feedback(new_feedback);
         }
     }
 }

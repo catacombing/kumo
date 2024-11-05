@@ -2,15 +2,17 @@
 
 use std::any::Any;
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::ops::Deref;
 use std::os::fd::BorrowedFd;
+use std::rc::Rc;
 
 use _dmabuf::zwp_linux_buffer_params_v1::Flags as DmabufFlags;
 use funq::StQueueHandle;
 use gio::Cancellable;
 use glib::object::{Cast, ObjectExt};
 use glib::prelude::*;
-use glib::Bytes;
+use glib::{Bytes, GString, Uri, UriFlags};
 use glutin::display::Display;
 use smithay_client_toolkit::compositor::Region;
 use smithay_client_toolkit::dmabuf::{DmabufFeedback, DmabufState};
@@ -31,6 +33,7 @@ use wpe_webkit::{
 
 use crate::engine::webkit::platform::WebKitDisplay;
 use crate::engine::{Engine, EngineId, BG};
+use crate::storage::cookie_whitelist::CookieWhitelist;
 use crate::ui::overlay::option_menu::{Anchor, OptionMenuId, OptionMenuItem, OptionMenuPosition};
 use crate::window::TextInputChange;
 use crate::{KeyboardFocus, Position, Size, State, WindowId};
@@ -87,6 +90,12 @@ trait WebKitHandler {
 
     /// Write text to the system clipboard.
     fn set_clipboard(&mut self, text: String);
+
+    /// Add host to the cookie whitelist.
+    fn add_cookie_exception(&mut self, host: String);
+
+    /// Remove host from the cookie whitelist.
+    fn remove_cookie_exception(&mut self, host: String);
 }
 
 impl WebKitHandler for State {
@@ -96,6 +105,7 @@ impl WebKitHandler for State {
         buffer: Buffer,
         damage_rects: Vec<WPERectangle>,
     ) {
+        let wayland_queue = self.wayland_queue();
         let window = match self.windows.get_mut(&engine_id.window_id()) {
             Some(window) => window,
             None => return,
@@ -111,9 +121,12 @@ impl WebKitHandler for State {
 
         // Update engine's buffer.
         match buffer.downcast::<BufferDMABuf>() {
-            Ok(dma_buffer) => {
-                webkit_engine.import_buffer(&self.protocol_states.dmabuf, dma_buffer, damage_rects)
-            },
+            Ok(dma_buffer) => webkit_engine.import_buffer(
+                &wayland_queue,
+                &self.protocol_states.dmabuf,
+                dma_buffer,
+                damage_rects,
+            ),
             Err(buffer) => {
                 if buffer.is::<BufferSHM>() {
                     error!("WebKit SHM buffers are not supported");
@@ -171,7 +184,7 @@ impl WebKitHandler for State {
         let window_id = engine_id.window_id();
 
         if let Some(window) = self.windows.get_mut(&window_id) {
-            window.set_engine_uri(&self.history, engine_id, uri);
+            window.set_engine_uri(&self.storage, engine_id, uri);
         }
     }
 
@@ -179,7 +192,7 @@ impl WebKitHandler for State {
         let window_id = engine_id.window_id();
 
         if let Some(window) = self.windows.get_mut(&window_id) {
-            window.set_engine_title(&self.history, engine_id, title);
+            window.set_engine_title(&self.storage.history, engine_id, title);
         }
     }
 
@@ -272,7 +285,6 @@ impl WebKitHandler for State {
         }
     }
 
-    /// Open URI in a new tab.
     fn open_in_tab(&mut self, window_id: WindowId, uri: String) {
         let window = match self.windows.get_mut(&window_id) {
             Some(window) => window,
@@ -286,7 +298,6 @@ impl WebKitHandler for State {
         }
     }
 
-    /// Open URI in a new window.
     fn open_in_window(&mut self, uri: String) {
         let window = match self.create_window().ok().and_then(|id| self.windows.get_mut(&id)) {
             Some(window) => window,
@@ -299,9 +310,128 @@ impl WebKitHandler for State {
         }
     }
 
-    /// Offer text to the system clipboard.
     fn set_clipboard(&mut self, text: String) {
         self.set_clipboard(text);
+    }
+
+    fn add_cookie_exception(&mut self, host: String) {
+        self.storage.cookie_whitelist.add(&host);
+    }
+
+    fn remove_cookie_exception(&mut self, host: String) {
+        self.storage.cookie_whitelist.remove(&host);
+    }
+}
+
+/// WebKit shared engine state.
+pub struct WebKitState {
+    pub dmabuf_feedback: Rc<RefCell<Option<DmabufFeedback>>>,
+
+    cookie_whitelist: CookieWhitelist,
+    network_session: NetworkSession,
+    queue: StQueueHandle<State>,
+    display: Display,
+}
+
+impl WebKitState {
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn new(
+        display: Display,
+        queue: StQueueHandle<State>,
+        cookie_whitelist: CookieWhitelist,
+    ) -> Self {
+        let network_session =
+            xdg_network_session(&cookie_whitelist).unwrap_or_else(NetworkSession::new_ephemeral);
+
+        Self {
+            cookie_whitelist,
+            network_session,
+            display,
+            queue,
+            dmabuf_feedback: Default::default(),
+        }
+    }
+
+    /// Create a new WebKit engine from this state.
+    pub fn create_engine(
+        &self,
+        engine_id: EngineId,
+        size: Size,
+        scale: f64,
+    ) -> Result<WebKitEngine, WebKitError> {
+        // Get the DRM render node.
+        let Display::Egl(egl_display) = &self.display;
+        let device = egl_display.device().expect("get DRM device");
+        let render_node = device.drm_render_device_node_path().expect("get render node");
+
+        // Create WebKit platform.
+        let webkit_display = WebKitDisplay::new(
+            self.queue.clone(),
+            engine_id,
+            render_node,
+            size,
+            scale,
+            self.dmabuf_feedback.borrow().as_ref(),
+        );
+
+        // Create web view with initial blank page.
+        let web_view = WebView::builder()
+            .network_session(&self.network_session)
+            .display(&webkit_display)
+            .build();
+
+        // Set browser background color.
+        let mut color = Color::new(BG[0], BG[1], BG[2], 1.);
+        web_view.set_background_color(&mut color);
+
+        // Notify UI about URI and title changes.
+        let uri_queue = self.queue.clone();
+        web_view.connect_uri_notify(move |web_view| {
+            let uri = web_view.uri().unwrap_or_default().to_string();
+            uri_queue.clone().set_engine_uri(engine_id, uri);
+        });
+        let title_queue = self.queue.clone();
+        web_view.connect_title_notify(move |web_view| {
+            let title = web_view.title().unwrap_or_default().to_string();
+            title_queue.clone().set_engine_title(engine_id, title);
+        });
+
+        // Listen for option menu open events.
+        let option_menu_queue = self.queue.clone();
+        web_view.connect_show_option_menu(move |_, menu, rect| {
+            option_menu_queue.clone().open_menu(engine_id, menu.into(), Some(rect.geometry()));
+            true
+        });
+
+        // Listen for context menu open events.
+        let cookie_whitelist = self.cookie_whitelist.clone();
+        let context_menu_queue = self.queue.clone();
+        web_view.connect_context_menu(move |web_view, _, hit_test_result| {
+            let uri = web_view.uri().unwrap_or_default().to_string();
+            let context_menu = ContextMenu::new(&cookie_whitelist, &uri, hit_test_result.clone());
+            let menu = Menu::ContextMenu(context_menu);
+            context_menu_queue.clone().open_menu(engine_id, menu, None);
+            true
+        });
+
+        // Load adblock content filter.
+        load_adblock(web_view.clone());
+
+        Ok(WebKitEngine {
+            webkit_display,
+            web_view,
+            scale,
+            queue: self.queue.clone(),
+            id: engine_id,
+            buffers_pending_release: Default::default(),
+            last_input_position: Default::default(),
+            opaque_region: Default::default(),
+            buffer_damage: Default::default(),
+            buffer_size: Default::default(),
+            buffer: Default::default(),
+            dirty: Default::default(),
+            menu: Default::default(),
+        })
     }
 }
 
@@ -310,7 +440,6 @@ pub struct WebKitEngine {
     id: EngineId,
     web_view: WebView,
     menu: Option<(OptionMenuId, Menu)>,
-    wayland_queue: QueueHandle<State>,
     opaque_region: Option<Region>,
     queue: StQueueHandle<State>,
 
@@ -328,90 +457,15 @@ pub struct WebKitEngine {
 }
 
 impl WebKitEngine {
-    pub fn new(
-        display: &Display,
-        wayland_queue: QueueHandle<State>,
-        queue: StQueueHandle<State>,
-        engine_id: EngineId,
-        size: Size,
-        scale: f64,
-        dmabuf_feedback: Option<&DmabufFeedback>,
-    ) -> Result<Self, WebKitError> {
-        // Get the DRM render node.
-        let Display::Egl(egl_display) = display;
-        let device = egl_display.device().expect("get DRM device");
-        let render_node = device.drm_render_device_node_path().expect("get render node");
-
-        // Create WebKit platform.
-        let webkit_display =
-            WebKitDisplay::new(queue.clone(), engine_id, render_node, size, scale, dmabuf_feedback);
-
-        // Create web view with initial blank page.
-        let network_session = xdg_network_session().unwrap_or_else(NetworkSession::new_ephemeral);
-        let web_view =
-            WebView::builder().network_session(&network_session).display(&webkit_display).build();
-
-        // Set browser background color.
-        let mut color = Color::new(BG[0], BG[1], BG[2], 1.);
-        web_view.set_background_color(&mut color);
-
-        // Notify UI about URI and title changes.
-        let uri_queue = queue.clone();
-        web_view.connect_uri_notify(move |web_view| {
-            let uri = web_view.uri().unwrap_or_default().to_string();
-            uri_queue.clone().set_engine_uri(engine_id, uri);
-        });
-        let title_queue = queue.clone();
-        web_view.connect_title_notify(move |web_view| {
-            let title = web_view.title().unwrap_or_default().to_string();
-            title_queue.clone().set_engine_title(engine_id, title);
-        });
-
-        // Listen for option menu open events.
-        let option_menu_queue = queue.clone();
-        web_view.connect_show_option_menu(move |_, menu, rect| {
-            option_menu_queue.clone().open_menu(engine_id, menu.into(), Some(rect.geometry()));
-            true
-        });
-
-        // Listen for context menu open events.
-        let context_menu_queue = queue.clone();
-        web_view.connect_context_menu(move |_, _, hit_test_result| {
-            let menu = Menu::ContextMenu(hit_test_result.clone().into());
-            context_menu_queue.clone().open_menu(engine_id, menu, None);
-            true
-        });
-
-        // Load adblock content filter.
-        load_adblock(web_view.clone());
-
-        Ok(Self {
-            // input_method_context,
-            webkit_display,
-            wayland_queue,
-            web_view,
-            scale,
-            queue,
-            id: engine_id,
-            buffers_pending_release: Default::default(),
-            last_input_position: Default::default(),
-            opaque_region: Default::default(),
-            buffer_damage: Default::default(),
-            buffer_size: Default::default(),
-            buffer: Default::default(),
-            dirty: Default::default(),
-            menu: Default::default(),
-        })
-    }
-
     /// Import a new DMA buffer.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn import_buffer(
         &mut self,
+        wayland_queue: &QueueHandle<State>,
         dmabuf_state: &DmabufState,
         buffer: BufferDMABuf,
         damage_rects: Vec<WPERectangle>,
     ) {
-        let wayland_queue = &self.wayland_queue;
         let params = match dmabuf_state.create_params(wayland_queue) {
             Ok(params) => params,
             Err(err) => {
@@ -717,7 +771,8 @@ impl Engine for WebKitEngine {
 }
 
 /// Get WebKit network session using XDG-based backing storage.
-fn xdg_network_session() -> Option<NetworkSession> {
+#[cfg_attr(feature = "profiling", profiling::function)]
+fn xdg_network_session(cookie_whitelist: &CookieWhitelist) -> Option<NetworkSession> {
     // Create the network session using kumo-suffixed XDG directories.
     let data_dir = dirs::data_dir()?.join("kumo/default");
     let cache_dir = dirs::cache_dir()?.join("kumo/default");
@@ -730,6 +785,21 @@ fn xdg_network_session() -> Option<NetworkSession> {
 
     // Prohibit third-party cookies.
     cookie_manager.set_accept_policy(CookieAcceptPolicy::NoThirdParty);
+
+    // Delete all non-whitelisted cookies on startup.
+    let whitelisted = cookie_whitelist.hosts();
+    cookie_manager.clone().all_cookies(None::<&Cancellable>, move |cookies| {
+        let mut cookies = match cookies {
+            Ok(cookies) => cookies,
+            Err(_) => return,
+        };
+
+        for cookie in &mut cookies {
+            if !whitelisted.iter().any(|host| cookie.domain_matches(host)) {
+                cookie_manager.delete_cookie(cookie, None::<&Cancellable>, |_| {});
+            }
+        }
+    });
 
     Some(network_session)
 }
@@ -898,20 +968,41 @@ impl MenuItem {
 struct ContextMenu {
     hit_test_result: HitTestResult,
     context: HitTestResultContext,
-}
-
-impl From<HitTestResult> for ContextMenu {
-    fn from(hit_test_result: HitTestResult) -> Self {
-        let context = HitTestResultContext::from_bits(hit_test_result.context())
-            .unwrap_or(HitTestResultContext::empty());
-        Self { hit_test_result, context }
-    }
+    has_cookie_exception: bool,
+    host: Option<GString>,
 }
 
 impl ContextMenu {
+    fn new(cookie_whitelist: &CookieWhitelist, uri: &str, hit_test_result: HitTestResult) -> Self {
+        let context = HitTestResultContext::from_bits(hit_test_result.context())
+            .unwrap_or(HitTestResultContext::empty());
+
+        let mut context_menu = Self {
+            hit_test_result,
+            context,
+            has_cookie_exception: Default::default(),
+            host: Default::default(),
+        };
+
+        // Set correct cookie exception message if we are going to display it.
+        if context == HitTestResultContext::DOCUMENT {
+            if let Some(host) = Uri::parse(uri, UriFlags::NONE).ok().and_then(|uri| uri.host()) {
+                context_menu.has_cookie_exception = cookie_whitelist.contains(&host);
+                context_menu.host = Some(host);
+            }
+        }
+
+        context_menu
+    }
+
     /// Number of items in the menu.
     fn n_items(&self) -> u32 {
         let mut n_items = 0;
+
+        // Only show these entries without any targeted element.
+        if self.context == HitTestResultContext::DOCUMENT {
+            n_items += 1;
+        }
 
         if self.context.contains(HitTestResultContext::DOCUMENT) {
             n_items += 1;
@@ -929,6 +1020,18 @@ impl ContextMenu {
     /// Get the item at the specified index.
     #[allow(clippy::single_match)]
     fn item(&self, mut index: u32) -> Option<ContextMenuItem> {
+        // Only show these entries without any targeted element.
+        if self.context == HitTestResultContext::DOCUMENT {
+            match index {
+                0 if self.has_cookie_exception => {
+                    return Some(ContextMenuItem::RemoveCookieException)
+                },
+                0 => return Some(ContextMenuItem::AddCookieException),
+                _ => (),
+            }
+            index -= 1;
+        }
+
         if self.context.contains(HitTestResultContext::DOCUMENT) {
             match index {
                 0 => return Some(ContextMenuItem::Reload),
@@ -955,6 +1058,16 @@ impl ContextMenu {
     /// Activate item at the specified position.
     fn activate_item(&self, engine: &mut WebKitEngine, index: u32) {
         match self.item(index) {
+            Some(ContextMenuItem::AddCookieException) => {
+                if let Some(host) = &self.host {
+                    engine.queue.add_cookie_exception(host.to_string());
+                }
+            },
+            Some(ContextMenuItem::RemoveCookieException) => {
+                if let Some(host) = &self.host {
+                    engine.queue.remove_cookie_exception(host.to_string());
+                }
+            },
             Some(ContextMenuItem::Reload) => engine.web_view.reload(),
             Some(ContextMenuItem::OpenInNewTab) => {
                 if let Some(uri) = self.uri() {
@@ -993,6 +1106,8 @@ impl ContextMenu {
 /// Custom context menu item based on a hit test.
 #[derive(Debug)]
 enum ContextMenuItem {
+    AddCookieException,
+    RemoveCookieException,
     Reload,
     OpenInNewTab,
     OpenInNewWindow,
@@ -1002,6 +1117,8 @@ enum ContextMenuItem {
 impl ContextMenuItem {
     fn label(&self) -> &'static str {
         match self {
+            Self::AddCookieException => "Add Cookie Exception",
+            Self::RemoveCookieException => "Remove Cookie Exception",
             Self::Reload => "Reload",
             Self::OpenInNewTab => "Open in New Tab",
             Self::OpenInNewWindow => "Open in New Window",

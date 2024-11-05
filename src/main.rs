@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
@@ -17,7 +16,6 @@ use profiling::puffin;
 use puffin_http::Server;
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
 use smithay_client_toolkit::data_device_manager::data_source::CopyPasteSource;
-use smithay_client_toolkit::dmabuf::DmabufFeedback;
 use smithay_client_toolkit::reexports::client::globals::{self, GlobalError};
 use smithay_client_toolkit::reexports::client::protocol::wl_keyboard::WlKeyboard;
 use smithay_client_toolkit::reexports::client::protocol::wl_pointer::WlPointer;
@@ -30,14 +28,15 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers, RepeatInfo};
 use tracing::info;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
-use crate::engine::webkit::WebKitError;
-use crate::history::History;
+use crate::engine::webkit::{WebKitError, WebKitState};
+use crate::storage::history::History;
+use crate::storage::Storage;
 use crate::wayland::protocols::{KeyRepeat, ProtocolStates, TextInput};
 use crate::wayland::WaylandDispatch;
 use crate::window::{KeyboardFocus, Window, WindowId};
 
 mod engine;
-mod history;
+mod storage;
 mod ui;
 mod uri;
 mod wayland;
@@ -58,6 +57,8 @@ enum Error {
     WaylandGlobal(#[from] GlobalError),
     #[error("{0}")]
     WebKit(#[from] WebKitError),
+    #[error("{0}")]
+    Sql(#[from] rusqlite::Error),
     #[error("{0}")]
     Io(#[from] io::Error),
 }
@@ -97,7 +98,7 @@ fn main() -> Result<(), Error> {
     };
 
     // Get all sessions requiring restoration, sorted by PID and window ID.
-    let mut orphan_sessions = state.history.orphan_sessions();
+    let mut orphan_sessions = state.storage.session.orphans();
     orphan_sessions.sort_by(|a, b| match a.pid.cmp(&b.pid) {
         Ordering::Equal => a.window_id.cmp(&b.window_id),
         ordering => ordering,
@@ -135,9 +136,9 @@ fn main() -> Result<(), Error> {
     // once the page is loaded, however we explicitly sync here to avoid session
     // loss due to a racing condition.
     for window in state.windows.values() {
-        window.persist_session(&state.history);
+        window.persist_session(&state.storage.session);
     }
-    state.history.delete_orphan_sessions(orphan_sessions.iter().map(|s| s.pid));
+    state.storage.session.delete_orphans(orphan_sessions.iter().map(|s| s.pid));
 
     // Spawn a new tab for every CLI argument.
     let window = state.windows.get_mut(&window_id).unwrap();
@@ -171,7 +172,6 @@ pub struct State {
     main_loop: MainLoop,
 
     wayland_queue: Option<EventQueue<Self>>,
-    dmabuf_feedback: Rc<RefCell<Option<DmabufFeedback>>>,
     protocol_states: ProtocolStates,
     connection: Connection,
     egl_display: Display,
@@ -186,7 +186,9 @@ pub struct State {
     keyboard_focus: Option<WindowId>,
     touch_focus: Option<(WindowId, WlSurface)>,
 
-    history: History,
+    engine_state: Rc<WebKitState>,
+
+    storage: Storage,
 
     queue: StQueueHandle<State>,
 }
@@ -204,15 +206,23 @@ impl State {
         let raw_display = RawDisplayHandle::Wayland(wayland_display);
         let egl_display = unsafe { Display::new(raw_display, DisplayApiPreference::Egl)? };
 
+        let storage = Storage::new()?;
+
+        let engine_state = Rc::new(WebKitState::new(
+            egl_display.clone(),
+            queue.clone(),
+            storage.cookie_whitelist.clone(),
+        ));
+
         Ok(Self {
             protocol_states,
+            engine_state,
             egl_display,
             connection,
             main_loop,
+            storage,
             queue,
             wayland_queue: Some(wayland_queue),
-            history: History::new(),
-            dmabuf_feedback: Default::default(),
             keyboard_focus: Default::default(),
             touch_focus: Default::default(),
             text_input: Default::default(),
@@ -234,8 +244,8 @@ impl State {
             self.egl_display.clone(),
             self.queue.clone(),
             self.wayland_queue(),
-            self.history.clone(),
-            self.dmabuf_feedback.clone(),
+            self.storage.history.clone(),
+            self.engine_state.clone(),
         )?;
         let window_id = window.id();
         self.windows.insert(window_id, window);

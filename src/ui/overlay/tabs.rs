@@ -85,7 +85,7 @@ impl TabsHandler for State {
             None => return,
         };
 
-        window.close_tab(&self.history, engine_id);
+        window.close_tab(&self.storage.session, engine_id);
     }
 }
 

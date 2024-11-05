@@ -17,7 +17,7 @@ use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
-use crate::history::{HistoryMatch, MAX_MATCHES};
+use crate::storage::history::{HistoryMatch, MAX_MATCHES};
 use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBuilder};
 use crate::window::{TextInputChange, TextInputState};
 use crate::{gl, rect_contains, History, Position, Size, State, WindowId};

@@ -713,13 +713,13 @@ impl DmabufHandler for State {
         _: &ZwpLinuxDmabufFeedbackV1,
         feedback: DmabufFeedback,
     ) {
-        // Update globally shared feedback.
-        self.dmabuf_feedback.replace(Some(feedback));
-
         // Notify windows, to update their engines.
         for window in self.windows.values_mut() {
-            window.dmabuf_feedback_changed();
+            window.dmabuf_feedback_changed(&feedback);
         }
+
+        // Update globally shared feedback.
+        self.engine_state.dmabuf_feedback.replace(Some(feedback));
     }
 
     fn created(

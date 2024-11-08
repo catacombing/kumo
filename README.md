@@ -9,11 +9,9 @@
   <br clear="align"/>
 </p>
 
-## Screenshots
+## Demo
 
-<p align="center">
-  <img src="https://github.com/catacombing/kumo/assets/8886672/ccff7958-0745-4757-8450-bf1782c19c45" width="50%"/>
-</p>
+https://github.com/user-attachments/assets/97a5568d-9f30-4455-9f10-ee457499961f
 
 ## Installation
 

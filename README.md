@@ -9,6 +9,18 @@
   <br clear="align"/>
 </p>
 
+## Features
+
+Kumo is a UI written around Safari's WebKit browser engine, so they should be
+comparable in behavior and performance.
+
+The following noteworthy features are implemented:
+
+ - Built-in adblocker
+ - Whitelist-based cookie policy
+ - Shell-like URI completion
+ - Session recovery
+
 ## Demo
 
 https://github.com/user-attachments/assets/97a5568d-9f30-4455-9f10-ee457499961f

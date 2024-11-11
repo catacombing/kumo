@@ -1,6 +1,7 @@
 //! Browser window handling.
 
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
 use std::ops::Range;
@@ -26,9 +27,10 @@ use smithay_client_toolkit::shell::xdg::window::{
     Window as XdgWindow, WindowConfigure, WindowDecorations,
 };
 use smithay_client_toolkit::shell::WaylandSurface;
+use uuid::Uuid;
 
 use crate::engine::webkit::WebKitError;
-use crate::engine::{Engine, EngineId};
+use crate::engine::{Engine, EngineId, Group, GroupId, NO_GROUP, NO_GROUP_ID};
 use crate::storage::history::{History, HistoryMatch, MAX_MATCHES};
 use crate::storage::session::{Session, SessionRecord};
 use crate::storage::Storage;
@@ -69,7 +71,7 @@ impl WindowHandler for State {
             self.main_loop.quit();
         } else {
             // Delete session if this wasn't the last window.
-            self.storage.session.persist(removed.id, Vec::new());
+            self.storage.session.persist(removed.id, []);
         }
     }
 }
@@ -79,7 +81,8 @@ pub struct Window {
     id: WindowId,
 
     tabs: IndexMap<EngineId, Box<dyn Engine>>,
-    engine_state: Rc<WebKitState>,
+    groups: IndexMap<GroupId, Group>,
+    engine_state: Rc<RefCell<WebKitState>>,
     active_tab: EngineId,
 
     wayland_queue: QueueHandle<State>,
@@ -100,6 +103,7 @@ pub struct Window {
 
     history_menu_matches: SmallVec<[HistoryMatch; MAX_MATCHES]>,
     history_menu: Option<OptionMenuId>,
+    history: History,
 
     // Touch point position tracking.
     touch_points: HashMap<i32, Position<f64>>,
@@ -107,6 +111,8 @@ pub struct Window {
 
     fullscreen_request: Option<EngineId>,
     fullscreened: bool,
+
+    session_storage: Session,
 
     stalled: bool,
     closed: bool,
@@ -120,8 +126,8 @@ impl Window {
         egl_display: Display,
         queue: StQueueHandle<State>,
         wayland_queue: QueueHandle<State>,
-        history: History,
-        engine_state: Rc<WebKitState>,
+        storage: &Storage,
+        engine_state: Rc<RefCell<WebKitState>>,
     ) -> Result<Self, WebKitError> {
         let id = WindowId::new();
 
@@ -165,7 +171,7 @@ impl Window {
             ui_subsurface,
             ui_viewport,
             protocol_states.compositor.clone(),
-            history,
+            storage.history.clone(),
         );
 
         // Create engine backdrop.
@@ -187,10 +193,8 @@ impl Window {
         xdg.set_app_id("Kumo");
         xdg.commit();
 
-        let size = Size::new(DEFAULT_WIDTH, DEFAULT_HEIGHT);
-        let active_tab = EngineId::new(id);
-
         // Resize UI elements to the initial window size.
+        let size = Size::new(DEFAULT_WIDTH, DEFAULT_HEIGHT);
         engine_backdrop.set_size(size);
         overlay.set_size(size);
         ui.set_size(size);
@@ -202,13 +206,15 @@ impl Window {
             wayland_queue,
             engine_state,
             connection,
-            active_tab,
             overlay,
             queue,
             size,
             xdg,
             ui,
             id,
+            active_tab: EngineId::new(id, NO_GROUP_ID),
+            session_storage: storage.session.clone(),
+            history: storage.history.clone(),
             stalled: true,
             scale: 1.,
             initial_configure_done: Default::default(),
@@ -220,12 +226,13 @@ impl Window {
             text_input: Default::default(),
             fullscreened: Default::default(),
             closed: Default::default(),
+            groups: Default::default(),
             dirty: Default::default(),
             tabs: Default::default(),
         };
 
         // Create initial browser tab.
-        window.add_tab(true, true)?;
+        window.add_tab(true, true, NO_GROUP_ID)?;
 
         Ok(window)
     }
@@ -235,14 +242,14 @@ impl Window {
         self.id
     }
 
-    /// Get this window's tabs.
-    pub fn tabs(&self) -> &IndexMap<EngineId, Box<dyn Engine>> {
-        &self.tabs
+    /// Get a reference to a tab using its ID.
+    pub fn tab(&self, engine_id: EngineId) -> Option<&Box<dyn Engine>> {
+        self.tabs.get(&engine_id)
     }
 
-    /// Get mutable reference to this window's tabs.
-    pub fn tabs_mut(&mut self) -> &mut IndexMap<EngineId, Box<dyn Engine>> {
-        &mut self.tabs
+    /// Get a mutable reference to a tab using its ID.
+    pub fn tab_mut(&mut self, engine_id: EngineId) -> Option<&mut Box<dyn Engine>> {
+        self.tabs.get_mut(&engine_id)
     }
 
     /// Add a tab to the window.
@@ -250,10 +257,19 @@ impl Window {
         &mut self,
         focus_uribar: bool,
         switch_focus: bool,
+        group_id: GroupId,
     ) -> Result<EngineId, WebKitError> {
+        // Get the tab group for the new engine.
+        let group = self.groups.get(&group_id).unwrap_or(&NO_GROUP);
+
         // Create a new browser engine.
-        let engine_id = EngineId::new(self.id);
-        let engine = self.engine_state.create_engine(engine_id, self.engine_size(), self.scale)?;
+        let engine_id = EngineId::new(self.id, group.id());
+        let engine = self.engine_state.borrow_mut().create_engine(
+            group,
+            engine_id,
+            self.engine_size(),
+            self.scale,
+        )?;
 
         self.tabs.insert(engine_id, Box::new(engine));
 
@@ -279,16 +295,35 @@ impl Window {
         Ok(engine_id)
     }
 
-    /// Close a tabs.
-    pub fn close_tab(&mut self, session: &Session, engine_id: EngineId) {
+    /// Close a tab.
+    pub fn close_tab(&mut self, engine_id: EngineId) {
         // Remove engine and get the position it was in.
-        let index = match self.tabs.shift_remove_full(&engine_id) {
-            Some((index, ..)) => index,
+        let (index, group_id) = match self.tabs.shift_remove_full(&engine_id) {
+            Some((index, engine_id, _)) => (index, engine_id.group_id()),
             None => return,
         };
 
+        // Delete tab group if this was its last tab.
+        if group_id != NO_GROUP_ID
+            && self.tabs.values().all(|engine| engine.id().group_id() != group_id)
+        {
+            self.delete_tab_group(group_id);
+        }
+
         if engine_id == self.active_tab {
-            match self.tabs.get_index(index.saturating_sub(1)) {
+            // First search for previous and following tabs with matching tab group,
+            // otherwise fall back to the first tab.
+            let len = self.tabs.len();
+            let mut prev_tabs = self.tabs.iter().rev().skip(len - index);
+            let new_focus = prev_tabs
+                .find(|(engine_id, _)| engine_id.group_id() == group_id)
+                .or_else(|| {
+                    let mut next_tabs = self.tabs.iter().skip(index);
+                    next_tabs.find(|(engine_id, _)| engine_id.group_id() == group_id)
+                })
+                .or_else(|| self.tabs.first());
+
+            match new_focus {
                 // If the closed tab was active, switch to the first one.
                 Some((&engine_id, _)) => self.set_active_tab(engine_id),
                 // If there's no more tabs, close the window.
@@ -303,7 +338,7 @@ impl Window {
         self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
 
         // Update browser sessions.
-        self.persist_session(session);
+        self.persist_session();
 
         // Force tabs UI redraw.
         self.dirty = true;
@@ -427,7 +462,9 @@ impl Window {
 
         // Draw UI.
         if !overlay_opaque && !self.fullscreened {
-            let ui_rendered = self.ui.draw(self.tabs.len(), self.dirty);
+            let tab_group = self.overlay.tabs_mut().active_tab_group();
+            let tab_count = self.tabs.values().filter(|t| t.id().group_id() == tab_group).count();
+            let ui_rendered = self.ui.draw(tab_count, self.dirty);
             self.stalled &= !ui_rendered;
         }
 
@@ -847,7 +884,7 @@ impl Window {
     }
 
     /// Update an engine's URI.
-    pub fn set_engine_uri(&mut self, storage: &Storage, engine_id: EngineId, uri: String) {
+    pub fn set_engine_uri(&mut self, engine_id: EngineId, uri: String) {
         // Update UI if the URI change is for the active tab.
         if engine_id == self.active_tab {
             self.ui.set_uri(&uri);
@@ -861,19 +898,25 @@ impl Window {
         // Update tabs popup.
         self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
 
-        // Increment URI visit count for history.
-        storage.history.visit(uri);
+        let group = self.groups.get(&engine_id.group_id()).unwrap_or(&NO_GROUP);
+        if !group.ephemeral {
+            // Increment URI visit count for history.
+            self.history.visit(uri);
 
-        // Update browser session.
-        self.persist_session(&storage.session);
+            // Update browser session.
+            self.persist_session();
+        }
     }
 
     /// Update the window's browser session.
     ///
     /// This is used to recover the browser session when restarting Kumo.
-    pub fn persist_session(&self, session_storage: &Session) {
-        let session: Vec<_> = self.tabs.values().map(SessionRecord::from).collect();
-        session_storage.persist(self.id, session);
+    pub fn persist_session(&self) {
+        let session = self.tabs.iter().filter_map(|(engine_id, engine)| {
+            let group = self.groups.get(&engine_id.group_id()).unwrap_or(&NO_GROUP);
+            SessionRecord::new(engine, group)
+        });
+        self.session_storage.persist(self.id, session);
     }
 
     /// Update an engine's title.
@@ -1062,6 +1105,75 @@ impl Window {
         for (_, engine) in &mut self.tabs {
             engine.dmabuf_feedback(new_feedback);
         }
+    }
+
+    /// Cycle overview to the next tab group.
+    pub fn cycle_tab_group(&mut self, group_id: GroupId) {
+        // Get next group.
+        let mut groups = self.groups.iter();
+        let new_group = match groups.find(|(id, _)| **id == group_id) {
+            Some(_) => groups.next().map_or(&NO_GROUP, |(_, group)| group),
+            None => self.groups.first().map_or(&NO_GROUP, |(_, group)| group),
+        };
+
+        // Update group ID and refresh tabs list.
+        let tabs = self.overlay.tabs_mut();
+        tabs.set_active_tab_group(new_group);
+
+        self.unstall();
+    }
+
+    /// Set ephemeral mode of the active tab group.
+    pub fn set_ephemeral_mode(&mut self, group_id: GroupId, ephemeral: bool) {
+        let group = match self.groups.get_mut(&group_id) {
+            Some(group) => group,
+            None => return,
+        };
+
+        // Toggle ephemeral mode and update tabs view.
+        group.ephemeral = ephemeral;
+
+        // Update the tab overview if it is currently showing this group.
+        let tabs_ui = self.overlay.tabs_mut();
+        if tabs_ui.active_tab_group() == group_id {
+            tabs_ui.set_active_tab_group(group);
+            self.unstall();
+        }
+
+        // Ensure toggled group's session is immediately updated.
+        self.persist_session();
+    }
+
+    /// Create a new tab group.
+    ///
+    /// The group will not be recreated if the supplied UUID already exists.
+    pub fn create_tab_group(&mut self, uuid: Option<Uuid>) -> GroupId {
+        // Create a new persistent group.
+        let group = match uuid {
+            Some(uuid) => Group::with_uuid(uuid, false),
+            None => Group::new(false),
+        };
+
+        // Store new group if it doesn't exist yet.
+        let group_id = group.id();
+        if !self.groups.contains_key(&group_id) {
+            self.groups.insert(group_id, group);
+        }
+
+        // Switch the tabs view to the created group.
+        self.overlay.tabs_mut().set_active_tab_group(&group);
+
+        self.unstall();
+
+        group_id
+    }
+
+    /// Delete a tab group.
+    pub fn delete_tab_group(&mut self, group_id: GroupId) {
+        // Switch overview to the next available group.
+        self.cycle_tab_group(group_id);
+
+        self.groups.shift_remove(&group_id);
     }
 }
 

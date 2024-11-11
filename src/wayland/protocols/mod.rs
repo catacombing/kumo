@@ -719,7 +719,7 @@ impl DmabufHandler for State {
         }
 
         // Update globally shared feedback.
-        self.engine_state.dmabuf_feedback.replace(Some(feedback));
+        self.engine_state.borrow_mut().dmabuf_feedback.replace(Some(feedback));
     }
 
     fn created(

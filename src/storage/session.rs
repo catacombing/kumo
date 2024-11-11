@@ -1,13 +1,14 @@
 //! Browser session DB storage.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::process;
 use std::rc::Rc;
 
 use rusqlite::{params, Connection as SqliteConnection};
 use tracing::error;
+use uuid::Uuid;
 
-use crate::engine::Engine;
+use crate::engine::{Engine, Group};
 use crate::window::WindowId;
 
 /// Browser session storage.
@@ -28,7 +29,10 @@ impl Session {
 
     /// Update the browser session for a window.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    pub fn persist(&self, window_id: WindowId, session: Vec<SessionRecord>) {
+    pub fn persist<'a, S>(&self, window_id: WindowId, session: S)
+    where
+        S: IntoIterator<Item = SessionRecord<'a>>,
+    {
         let db = match &self.db {
             Some(db) => db,
             None => return,
@@ -45,7 +49,7 @@ impl Session {
     pub fn orphans(&self) -> Vec<SessionEntry> {
         let db = match &self.db {
             Some(db) => db,
-            None => return Vec::new(),
+            None => return Default::default(),
         };
 
         // Get all sessions from the DB.
@@ -84,6 +88,22 @@ impl Session {
             error!("Failed delete orphan sessions: {err}");
         }
     }
+
+    /// Get all known group IDs.
+    pub fn all_groups(&self) -> HashSet<Uuid> {
+        let db = match &self.db {
+            Some(db) => db,
+            None => return HashSet::new(),
+        };
+
+        match db.all_groups() {
+            Ok(groups) => groups,
+            Err(err) => {
+                error!("Failed load all groups: {err}");
+                HashSet::new()
+            },
+        }
+    }
 }
 
 /// DB for persisting session data.
@@ -100,6 +120,7 @@ impl SessionDb {
             "CREATE TABLE IF NOT EXISTS session (
                 pid INTEGER NOT NULL,
                 window_id INTEGER NOT NULL,
+                group_id BLOB NOT NULL,
                 data BLOB NOT NULL,
                 uri TEXT NOT NULL
             )",
@@ -110,12 +131,10 @@ impl SessionDb {
     }
 
     /// Update the active browser session for a window.
-    fn set_session(
-        &self,
-        pid: u32,
-        window_id: WindowId,
-        session: Vec<SessionRecord>,
-    ) -> rusqlite::Result<()> {
+    fn set_session<'a, S>(&self, pid: u32, window_id: WindowId, session: S) -> rusqlite::Result<()>
+    where
+        S: IntoIterator<Item = SessionRecord<'a>>,
+    {
         let tx = self.connection.unchecked_transaction()?;
 
         // Delete old session.
@@ -125,12 +144,15 @@ impl SessionDb {
         ])?;
 
         // Save current session.
-        if !session.is_empty() {
+        let mut session = session.into_iter().peekable();
+        if session.peek().is_some() {
             let mut stmt = tx.prepare(
-                "INSERT INTO session (pid, window_id, data, uri) VALUES (?1, ?2, ?3, ?4)",
+                "INSERT INTO session (pid, window_id, group_id, data, uri) VALUES (?1, ?2, ?3, \
+                 ?4, ?5)",
             )?;
             for entry in session {
-                stmt.execute(params![pid, window_id, entry.data, entry.uri])?;
+                let group_id = entry.group.id().uuid();
+                stmt.execute(params![pid, window_id, group_id, entry.data, entry.uri])?;
             }
         }
 
@@ -142,17 +164,21 @@ impl SessionDb {
     /// Get all browser sessions,
     fn sessions(&self) -> rusqlite::Result<Vec<SessionEntry>> {
         let mut statement =
-            self.connection.prepare("SELECT pid, window_id, data, uri FROM session")?;
+            self.connection.prepare("SELECT pid, window_id, group_id, data, uri FROM session")?;
+
         let sessions = statement
             .query_map([], |row| {
                 let pid: u32 = row.get(0)?;
                 let window_id: usize = row.get(1)?;
-                let session_data: Vec<u8> = row.get(2)?;
-                let uri: String = row.get(3)?;
-                Ok(SessionEntry { pid, window_id, session_data, uri })
+                let group_id: Uuid = row.get(2)?;
+                let session_data: Vec<u8> = row.get(3)?;
+                let uri: String = row.get(4)?;
+
+                Ok(SessionEntry { pid, window_id, group_id, session_data, uri })
             })?
             .flatten()
             .collect();
+
         Ok(sessions)
     }
 
@@ -164,25 +190,41 @@ impl SessionDb {
         }
         Ok(())
     }
+
+    /// Get group IDs for all PIDs and windows.
+    fn all_groups(&self) -> rusqlite::Result<HashSet<Uuid>> {
+        let mut statement = self.connection.prepare("SELECT group_id FROM session")?;
+
+        let groups = statement.query_map([], |row| row.get(0))?.flatten().collect();
+
+        Ok(groups)
+    }
 }
 
-/// Browser history session entry.
+/// Database browser history session entry.
 #[derive(Debug)]
 pub struct SessionEntry {
     pub pid: u32,
     pub window_id: usize,
+    pub group_id: Uuid,
     pub session_data: Vec<u8>,
     pub uri: String,
 }
 
 /// Object for writing sessions to the DB.
-pub struct SessionRecord {
+pub struct SessionRecord<'a> {
+    pub group: &'a Group,
     pub data: Vec<u8>,
     pub uri: String,
 }
 
-impl From<&Box<dyn Engine>> for SessionRecord {
-    fn from(engine: &Box<dyn Engine>) -> Self {
-        Self { data: engine.session(), uri: engine.uri() }
+impl<'a> SessionRecord<'a> {
+    pub fn new(engine: &Box<dyn Engine>, group: &'a Group) -> Option<Self> {
+        // Never persist ephemeral tab groups.
+        if group.ephemeral {
+            return None;
+        }
+
+        Some(Self { group, data: engine.session(), uri: engine.uri() })
     }
 }

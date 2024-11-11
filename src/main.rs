@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
@@ -29,6 +30,7 @@ use tracing::info;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::engine::webkit::{WebKitError, WebKitState};
+use crate::engine::{GroupId, NO_GROUP_ID};
 use crate::storage::history::History;
 use crate::storage::Storage;
 use crate::wayland::protocols::{KeyRepeat, ProtocolStates, TextInput};
@@ -87,15 +89,16 @@ fn main() -> Result<(), Error> {
 
     // Create an empty tab for loading a new page.
     let mut is_first_tab = true;
-    let get_empty_tab = |window: &mut Window, is_first_tab: &mut bool| -> Result<_, Error> {
-        if *is_first_tab {
-            window.set_keyboard_focus(KeyboardFocus::None);
-            *is_first_tab = false;
-            Ok(window.active_tab())
-        } else {
-            Ok(window.add_tab(false, true)?)
-        }
-    };
+    let get_empty_tab =
+        |window: &mut Window, is_first_tab: &mut bool, group_id: GroupId| -> Result<_, Error> {
+            if *is_first_tab && group_id == NO_GROUP_ID {
+                window.set_keyboard_focus(KeyboardFocus::None);
+                *is_first_tab = false;
+                Ok(window.active_tab())
+            } else {
+                Ok(window.add_tab(false, true, group_id)?)
+            }
+        };
 
     // Get all sessions requiring restoration, sorted by PID and window ID.
     let mut orphan_sessions = state.storage.session.orphans();
@@ -122,9 +125,16 @@ fn main() -> Result<(), Error> {
             session_pid = Some(entry.pid);
         }
 
+        // Recreate tab groups.
+        let group_id = if entry.group_id == NO_GROUP_ID.uuid() {
+            NO_GROUP_ID
+        } else {
+            window.create_tab_group(Some(entry.group_id))
+        };
+
         // Restore the session in a new empty tab.
-        let engine_id = get_empty_tab(window, &mut is_first_tab)?;
-        if let Some(engine) = window.tabs().get(&engine_id) {
+        let engine_id = get_empty_tab(window, &mut is_first_tab, group_id)?;
+        if let Some(engine) = window.tab(engine_id) {
             engine.restore_session(mem::take(&mut entry.session_data));
             engine.load_uri(&entry.uri);
         }
@@ -136,14 +146,14 @@ fn main() -> Result<(), Error> {
     // once the page is loaded, however we explicitly sync here to avoid session
     // loss due to a racing condition.
     for window in state.windows.values() {
-        window.persist_session(&state.storage.session);
+        window.persist_session();
     }
     state.storage.session.delete_orphans(orphan_sessions.iter().map(|s| s.pid));
 
     // Spawn a new tab for every CLI argument.
     let window = state.windows.get_mut(&window_id).unwrap();
     for arg in env::args().skip(1) {
-        get_empty_tab(window, &mut is_first_tab)?;
+        get_empty_tab(window, &mut is_first_tab, NO_GROUP_ID)?;
         window.load_uri(arg, true);
     }
 
@@ -186,7 +196,7 @@ pub struct State {
     keyboard_focus: Option<WindowId>,
     touch_focus: Option<(WindowId, WlSurface)>,
 
-    engine_state: Rc<WebKitState>,
+    engine_state: Rc<RefCell<WebKitState>>,
 
     storage: Storage,
 
@@ -208,11 +218,13 @@ impl State {
 
         let storage = Storage::new()?;
 
-        let engine_state = Rc::new(WebKitState::new(
+        let all_groups = storage.session.all_groups();
+        let engine_state = Rc::new(RefCell::new(WebKitState::new(
             egl_display.clone(),
             queue.clone(),
             storage.cookie_whitelist.clone(),
-        ));
+            &all_groups,
+        )));
 
         Ok(Self {
             protocol_states,
@@ -244,7 +256,7 @@ impl State {
             self.egl_display.clone(),
             self.queue.clone(),
             self.wayland_queue(),
-            self.storage.history.clone(),
+            &self.storage,
             self.engine_state.clone(),
         )?;
         let window_id = window.id();

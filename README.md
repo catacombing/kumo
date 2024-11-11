@@ -20,6 +20,7 @@ The following noteworthy features are implemented:
  - Whitelist-based cookie policy
  - Shell-like URI completion
  - Session recovery
+ - Tab groups
 
 ## Demo
 

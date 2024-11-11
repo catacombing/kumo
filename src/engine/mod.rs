@@ -6,6 +6,7 @@ use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::protocol::wl_region::WlRegion;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
+use uuid::Uuid;
 
 use crate::ui::overlay::option_menu::OptionMenuId;
 use crate::window::TextInputChange;
@@ -15,6 +16,10 @@ pub mod webkit;
 
 /// Default engine background color.
 pub const BG: [f64; 3] = [0.1, 0.1, 0.1];
+
+// Constants for the default tab group.
+pub const NO_GROUP: Group = Group::none();
+pub const NO_GROUP_ID: GroupId = NO_GROUP.id();
 
 pub trait Engine {
     /// Get the engine's unique ID.
@@ -150,18 +155,75 @@ pub trait Engine {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EngineId {
     window_id: WindowId,
+    group_id: GroupId,
     id: usize,
 }
 
 impl EngineId {
-    pub fn new(window_id: WindowId) -> Self {
+    pub fn new(window_id: WindowId, group_id: GroupId) -> Self {
         static NEXT_ENGINE_ID: AtomicUsize = AtomicUsize::new(0);
         let id = NEXT_ENGINE_ID.fetch_add(1, Ordering::Relaxed);
-        Self { id, window_id }
+        Self { window_id, group_id, id }
     }
 
     /// Get the engine's window.
     pub fn window_id(&self) -> WindowId {
         self.window_id
+    }
+
+    /// Get the engine's tab group.
+    pub fn group_id(&self) -> GroupId {
+        self.group_id
+    }
+}
+
+/// Tab group, for engine context sharing.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Group {
+    /// Globally unique group ID.
+    id: GroupId,
+
+    /// Whether data for this group should be persisted.
+    pub ephemeral: bool,
+}
+
+impl Group {
+    /// Create a new tab group.
+    pub fn new(ephemeral: bool) -> Self {
+        Self { id: GroupId(Uuid::new_v4()), ephemeral }
+    }
+
+    /// Create a tab group with a fixed UUID.
+    ///
+    /// Two different tab groups must never be created with the same UUID.
+    pub fn with_uuid(uuid: Uuid, ephemeral: bool) -> Self {
+        Self { id: GroupId(uuid), ephemeral }
+    }
+
+    /// Get the default tab group.
+    pub const fn none() -> Self {
+        Self { id: GroupId(Uuid::nil()), ephemeral: false }
+    }
+
+    /// Get this group's ID.
+    pub const fn id(&self) -> GroupId {
+        self.id
+    }
+}
+
+/// Unique identifier for a tab group.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct GroupId(Uuid);
+
+impl GroupId {
+    /// Get the raw group UUID value.
+    pub fn uuid(&self) -> Uuid {
+        self.0
+    }
+}
+
+impl Default for GroupId {
+    fn default() -> Self {
+        NO_GROUP_ID
     }
 }

@@ -8,17 +8,20 @@ use std::sync::OnceLock;
 use std::{cmp, mem, ptr};
 
 use dashmap::DashMap;
+use gio::{Cancellable, File, MemoryInputStream};
+use glib::Bytes;
 use glutin::config::{Api, ConfigTemplateBuilder};
 use glutin::context::{ContextApi, ContextAttributesBuilder, PossiblyCurrentContext, Version};
 use glutin::display::Display;
 use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, SwapInterval, WindowSurface};
-use pangocairo::cairo::{Context, Format, ImageSurface};
+use pangocairo::cairo::{Context, Format, ImageSurface, Rectangle};
 use pangocairo::pango::{
     AttrColor, AttrInt, AttrList, EllipsizeMode, FontDescription, Layout, Underline,
     SCALE as PANGO_SCALE,
 };
 use raw_window_handle::{RawWindowHandle, WaylandWindowHandle};
+use rsvg::{CairoRenderer, Loader};
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::Proxy;
 
@@ -521,6 +524,16 @@ impl TextureBuilder {
         }
     }
 
+    /// Draw text within the specified bounds.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn rasterize_svg(&self, svg: Svg, x: f64, y: f64, width: f64, height: f64) {
+        let stream = MemoryInputStream::from_bytes(&Bytes::from_static(svg.content()));
+        let handle =
+            Loader::new().read_stream(&stream, None::<&File>, None::<&Cancellable>).unwrap();
+        let renderer = CairoRenderer::new(&handle);
+        renderer.render_document(&self.context, &Rectangle::new(x, y, width, height)).unwrap();
+    }
+
     /// Get the underlying Cairo context for direct drawing.
     pub fn context(&self) -> &Context {
         &self.context
@@ -697,5 +710,24 @@ impl Deref for TextLayout {
 
     fn deref(&self) -> &Self::Target {
         &self.layout
+    }
+}
+
+/// Available SVG images.
+#[derive(Copy, Clone)]
+pub enum Svg {
+    ArrowLeft,
+    PersistentOff,
+    PersistentOn,
+}
+
+impl Svg {
+    /// Get SVG's text content.
+    const fn content(&self) -> &'static [u8] {
+        match self {
+            Self::ArrowLeft => include_bytes!("../../svgs/arrow_left.svg"),
+            Self::PersistentOff => include_bytes!("../../svgs/persistent_off.svg"),
+            Self::PersistentOn => include_bytes!("../../svgs/persistent_on.svg"),
+        }
     }
 }

@@ -66,7 +66,7 @@ impl OptionMenuHandler for State {
         };
 
         // Submit for the engine.
-        let engine = match window.tabs_mut().get_mut(&engine_id) {
+        let engine = match window.tab_mut(engine_id) {
             Some(engine) => engine,
             None => return,
         };

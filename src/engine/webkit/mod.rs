@@ -3,8 +3,11 @@
 use std::any::Any;
 use std::borrow::Cow;
 use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::ops::Deref;
 use std::os::fd::BorrowedFd;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use _dmabuf::zwp_linux_buffer_params_v1::Flags as DmabufFlags;
@@ -23,6 +26,7 @@ use smithay_client_toolkit::reexports::protocols::wp::linux_dmabuf::zv1::client 
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
 use tracing::{error, trace, warn};
+use uuid::Uuid;
 use wpe_platform::ffi::WPERectangle;
 use wpe_platform::{Buffer, BufferDMABuf, BufferExt, BufferSHM, EventType};
 use wpe_webkit::{
@@ -32,11 +36,11 @@ use wpe_webkit::{
 };
 
 use crate::engine::webkit::platform::WebKitDisplay;
-use crate::engine::{Engine, EngineId, BG};
+use crate::engine::{Engine, EngineId, Group, GroupId, BG};
 use crate::storage::cookie_whitelist::CookieWhitelist;
 use crate::ui::overlay::option_menu::{Anchor, OptionMenuId, OptionMenuItem, OptionMenuPosition};
 use crate::window::TextInputChange;
-use crate::{KeyboardFocus, Position, Size, State, WindowId};
+use crate::{KeyboardFocus, Position, Size, State};
 
 mod input_method_context;
 mod platform;
@@ -83,7 +87,7 @@ trait WebKitHandler {
     fn set_fullscreen(&mut self, engine_id: EngineId, enable: bool);
 
     /// Open URI in a new tab.
-    fn open_in_tab(&mut self, window_id: WindowId, uri: String);
+    fn open_in_tab(&mut self, engine_id: EngineId, uri: String);
 
     /// Open URI in a new window.
     fn open_in_window(&mut self, uri: String);
@@ -110,7 +114,7 @@ impl WebKitHandler for State {
             Some(window) => window,
             None => return,
         };
-        let engine = match window.tabs_mut().get_mut(&engine_id) {
+        let engine = match window.tab_mut(engine_id) {
             Some(engine) => engine,
             None => return,
         };
@@ -149,7 +153,7 @@ impl WebKitHandler for State {
             Some(window) => window,
             None => return,
         };
-        let engine = match window.tabs_mut().get_mut(&engine_id) {
+        let engine = match window.tab_mut(engine_id) {
             Some(engine) => engine,
             None => return,
         };
@@ -184,7 +188,7 @@ impl WebKitHandler for State {
         let window_id = engine_id.window_id();
 
         if let Some(window) = self.windows.get_mut(&window_id) {
-            window.set_engine_uri(&self.storage, engine_id, uri);
+            window.set_engine_uri(engine_id, uri);
         }
     }
 
@@ -201,7 +205,7 @@ impl WebKitHandler for State {
             Some(window) => window,
             None => return,
         };
-        let engine = match window.tabs_mut().get_mut(&engine_id) {
+        let engine = match window.tab_mut(engine_id) {
             Some(engine) => engine,
             None => return,
         };
@@ -262,7 +266,7 @@ impl WebKitHandler for State {
             Some(engine_id) => engine_id,
             None => return,
         };
-        let engine = match window.tabs_mut().get_mut(&engine_id) {
+        let engine = match window.tab_mut(engine_id) {
             Some(engine) => engine,
             None => return,
         };
@@ -285,15 +289,14 @@ impl WebKitHandler for State {
         }
     }
 
-    fn open_in_tab(&mut self, window_id: WindowId, uri: String) {
-        let window = match self.windows.get_mut(&window_id) {
+    fn open_in_tab(&mut self, engine_id: EngineId, uri: String) {
+        let window = match self.windows.get_mut(&engine_id.window_id()) {
             Some(window) => window,
             None => return,
         };
 
-        if let Some(engine) =
-            window.add_tab(false, false).ok().and_then(|id| window.tabs().get(&id))
-        {
+        let tab_id = window.add_tab(false, false, engine_id.group_id()).ok();
+        if let Some(engine) = tab_id.and_then(|id| window.tab(id)) {
             engine.load_uri(&uri);
         }
     }
@@ -305,7 +308,7 @@ impl WebKitHandler for State {
         };
 
         window.set_keyboard_focus(KeyboardFocus::None);
-        if let Some(engine) = window.tabs().get(&window.active_tab()) {
+        if let Some(engine) = window.tab(window.active_tab()) {
             engine.load_uri(&uri);
         }
     }
@@ -327,8 +330,8 @@ impl WebKitHandler for State {
 pub struct WebKitState {
     pub dmabuf_feedback: Rc<RefCell<Option<DmabufFeedback>>>,
 
+    network_sessions: HashMap<GroupId, NetworkSession>,
     cookie_whitelist: CookieWhitelist,
-    network_session: NetworkSession,
     queue: StQueueHandle<State>,
     display: Display,
 }
@@ -339,26 +342,56 @@ impl WebKitState {
         display: Display,
         queue: StQueueHandle<State>,
         cookie_whitelist: CookieWhitelist,
+        all_groups: &HashSet<Uuid>,
     ) -> Self {
-        let network_session =
-            xdg_network_session(&cookie_whitelist).unwrap_or_else(NetworkSession::new_ephemeral);
+        // Delete unused persistent data from the filesystem.
+        //
+        // This is also responsible for deleting previous ephemeral sessions.
+        let cache_dir = cache_dir().map(|dir| dir.join("groups"));
+        let data_dir = data_dir().map(|dir| dir.join("groups"));
+        for base_dir in [cache_dir, data_dir].iter().flatten() {
+            for entry in fs::read_dir(base_dir).into_iter().flatten().flatten() {
+                let file_name = entry.file_name();
+                let file_name = match file_name.to_str() {
+                    Some(file_name) => file_name,
+                    None => continue,
+                };
+
+                // Delete directory if it doesn't match any existing group UUID.
+                if Uuid::parse_str(file_name).map_or(false, |uuid| !all_groups.contains(&uuid)) {
+                    let path = entry.path();
+                    match fs::remove_dir_all(&path) {
+                        Ok(_) => trace!("successfully removed unused group dir {path:?}"),
+                        Err(err) => error!("failed removing unused group dir {path:?}: {err}"),
+                    }
+                }
+            }
+        }
 
         Self {
             cookie_whitelist,
-            network_session,
             display,
             queue,
+            network_sessions: Default::default(),
             dmabuf_feedback: Default::default(),
         }
     }
 
     /// Create a new WebKit engine from this state.
     pub fn create_engine(
-        &self,
+        &mut self,
+        group: &Group,
         engine_id: EngineId,
         size: Size,
         scale: f64,
     ) -> Result<WebKitEngine, WebKitError> {
+        // Create a new network session for this group if necessary.
+        let group_id = engine_id.group_id();
+        let network_session = self.network_sessions.entry(group_id).or_insert_with(|| {
+            xdg_network_session(&self.cookie_whitelist, group.id().uuid())
+                .unwrap_or_else(NetworkSession::new_ephemeral)
+        });
+
         // Get the DRM render node.
         let Display::Egl(egl_display) = &self.display;
         let device = egl_display.device().expect("get DRM device");
@@ -375,10 +408,8 @@ impl WebKitState {
         );
 
         // Create web view with initial blank page.
-        let web_view = WebView::builder()
-            .network_session(&self.network_session)
-            .display(&webkit_display)
-            .build();
+        let web_view =
+            WebView::builder().network_session(network_session).display(&webkit_display).build();
 
         // Set browser background color.
         let mut color = Color::new(BG[0], BG[1], BG[2], 1.);
@@ -772,11 +803,15 @@ impl Engine for WebKitEngine {
 
 /// Get WebKit network session using XDG-based backing storage.
 #[cfg_attr(feature = "profiling", profiling::function)]
-fn xdg_network_session(cookie_whitelist: &CookieWhitelist) -> Option<NetworkSession> {
+fn xdg_network_session(
+    cookie_whitelist: &CookieWhitelist,
+    group_id: Uuid,
+) -> Option<NetworkSession> {
     // Create the network session using kumo-suffixed XDG directories.
-    let data_dir = dirs::data_dir()?.join("kumo/default");
-    let cache_dir = dirs::cache_dir()?.join("kumo/default");
-    let network_session = NetworkSession::new(Some(data_dir.to_str()?), Some(cache_dir.to_str()?));
+    let group_id = group_id.to_string();
+    let cache_dir = cache_dir()?.join("groups").join(&group_id);
+    let data_dir = data_dir()?.join("groups").join(&group_id);
+    let network_session = NetworkSession::new(Some(cache_dir.to_str()?), Some(data_dir.to_str()?));
 
     // Setup SQLite cookie storage in xdg data dir.
     let cookie_manager = network_session.cookie_manager()?;
@@ -807,8 +842,8 @@ fn xdg_network_session(cookie_whitelist: &CookieWhitelist) -> Option<NetworkSess
 /// Load the content filter for adblocking.
 fn load_adblock(web_view: WebView) {
     // Initialize content filter cache at the default user data directory.
-    let filter_dir = match dirs::data_dir() {
-        Some(data_dir) => data_dir.join("kumo/default/content_filters"),
+    let filter_dir = match data_dir() {
+        Some(data_dir) => data_dir.join("content_filters"),
         None => {
             warn!("Missing user data directory, skipping adblock setup");
             return;
@@ -1071,8 +1106,7 @@ impl ContextMenu {
             Some(ContextMenuItem::Reload) => engine.web_view.reload(),
             Some(ContextMenuItem::OpenInNewTab) => {
                 if let Some(uri) = self.uri() {
-                    let window_id = engine.id.window_id();
-                    engine.queue.open_in_tab(window_id, uri);
+                    engine.queue.open_in_tab(engine.id, uri);
                 }
             },
             Some(ContextMenuItem::OpenInNewWindow) => {
@@ -1125,4 +1159,14 @@ impl ContextMenuItem {
             Self::CopyLink => "Copy Link",
         }
     }
+}
+
+/// Get base data directory.
+fn data_dir() -> Option<PathBuf> {
+    Some(dirs::data_dir()?.join("kumo/default"))
+}
+
+/// Get base cache directory.
+fn cache_dir() -> Option<PathBuf> {
+    Some(dirs::cache_dir()?.join("kumo/default"))
 }

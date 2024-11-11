@@ -24,7 +24,7 @@ The following noteworthy features are implemented:
 
 ## Demo
 
-https://github.com/user-attachments/assets/97a5568d-9f30-4455-9f10-ee457499961f
+https://github.com/user-attachments/assets/0eb3879c-d3d7-4ebb-bc44-61dbd9a588fd
 
 ## Installation
 

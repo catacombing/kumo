@@ -77,6 +77,7 @@ impl TabsHandler for State {
         };
 
         let _ = window.add_tab(true, true, group_id);
+        window.set_tabs_ui_visibility(false);
     }
 
     fn set_active_tab(&mut self, engine_id: EngineId) {
@@ -86,6 +87,7 @@ impl TabsHandler for State {
         };
 
         window.set_active_tab(engine_id);
+        window.set_tabs_ui_visibility(false);
     }
 
     fn close_tab(&mut self, engine_id: EngineId) {
@@ -598,7 +600,6 @@ impl Popup for Tabs {
                 let position = self.touch_state.position;
 
                 if rect_contains(new_tab_button_position, new_tab_button_size, position) {
-                    self.set_visible(false);
                     self.queue.add_tab(self.window_id, self.active_tab_group);
                 }
             },
@@ -610,7 +611,6 @@ impl Popup for Tabs {
                     if close {
                         self.queue.close_tab(engine);
                     } else {
-                        self.set_visible(false);
                         self.queue.set_active_tab(engine);
                     }
                 }

@@ -114,9 +114,9 @@ pub struct Window {
 
     session_storage: Session,
 
+    last_rendered_engine: Option<EngineId>,
     stalled: bool,
     closed: bool,
-    dirty: bool,
 }
 
 impl Window {
@@ -219,6 +219,7 @@ impl Window {
             scale: 1.,
             initial_configure_done: Default::default(),
             history_menu_matches: Default::default(),
+            last_rendered_engine: Default::default(),
             fullscreen_request: Default::default(),
             keyboard_focus: Default::default(),
             history_menu: Default::default(),
@@ -227,7 +228,6 @@ impl Window {
             fullscreened: Default::default(),
             closed: Default::default(),
             groups: Default::default(),
-            dirty: Default::default(),
             tabs: Default::default(),
         };
 
@@ -341,7 +341,6 @@ impl Window {
         self.persist_session();
 
         // Force tabs UI redraw.
-        self.dirty = true;
         self.unstall();
     }
 
@@ -420,7 +419,7 @@ impl Window {
                     self.engine_viewport.set_destination(dst_width, dst_height);
 
                     // Render buffer if it requires a redraw.
-                    if engine.dirty() || self.dirty {
+                    if engine.dirty() || self.last_rendered_engine != Some(self.active_tab) {
                         // Update opaque region.
                         self.engine_surface.set_opaque_region(engine.opaque_region());
 
@@ -439,6 +438,7 @@ impl Window {
                         // Request new engine frame.
                         engine.frame_done();
 
+                        self.last_rendered_engine = Some(self.active_tab);
                         self.stalled = false;
                     }
                 },
@@ -464,7 +464,7 @@ impl Window {
         if !overlay_opaque && !self.fullscreened {
             let tab_group = self.overlay.tabs_mut().active_tab_group();
             let tab_count = self.tabs.values().filter(|t| t.id().group_id() == tab_group).count();
-            let ui_rendered = self.ui.draw(tab_count, self.dirty);
+            let ui_rendered = self.ui.draw(tab_count);
             self.stalled &= !ui_rendered;
         }
 
@@ -494,9 +494,6 @@ impl Window {
 
         // Submit the new frame.
         surface.commit();
-
-        // Clear global force-redraw flag.
-        self.dirty = false;
     }
 
     /// Unstall the renderer.
@@ -931,10 +928,13 @@ impl Window {
         }
     }
 
-    /// Open the tabs UI.
-    pub fn show_tabs_ui(&mut self) {
-        self.overlay.tabs_mut().set_visible(true);
-        self.set_keyboard_focus(KeyboardFocus::None);
+    /// Open or close the tabs UI.
+    pub fn set_tabs_ui_visibility(&mut self, visible: bool) {
+        self.overlay.tabs_mut().set_visible(visible);
+
+        if visible {
+            self.set_keyboard_focus(KeyboardFocus::None);
+        }
     }
 
     /// Create a new dropdown popup.

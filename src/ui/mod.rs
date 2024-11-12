@@ -76,7 +76,7 @@ pub trait UiHandler {
     fn load_prev(&mut self, window: WindowId);
 
     /// Open tabs UI.
-    fn show_tabs(&mut self, window: WindowId);
+    fn show_tabs_ui(&mut self, window: WindowId);
 
     /// Show history suggestions popup.
     fn open_history_menu(
@@ -104,12 +104,12 @@ impl UiHandler for State {
         }
     }
 
-    fn show_tabs(&mut self, window_id: WindowId) {
+    fn show_tabs_ui(&mut self, window_id: WindowId) {
         let window = match self.windows.get_mut(&window_id) {
             Some(window) => window,
             None => return,
         };
-        window.show_tabs_ui();
+        window.set_tabs_ui_visibility(true);
         window.unstall();
     }
 
@@ -234,10 +234,10 @@ impl Ui {
     ///
     /// Returns `true` if rendering was performed.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    pub fn draw(&mut self, tab_count: usize, force_redraw: bool) -> bool {
+    pub fn draw(&mut self, tab_count: usize) -> bool {
         // Abort early if UI is up to date.
         let dirty = self.dirty();
-        if !dirty && !force_redraw && self.last_tab_count == tab_count {
+        if !dirty && self.last_tab_count == tab_count {
             return false;
         }
         self.last_tab_count = tab_count;
@@ -386,7 +386,7 @@ impl Ui {
                 let uribar_x = self.uribar_position().x as f64;
                 let uribar_width = self.uribar_size().width as f64;
                 if position.x > uribar_x + uribar_width {
-                    self.queue.show_tabs(self.window_id);
+                    self.queue.show_tabs_ui(self.window_id);
                 }
             },
             TouchFocusElement::PrevButton(position) => {

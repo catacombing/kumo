@@ -243,6 +243,7 @@ impl Window {
     }
 
     /// Get a reference to a tab using its ID.
+    #[allow(clippy::borrowed_box)]
     pub fn tab(&self, engine_id: EngineId) -> Option<&Box<dyn Engine>> {
         self.tabs.get(&engine_id)
     }

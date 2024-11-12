@@ -104,7 +104,14 @@ impl History {
             .filter(|(uri, _)| uri.autocomplete(&input_uri))
             .max_by_key(|(_, entry)| entry.views)?;
 
-        Some(uri.to_string(!input_uri.scheme.is_empty()))
+        let mut uri_str = uri.to_string(!input_uri.scheme.is_empty());
+
+        // Add trailing slash for base-only URIs, to help future autocompletions.
+        if uri.path.is_empty() {
+            uri_str.push('/');
+        }
+
+        Some(uri_str)
     }
 
     /// Get history matches for the input in ascending relevance.
@@ -225,7 +232,7 @@ pub struct HistoryMatch {
 }
 
 /// Single entry in the browser history.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct HistoryEntry {
     pub title: String,
     pub views: u32,
@@ -318,11 +325,6 @@ impl HistoryUri {
         }
 
         uri.push_str(&self.base);
-
-        // Add trailing slash if it's only the base.
-        if self.path.is_empty() {
-            uri.push('/');
-        }
 
         for segment in &self.path {
             uri.push('/');

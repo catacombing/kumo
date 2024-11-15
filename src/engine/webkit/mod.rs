@@ -32,7 +32,7 @@ use wpe_platform::{Buffer, BufferDMABuf, BufferExt, BufferSHM, EventType};
 use wpe_webkit::{
     Color, CookieAcceptPolicy, CookiePersistentStorage, HitTestResult, HitTestResultContext,
     NetworkSession, OptionMenu, OptionMenuItem as WebKitOptionMenuItem, UserContentFilterStore,
-    WebView, WebViewExt, WebViewSessionState,
+    WebView, WebViewExt, WebViewSessionState, WebsiteDataManagerExtManual, WebsiteDataTypes,
 };
 
 use crate::engine::webkit::platform::WebKitDisplay;
@@ -821,18 +821,24 @@ fn xdg_network_session(
     // Prohibit third-party cookies.
     cookie_manager.set_accept_policy(CookieAcceptPolicy::NoThirdParty);
 
-    // Delete all non-whitelisted cookies on startup.
+    // Delete all persistent data for websites without cookie exception.
     let whitelisted = cookie_whitelist.hosts();
-    cookie_manager.clone().all_cookies(None::<&Cancellable>, move |cookies| {
-        let mut cookies = match cookies {
-            Ok(cookies) => cookies,
+    let website_data_manager = network_session.website_data_manager().unwrap();
+    website_data_manager.clone().fetch(WebsiteDataTypes::ALL, None::<&Cancellable>, move |data| {
+        let mut data = match data {
+            Ok(data) => data,
             Err(_) => return,
         };
 
-        for cookie in &mut cookies {
-            if !whitelisted.iter().any(|host| cookie.domain_matches(host)) {
-                cookie_manager.delete_cookie(cookie, None::<&Cancellable>, |_| {});
-            }
+        // Filter data to only include domains which aren't whitelisted.
+        data.retain(|data| {
+            data.name().map_or(false, |domain| whitelisted.iter().all(|host| host != &domain))
+        });
+
+        // Remove all non-whitelisted data.
+        if !data.is_empty() {
+            let data: Vec<_> = data.iter().collect();
+            website_data_manager.remove(WebsiteDataTypes::ALL, &data, None::<&Cancellable>, |_| {});
         }
     });
 

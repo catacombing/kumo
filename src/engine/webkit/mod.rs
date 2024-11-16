@@ -15,7 +15,7 @@ use funq::StQueueHandle;
 use gio::Cancellable;
 use glib::object::{Cast, ObjectExt};
 use glib::prelude::*;
-use glib::{Bytes, GString, Uri, UriFlags};
+use glib::{Bytes, GString, TimeSpan, Uri, UriFlags};
 use glutin::display::Display;
 use smithay_client_toolkit::compositor::Region;
 use smithay_client_toolkit::dmabuf::{DmabufFeedback, DmabufState};
@@ -53,6 +53,9 @@ const ADBLOCK_FILTER_ID: &str = "adblock";
 /// If the number of buffers pending release exceeds this number,
 /// then the oldest buffer is automatically assumed to be released.
 const MAX_PENDING_BUFFERS: usize = 3;
+
+/// Maximum number of days before website content disk caches will be cleared.
+const MAX_DISK_CACHE_DAYS: i64 = 30;
 
 /// WebKit-specific errors.
 #[derive(thiserror::Error, Debug)]
@@ -822,9 +825,11 @@ fn xdg_network_session(
     cookie_manager.set_accept_policy(CookieAcceptPolicy::NoThirdParty);
 
     // Delete all persistent data for websites without cookie exception.
+    let persistent_types = WebsiteDataTypes::ALL & !WebsiteDataTypes::DISK_CACHE;
     let whitelisted = cookie_whitelist.hosts();
     let website_data_manager = network_session.website_data_manager().unwrap();
-    website_data_manager.clone().fetch(WebsiteDataTypes::ALL, None::<&Cancellable>, move |data| {
+    let disk_cache_data_manager = website_data_manager.clone();
+    website_data_manager.clone().fetch(persistent_types, None::<&Cancellable>, move |data| {
         let mut data = match data {
             Ok(data) => data,
             Err(_) => return,
@@ -838,9 +843,17 @@ fn xdg_network_session(
         // Remove all non-whitelisted data.
         if !data.is_empty() {
             let data: Vec<_> = data.iter().collect();
-            website_data_manager.remove(WebsiteDataTypes::ALL, &data, None::<&Cancellable>, |_| {});
+            website_data_manager.remove(persistent_types, &data, None::<&Cancellable>, |_| {});
         }
     });
+
+    // Separately clear disk caches after a certain age.
+    disk_cache_data_manager.clear(
+        WebsiteDataTypes::DISK_CACHE,
+        TimeSpan::from_days(MAX_DISK_CACHE_DAYS),
+        None::<&Cancellable>,
+        |_| {},
+    );
 
     Some(network_session)
 }

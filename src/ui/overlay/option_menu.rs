@@ -306,7 +306,7 @@ impl OptionMenu {
         for (i, item) in self.items.iter().enumerate() {
             y_end += item.height() as f64;
             if position.y < y_end {
-                return Some(i);
+                return (!item.disabled).then_some(i);
             }
         }
 

@@ -30,7 +30,7 @@ use tracing::info;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::engine::webkit::{WebKitError, WebKitState};
-use crate::engine::{GroupId, NO_GROUP_ID};
+use crate::engine::{Group, GroupId, NO_GROUP_ID};
 use crate::storage::history::History;
 use crate::storage::Storage;
 use crate::wayland::protocols::{KeyRepeat, ProtocolStates, TextInput};
@@ -129,7 +129,10 @@ fn main() -> Result<(), Error> {
         let group_id = if entry.group_id == NO_GROUP_ID.uuid() {
             NO_GROUP_ID
         } else {
-            window.create_tab_group(Some(entry.group_id))
+            let db_group = state.storage.groups.group_by_id(entry.group_id);
+            let group =
+                db_group.unwrap_or_else(|| Group::with_uuid(entry.group_id, "-".into(), false));
+            window.create_tab_group(Some(group))
         };
 
         // Restore the session in a new empty tab.
@@ -218,12 +221,11 @@ impl State {
 
         let storage = Storage::new()?;
 
-        let all_groups = storage.session.all_groups();
         let engine_state = Rc::new(RefCell::new(WebKitState::new(
             egl_display.clone(),
             queue.clone(),
             storage.cookie_whitelist.clone(),
-            &all_groups,
+            &storage.groups.all_group_ids(),
         )));
 
         Ok(Self {

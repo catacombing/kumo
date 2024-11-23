@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::borrow::Cow;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use smithay_client_toolkit::dmabuf::DmabufFeedback;
@@ -18,8 +19,12 @@ pub mod webkit;
 pub const BG: [f64; 3] = [0.1, 0.1, 0.1];
 
 // Constants for the default tab group.
+pub const NO_GROUP_ID: GroupId = GroupId(Uuid::nil());
 pub const NO_GROUP: Group = Group::none();
-pub const NO_GROUP_ID: GroupId = NO_GROUP.id();
+pub const NO_GROUP_REF: &Group = &NO_GROUP;
+
+/// Tab group label for the default group.
+const DEFAULT_GROUP_LABEL: &str = "Default";
 
 pub trait Engine {
     /// Get the engine's unique ID.
@@ -178,10 +183,13 @@ impl EngineId {
 }
 
 /// Tab group, for engine context sharing.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Group {
     /// Globally unique group ID.
     id: GroupId,
+
+    /// Human-readable group identifier.
+    pub label: Cow<'static, str>,
 
     /// Whether data for this group should be persisted.
     pub ephemeral: bool,
@@ -190,19 +198,21 @@ pub struct Group {
 impl Group {
     /// Create a new tab group.
     pub fn new(ephemeral: bool) -> Self {
-        Self { id: GroupId(Uuid::new_v4()), ephemeral }
+        let id = GroupId(Uuid::new_v4());
+        let label = id.0.to_string().into();
+        Self { id, label, ephemeral }
     }
 
     /// Create a tab group with a fixed UUID.
     ///
     /// Two different tab groups must never be created with the same UUID.
-    pub fn with_uuid(uuid: Uuid, ephemeral: bool) -> Self {
-        Self { id: GroupId(uuid), ephemeral }
+    pub fn with_uuid(uuid: Uuid, label: String, ephemeral: bool) -> Self {
+        Self { label: label.into(), id: GroupId(uuid), ephemeral }
     }
 
     /// Get the default tab group.
     pub const fn none() -> Self {
-        Self { id: GroupId(Uuid::nil()), ephemeral: false }
+        Self { id: NO_GROUP_ID, ephemeral: false, label: Cow::Borrowed(DEFAULT_GROUP_LABEL) }
     }
 
     /// Get this group's ID.

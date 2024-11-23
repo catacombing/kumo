@@ -1,6 +1,6 @@
 //! Browser session DB storage.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::process;
 use std::rc::Rc;
 
@@ -88,22 +88,6 @@ impl Session {
             error!("Failed delete orphan sessions: {err}");
         }
     }
-
-    /// Get all known group IDs.
-    pub fn all_groups(&self) -> HashSet<Uuid> {
-        let db = match &self.db {
-            Some(db) => db,
-            None => return HashSet::new(),
-        };
-
-        match db.all_groups() {
-            Ok(groups) => groups,
-            Err(err) => {
-                error!("Failed load all groups: {err}");
-                HashSet::new()
-            },
-        }
-    }
 }
 
 /// DB for persisting session data.
@@ -189,15 +173,6 @@ impl SessionDb {
             stmt.execute([pid])?;
         }
         Ok(())
-    }
-
-    /// Get group IDs for all PIDs and windows.
-    fn all_groups(&self) -> rusqlite::Result<HashSet<Uuid>> {
-        let mut statement = self.connection.prepare("SELECT group_id FROM session")?;
-
-        let groups = statement.query_map([], |row| row.get(0))?.flatten().collect();
-
-        Ok(groups)
     }
 }
 

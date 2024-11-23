@@ -27,10 +27,10 @@ use smithay_client_toolkit::shell::xdg::window::{
     Window as XdgWindow, WindowConfigure, WindowDecorations,
 };
 use smithay_client_toolkit::shell::WaylandSurface;
-use uuid::Uuid;
 
 use crate::engine::webkit::WebKitError;
-use crate::engine::{Engine, EngineId, Group, GroupId, NO_GROUP, NO_GROUP_ID};
+use crate::engine::{Engine, EngineId, Group, GroupId, NO_GROUP_ID, NO_GROUP_REF};
+use crate::storage::groups::Groups;
 use crate::storage::history::{History, HistoryMatch, MAX_MATCHES};
 use crate::storage::session::{Session, SessionRecord};
 use crate::storage::Storage;
@@ -72,6 +72,9 @@ impl WindowHandler for State {
         } else {
             // Delete session if this wasn't the last window.
             self.storage.session.persist(removed.id, []);
+
+            // Cleanup unused groups.
+            self.storage.groups.delete_orphans();
         }
     }
 }
@@ -113,6 +116,7 @@ pub struct Window {
     fullscreened: bool,
 
     session_storage: Session,
+    group_storage: Groups,
 
     last_rendered_engine: Option<EngineId>,
     stalled: bool,
@@ -214,6 +218,7 @@ impl Window {
             id,
             active_tab: EngineId::new(id, NO_GROUP_ID),
             session_storage: storage.session.clone(),
+            group_storage: storage.groups.clone(),
             history: storage.history.clone(),
             stalled: true,
             scale: 1.,
@@ -261,7 +266,7 @@ impl Window {
         group_id: GroupId,
     ) -> Result<EngineId, WebKitError> {
         // Get the tab group for the new engine.
-        let group = self.groups.get(&group_id).unwrap_or(&NO_GROUP);
+        let group = self.groups.get(&group_id).unwrap_or(NO_GROUP_REF);
 
         // Create a new browser engine.
         let engine_id = EngineId::new(self.id, group.id());
@@ -896,7 +901,7 @@ impl Window {
         // Update tabs popup.
         self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
 
-        let group = self.groups.get(&engine_id.group_id()).unwrap_or(&NO_GROUP);
+        let group = self.groups.get(&engine_id.group_id()).unwrap_or(NO_GROUP_REF);
         if !group.ephemeral {
             // Increment URI visit count for history.
             self.history.visit(uri);
@@ -910,11 +915,15 @@ impl Window {
     ///
     /// This is used to recover the browser session when restarting Kumo.
     pub fn persist_session(&self) {
+        // Persist latest session state.
         let session = self.tabs.iter().filter_map(|(engine_id, engine)| {
-            let group = self.groups.get(&engine_id.group_id()).unwrap_or(&NO_GROUP);
+            let group = self.groups.get(&engine_id.group_id()).unwrap_or(NO_GROUP_REF);
             SessionRecord::new(engine, group)
         });
         self.session_storage.persist(self.id, session);
+
+        // Ensure sessions' group labels are persisted.
+        self.group_storage.persist(self.groups.values());
     }
 
     /// Update an engine's title.
@@ -1113,8 +1122,8 @@ impl Window {
         // Get next group.
         let mut groups = self.groups.iter();
         let new_group = match groups.find(|(id, _)| **id == group_id) {
-            Some(_) => groups.next().map_or(&NO_GROUP, |(_, group)| group),
-            None => self.groups.first().map_or(&NO_GROUP, |(_, group)| group),
+            Some(_) => groups.next().map_or(NO_GROUP_REF, |(_, group)| group),
+            None => self.groups.first().map_or(NO_GROUP_REF, |(_, group)| group),
         };
 
         // Update group ID and refresh tabs list.
@@ -1148,21 +1157,18 @@ impl Window {
     /// Create a new tab group.
     ///
     /// The group will not be recreated if the supplied UUID already exists.
-    pub fn create_tab_group(&mut self, uuid: Option<Uuid>) -> GroupId {
+    pub fn create_tab_group(&mut self, template: Option<Group>) -> GroupId {
         // Create a new persistent group.
-        let group = match uuid {
-            Some(uuid) => Group::with_uuid(uuid, false),
-            None => Group::new(false),
-        };
+        let group = template.unwrap_or_else(|| Group::new(false));
+
+        // Switch the tabs view to the created group.
+        self.overlay.tabs_mut().set_active_tab_group(&group);
 
         // Store new group if it doesn't exist yet.
         let group_id = group.id();
         if !self.groups.contains_key(&group_id) {
             self.groups.insert(group_id, group);
         }
-
-        // Switch the tabs view to the created group.
-        self.overlay.tabs_mut().set_active_tab_group(&group);
 
         self.unstall();
 

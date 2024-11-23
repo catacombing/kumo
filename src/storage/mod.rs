@@ -7,11 +7,13 @@ use rusqlite::Connection;
 use tracing::error;
 
 use crate::storage::cookie_whitelist::CookieWhitelist;
+use crate::storage::groups::Groups;
 use crate::storage::history::History;
 use crate::storage::session::Session;
 use crate::Error;
 
 pub mod cookie_whitelist;
+pub mod groups;
 pub mod history;
 pub mod session;
 
@@ -20,6 +22,7 @@ pub struct Storage {
     pub cookie_whitelist: CookieWhitelist,
     pub history: History,
     pub session: Session,
+    pub groups: Groups,
 }
 
 impl Storage {
@@ -29,8 +32,9 @@ impl Storage {
         let cookie_whitelist = CookieWhitelist::new(connection.clone())?;
         let history = History::new(connection.clone())?;
         let session = Session::new(connection.clone())?;
+        let groups = Groups::new(connection.clone())?;
 
-        Ok(Self { cookie_whitelist, history, session })
+        Ok(Self { cookie_whitelist, history, session, groups })
     }
 
     /// Attempt to create or access the SQLite database.

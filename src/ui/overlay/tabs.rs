@@ -1,12 +1,14 @@
 //! Tabs overlay.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::mem;
 
 use funq::MtQueueHandle;
+use pangocairo::pango::Alignment;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
-use crate::engine::{Engine, EngineId, Group, GroupId, NO_GROUP_ID};
+use crate::engine::{Engine, EngineId, Group, GroupId, NO_GROUP, NO_GROUP_ID};
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
 use crate::ui::MAX_TAP_DISTANCE;
@@ -30,11 +32,11 @@ const TABS_X_PADDING: f64 = 10.;
 /// Vertical padding between tabs.
 const TABS_Y_PADDING: f64 = 1.;
 
-/// Horizontal padding around tab creation button.
-const NEW_TAB_X_PADDING: f64 = 10.;
+/// Horizontal padding around buttons.
+const BUTTON_X_PADDING: f64 = 10.;
 
-/// Vertical padding around tab creation button.
-const NEW_TAB_Y_PADDING: f64 = 10.;
+/// Vertical padding around buttons.
+const BUTTON_Y_PADDING: f64 = 10.;
 
 /// Padding around the tab "X" button.
 const CLOSE_PADDING: f64 = 30.;
@@ -145,7 +147,8 @@ pub struct Tabs {
 
     touch_state: TouchState,
 
-    active_tab_group: GroupId,
+    group_label: GroupLabel,
+    group: GroupId,
 
     visible: bool,
     dirty: bool,
@@ -159,13 +162,14 @@ impl Tabs {
             cycle_group_button: SvgButton::new(Svg::ArrowLeft),
             persistent_button: SvgButton::new_toggle(Svg::PersistentOn, Svg::PersistentOff),
             scale: 1.0,
-            active_tab_group: Default::default(),
             new_group_button: Default::default(),
             new_tab_button: Default::default(),
             texture_cache: Default::default(),
             scroll_offset: Default::default(),
             touch_state: Default::default(),
+            group_label: Default::default(),
             visible: Default::default(),
+            group: Default::default(),
             dirty: Default::default(),
             size: Default::default(),
         }
@@ -187,15 +191,21 @@ impl Tabs {
     }
 
     /// Update the active tab group.
-    pub fn set_active_tab_group(&mut self, active_tab_group: &Group) {
-        self.persistent_button.set_enabled(!active_tab_group.ephemeral);
-        self.active_tab_group = active_tab_group.id();
+    pub fn set_active_tab_group(&mut self, group: &Group) {
+        let id = group.id();
+        if id == self.group {
+            return;
+        }
+
+        self.persistent_button.set_enabled(!group.ephemeral);
+        self.group_label.set(group.label.clone());
+        self.group = id;
         self.dirty = true;
     }
 
     /// Get the current tab group.
     pub fn active_tab_group(&self) -> GroupId {
-        self.active_tab_group
+        self.group
     }
 
     /// Check whether the popup is active.
@@ -213,8 +223,8 @@ impl Tabs {
     ///
     /// This includes all padding since that is included in the texture.
     fn new_tab_button_size(&self) -> Size {
-        let height = BUTTON_HEIGHT + (2. * NEW_TAB_Y_PADDING).round() as u32;
-        let width = self.size.width - BUTTON_HEIGHT - NEW_TAB_X_PADDING as u32;
+        let height = BUTTON_HEIGHT + (2. * BUTTON_Y_PADDING).round() as u32;
+        let width = self.size.width - BUTTON_HEIGHT - BUTTON_X_PADDING as u32;
         Size::new(width, height) * self.scale
     }
 
@@ -222,18 +232,23 @@ impl Tabs {
     ///
     /// This includes all padding since that is included in the texture.
     fn new_tab_button_position(&self) -> Position<f64> {
-        let y = (self.size.height - BUTTON_HEIGHT) as f64 - 2. * NEW_TAB_Y_PADDING;
-        let x = BUTTON_HEIGHT as f64 + NEW_TAB_X_PADDING;
+        let y = (self.size.height - BUTTON_HEIGHT) as f64 - 2. * BUTTON_Y_PADDING;
+        let x = BUTTON_HEIGHT as f64 + BUTTON_X_PADDING;
         Position::new(x, y) * self.scale
+    }
+
+    /// Get default UI button size.
+    fn button_size(scale: f64) -> Size {
+        let height = BUTTON_HEIGHT + (2. * BUTTON_Y_PADDING).round() as u32;
+        let width = BUTTON_HEIGHT + (2. * BUTTON_X_PADDING).round() as u32;
+        Size::new(width, height) * scale
     }
 
     /// Physical size of the tab group cycle button.
     ///
     /// This includes all padding since that is included in the texture.
     fn cycle_group_button_size(&self) -> Size {
-        let height = BUTTON_HEIGHT + (2. * NEW_TAB_Y_PADDING).round() as u32;
-        let width = BUTTON_HEIGHT + (2. * NEW_TAB_X_PADDING).round() as u32;
-        Size::new(width, height) * self.scale
+        Self::button_size(self.scale)
     }
 
     /// Physical position of the tab group cycle button.
@@ -247,7 +262,7 @@ impl Tabs {
     ///
     /// This includes all padding since that is included in the texture.
     fn persistent_button_size(&self) -> Size {
-        self.cycle_group_button_size()
+        Self::button_size(self.scale)
     }
 
     /// Physical position of the persistent mode button.
@@ -261,7 +276,7 @@ impl Tabs {
     ///
     /// This includes all padding since that is included in the texture.
     fn new_group_button_size(&self) -> Size {
-        self.cycle_group_button_size()
+        Self::button_size(self.scale)
     }
 
     /// Physical position of the tab group creation button.
@@ -273,10 +288,19 @@ impl Tabs {
         Position::new(x, 0.)
     }
 
-    /// Physical size of each tab.
-    fn tab_size(&self) -> Size {
-        let width = self.size.width - (2. * TABS_X_PADDING).round() as u32;
-        Size::new(width, TAB_HEIGHT) * self.scale
+    /// Physical size of the tab group label.
+    ///
+    /// This includes all padding since that is included in the texture.
+    fn group_label_size(&self) -> Size {
+        let height = BUTTON_HEIGHT + (2. * BUTTON_Y_PADDING).round() as u32;
+        Size::new(self.size.width, height) * self.scale
+    }
+
+    /// Physical position of the tab group label.
+    ///
+    /// This includes all padding since that is included in the texture.
+    fn group_label_position(&self) -> Position<f64> {
+        Position::new(0., 0.)
     }
 
     /// Get physical size of the close button.
@@ -291,6 +315,12 @@ impl Tabs {
         let button_padding = (tab_size.height as f64 - icon_size.height) / 2.;
         let x = tab_size.width as f64 - button_padding - icon_size.width;
         Position::new(x, button_padding)
+    }
+
+    /// Physical size of each tab.
+    fn tab_size(&self) -> Size {
+        let width = self.size.width - (2. * TABS_X_PADDING).round() as u32;
+        Size::new(width, TAB_HEIGHT) * self.scale
     }
 
     /// Get tab at the specified location.
@@ -326,7 +356,7 @@ impl Tabs {
 
         // Find tab at the specified offset.
         let rindex = (new_tab_relative / (tab_size.height + y_padding).round()) as usize;
-        let tabs = group_tabs(&self.texture_cache.tabs, self.active_tab_group);
+        let tabs = group_tabs(&self.texture_cache.tabs, self.group);
         let tab = tabs.rev().nth(rindex)?;
 
         // Check if click is within close button bounds.
@@ -354,19 +384,21 @@ impl Tabs {
         let tab_height = self.tab_size().height;
 
         // Calculate height available for tabs.
-        let available_height = self.new_tab_button_position().y.round();
+        let new_tab_button_position_y = self.new_tab_button_position().y.round() as usize;
+        let group_label_height = self.group_label_size().height as usize;
+        let available_height = new_tab_button_position_y - group_label_height;
 
         // Calculate height of all tabs.
-        let num_tabs = group_tabs(&self.texture_cache.tabs, self.active_tab_group).count();
+        let num_tabs = group_tabs(&self.texture_cache.tabs, self.group).count();
         let mut tabs_height =
             (num_tabs * (tab_height as usize + tab_padding)).saturating_sub(tab_padding);
 
         // Allow a bit of padding at the top.
-        let new_tab_padding = (NEW_TAB_Y_PADDING * self.scale).round();
+        let new_tab_padding = (BUTTON_Y_PADDING * self.scale).round();
         tabs_height += new_tab_padding as usize;
 
         // Calculate tab content outside the viewport.
-        tabs_height.saturating_sub(available_height as usize)
+        tabs_height.saturating_sub(available_height)
     }
 }
 
@@ -392,19 +424,19 @@ impl Popup for Tabs {
         let persistent_button_position: Position<f32> = self.persistent_button_position().into();
         let new_group_button_position: Position<f32> = self.new_group_button_position().into();
         let new_tab_button_position: Position<f32> = self.new_tab_button_position().into();
+        let group_label_position: Position<f32> = self.group_label_position().into();
         let tab_size = self.tab_size();
 
-        // Get textures for all tabs.
+        // Get UI textures.
         //
         // This must happen with the renderer bound to ensure new textures are
         // associated with the correct program.
-        let tab_textures = self.texture_cache.textures(tab_size, self.scale, self.active_tab_group);
-
-        // Get the UI button textures.
+        let tab_textures = self.texture_cache.textures(tab_size, self.scale, self.group);
         let cycle_group_button = self.cycle_group_button.texture();
         let persistent_button = self.persistent_button.texture();
         let new_group_button = self.new_group_button.texture();
         let new_tab_button = self.new_tab_button.texture();
+        let group_label = self.group_label.texture();
 
         // Draw background.
         //
@@ -433,7 +465,11 @@ impl Popup for Tabs {
             texture_pos.y -= (TABS_Y_PADDING * self.scale) as f32
         }
 
-        // Draw buttons last, to render over scrolled tabs.
+        // Draw tab group label.
+        texture_pos = group_label_position;
+        unsafe { renderer.draw_texture_at(group_label, texture_pos, None) };
+
+        // Draw buttons last, to render over scrolled tabs and label.
         texture_pos = new_tab_button_position;
         unsafe { renderer.draw_texture_at(new_tab_button, texture_pos, None) };
         texture_pos = cycle_group_button_position;
@@ -442,7 +478,7 @@ impl Popup for Tabs {
         unsafe { renderer.draw_texture_at(new_group_button, texture_pos, None) };
 
         // Prevent persistent mode toggling for the default group.
-        if self.active_tab_group != NO_GROUP_ID {
+        if self.group != NO_GROUP_ID {
             texture_pos = persistent_button_position;
             unsafe { renderer.draw_texture_at(persistent_button, texture_pos, None) };
         }
@@ -461,6 +497,7 @@ impl Popup for Tabs {
         self.persistent_button.set_geometry(self.persistent_button_size(), self.scale);
         self.new_group_button.set_geometry(self.new_group_button_size(), self.scale);
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
+        self.group_label.set_geometry(self.group_label_size(), self.scale);
         self.texture_cache.clear_textures();
     }
 
@@ -477,6 +514,7 @@ impl Popup for Tabs {
         self.persistent_button.set_geometry(self.persistent_button_size(), self.scale);
         self.new_group_button.set_geometry(self.new_group_button_size(), self.scale);
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
+        self.group_label.set_geometry(self.group_label_size(), self.scale);
         self.texture_cache.clear_textures();
     }
 
@@ -568,11 +606,11 @@ impl Popup for Tabs {
                 let position = self.touch_state.position;
 
                 if rect_contains(cycle_group_button_position, cycle_group_button_size, position) {
-                    self.queue.cycle_tab_group(self.window_id, self.active_tab_group);
+                    self.queue.cycle_tab_group(self.window_id, self.group);
                 }
             },
             // Toggle group's persistent mode.
-            TouchAction::PersistentTap if self.active_tab_group == NO_GROUP_ID => (),
+            TouchAction::PersistentTap if self.group == NO_GROUP_ID => (),
             TouchAction::PersistentTap => {
                 let persistent_button_position = self.persistent_button_position();
                 let persistent_button_size = self.persistent_button_size().into();
@@ -580,7 +618,7 @@ impl Popup for Tabs {
 
                 if rect_contains(persistent_button_position, persistent_button_size, position) {
                     let ephemeral = self.persistent_button.enabled;
-                    self.queue.set_ephemeral_mode(self.window_id, self.active_tab_group, ephemeral);
+                    self.queue.set_ephemeral_mode(self.window_id, self.group, ephemeral);
                 }
             },
             // Create new tab group.
@@ -600,7 +638,7 @@ impl Popup for Tabs {
                 let position = self.touch_state.position;
 
                 if rect_contains(new_tab_button_position, new_tab_button_size, position) {
-                    self.queue.add_tab(self.window_id, self.active_tab_group);
+                    self.queue.add_tab(self.window_id, self.group);
                 }
             },
             // Switch tabs for tap actions on a tab.
@@ -657,7 +695,7 @@ impl TextureCache {
         &mut self,
         tab_size: Size,
         scale: f64,
-        active_tab_group: GroupId,
+        group: GroupId,
     ) -> impl Iterator<Item = &Texture> {
         // Remove unused URIs from cache.
         self.textures.retain(|uri, texture| {
@@ -672,7 +710,7 @@ impl TextureCache {
         });
 
         // Create textures for missing tabs.
-        for tab in group_tabs(&self.tabs, active_tab_group) {
+        for tab in group_tabs(&self.tabs, group) {
             // Ignore tabs we already rendered.
             if self.textures.contains_key(&tab.uri) {
                 continue;
@@ -723,9 +761,7 @@ impl TextureCache {
         }
 
         // Get textures for all tabs in reverse order.
-        group_tabs(&self.tabs, active_tab_group)
-            .rev()
-            .map(|tab| self.textures.get(&tab.uri).unwrap())
+        group_tabs(&self.tabs, group).rev().map(|tab| self.textures.get(&tab.uri).unwrap())
     }
 }
 
@@ -767,6 +803,7 @@ impl PlusButton {
     fn texture(&mut self) -> &Texture {
         // Ensure texture is up to date.
         if mem::take(&mut self.dirty) {
+            // Ensure texture is cleared while program is bound.
             if let Some(texture) = self.texture.take() {
                 texture.delete();
             }
@@ -784,8 +821,8 @@ impl PlusButton {
         builder.clear(TABS_BG);
 
         // Draw button background.
-        let x_padding = NEW_TAB_X_PADDING * self.scale;
-        let y_padding = NEW_TAB_Y_PADDING * self.scale;
+        let x_padding = BUTTON_X_PADDING * self.scale;
+        let y_padding = BUTTON_Y_PADDING * self.scale;
         let width = self.size.width as f64 - 2. * x_padding;
         let height = self.size.height as f64 - 2. * y_padding;
         builder.context().rectangle(x_padding, y_padding, width.round(), height.round());
@@ -869,6 +906,7 @@ impl SvgButton {
     fn texture(&mut self) -> &Texture {
         // Ensure texture is up to date.
         if mem::take(&mut self.dirty) {
+            // Ensure texture is cleared while program is bound.
             if let Some(texture) = self.texture.take() {
                 texture.delete();
             }
@@ -886,8 +924,8 @@ impl SvgButton {
         builder.clear(TABS_BG);
 
         // Draw button background.
-        let x_padding = NEW_TAB_X_PADDING * self.scale;
-        let y_padding = NEW_TAB_Y_PADDING * self.scale;
+        let x_padding = BUTTON_X_PADDING * self.scale;
+        let y_padding = BUTTON_Y_PADDING * self.scale;
         let width = self.size.width as f64 - 2. * x_padding;
         let height = self.size.height as f64 - 2. * y_padding;
         builder.context().rectangle(x_padding, y_padding, width.round(), height.round());
@@ -920,6 +958,84 @@ impl SvgButton {
     }
 }
 
+/// Active tab group label.
+struct GroupLabel {
+    texture: Option<Texture>,
+    text: Cow<'static, str>,
+    dirty: bool,
+    size: Size,
+    scale: f64,
+}
+
+impl Default for GroupLabel {
+    fn default() -> Self {
+        Self {
+            text: NO_GROUP.label,
+            dirty: true,
+            scale: 1.,
+            texture: Default::default(),
+            size: Default::default(),
+        }
+    }
+}
+
+impl GroupLabel {
+    fn texture(&mut self) -> &Texture {
+        // Ensure texture is up to date.
+        if mem::take(&mut self.dirty) {
+            // Ensure texture is cleared while program is bound.
+            if let Some(texture) = self.texture.take() {
+                texture.delete();
+            }
+            self.texture = Some(self.draw());
+        }
+
+        self.texture.as_ref().unwrap()
+    }
+
+    /// Draw the label into an OpenGL texture.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn draw(&self) -> Texture {
+        // Clear with background color.
+        let builder = TextureBuilder::new(self.size.into());
+        builder.clear(TABS_BG);
+
+        // Render group label text.
+        if !self.text.is_empty() {
+            let layout = TextLayout::new(FONT_SIZE, self.scale);
+            layout.set_alignment(Alignment::Center);
+            layout.set_text(&self.text);
+
+            // Truncate label to be within persistence/new group buttons.
+            let mut text_options = TextOptions::new();
+            let button_width = Tabs::button_size(self.scale).width;
+            let width = self.size.width - button_width * 2;
+            text_options.position(Position::new(button_width as f64, 0.));
+            text_options.size(Size::new(width, self.size.height).into());
+
+            builder.rasterize(&layout, &text_options);
+        }
+
+        builder.build()
+    }
+
+    /// Set the physical size and scale of the button.
+    fn set_geometry(&mut self, size: Size, scale: f64) {
+        self.size = size;
+        self.scale = scale;
+
+        // Force redraw.
+        self.dirty = true;
+    }
+
+    /// Set the active tab group label.
+    fn set(&mut self, text: Cow<'static, str>) {
+        self.text = text;
+
+        self.dirty = true;
+    }
+}
+
 /// Touch event tracking.
 #[derive(Default)]
 struct TouchState {
@@ -942,9 +1058,6 @@ enum TouchAction {
 }
 
 /// Get iterator over tabs in a tab group.
-fn group_tabs(
-    tabs: &[RenderTab],
-    active_tab_group: GroupId,
-) -> impl DoubleEndedIterator<Item = &RenderTab> {
-    tabs.iter().filter(move |tab| tab.engine.group_id() == active_tab_group)
+fn group_tabs(tabs: &[RenderTab], group: GroupId) -> impl DoubleEndedIterator<Item = &RenderTab> {
+    tabs.iter().filter(move |tab| tab.engine.group_id() == group)
 }

@@ -5,13 +5,14 @@ use glutin::display::Display;
 use smithay_client_toolkit::compositor::{CompositorState, Region};
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
-use smithay_client_toolkit::seat::keyboard::Modifiers;
+use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::ui::overlay::option_menu::{
     OptionMenu, OptionMenuId, OptionMenuItem, OptionMenuPosition,
 };
 use crate::ui::overlay::tabs::Tabs;
 use crate::ui::Renderer;
+use crate::window::TextInputChange;
 use crate::{gl, rect_contains, Position, Size, State, WindowId};
 
 pub mod option_menu;
@@ -60,8 +61,28 @@ pub trait Popup {
     ) {
     }
 
+    /// Handle new key press.
+    fn press_key(&mut self, _raw: u32, _keysym: Keysym, _modifiers: Modifiers) {}
+
     /// Handle touch release events.
     fn touch_up(&mut self, _time: u32, _id: i32, _modifiers: Modifiers) {}
+
+    /// Delete text around the current cursor position.
+    fn delete_surrounding_text(&mut self, _before_length: u32, _after_length: u32) {}
+
+    /// Insert text at the current cursor position.
+    fn commit_string(&mut self, _text: String) {}
+
+    /// Set preedit text at the current cursor position.
+    fn set_preedit_string(&mut self, _text: String, _cursor_begin: i32, _cursor_end: i32) {}
+
+    /// Get current IME text_input state.
+    fn text_input_state(&mut self) -> TextInputChange {
+        TextInputChange::Disabled
+    }
+
+    /// Handle keyboard focus loss.
+    fn clear_keyboard_focus(&mut self) {}
 }
 
 /// Overlay UI surface.
@@ -76,6 +97,7 @@ pub struct Overlay {
 
     queue: MtQueueHandle<State>,
 
+    keyboard_focus: Option<usize>,
     touch_focus: Option<usize>,
 
     size: Size,
@@ -102,6 +124,7 @@ impl Overlay {
             popups,
             queue,
             scale: 1.0,
+            keyboard_focus: Default::default(),
             touch_focus: Default::default(),
             size: Default::default(),
         }
@@ -207,6 +230,14 @@ impl Overlay {
         self.popups.tabs.visible()
     }
 
+    /// Handle new key press.
+    pub fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
+        let focused_popup = self.keyboard_focus.and_then(|focus| self.popups.iter_mut().nth(focus));
+        if let Some(popup) = focused_popup {
+            popup.press_key(raw, keysym, modifiers);
+        }
+    }
+
     /// Handle touch press events.
     pub fn touch_down(
         &mut self,
@@ -215,15 +246,20 @@ impl Overlay {
         position: Position<f64>,
         modifiers: Modifiers,
     ) {
-        self.touch_focus = None;
+        // Focus touched popup.
         for (i, popup) in self.popups.iter_mut().enumerate() {
             let popup_position = popup.position().into();
             if rect_contains(popup_position, popup.size().into(), position) {
                 popup.touch_down(time, id, position - popup_position, modifiers);
+                self.keyboard_focus = Some(i);
                 self.touch_focus = Some(i);
-                break;
+                return;
             }
         }
+
+        // Clear focus if no popup was touched.
+        self.clear_keyboard_focus();
+        self.touch_focus = None;
     }
 
     /// Handle touch motion events.
@@ -246,6 +282,48 @@ impl Overlay {
         let focused_popup = self.touch_focus.and_then(|focus| self.popups.iter_mut().nth(focus));
         if let Some(popup) = focused_popup {
             popup.touch_up(time, id, modifiers);
+        }
+    }
+
+    /// Delete text around the current cursor position.
+    pub fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32) {
+        let focused_popup = self.keyboard_focus.and_then(|focus| self.popups.iter_mut().nth(focus));
+        if let Some(popup) = focused_popup {
+            popup.delete_surrounding_text(before_length, after_length);
+        }
+    }
+
+    /// Insert text at the current cursor position.
+    pub fn commit_string(&mut self, text: String) {
+        let focused_popup = self.keyboard_focus.and_then(|focus| self.popups.iter_mut().nth(focus));
+        if let Some(popup) = focused_popup {
+            popup.commit_string(text);
+        }
+    }
+
+    /// Set preedit text at the current cursor position.
+    pub fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
+        let focused_popup = self.keyboard_focus.and_then(|focus| self.popups.iter_mut().nth(focus));
+        if let Some(popup) = focused_popup {
+            popup.set_preedit_string(text, cursor_begin, cursor_end);
+        }
+    }
+
+    /// Get current IME text_input state.
+    pub fn text_input_state(&mut self) -> TextInputChange {
+        let focused_popup = self.keyboard_focus.and_then(|focus| self.popups.iter_mut().nth(focus));
+        match focused_popup {
+            Some(popup) => popup.text_input_state(),
+            None => TextInputChange::Disabled,
+        }
+    }
+
+    /// Clear Overlay keyboard focus.
+    pub fn clear_keyboard_focus(&mut self) {
+        let focused_popup =
+            self.keyboard_focus.take().and_then(|focus| self.popups.iter_mut().nth(focus));
+        if let Some(popup) = focused_popup {
+            popup.clear_keyboard_focus();
         }
     }
 

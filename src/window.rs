@@ -475,8 +475,12 @@ impl Window {
         }
 
         // Get UI's IME text_input state.
-        if self.text_input.is_some() && self.keyboard_focus == KeyboardFocus::Ui {
-            text_input_state = self.ui.text_input_state();
+        if self.text_input.is_some() {
+            match self.keyboard_focus {
+                KeyboardFocus::Ui => text_input_state = self.ui.text_input_state(),
+                KeyboardFocus::Overlay => text_input_state = self.overlay.text_input_state(),
+                _ => (),
+            }
         }
 
         // Draw overlay surface.
@@ -596,6 +600,7 @@ impl Window {
     pub fn press_key(&mut self, time: u32, raw: u32, keysym: Keysym, modifiers: Modifiers) {
         match self.keyboard_focus {
             KeyboardFocus::Ui => self.ui.press_key(raw, keysym, modifiers),
+            KeyboardFocus::Overlay => self.overlay.press_key(raw, keysym, modifiers),
             KeyboardFocus::Browser => {
                 let engine = match self.tabs.get_mut(&self.active_tab) {
                     Some(engine) => engine,
@@ -622,7 +627,7 @@ impl Window {
                 }
             },
             // Ui has no release handling need (yet).
-            KeyboardFocus::Ui | KeyboardFocus::None => (),
+            KeyboardFocus::Ui | KeyboardFocus::Overlay | KeyboardFocus::None => (),
         }
 
         // Unstall if UI changed.
@@ -838,6 +843,9 @@ impl Window {
     pub fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32) {
         match self.keyboard_focus {
             KeyboardFocus::Ui => self.ui.delete_surrounding_text(before_length, after_length),
+            KeyboardFocus::Overlay => {
+                self.overlay.delete_surrounding_text(before_length, after_length)
+            },
             KeyboardFocus::Browser => {
                 let engine = match self.tabs.get_mut(&self.active_tab) {
                     Some(engine) => engine,
@@ -853,6 +861,7 @@ impl Window {
     pub fn commit_string(&mut self, text: String) {
         match self.keyboard_focus {
             KeyboardFocus::Ui => self.ui.commit_string(text),
+            KeyboardFocus::Overlay => self.overlay.commit_string(text),
             KeyboardFocus::Browser => {
                 let engine = match self.tabs.get_mut(&self.active_tab) {
                     Some(engine) => engine,
@@ -868,6 +877,9 @@ impl Window {
     pub fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
         match self.keyboard_focus {
             KeyboardFocus::Ui => self.ui.set_preedit_string(text, cursor_begin, cursor_end),
+            KeyboardFocus::Overlay => {
+                self.overlay.set_preedit_string(text, cursor_begin, cursor_end)
+            },
             KeyboardFocus::Browser => {
                 let engine = match self.tabs.get_mut(&self.active_tab) {
                     Some(engine) => engine,
@@ -1081,6 +1093,8 @@ impl Window {
         // keyboard focus.
         if self.ui.surface() == surface {
             self.set_keyboard_focus(KeyboardFocus::Ui);
+        } else if self.overlay.surface() == surface {
+            self.set_keyboard_focus(KeyboardFocus::Overlay);
         } else if &self.engine_surface == surface {
             self.set_keyboard_focus(KeyboardFocus::Browser);
         }
@@ -1093,6 +1107,9 @@ impl Window {
         // Clear UI focus.
         if focus != KeyboardFocus::Ui {
             self.ui.clear_keyboard_focus();
+        }
+        if focus != KeyboardFocus::Overlay {
+            self.overlay.clear_keyboard_focus();
         }
 
         // Clear engine focus.
@@ -1182,6 +1199,19 @@ impl Window {
 
         self.groups.shift_remove(&group_id);
     }
+
+    /// Update the label of the active tab group.
+    pub fn update_group_label(&mut self, label: String) {
+        let tabs_ui = self.overlay.tabs_mut();
+        if let Some(group) = self.groups.get_mut(&tabs_ui.active_tab_group()) {
+            // Update group label and tabs UI.
+            group.label = label.into();
+            tabs_ui.set_active_tab_group(group);
+
+            // Persist new label to database.
+            self.group_storage.persist(self.groups.values());
+        }
+    }
 }
 
 /// Unique identifier for one window.
@@ -1212,6 +1242,7 @@ pub enum KeyboardFocus {
     None,
     #[default]
     Ui,
+    Overlay,
     Browser,
 }
 

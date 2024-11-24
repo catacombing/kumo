@@ -329,7 +329,7 @@ impl KeyboardState {
     /// Handle new key release.
     fn release_key(&mut self, raw: u32) {
         // Cancel repetition if released key is being repeated.
-        if self.current_repeat.as_ref().map_or(false, |repeat| repeat.raw == raw) {
+        if self.current_repeat.as_ref().is_some_and(|repeat| repeat.raw == raw) {
             self.cancel_repeat();
         }
     }

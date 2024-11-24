@@ -279,7 +279,7 @@ impl WebKitHandler for State {
         };
 
         // Clear engine's option menu if it matches the menu's ID.
-        if webkit_engine.menu.as_ref().map_or(false, |(id, _)| menu_id == *id) {
+        if webkit_engine.menu.as_ref().is_some_and(|(id, _)| menu_id == *id) {
             webkit_engine.menu = None;
         }
 
@@ -361,7 +361,7 @@ impl WebKitState {
                 };
 
                 // Delete directory if it doesn't match any existing group UUID.
-                if Uuid::parse_str(file_name).map_or(false, |uuid| !all_groups.contains(&uuid)) {
+                if Uuid::parse_str(file_name).is_ok_and(|uuid| !all_groups.contains(&uuid)) {
                     let path = entry.path();
                     match fs::remove_dir_all(&path) {
                         Ok(_) => trace!("successfully removed unused group dir {path:?}"),
@@ -758,7 +758,7 @@ impl Engine for WebKitEngine {
     }
 
     fn submit_option_menu(&mut self, menu_id: OptionMenuId, index: usize) {
-        if self.menu.as_ref().map_or(false, |(id, _)| *id == menu_id) {
+        if self.menu.as_ref().is_some_and(|(id, _)| *id == menu_id) {
             let (id, menu) = self.menu.take().unwrap();
 
             // Activate selected option.
@@ -837,7 +837,7 @@ fn xdg_network_session(
 
         // Filter data to only include domains which aren't whitelisted.
         data.retain(|data| {
-            data.name().map_or(false, |domain| whitelisted.iter().all(|host| host != &domain))
+            data.name().is_some_and(|domain| whitelisted.iter().all(|host| host != &domain))
         });
 
         // Remove all non-whitelisted data.

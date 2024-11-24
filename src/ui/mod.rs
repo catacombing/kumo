@@ -525,7 +525,7 @@ struct Uribar {
 impl Uribar {
     fn new(window_id: WindowId, history: History, queue: MtQueueHandle<State>) -> Self {
         // Setup text input with submission handling.
-        let mut text_field = TextField::new();
+        let mut text_field = TextField::new(FONT_SIZE);
         let mut submit_queue = queue.clone();
         text_field.set_submit_handler(Box::new(move |uri| submit_queue.load_uri(window_id, uri)));
         text_field.set_purpose(ContentPurpose::Url);
@@ -864,7 +864,7 @@ enum TouchFocusElement {
 }
 
 /// Text input field.
-struct TextField {
+pub struct TextField {
     layout: TextLayout,
     cursor_index: i32,
     cursor_offset: i32,
@@ -892,9 +892,9 @@ struct TextField {
 }
 
 impl TextField {
-    fn new() -> Self {
+    fn new(font_size: u8) -> Self {
         Self {
-            layout: TextLayout::new(FONT_SIZE, 1.),
+            layout: TextLayout::new(font_size, 1.),
             text_change_handler: Box::new(|_| {}),
             submit_handler: Box::new(|_| {}),
             change_cause: ChangeCause::Other,
@@ -939,8 +939,7 @@ impl TextField {
             self.cursor_offset = 1;
         }
 
-        // Clear selection.
-        self.selection = None;
+        self.clear_selection();
 
         // Reset scroll offset.
         self.scroll_offset = 0.;
@@ -1007,6 +1006,14 @@ impl TextField {
         self.dirty = true;
     }
 
+    /// Submit current text input.
+    pub fn submit(&mut self) {
+        let text = self.text();
+        (self.submit_handler)(text);
+
+        self.set_focus(false);
+    }
+
     /// Handle new key press.
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn press_key(&mut self, _raw: u32, keysym: Keysym, modifiers: Modifiers) {
@@ -1016,12 +1023,7 @@ impl TextField {
         }
 
         match (keysym, modifiers.shift, modifiers.ctrl) {
-            (Keysym::Return, false, false) => {
-                let text = self.text();
-                (self.submit_handler)(text);
-
-                self.set_focus(false);
-            },
+            (Keysym::Return, false, false) => self.submit(),
             (Keysym::Left, false, false) => {
                 match self.selection.take() {
                     Some(selection) => {
@@ -1271,8 +1273,7 @@ impl TextField {
                 self.cursor_index = index;
                 self.cursor_offset = offset;
 
-                // Clear selection.
-                self.selection = None;
+                self.clear_selection();
 
                 self.text_input_dirty = true;
                 self.dirty = true;
@@ -1553,12 +1554,6 @@ impl TextField {
         let clamped_offset = self.scroll_offset.min(0.).max(min_offset);
         self.dirty |= clamped_offset != self.scroll_offset;
         self.scroll_offset = clamped_offset;
-    }
-}
-
-impl Default for TextField {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

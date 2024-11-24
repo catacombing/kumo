@@ -6,12 +6,13 @@ use std::mem;
 
 use funq::MtQueueHandle;
 use pangocairo::pango::Alignment;
-use smithay_client_toolkit::seat::keyboard::Modifiers;
+use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::engine::{Engine, EngineId, Group, GroupId, NO_GROUP, NO_GROUP_ID};
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::MAX_TAP_DISTANCE;
+use crate::ui::{TextField, MAX_TAP_DISTANCE};
+use crate::window::TextInputChange;
 use crate::{gl, rect_contains, Position, Size, State, WindowId};
 
 /// Tab text color of active tab.
@@ -69,6 +70,9 @@ trait TabsHandler {
 
     /// Create a new tab group.
     fn create_tab_group(&mut self, window_id: WindowId);
+
+    /// Update a tab group's label.
+    fn update_group_label(&mut self, window_id: WindowId, label: String);
 }
 
 impl TabsHandler for State {
@@ -127,6 +131,15 @@ impl TabsHandler for State {
 
         window.create_tab_group(None);
     }
+
+    fn update_group_label(&mut self, window_id: WindowId, label: String) {
+        let window = match self.windows.get_mut(&window_id) {
+            Some(window) => window,
+            None => return,
+        };
+
+        window.update_group_label(label);
+    }
 }
 
 /// Tab overview UI.
@@ -145,6 +158,7 @@ pub struct Tabs {
     persistent_button: SvgButton,
     new_group_button: PlusButton,
 
+    keyboard_focus: Option<KeyboardInputElement>,
     touch_state: TouchState,
 
     group_label: GroupLabel,
@@ -156,18 +170,20 @@ pub struct Tabs {
 
 impl Tabs {
     pub fn new(window_id: WindowId, queue: MtQueueHandle<State>) -> Self {
+        let group_label = GroupLabel::new(window_id, queue.clone());
         Self {
+            group_label,
             window_id,
             queue,
-            cycle_group_button: SvgButton::new(Svg::ArrowLeft),
             persistent_button: SvgButton::new_toggle(Svg::PersistentOn, Svg::PersistentOff),
+            cycle_group_button: SvgButton::new(Svg::ArrowLeft),
             scale: 1.0,
             new_group_button: Default::default(),
+            keyboard_focus: Default::default(),
             new_tab_button: Default::default(),
             texture_cache: Default::default(),
             scroll_offset: Default::default(),
             touch_state: Default::default(),
-            group_label: Default::default(),
             visible: Default::default(),
             group: Default::default(),
             dirty: Default::default(),
@@ -192,8 +208,14 @@ impl Tabs {
 
     /// Update the active tab group.
     pub fn set_active_tab_group(&mut self, group: &Group) {
+        // Always close group label editor.
+        self.group_label.stop_editing();
+
         let id = group.id();
-        if id == self.group {
+        if id == self.group
+            && self.group_label.text == group.label
+            && self.persistent_button.enabled != group.ephemeral
+        {
             return;
         }
 
@@ -404,7 +426,7 @@ impl Tabs {
 
 impl Popup for Tabs {
     fn dirty(&self) -> bool {
-        self.dirty
+        self.dirty || self.group_label.dirty()
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
@@ -522,7 +544,13 @@ impl Popup for Tabs {
         self.size
     }
 
-    fn touch_down(&mut self, _time: u32, id: i32, position: Position<f64>, _modifiers: Modifiers) {
+    fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
+        if let Some(KeyboardInputElement::GroupLabel) = self.keyboard_focus {
+            self.group_label.input.press_key(raw, keysym, modifiers)
+        }
+    }
+
+    fn touch_down(&mut self, time: u32, id: i32, position: Position<f64>, _modifiers: Modifiers) {
         // Only accept a single touch point in the UI.
         if self.touch_state.slot.is_some() {
             return;
@@ -543,17 +571,30 @@ impl Popup for Tabs {
         let new_group_button_size = self.new_group_button_size().into();
         let new_tab_button_position = self.new_tab_button_position();
         let new_tab_button_size = self.new_tab_button_size().into();
+        let group_label_position = self.group_label_position();
+        let group_label_size = self.group_label_size().into();
 
         if rect_contains(cycle_group_button_position, cycle_group_button_size, position) {
             self.touch_state.action = TouchAction::CycleGroupTap;
+            self.clear_keyboard_focus();
         } else if rect_contains(persistent_button_position, persistent_button_size, position) {
             self.touch_state.action = TouchAction::PersistentTap;
+            self.clear_keyboard_focus();
         } else if rect_contains(new_group_button_position, new_group_button_size, position) {
             self.touch_state.action = TouchAction::NewGroupTap;
+            self.clear_keyboard_focus();
         } else if rect_contains(new_tab_button_position, new_tab_button_size, position) {
             self.touch_state.action = TouchAction::NewTabTap;
+            self.clear_keyboard_focus();
+        } else if rect_contains(group_label_position, group_label_size, position)
+            && self.group != NO_GROUP_ID
+        {
+            self.group_label.touch_down(time, position - group_label_position);
+            self.touch_state.action = TouchAction::GroupLabelTouch;
+            self.keyboard_focus = Some(KeyboardInputElement::GroupLabel);
         } else {
             self.touch_state.action = TouchAction::TabTap;
+            self.clear_keyboard_focus();
         }
     }
 
@@ -573,21 +614,28 @@ impl Popup for Tabs {
         let position = position * self.scale;
         let old_position = mem::replace(&mut self.touch_state.position, position);
 
-        // Ignore drag when tap started on tab creation button.
-        if !matches!(self.touch_state.action, TouchAction::TabTap | TouchAction::TabDrag) {
-            return;
-        }
+        match self.touch_state.action {
+            TouchAction::TabTap | TouchAction::TabDrag => {
+                // Ignore dragging until tap distance limit is exceeded.
+                let delta = self.touch_state.position - self.touch_state.start;
+                if delta.x.powi(2) + delta.y.powi(2) <= MAX_TAP_DISTANCE {
+                    return;
+                }
+                self.touch_state.action = TouchAction::TabDrag;
 
-        // Switch to dragging once tap distance limit is exceeded.
-        let delta = self.touch_state.position - self.touch_state.start;
-        if delta.x.powi(2) + delta.y.powi(2) > MAX_TAP_DISTANCE {
-            self.touch_state.action = TouchAction::TabDrag;
-
-            // Immediately start moving the tabs list.
-            let old_offset = self.scroll_offset;
-            self.scroll_offset += self.touch_state.position.y - old_position.y;
-            self.clamp_scroll_offset();
-            self.dirty |= self.scroll_offset != old_offset;
+                // Immediately start moving the tabs list.
+                let old_offset = self.scroll_offset;
+                self.scroll_offset += self.touch_state.position.y - old_position.y;
+                self.clamp_scroll_offset();
+                self.dirty |= self.scroll_offset != old_offset;
+            },
+            // Forward group label events.
+            TouchAction::GroupLabelTouch => {
+                let group_label_position = self.group_label_position();
+                self.group_label.touch_motion(position - group_label_position);
+            },
+            // Ignore drag when tap started on a UI element.
+            _ => (),
         }
     }
 
@@ -641,6 +689,8 @@ impl Popup for Tabs {
                     self.queue.add_tab(self.window_id, self.group);
                 }
             },
+            // Forward group label events.
+            TouchAction::GroupLabelTouch => self.group_label.touch_up(),
             // Switch tabs for tap actions on a tab.
             TouchAction::TabTap => {
                 if let Some((&RenderTab { engine, .. }, close)) =
@@ -655,6 +705,46 @@ impl Popup for Tabs {
             },
             TouchAction::TabDrag => (),
         }
+    }
+
+    fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32) {
+        if let Some(KeyboardInputElement::GroupLabel) = self.keyboard_focus {
+            self.group_label.input.delete_surrounding_text(before_length, after_length);
+        }
+    }
+
+    fn commit_string(&mut self, text: String) {
+        if let Some(KeyboardInputElement::GroupLabel) = self.keyboard_focus {
+            self.group_label.input.commit_string(text);
+        }
+    }
+
+    fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
+        if let Some(KeyboardInputElement::GroupLabel) = self.keyboard_focus {
+            self.group_label.input.set_preedit_string(text, cursor_begin, cursor_end);
+        }
+    }
+
+    fn text_input_state(&mut self) -> TextInputChange {
+        match self.keyboard_focus {
+            Some(KeyboardInputElement::GroupLabel) => {
+                // TODO: Relative position?
+                let group_label_position = self.group_label_position();
+                let x = group_label_position.x.round() as i32;
+                let y = group_label_position.y.round() as i32;
+                self.group_label.input.text_input_state(Position::new(x, y))
+            },
+            _ => TextInputChange::Disabled,
+        }
+    }
+
+    fn clear_keyboard_focus(&mut self) {
+        // Automatically confirm input on focus loss.
+        if self.group_label.editing {
+            self.group_label.input.submit();
+        }
+
+        self.keyboard_focus = None;
     }
 }
 
@@ -962,32 +1052,43 @@ impl SvgButton {
 struct GroupLabel {
     texture: Option<Texture>,
     text: Cow<'static, str>,
-    dirty: bool,
+
+    input: TextField,
+    editing: bool,
+
     size: Size,
     scale: f64,
+
+    dirty: bool,
 }
 
-impl Default for GroupLabel {
-    fn default() -> Self {
+impl GroupLabel {
+    fn new(window_id: WindowId, mut queue: MtQueueHandle<State>) -> Self {
+        let mut input = TextField::new(FONT_SIZE);
+        input.set_submit_handler(Box::new(move |label| queue.update_group_label(window_id, label)));
+
         Self {
+            input,
             text: NO_GROUP.label,
             dirty: true,
             scale: 1.,
+            editing: Default::default(),
             texture: Default::default(),
             size: Default::default(),
         }
     }
-}
 
-impl GroupLabel {
     fn texture(&mut self) -> &Texture {
         // Ensure texture is up to date.
-        if mem::take(&mut self.dirty) {
+        if self.dirty() {
             // Ensure texture is cleared while program is bound.
             if let Some(texture) = self.texture.take() {
                 texture.delete();
             }
             self.texture = Some(self.draw());
+
+            self.input.dirty = false;
+            self.dirty = false;
         }
 
         self.texture.as_ref().unwrap()
@@ -995,23 +1096,49 @@ impl GroupLabel {
 
     /// Draw the label into an OpenGL texture.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn draw(&self) -> Texture {
+    fn draw(&mut self) -> Texture {
         // Clear with background color.
         let builder = TextureBuilder::new(self.size.into());
         builder.clear(TABS_BG);
 
         // Render group label text.
-        if !self.text.is_empty() {
+        if self.editing {
+            // Get text position with scroll offset applied.
+            let (mut position, size) = self.text_geometry();
+            position.x += self.input.scroll_offset;
+
+            // Set text rendering options.
+            let mut text_options = TextOptions::new();
+            text_options.cursor_position(self.input.cursor_index());
+            text_options.autocomplete(self.input.autocomplete().into());
+            text_options.preedit(self.input.preedit.clone());
+            text_options.position(position);
+            text_options.size(size.into());
+            text_options.set_ellipsize(false);
+
+            // Show cursor or selection when focused.
+            if self.input.focused {
+                if self.input.selection.is_some() {
+                    text_options.selection(self.input.selection.clone());
+                } else {
+                    text_options.show_cursor();
+                }
+            }
+
+            // Rasterize the text field.
+            let layout = self.input.layout();
+            layout.set_scale(self.scale);
+            builder.rasterize(layout, &text_options);
+        } else if !self.text.is_empty() {
             let layout = TextLayout::new(FONT_SIZE, self.scale);
             layout.set_alignment(Alignment::Center);
             layout.set_text(&self.text);
 
             // Truncate label to be within persistence/new group buttons.
+            let (position, size) = self.text_geometry();
             let mut text_options = TextOptions::new();
-            let button_width = Tabs::button_size(self.scale).width;
-            let width = self.size.width - button_width * 2;
-            text_options.position(Position::new(button_width as f64, 0.));
-            text_options.size(Size::new(width, self.size.height).into());
+            text_options.position(position);
+            text_options.size(size.into());
 
             builder.rasterize(&layout, &text_options);
         }
@@ -1024,15 +1151,79 @@ impl GroupLabel {
         self.size = size;
         self.scale = scale;
 
+        // Update text input width.
+        let (_, text_size) = self.text_geometry();
+        self.input.set_width(text_size.width as f64);
+
         // Force redraw.
         self.dirty = true;
     }
 
     /// Set the active tab group label.
     fn set(&mut self, text: Cow<'static, str>) {
+        self.editing = false;
         self.text = text;
 
         self.dirty = true;
+    }
+
+    /// Leave text input view.
+    fn stop_editing(&mut self) {
+        self.editing = false;
+        self.dirty = true;
+    }
+
+    // Check if the group label requires a redraw.
+    fn dirty(&self) -> bool {
+        self.dirty || (self.editing && self.input.dirty)
+    }
+
+    /// Handle touch press events.
+    pub fn touch_down(&mut self, time: u32, position: Position<f64>) {
+        if !self.editing {
+            return;
+        }
+
+        // Forward event to text field.
+        let (text_position, _) = self.text_geometry();
+        self.input.touch_down(time, position - text_position);
+    }
+
+    /// Handle touch motion events.
+    pub fn touch_motion(&mut self, position: Position<f64>) {
+        if !self.editing {
+            return;
+        }
+
+        // Forward event to text field.
+        let (text_position, _) = self.text_geometry();
+        self.input.touch_motion(position - text_position);
+    }
+
+    /// Handle touch release events.
+    pub fn touch_up(&mut self) {
+        // Enable editing on touch release.
+        if !self.editing {
+            self.input.set_text(&self.text);
+            self.input.set_focus(true);
+            self.editing = true;
+            return;
+        }
+
+        // Forward event to text field.
+        self.input.touch_up();
+    }
+
+    /// Get physical geometry of the text input area.
+    fn text_geometry(&self) -> (Position<f64>, Size) {
+        let text_padding = (BUTTON_X_PADDING * self.scale).round() as u32;
+        let button_width = Tabs::button_size(self.scale).width + text_padding;
+        let width = self.size.width - button_width * 2;
+
+        let position = Position::new(button_width as f64, 0.);
+        let size = Size::new(width, self.size.height);
+
+        (position, size)
     }
 }
 
@@ -1055,6 +1246,12 @@ enum TouchAction {
     NewGroupTap,
     PersistentTap,
     CycleGroupTap,
+    GroupLabelTouch,
+}
+
+/// Elements accepting keyboard focus.
+enum KeyboardInputElement {
+    GroupLabel,
 }
 
 /// Get iterator over tabs in a tab group.

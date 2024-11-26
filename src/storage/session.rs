@@ -1,8 +1,8 @@
 //! Browser session DB storage.
 
 use std::collections::HashMap;
-use std::process;
 use std::rc::Rc;
+use std::{fs, process};
 
 use rusqlite::{params, Connection as SqliteConnection};
 use tracing::error;
@@ -61,13 +61,21 @@ impl Session {
         // Remove sessions of currently active Kumo processes.
         let mut known_pids = HashMap::new();
         sessions.retain(|session| {
+            // Accept entries if we coincidentally got the same PID again.
+            if session.pid == self.pid {
+                return true;
+            }
+
             // Short-circuit if we've already probed the PID owning this session.
             if let Some(running) = known_pids.get(&session.pid) {
                 return !running;
             }
 
-            // Probe PID to check if the session is currently active.
-            let running = unsafe { libc::kill(session.pid as i32, 0) } >= 0;
+            // Check if there's a running Kumo process with the session's PID.
+            let running = match fs::read_to_string(format!("/proc/{}/cmdline", session.pid)) {
+                Ok(cmdline) => cmdline.contains("kumo"),
+                Err(_) => false,
+            };
             known_pids.insert(session.pid, running);
 
             !running

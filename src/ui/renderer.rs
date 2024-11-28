@@ -719,6 +719,7 @@ pub enum Svg {
     ArrowLeft,
     PersistentOff,
     PersistentOn,
+    Close,
 }
 
 impl Svg {
@@ -728,6 +729,7 @@ impl Svg {
             Self::ArrowLeft => include_bytes!("../../svgs/arrow_left.svg"),
             Self::PersistentOff => include_bytes!("../../svgs/persistent_off.svg"),
             Self::PersistentOn => include_bytes!("../../svgs/persistent_on.svg"),
+            Self::Close => include_bytes!("../../svgs/close.svg"),
         }
     }
 }

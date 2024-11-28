@@ -71,6 +71,9 @@ trait TabsHandler {
     /// Create a new tab group.
     fn create_tab_group(&mut self, window_id: WindowId);
 
+    /// Delete a tab group.
+    fn delete_tab_group(&mut self, window_id: WindowId, group_id: GroupId);
+
     /// Update a tab group's label.
     fn update_group_label(&mut self, window_id: WindowId, label: String);
 }
@@ -132,6 +135,15 @@ impl TabsHandler for State {
         window.create_tab_group(None);
     }
 
+    fn delete_tab_group(&mut self, window_id: WindowId, group_id: GroupId) {
+        let window = match self.windows.get_mut(&window_id) {
+            Some(window) => window,
+            None => return,
+        };
+
+        window.delete_tab_group(group_id);
+    }
+
     fn update_group_label(&mut self, window_id: WindowId, label: String) {
         let window = match self.windows.get_mut(&window_id) {
             Some(window) => window,
@@ -157,6 +169,7 @@ pub struct Tabs {
     cycle_group_button: SvgButton,
     persistent_button: SvgButton,
     new_group_button: PlusButton,
+    close_group_button: SvgButton,
 
     keyboard_focus: Option<KeyboardInputElement>,
     touch_state: TouchState,
@@ -177,6 +190,7 @@ impl Tabs {
             queue,
             persistent_button: SvgButton::new_toggle(Svg::PersistentOn, Svg::PersistentOff),
             cycle_group_button: SvgButton::new(Svg::ArrowLeft),
+            close_group_button: SvgButton::new(Svg::Close),
             scale: 1.0,
             new_group_button: Default::default(),
             keyboard_focus: Default::default(),
@@ -455,6 +469,7 @@ impl Popup for Tabs {
         // associated with the correct program.
         let tab_textures = self.texture_cache.textures(tab_size, self.scale, self.group);
         let cycle_group_button = self.cycle_group_button.texture();
+        let close_group_button = self.close_group_button.texture();
         let persistent_button = self.persistent_button.texture();
         let new_group_button = self.new_group_button.texture();
         let new_tab_button = self.new_tab_button.texture();
@@ -496,8 +511,14 @@ impl Popup for Tabs {
         unsafe { renderer.draw_texture_at(new_tab_button, texture_pos, None) };
         texture_pos = cycle_group_button_position;
         unsafe { renderer.draw_texture_at(cycle_group_button, texture_pos, None) };
+
+        // Change new group to close group while editing the group label.
         texture_pos = new_group_button_position;
-        unsafe { renderer.draw_texture_at(new_group_button, texture_pos, None) };
+        if self.group_label.editing {
+            unsafe { renderer.draw_texture_at(close_group_button, texture_pos, None) };
+        } else {
+            unsafe { renderer.draw_texture_at(new_group_button, texture_pos, None) };
+        }
 
         // Prevent persistent mode toggling for the default group.
         if self.group != NO_GROUP_ID {
@@ -517,6 +538,7 @@ impl Popup for Tabs {
         // Update UI element sizes.
         self.cycle_group_button.set_geometry(self.cycle_group_button_size(), self.scale);
         self.persistent_button.set_geometry(self.persistent_button_size(), self.scale);
+        self.close_group_button.set_geometry(self.new_group_button_size(), self.scale);
         self.new_group_button.set_geometry(self.new_group_button_size(), self.scale);
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
         self.group_label.set_geometry(self.group_label_size(), self.scale);
@@ -534,6 +556,7 @@ impl Popup for Tabs {
         // Update UI element scales.
         self.cycle_group_button.set_geometry(self.cycle_group_button_size(), self.scale);
         self.persistent_button.set_geometry(self.persistent_button_size(), self.scale);
+        self.close_group_button.set_geometry(self.new_group_button_size(), self.scale);
         self.new_group_button.set_geometry(self.new_group_button_size(), self.scale);
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
         self.group_label.set_geometry(self.group_label_size(), self.scale);
@@ -581,7 +604,15 @@ impl Popup for Tabs {
             self.touch_state.action = TouchAction::PersistentTap;
             self.clear_keyboard_focus();
         } else if rect_contains(new_group_button_position, new_group_button_size, position) {
-            self.touch_state.action = TouchAction::NewGroupTap;
+            // Close on new group button tap while editing the group label.
+            //
+            // This action must be set during the initial touch action since the `editing`
+            // status will be cleared before the action is dispatched.
+            if self.group_label.editing {
+                self.touch_state.action = TouchAction::CloseGroupTap;
+            } else {
+                self.touch_state.action = TouchAction::NewGroupTap;
+            }
             self.clear_keyboard_focus();
         } else if rect_contains(new_tab_button_position, new_tab_button_size, position) {
             self.touch_state.action = TouchAction::NewTabTap;
@@ -677,6 +708,17 @@ impl Popup for Tabs {
 
                 if rect_contains(new_group_button_position, new_group_button_size, position) {
                     self.queue.create_tab_group(self.window_id);
+                }
+            },
+            // Create new tab group.
+            TouchAction::CloseGroupTap => {
+                let new_group_button_position = self.new_group_button_position();
+                let new_group_button_size = self.new_group_button_size().into();
+                let position = self.touch_state.position;
+
+                if rect_contains(new_group_button_position, new_group_button_size, position) {
+                    // Close tab group on new group button press while editing.
+                    self.queue.delete_tab_group(self.window_id, self.group);
                 }
             },
             // Open a new tab.
@@ -1043,7 +1085,7 @@ impl SvgButton {
 
     /// Update toggle state.
     fn set_enabled(&mut self, enabled: bool) {
-        self.dirty = self.enabled != enabled;
+        self.dirty |= self.enabled != enabled;
         self.enabled = enabled;
     }
 }
@@ -1244,6 +1286,7 @@ enum TouchAction {
     TabDrag,
     NewTabTap,
     NewGroupTap,
+    CloseGroupTap,
     PersistentTap,
     CycleGroupTap,
     GroupLabelTouch,

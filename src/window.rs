@@ -309,13 +309,6 @@ impl Window {
             None => return,
         };
 
-        // Delete tab group if this was its last tab.
-        if group_id != NO_GROUP_ID
-            && self.tabs.values().all(|engine| engine.id().group_id() != group_id)
-        {
-            self.delete_tab_group(group_id);
-        }
-
         if engine_id == self.active_tab {
             // First search for previous and following tabs with matching tab group,
             // otherwise fall back to the first tab.
@@ -1194,10 +1187,16 @@ impl Window {
 
     /// Delete a tab group.
     pub fn delete_tab_group(&mut self, group_id: GroupId) {
+        // Close all tabs belonging to the group.
+        self.tabs.retain(|engine_id, _| engine_id.group_id() != group_id);
+
         // Switch overview to the next available group.
         self.cycle_tab_group(group_id);
 
         self.groups.shift_remove(&group_id);
+
+        // Remove deleted tabs from the session storage.
+        self.persist_session();
     }
 
     /// Update the label of the active tab group.

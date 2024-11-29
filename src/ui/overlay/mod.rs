@@ -81,6 +81,11 @@ pub trait Popup {
         TextInputChange::Disabled
     }
 
+    /// Check if popup has keyboard input element focused.
+    fn has_keyboard_focus(&self) -> bool {
+        false
+    }
+
     /// Handle keyboard focus loss.
     fn clear_keyboard_focus(&mut self) {}
 }
@@ -316,6 +321,12 @@ impl Overlay {
             Some(popup) => popup.text_input_state(),
             None => TextInputChange::Disabled,
         }
+    }
+
+    /// Check whether a popup has an input element focused.
+    pub fn has_keyboard_focus(&self) -> bool {
+        let focused_popup = self.keyboard_focus.and_then(|focus| self.popups.iter().nth(focus));
+        focused_popup.is_some_and(Popup::has_keyboard_focus)
     }
 
     /// Clear Overlay keyboard focus.

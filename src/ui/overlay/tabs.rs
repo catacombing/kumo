@@ -780,6 +780,10 @@ impl Popup for Tabs {
         }
     }
 
+    fn has_keyboard_focus(&self) -> bool {
+        self.keyboard_focus.is_some()
+    }
+
     fn clear_keyboard_focus(&mut self) {
         // Automatically confirm input on focus loss.
         if self.group_label.editing {

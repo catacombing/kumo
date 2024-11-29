@@ -661,7 +661,7 @@ impl Window {
         modifiers: Modifiers,
     ) {
         if &self.engine_surface == surface {
-            self.update_keyboard_focus_surface(surface);
+            self.set_keyboard_focus(KeyboardFocus::Browser);
 
             // Use real pointer events for the browser engine.
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
@@ -742,11 +742,10 @@ impl Window {
     ) {
         self.touch_points.insert(id, position);
 
-        // Update the surface receiving keyboard focus.
-        self.update_keyboard_focus_surface(surface);
-
         // Forward events to corresponding surface.
         if &self.engine_surface == surface {
+            self.set_keyboard_focus(KeyboardFocus::Browser);
+
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 // Close all dropdowns when interacting with the page.
                 engine.close_option_menu(None);
@@ -754,6 +753,8 @@ impl Window {
                 engine.touch_down(time, id, position, modifiers);
             }
         } else if self.ui.surface() == surface {
+            self.set_keyboard_focus(KeyboardFocus::Ui);
+
             // Close all dropdowns when clicking on the UI.
             if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
                 engine.close_option_menu(None);
@@ -762,6 +763,11 @@ impl Window {
             self.ui.touch_down(time, id, position, modifiers);
         } else if self.overlay.surface() == surface {
             self.overlay.touch_down(time, id, position, modifiers);
+
+            // Set keyboard focus, if the overlay has an input element focused.
+            if self.overlay.has_keyboard_focus() {
+                self.set_keyboard_focus(KeyboardFocus::Overlay);
+            }
         }
 
         // Unstall if UI changed.
@@ -1075,21 +1081,6 @@ impl Window {
             Size::new(self.size.width, self.size.height)
         } else {
             Size::new(self.size.width, self.size.height - Ui::toolbar_height())
-        }
-    }
-
-    /// Handle keyboard focus surface changes.
-    pub fn update_keyboard_focus_surface(&mut self, surface: &WlSurface) {
-        // Assign keyboard focus to the element owning the surface.
-        //
-        // The overlay does not have any text input elements and thus does not take
-        // keyboard focus.
-        if self.ui.surface() == surface {
-            self.set_keyboard_focus(KeyboardFocus::Ui);
-        } else if self.overlay.surface() == surface {
-            self.set_keyboard_focus(KeyboardFocus::Overlay);
-        } else if &self.engine_surface == surface {
-            self.set_keyboard_focus(KeyboardFocus::Browser);
         }
     }
 

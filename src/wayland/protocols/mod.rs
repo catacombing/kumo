@@ -159,7 +159,6 @@ impl CompositorHandler for State {
     ) {
     }
 
-    /// The surface has left an output.
     fn surface_leave(
         &mut self,
         _: &Connection,

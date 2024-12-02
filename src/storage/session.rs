@@ -114,7 +114,8 @@ impl SessionDb {
                 window_id INTEGER NOT NULL,
                 group_id BLOB NOT NULL,
                 data BLOB NOT NULL,
-                uri TEXT NOT NULL
+                uri TEXT NOT NULL,
+                focused INTEGER NOT NULL
             )",
             [],
         )?;
@@ -139,12 +140,19 @@ impl SessionDb {
         let mut session = session.into_iter().peekable();
         if session.peek().is_some() {
             let mut stmt = tx.prepare(
-                "INSERT INTO session (pid, window_id, group_id, data, uri) VALUES (?1, ?2, ?3, \
-                 ?4, ?5)",
+                "INSERT INTO session (pid, window_id, group_id, data, uri, focused) VALUES (?1, \
+                 ?2, ?3, ?4, ?5, ?6)",
             )?;
             for entry in session {
                 let group_id = entry.group.id().uuid();
-                stmt.execute(params![pid, window_id, group_id, entry.data, entry.uri])?;
+                stmt.execute(params![
+                    pid,
+                    window_id,
+                    group_id,
+                    entry.data,
+                    entry.uri,
+                    entry.focused
+                ])?;
             }
         }
 
@@ -155,8 +163,9 @@ impl SessionDb {
 
     /// Get all browser sessions,
     fn sessions(&self) -> rusqlite::Result<Vec<SessionEntry>> {
-        let mut statement =
-            self.connection.prepare("SELECT pid, window_id, group_id, data, uri FROM session")?;
+        let mut statement = self
+            .connection
+            .prepare("SELECT pid, window_id, group_id, data, uri, focused FROM session")?;
 
         let sessions = statement
             .query_map([], |row| {
@@ -165,8 +174,9 @@ impl SessionDb {
                 let group_id: Uuid = row.get(2)?;
                 let session_data: Vec<u8> = row.get(3)?;
                 let uri: String = row.get(4)?;
+                let focused: bool = row.get(5)?;
 
-                Ok(SessionEntry { pid, window_id, group_id, session_data, uri })
+                Ok(SessionEntry { pid, window_id, group_id, session_data, uri, focused })
             })?
             .flatten()
             .collect();
@@ -192,6 +202,7 @@ pub struct SessionEntry {
     pub group_id: Uuid,
     pub session_data: Vec<u8>,
     pub uri: String,
+    pub focused: bool,
 }
 
 /// Object for writing sessions to the DB.
@@ -199,16 +210,17 @@ pub struct SessionRecord<'a> {
     pub group: &'a Group,
     pub data: Vec<u8>,
     pub uri: String,
+    pub focused: bool,
 }
 
 impl<'a> SessionRecord<'a> {
     #[allow(clippy::borrowed_box)]
-    pub fn new(engine: &Box<dyn Engine>, group: &'a Group) -> Option<Self> {
+    pub fn new(engine: &Box<dyn Engine>, group: &'a Group, focused: bool) -> Option<Self> {
         // Never persist ephemeral tab groups.
         if group.ephemeral {
             return None;
         }
 
-        Some(Self { group, data: engine.session(), uri: engine.uri() })
+        Some(Self { group, data: engine.session(), uri: engine.uri(), focused })
     }
 }

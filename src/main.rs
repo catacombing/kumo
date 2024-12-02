@@ -89,16 +89,20 @@ fn main() -> Result<(), Error> {
 
     // Create an empty tab for loading a new page.
     let mut is_first_tab = true;
-    let get_empty_tab =
-        |window: &mut Window, is_first_tab: &mut bool, group_id: GroupId| -> Result<_, Error> {
-            if *is_first_tab && group_id == NO_GROUP_ID {
-                window.set_keyboard_focus(KeyboardFocus::None);
-                *is_first_tab = false;
-                Ok(window.active_tab())
-            } else {
-                Ok(window.add_tab(false, true, group_id)?)
-            }
-        };
+    let get_empty_tab = |window: &mut Window,
+                         is_first_tab: &mut bool,
+                         group_id: GroupId,
+                         focus: bool|
+     -> Result<_, Error> {
+        if *is_first_tab && group_id == NO_GROUP_ID {
+            window.set_keyboard_focus(KeyboardFocus::None);
+            *is_first_tab = false;
+            Ok(window.active_tab())
+        } else {
+            // TODO: This still shifts focus to the new tab group.
+            Ok(window.add_tab(false, focus, group_id)?)
+        }
+    };
 
     // Get all sessions requiring restoration, sorted by PID and window ID.
     let mut orphan_sessions = state.storage.session.orphans();
@@ -132,11 +136,11 @@ fn main() -> Result<(), Error> {
             let db_group = state.storage.groups.group_by_id(entry.group_id);
             let group =
                 db_group.unwrap_or_else(|| Group::with_uuid(entry.group_id, "-".into(), false));
-            window.create_tab_group(Some(group))
+            window.create_tab_group(Some(group), entry.focused)
         };
 
         // Restore the session in a new empty tab.
-        let engine_id = get_empty_tab(window, &mut is_first_tab, group_id)?;
+        let engine_id = get_empty_tab(window, &mut is_first_tab, group_id, entry.focused)?;
         if let Some(engine) = window.tab(engine_id) {
             engine.restore_session(mem::take(&mut entry.session_data));
             engine.load_uri(&entry.uri);
@@ -156,7 +160,7 @@ fn main() -> Result<(), Error> {
     // Spawn a new tab for every CLI argument.
     let window = state.windows.get_mut(&window_id).unwrap();
     for arg in env::args().skip(1) {
-        get_empty_tab(window, &mut is_first_tab, NO_GROUP_ID)?;
+        get_empty_tab(window, &mut is_first_tab, NO_GROUP_ID, true)?;
         window.load_uri(arg, true);
     }
 

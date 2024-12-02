@@ -132,7 +132,7 @@ impl TabsHandler for State {
             None => return,
         };
 
-        window.create_tab_group(None);
+        window.create_tab_group(None, true);
     }
 
     fn delete_tab_group(&mut self, window_id: WindowId, group_id: GroupId) {

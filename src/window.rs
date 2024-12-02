@@ -359,6 +359,9 @@ impl Window {
         // Update tabs popup.
         self.overlay.tabs_mut().set_active_tab(self.active_tab);
 
+        // Update session's focused tab.
+        self.persist_session();
+
         self.unstall();
     }
 
@@ -929,7 +932,7 @@ impl Window {
         // Persist latest session state.
         let session = self.tabs.iter().filter_map(|(engine_id, engine)| {
             let group = self.groups.get(&engine_id.group_id()).unwrap_or(NO_GROUP_REF);
-            SessionRecord::new(engine, group)
+            SessionRecord::new(engine, group, engine_id == &self.active_tab)
         });
         self.session_storage.persist(self.id, session);
 
@@ -1158,12 +1161,14 @@ impl Window {
     /// Create a new tab group.
     ///
     /// The group will not be recreated if the supplied UUID already exists.
-    pub fn create_tab_group(&mut self, template: Option<Group>) -> GroupId {
+    pub fn create_tab_group(&mut self, template: Option<Group>, focus: bool) -> GroupId {
         // Create a new persistent group.
         let group = template.unwrap_or_else(|| Group::new(false));
 
         // Switch the tabs view to the created group.
-        self.overlay.tabs_mut().set_active_tab_group(&group);
+        if focus {
+            self.overlay.tabs_mut().set_active_tab_group(&group);
+        }
 
         // Store new group if it doesn't exist yet.
         let group_id = group.id();

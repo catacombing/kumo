@@ -146,7 +146,7 @@ impl WebKitHandler for State {
         }
 
         // Offer new WlBuffer to window.
-        if window.active_tab() == engine_id {
+        if window.active_tab().is_some_and(|engine| engine.id() == engine_id) {
             window.unstall();
         }
     }
@@ -311,7 +311,7 @@ impl WebKitHandler for State {
         };
 
         window.set_keyboard_focus(KeyboardFocus::None);
-        if let Some(engine) = window.tab(window.active_tab()) {
+        if let Some(engine) = window.active_tab() {
             engine.load_uri(&uri);
         }
     }

@@ -97,9 +97,8 @@ fn main() -> Result<(), Error> {
         if *is_first_tab && group_id == NO_GROUP_ID {
             window.set_keyboard_focus(KeyboardFocus::None);
             *is_first_tab = false;
-            Ok(window.active_tab())
+            Ok(window.active_tab().unwrap().id())
         } else {
-            // TODO: This still shifts focus to the new tab group.
             Ok(window.add_tab(false, focus, group_id)?)
         }
     };

@@ -206,7 +206,7 @@ impl Tabs {
     }
 
     /// Update the tracked tabs.
-    pub fn set_tabs<'a, T>(&mut self, tabs: T, active_tab: EngineId)
+    pub fn set_tabs<'a, T>(&mut self, tabs: T, active_tab: Option<EngineId>)
     where
         T: Iterator<Item = &'a Box<dyn Engine>>,
     {
@@ -215,7 +215,7 @@ impl Tabs {
     }
 
     /// Update the active tab.
-    pub fn set_active_tab(&mut self, active_tab: EngineId) {
+    pub fn set_active_tab(&mut self, active_tab: Option<EngineId>) {
         self.texture_cache.set_active_tab(active_tab);
         self.dirty = true;
     }
@@ -770,7 +770,6 @@ impl Popup for Tabs {
     fn text_input_state(&mut self) -> TextInputChange {
         match self.keyboard_focus {
             Some(KeyboardInputElement::GroupLabel) => {
-                // TODO: Relative position?
                 let group_label_position = self.group_label_position();
                 let x = group_label_position.x.round() as i32;
                 let y = group_label_position.y.round() as i32;
@@ -803,7 +802,7 @@ struct TextureCache {
 
 impl TextureCache {
     /// Update the tabs tracked by this cache.
-    fn set_tabs<'a, T>(&mut self, tabs: T, active_tab: EngineId)
+    fn set_tabs<'a, T>(&mut self, tabs: T, active_tab: Option<EngineId>)
     where
         T: Iterator<Item = &'a Box<dyn Engine>>,
     {
@@ -812,9 +811,9 @@ impl TextureCache {
     }
 
     /// Update the active tab for this cache.
-    fn set_active_tab(&mut self, active_tab: EngineId) {
+    fn set_active_tab(&mut self, active_tab: Option<EngineId>) {
         for tab in &mut self.tabs {
-            tab.uri.1 = tab.engine == active_tab;
+            tab.uri.1 = Some(tab.engine) == active_tab;
         }
     }
 
@@ -911,10 +910,10 @@ struct RenderTab {
 }
 
 impl RenderTab {
-    fn new(engine: &dyn Engine, active_tab: EngineId) -> Self {
+    fn new(engine: &dyn Engine, active_tab: Option<EngineId>) -> Self {
         let engine_id = engine.id();
         Self {
-            uri: (engine.uri(), engine_id == active_tab),
+            uri: (engine.uri(), Some(engine_id) == active_tab),
             title: engine.title(),
             engine: engine_id,
         }

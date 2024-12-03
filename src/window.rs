@@ -86,7 +86,7 @@ pub struct Window {
     tabs: IndexMap<EngineId, Box<dyn Engine>>,
     groups: IndexMap<GroupId, Group>,
     engine_state: Rc<RefCell<WebKitState>>,
-    active_tab: EngineId,
+    active_tab: Option<EngineId>,
 
     wayland_queue: QueueHandle<State>,
     text_input: Option<TextInput>,
@@ -97,8 +97,6 @@ pub struct Window {
     xdg: XdgWindow,
     scale: f64,
     size: Size,
-
-    queue: StQueueHandle<State>,
 
     ui: Ui,
     overlay: Overlay,
@@ -211,12 +209,11 @@ impl Window {
             engine_state,
             connection,
             overlay,
-            queue,
             size,
             xdg,
             ui,
             id,
-            active_tab: EngineId::new(id, NO_GROUP_ID),
+            active_tab: Some(EngineId::new(id, NO_GROUP_ID)),
             session_storage: storage.session.clone(),
             group_storage: storage.groups.clone(),
             history: storage.history.clone(),
@@ -281,7 +278,7 @@ impl Window {
 
         // Switch the active tab.
         if switch_focus {
-            self.active_tab = engine_id;
+            self.active_tab = Some(engine_id);
         }
 
         // Update tabs popup.
@@ -309,7 +306,7 @@ impl Window {
             None => return,
         };
 
-        if engine_id == self.active_tab {
+        if Some(engine_id) == self.active_tab {
             // First search for previous and following tabs with matching tab group,
             // otherwise fall back to the first tab.
             let len = self.tabs.len();
@@ -322,15 +319,7 @@ impl Window {
                 })
                 .or_else(|| self.tabs.first());
 
-            match new_focus {
-                // If the closed tab was active, switch to the first one.
-                Some((&engine_id, _)) => self.set_active_tab(engine_id),
-                // If there's no more tabs, close the window.
-                None => {
-                    self.queue.close_window(self.id);
-                    self.closed = true;
-                },
-            }
+            self.set_active_tab(new_focus.map(|(engine_id, _)| *engine_id));
         }
 
         // Update tabs popup.
@@ -343,18 +332,25 @@ impl Window {
         self.unstall();
     }
 
-    /// Get this window's active tab.
-    pub fn active_tab(&self) -> EngineId {
-        self.active_tab
+    /// Get a reference to this window's active tab.
+    #[allow(clippy::borrowed_box)]
+    pub fn active_tab(&self) -> Option<&Box<dyn Engine>> {
+        self.tab(self.active_tab?)
+    }
+
+    /// Get a mutable reference to this window's active tab.
+    pub fn active_tab_mut(&mut self) -> Option<&mut Box<dyn Engine>> {
+        self.tab_mut(self.active_tab?)
     }
 
     /// Switch between tabs.
-    pub fn set_active_tab(&mut self, engine_id: EngineId) {
-        self.active_tab = engine_id;
+    pub fn set_active_tab(&mut self, engine_id: impl Into<Option<EngineId>>) {
+        self.active_tab = engine_id.into();
 
         // Update URI bar.
-        let uri = self.tabs.get_mut(&self.active_tab).unwrap().uri();
-        self.ui.set_uri(&uri);
+        if let Some(engine) = self.active_tab() {
+            self.ui.set_uri(&engine.uri());
+        }
 
         // Update tabs popup.
         self.overlay.tabs_mut().set_active_tab(self.active_tab);
@@ -373,7 +369,7 @@ impl Window {
             None => Cow::Owned(format!("{SEARCH_URI}{uri}")),
         };
 
-        if let Some(engine) = self.tabs.get(&self.active_tab) {
+        if let Some(engine) = self.active_tab() {
             engine.load_uri(&uri);
         }
 
@@ -404,58 +400,7 @@ impl Window {
 
         // Redraw the active browser engine.
         if !overlay_opaque {
-            let max_engine_size = Size::<f64>::from(self.engine_size()) * self.scale;
-            let engine = self.tabs.get_mut(&self.active_tab).unwrap();
-
-            match engine.wl_buffer() {
-                // Render the engine's buffer.
-                Some(engine_buffer) => {
-                    let buffer_size: Size<f64> = engine.buffer_size().into();
-
-                    // Update browser's viewporter render size.
-                    let src_width = buffer_size.width.min(max_engine_size.width);
-                    let src_height = buffer_size.height.min(max_engine_size.height);
-                    self.engine_viewport.set_source(0., 0., src_width, src_height);
-                    let dst_width = (src_width / self.scale).round() as i32;
-                    let dst_height = (src_height / self.scale).round() as i32;
-                    self.engine_viewport.set_destination(dst_width, dst_height);
-
-                    // Render buffer if it requires a redraw.
-                    if engine.dirty() || self.last_rendered_engine != Some(self.active_tab) {
-                        // Update opaque region.
-                        self.engine_surface.set_opaque_region(engine.opaque_region());
-
-                        // Attach engine buffer to primary surface.
-                        self.engine_surface.attach(Some(engine_buffer), 0, 0);
-                        match engine.take_buffer_damage() {
-                            Some(damage_rects) => {
-                                for (x, y, width, height) in damage_rects {
-                                    self.engine_surface.damage_buffer(x, y, width, height);
-                                }
-                            },
-                            None => self.engine_surface.damage(0, 0, dst_width, dst_height),
-                        }
-                        self.engine_surface.commit();
-
-                        // Request new engine frame.
-                        engine.frame_done();
-
-                        self.last_rendered_engine = Some(self.active_tab);
-                        self.stalled = false;
-                    }
-                },
-                // Clear attached surface if we've switched to an engine that
-                // doesn't have a buffer yet.
-                None => {
-                    self.engine_surface.attach(None, 0, 0);
-                    self.engine_surface.commit();
-                },
-            }
-
-            // Get engine's IME text_input state.
-            if self.text_input.is_some() && self.keyboard_focus == KeyboardFocus::Browser {
-                text_input_state = engine.text_input_state();
-            }
+            self.draw_engine(&mut text_input_state);
         }
 
         // Draw engine backdrop.
@@ -500,6 +445,68 @@ impl Window {
 
         // Submit the new frame.
         surface.commit();
+    }
+
+    /// Redraw the active tab's engine.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn draw_engine(&mut self, text_input_state: &mut TextInputChange) {
+        let max_engine_size = Size::<f64>::from(self.engine_size()) * self.scale;
+        let engine = match self.active_tab.and_then(|id| self.tabs.get_mut(&id)) {
+            Some(engine) => engine,
+            None => return,
+        };
+
+        // Get engine's IME text_input state.
+        if self.text_input.is_some() && self.keyboard_focus == KeyboardFocus::Browser {
+            *text_input_state = engine.text_input_state();
+        }
+
+        // Check if engine has a buffer attached.
+        let engine_buffer = match engine.wl_buffer() {
+            Some(engine_buffer) => engine_buffer,
+            // Clear attached surface if we've switched to an engine that
+            // doesn't have a buffer yet.
+            None => {
+                self.engine_surface.attach(None, 0, 0);
+                self.engine_surface.commit();
+                return;
+            },
+        };
+
+        // Update viewporter buffer transform.
+
+        let buffer_size: Size<f64> = engine.buffer_size().into();
+        let src_width = buffer_size.width.min(max_engine_size.width);
+        let src_height = buffer_size.height.min(max_engine_size.height);
+        self.engine_viewport.set_source(0., 0., src_width, src_height);
+
+        let dst_width = (src_width / self.scale).round() as i32;
+        let dst_height = (src_height / self.scale).round() as i32;
+        self.engine_viewport.set_destination(dst_width, dst_height);
+
+        // Render buffer if it requires a redraw.
+        if engine.dirty() || self.last_rendered_engine != Some(engine.id()) {
+            // Update opaque region.
+            self.engine_surface.set_opaque_region(engine.opaque_region());
+
+            // Attach buffer with its damage since the last frame.
+            self.engine_surface.attach(Some(engine_buffer), 0, 0);
+            match engine.take_buffer_damage() {
+                Some(damage_rects) => {
+                    for (x, y, width, height) in damage_rects {
+                        self.engine_surface.damage_buffer(x, y, width, height);
+                    }
+                },
+                None => self.engine_surface.damage(0, 0, dst_width, dst_height),
+            }
+            self.engine_surface.commit();
+
+            // Request new engine frame.
+            engine.frame_done();
+
+            self.last_rendered_engine = self.active_tab;
+            self.stalled = false;
+        }
     }
 
     /// Unstall the renderer.
@@ -557,9 +564,12 @@ impl Window {
         }
 
         // Acknowledge pending engine fullscreen requests.
-        if Some(self.active_tab) == self.fullscreen_request.take() {
-            let active_tab = self.tabs.get_mut(&self.active_tab).unwrap();
-            active_tab.set_fullscreen(self.fullscreened);
+        let fullscreen_request = self.fullscreen_request.take();
+        let fullscreened = self.fullscreened;
+        if let Some(engine) = self.active_tab_mut() {
+            if Some(engine.id()) == fullscreen_request {
+                engine.set_fullscreen(fullscreened);
+            }
         }
 
         // Destroy history popup, so we don't need to resize it.
@@ -598,7 +608,7 @@ impl Window {
             KeyboardFocus::Ui => self.ui.press_key(raw, keysym, modifiers),
             KeyboardFocus::Overlay => self.overlay.press_key(raw, keysym, modifiers),
             KeyboardFocus::Browser => {
-                let engine = match self.tabs.get_mut(&self.active_tab) {
+                let engine = match self.active_tab_mut() {
                     Some(engine) => engine,
                     None => return,
                 };
@@ -618,7 +628,7 @@ impl Window {
     pub fn release_key(&mut self, time: u32, raw: u32, keysym: Keysym, modifiers: Modifiers) {
         match self.keyboard_focus {
             KeyboardFocus::Browser => {
-                if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+                if let Some(engine) = self.active_tab_mut() {
                     engine.release_key(time, raw, keysym, modifiers);
                 }
             },
@@ -644,7 +654,7 @@ impl Window {
     ) {
         if &self.engine_surface == surface {
             // Forward event to browser engine.
-            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+            if let Some(engine) = self.active_tab_mut() {
                 // Ensure popups are closed when scrolling.
                 engine.close_option_menu(None);
 
@@ -667,7 +677,7 @@ impl Window {
             self.set_keyboard_focus(KeyboardFocus::Browser);
 
             // Use real pointer events for the browser engine.
-            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+            if let Some(engine) = self.active_tab_mut() {
                 engine.pointer_button(time, position, button, down, modifiers);
             }
         } else {
@@ -697,7 +707,7 @@ impl Window {
     ) {
         if &self.engine_surface == surface {
             // Use real pointer events for the browser engine.
-            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+            if let Some(engine) = self.active_tab_mut() {
                 engine.pointer_motion(time, position, modifiers);
             }
         } else {
@@ -714,7 +724,7 @@ impl Window {
         modifiers: Modifiers,
     ) {
         if &self.engine_surface == surface {
-            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+            if let Some(engine) = self.active_tab_mut() {
                 engine.pointer_enter(position, modifiers);
             }
         }
@@ -728,7 +738,7 @@ impl Window {
         modifiers: Modifiers,
     ) {
         if &self.engine_surface == surface {
-            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+            if let Some(engine) = self.active_tab_mut() {
                 engine.pointer_leave(position, modifiers);
             }
         }
@@ -749,7 +759,7 @@ impl Window {
         if &self.engine_surface == surface {
             self.set_keyboard_focus(KeyboardFocus::Browser);
 
-            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+            if let Some(engine) = self.active_tab_mut() {
                 // Close all dropdowns when interacting with the page.
                 engine.close_option_menu(None);
 
@@ -759,7 +769,7 @@ impl Window {
             self.set_keyboard_focus(KeyboardFocus::Ui);
 
             // Close all dropdowns when clicking on the UI.
-            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+            if let Some(engine) = self.active_tab_mut() {
                 engine.close_option_menu(None);
             }
 
@@ -783,9 +793,9 @@ impl Window {
     pub fn touch_up(&mut self, surface: &WlSurface, time: u32, id: i32, modifiers: Modifiers) {
         // Forward events to corresponding surface.
         if &self.engine_surface == surface {
-            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
-                if let Some(position) = self.touch_points.get(&id) {
-                    engine.touch_up(time, id, *position, modifiers);
+            if let Some(&position) = self.touch_points.get(&id) {
+                if let Some(engine) = self.active_tab_mut() {
+                    engine.touch_up(time, id, position, modifiers);
                 }
             }
         } else if self.ui.surface() == surface {
@@ -816,7 +826,7 @@ impl Window {
 
         // Forward events to corresponding surface.
         if &self.engine_surface == surface {
-            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+            if let Some(engine) = self.active_tab_mut() {
                 engine.touch_motion(time, id, position, modifiers);
             }
         } else if self.ui.surface() == surface {
@@ -849,7 +859,7 @@ impl Window {
                 self.overlay.delete_surrounding_text(before_length, after_length)
             },
             KeyboardFocus::Browser => {
-                let engine = match self.tabs.get_mut(&self.active_tab) {
+                let engine = match self.active_tab_mut() {
                     Some(engine) => engine,
                     None => return,
                 };
@@ -865,7 +875,7 @@ impl Window {
             KeyboardFocus::Ui => self.ui.commit_string(text),
             KeyboardFocus::Overlay => self.overlay.commit_string(text),
             KeyboardFocus::Browser => {
-                let engine = match self.tabs.get_mut(&self.active_tab) {
+                let engine = match self.active_tab_mut() {
                     Some(engine) => engine,
                     None => return,
                 };
@@ -883,7 +893,7 @@ impl Window {
                 self.overlay.set_preedit_string(text, cursor_begin, cursor_end)
             },
             KeyboardFocus::Browser => {
-                let engine = match self.tabs.get_mut(&self.active_tab) {
+                let engine = match self.active_tab_mut() {
                     Some(engine) => engine,
                     None => return,
                 };
@@ -903,7 +913,7 @@ impl Window {
     /// Update an engine's URI.
     pub fn set_engine_uri(&mut self, engine_id: EngineId, uri: String) {
         // Update UI if the URI change is for the active tab.
-        if engine_id == self.active_tab {
+        if Some(engine_id) == self.active_tab {
             self.ui.set_uri(&uri);
 
             // Unstall if UI changed.
@@ -932,7 +942,7 @@ impl Window {
         // Persist latest session state.
         let session = self.tabs.iter().filter_map(|(engine_id, engine)| {
             let group = self.groups.get(&engine_id.group_id()).unwrap_or(NO_GROUP_REF);
-            SessionRecord::new(engine, group, engine_id == &self.active_tab)
+            SessionRecord::new(engine, group, Some(*engine_id) == self.active_tab)
         });
         self.session_storage.persist(self.id, session);
 
@@ -1050,7 +1060,7 @@ impl Window {
     /// Handle engine fullscreen requests.
     pub fn request_fullscreen(&mut self, engine_id: EngineId, enable: bool) {
         // Ignore fullscreen requests for background engines.
-        if engine_id != self.active_tab {
+        if Some(engine_id) != self.active_tab {
             return;
         }
 
@@ -1101,7 +1111,7 @@ impl Window {
 
         // Clear engine focus.
         if focus != KeyboardFocus::Browser {
-            if let Some(engine) = self.tabs.get_mut(&self.active_tab) {
+            if let Some(engine) = self.active_tab_mut() {
                 engine.clear_focus();
             }
         }

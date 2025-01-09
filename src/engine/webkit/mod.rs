@@ -39,8 +39,8 @@ use crate::engine::webkit::platform::WebKitDisplay;
 use crate::engine::{Engine, EngineId, Group, GroupId, BG};
 use crate::storage::cookie_whitelist::CookieWhitelist;
 use crate::ui::overlay::option_menu::{Anchor, OptionMenuId, OptionMenuItem, OptionMenuPosition};
-use crate::window::TextInputChange;
-use crate::{KeyboardFocus, Position, Size, State};
+use crate::window::{TextInputChange, WindowHandler};
+use crate::{KeyboardFocus, PasteTarget, Position, Size, State};
 
 mod input_method_context;
 mod platform;
@@ -94,9 +94,6 @@ trait WebKitHandler {
 
     /// Open URI in a new window.
     fn open_in_window(&mut self, uri: String);
-
-    /// Write text to the system clipboard.
-    fn set_clipboard(&mut self, text: String);
 
     /// Add host to the cookie whitelist.
     fn add_cookie_exception(&mut self, host: String);
@@ -238,8 +235,7 @@ impl WebKitHandler for State {
                 (Position::new(x, y + height).into(), Some(width as u32))
             },
             None => {
-                let position = webkit_engine.last_input_position;
-                let position = Position::new(position.x.round() as i32, position.y.round() as i32);
+                let position = webkit_engine.last_input_position.i32_round();
                 let menu_position = OptionMenuPosition::new(position, Anchor::BottomRight);
                 (menu_position, None)
             },
@@ -314,10 +310,6 @@ impl WebKitHandler for State {
         if let Some(engine) = window.active_tab() {
             engine.load_uri(&uri);
         }
-    }
-
-    fn set_clipboard(&mut self, text: String) {
-        self.set_clipboard(text);
     }
 
     fn add_cookie_exception(&mut self, host: String) {
@@ -753,6 +745,10 @@ impl Engine for WebKitEngine {
         self.webkit_display.input_method_context().emit_by_name::<()>("preedit-finished", &[]);
     }
 
+    fn paste(&mut self, text: String) {
+        self.commit_string(text);
+    }
+
     fn clear_focus(&mut self) {
         self.set_focused(false);
     }
@@ -1068,6 +1064,10 @@ impl ContextMenu {
             n_items += 3;
         }
 
+        if self.context.contains(HitTestResultContext::EDITABLE) {
+            n_items += 1;
+        }
+
         n_items
     }
 
@@ -1103,7 +1103,15 @@ impl ContextMenu {
                 2 => return Some(ContextMenuItem::OpenInNewTab),
                 _ => (),
             }
-            // index -= 3;
+            index -= 3;
+        }
+
+        if self.context.contains(HitTestResultContext::EDITABLE) {
+            match index {
+                0 => return Some(ContextMenuItem::Paste),
+                _ => (),
+            }
+            // index -= 1;
         }
 
         None
@@ -1138,6 +1146,9 @@ impl ContextMenu {
                     engine.queue.set_clipboard(uri);
                 }
             },
+            Some(ContextMenuItem::Paste) => {
+                engine.queue.request_paste(PasteTarget::Browser(engine.id()))
+            },
             None => (),
         }
     }
@@ -1165,6 +1176,7 @@ enum ContextMenuItem {
     OpenInNewTab,
     OpenInNewWindow,
     CopyLink,
+    Paste,
 }
 
 impl ContextMenuItem {
@@ -1176,6 +1188,7 @@ impl ContextMenuItem {
             Self::OpenInNewTab => "Open in New Tab",
             Self::OpenInNewWindow => "Open in New Window",
             Self::CopyLink => "Copy Link",
+            Self::Paste => "Paste",
         }
     }
 }

@@ -10,7 +10,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, ZwpTextInputV3};
-use funq::StQueueHandle;
+use funq::{MtQueueHandle, StQueueHandle};
 use glutin::display::Display;
 use indexmap::IndexMap;
 use smallvec::SmallVec;
@@ -55,6 +55,15 @@ const DEFAULT_HEIGHT: u32 = 640;
 pub trait WindowHandler {
     /// Close a browser window.
     fn close_window(&mut self, window_id: WindowId);
+
+    /// Write text to the system clipboard.
+    fn set_clipboard(&mut self, text: String);
+
+    /// Request clipboard pasting.
+    fn request_paste(&mut self, target: PasteTarget);
+
+    /// Paste text into the window.
+    fn paste(&mut self, target: PasteTarget, text: String);
 }
 
 impl WindowHandler for State {
@@ -75,6 +84,41 @@ impl WindowHandler for State {
 
             // Cleanup unused groups.
             self.storage.groups.delete_orphans();
+        }
+    }
+
+    fn set_clipboard(&mut self, text: String) {
+        self.set_clipboard(text);
+    }
+
+    fn request_paste(&mut self, target: PasteTarget) {
+        self.request_paste(target);
+    }
+
+    fn paste(&mut self, target: PasteTarget, text: String) {
+        let window = match self.windows.get_mut(&target.window_id()) {
+            Some(window) => window,
+            None => return,
+        };
+
+        match (window.keyboard_focus, target) {
+            (KeyboardFocus::Overlay, PasteTarget::Ui(_)) => {
+                window.overlay.paste(text);
+                window.unstall();
+            },
+            (KeyboardFocus::Ui, PasteTarget::Ui(_)) => {
+                window.ui.paste(text);
+                window.unstall();
+            },
+            (KeyboardFocus::Browser, PasteTarget::Browser(engine_id))
+                if window.active_tab == Some(engine_id) =>
+            {
+                if let Some(engine) = window.active_tab_mut() {
+                    engine.paste(text);
+                }
+            },
+            // Ignore paste requests if input focus has changed.
+            _ => (),
         }
     }
 }
@@ -115,6 +159,9 @@ pub struct Window {
 
     session_storage: Session,
     group_storage: Groups,
+
+    text_menu: Option<(OptionMenuId, Option<String>)>,
+    queue: MtQueueHandle<State>,
 
     last_rendered_engine: Option<EngineId>,
     stalled: bool,
@@ -217,6 +264,7 @@ impl Window {
             session_storage: storage.session.clone(),
             group_storage: storage.groups.clone(),
             history: storage.history.clone(),
+            queue: queue.handle(),
             stalled: true,
             scale: 1.,
             initial_configure_done: Default::default(),
@@ -224,10 +272,11 @@ impl Window {
             last_rendered_engine: Default::default(),
             fullscreen_request: Default::default(),
             keyboard_focus: Default::default(),
+            fullscreened: Default::default(),
             history_menu: Default::default(),
             touch_points: Default::default(),
             text_input: Default::default(),
-            fullscreened: Default::default(),
+            text_menu: Default::default(),
             closed: Default::default(),
             groups: Default::default(),
             tabs: Default::default(),
@@ -759,6 +808,11 @@ impl Window {
         if &self.engine_surface == surface {
             self.set_keyboard_focus(KeyboardFocus::Browser);
 
+            // Close active text input popups.
+            if let Some((id, _)) = self.text_menu.take() {
+                self.close_option_menu(id);
+            }
+
             if let Some(engine) = self.active_tab_mut() {
                 // Close all dropdowns when interacting with the page.
                 engine.close_option_menu(None);
@@ -771,6 +825,9 @@ impl Window {
             // Close all dropdowns when clicking on the UI.
             if let Some(engine) = self.active_tab_mut() {
                 engine.close_option_menu(None);
+            }
+            if let Some((id, _)) = self.text_menu.take() {
+                self.close_option_menu(id);
             }
 
             self.ui.touch_down(time, id, position, modifiers);
@@ -993,15 +1050,20 @@ impl Window {
 
     /// Handle submission for option menu spawned by the window.
     pub fn submit_option_menu(&mut self, menu_id: OptionMenuId, index: usize) {
-        // Ignore unknown menu IDs.
-        if Some(menu_id) != self.history_menu {
-            return;
+        if self.history_menu == Some(menu_id) {
+            // Load the selected URI.
+            let uri = self.history_menu_matches.swap_remove(index).uri;
+            self.ui.set_uri(&uri);
+            self.load_uri(uri, false);
+        } else if self.text_menu.as_ref().is_some_and(|(id, _)| *id == menu_id) {
+            let (_, selection) = self.text_menu.take().unwrap();
+            match TextMenuItem::from_index(index as u8) {
+                Some(TextMenuItem::Paste) => self.queue.request_paste(PasteTarget::Ui(self.id)),
+                Some(TextMenuItem::Copy) => self.queue.set_clipboard(selection.unwrap()),
+                Some(TextMenuItem::_Invalid) | None => unreachable!(),
+            }
+            self.close_option_menu(menu_id);
         }
-
-        // Load the selected URI.
-        let uri = self.history_menu_matches.swap_remove(index).uri;
-        self.ui.set_uri(&uri);
-        self.load_uri(uri, false);
     }
 
     /// Show history options menu.
@@ -1023,7 +1085,7 @@ impl Window {
             } else {
                 (m.title.clone(), m.uri.clone())
             };
-            OptionMenuItem { label, description, disabled: false, selected: false }
+            OptionMenuItem { label, description, ..Default::default() }
         });
 
         match self.history_menu.and_then(|id| self.overlay.option_menu(id)) {
@@ -1048,6 +1110,23 @@ impl Window {
                 self.history_menu = Some(menu_id);
             },
         }
+    }
+
+    /// Show text input long-press options menu.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn open_text_menu(&mut self, position: Position, selection: Option<String>) {
+        if let Some((id, _)) = self.text_menu.take() {
+            self.close_option_menu(id);
+        }
+
+        let menu_id = OptionMenuId::new(self.id);
+        let items: &[_] = match selection {
+            Some(_) => &[TextMenuItem::Paste, TextMenuItem::Copy],
+            None => &[TextMenuItem::Paste],
+        };
+        let items = items.iter().copied().map(|item| item.into());
+        self.open_option_menu(menu_id, position, None, items);
+        self.text_menu = Some((menu_id, selection));
     }
 
     /// Hide history options menu.
@@ -1242,7 +1321,7 @@ impl Default for WindowId {
 }
 
 /// Keyboard focus surfaces.
-#[derive(PartialEq, Eq, Copy, Clone, Default)]
+#[derive(PartialEq, Eq, Copy, Clone, Default, Debug)]
 pub enum KeyboardFocus {
     None,
     #[default]
@@ -1387,6 +1466,59 @@ pub enum TextInputChange {
     Unchanged,
     /// Text input requires update.
     Dirty(TextInputState),
+}
+
+/// Target for a clipboard paste action.
+#[derive(Copy, Clone, Debug)]
+pub enum PasteTarget {
+    Browser(EngineId),
+    Ui(WindowId),
+}
+
+impl PasteTarget {
+    /// Get the target window ID.
+    pub fn window_id(&self) -> WindowId {
+        match self {
+            Self::Browser(engine_id) => engine_id.window_id(),
+            Self::Ui(window_id) => *window_id,
+        }
+    }
+}
+
+/// Entries for the text input option menu.
+#[repr(u8)]
+#[derive(Copy, Clone)]
+enum TextMenuItem {
+    Paste,
+    Copy,
+    // SAFETY: Must be last value, since it's used for "safe" transmute.
+    _Invalid,
+}
+
+impl TextMenuItem {
+    /// Get item variant from its index.
+    fn from_index(index: u8) -> Option<Self> {
+        if index >= Self::_Invalid as u8 {
+            return None;
+        }
+
+        Some(unsafe { mem::transmute::<u8, Self>(index) })
+    }
+
+    /// Get the text label for this item.
+    fn label(&self) -> &'static str {
+        match self {
+            Self::Paste => "Paste",
+            Self::Copy => "Copy",
+            Self::_Invalid => unreachable!(),
+        }
+    }
+}
+
+impl From<TextMenuItem> for OptionMenuItem {
+    fn from(item: TextMenuItem) -> Self {
+        OptionMenuItem { label: item.label().into(), ..Default::default() }
+    }
 }
 
 #[allow(rustdoc::bare_urls)]

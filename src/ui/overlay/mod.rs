@@ -70,7 +70,7 @@ pub trait Popup {
     /// Delete text around the current cursor position.
     fn delete_surrounding_text(&mut self, _before_length: u32, _after_length: u32) {}
 
-    /// Insert text at the current cursor position.
+    /// Insert IME text at the current cursor position.
     fn commit_string(&mut self, _text: String) {}
 
     /// Set preedit text at the current cursor position.
@@ -80,6 +80,9 @@ pub trait Popup {
     fn text_input_state(&mut self) -> TextInputChange {
         TextInputChange::Disabled
     }
+
+    /// Paste text at the current cursor position.
+    fn paste(&mut self, _text: String) {}
 
     /// Check if popup has keyboard input element focused.
     fn has_keyboard_focus(&self) -> bool {
@@ -107,6 +110,8 @@ pub struct Overlay {
 
     size: Size,
     scale: f64,
+
+    dirty: bool,
 }
 
 impl Overlay {
@@ -131,6 +136,7 @@ impl Overlay {
             scale: 1.0,
             keyboard_focus: Default::default(),
             touch_focus: Default::default(),
+            dirty: Default::default(),
             size: Default::default(),
         }
     }
@@ -190,9 +196,10 @@ impl Overlay {
         }
 
         // Don't redraw if rendering is up to date.
-        if popups.all(|popup| !popup.dirty()) {
+        if !self.dirty && popups.all(|popup| !popup.dirty()) {
             return false;
         }
+        self.dirty = false;
         drop(popups);
 
         self.update_regions();
@@ -216,9 +223,12 @@ impl Overlay {
 
                 // Draw the popups.
                 //
+                // The drawing happens in reverse order to ensure consistency with touch
+                // handling which happens in traditional iterator order.
+                //
                 // NOTE: We still draw invisible popups to allow them to clear their dirty flags
                 // after going invisible. Popups must not draw anything while invisible.
-                for popup in self.popups.iter_mut() {
+                for popup in self.popups.iter_mut().rev() {
                     popup.draw(renderer);
                 }
             }
@@ -251,6 +261,16 @@ impl Overlay {
         position: Position<f64>,
         modifiers: Modifiers,
     ) {
+        // Close untouched option menus.
+        let mut menu_closed = false;
+        self.popups.option_menus.retain(|menu| {
+            let popup_position = menu.position().into();
+            let touched = rect_contains(popup_position, menu.size().into(), position);
+            menu_closed |= !touched;
+            touched
+        });
+        self.dirty |= menu_closed;
+
         // Focus touched popup.
         for (i, popup) in self.popups.iter_mut().enumerate() {
             let popup_position = popup.position().into();
@@ -303,6 +323,14 @@ impl Overlay {
         let focused_popup = self.keyboard_focus.and_then(|focus| self.popups.iter_mut().nth(focus));
         if let Some(popup) = focused_popup {
             popup.commit_string(text);
+        }
+    }
+
+    /// Insert text at the current cursor position.
+    pub fn paste(&mut self, text: String) {
+        let focused_popup = self.keyboard_focus.and_then(|focus| self.popups.iter_mut().nth(focus));
+        if let Some(popup) = focused_popup {
+            popup.paste(text);
         }
     }
 
@@ -380,6 +408,7 @@ impl Overlay {
     /// Permanently discard an option menu.
     pub fn close_option_menu(&mut self, id: OptionMenuId) {
         self.popups.option_menus.retain(|menu| menu.id() != id);
+        self.dirty = true;
     }
 }
 
@@ -412,23 +441,28 @@ impl Popups {
     }
 
     /// Non-mutable popup iterator.
-    fn iter(&self) -> Box<dyn Iterator<Item = &dyn Popup> + '_> {
+    fn iter(&self) -> Box<dyn PopupIterator + '_> {
+        let option_menus = self.option_menus.iter().filter(|m| m.visible()).map(|m| m as _);
         if self.tabs.visible() {
-            let option_menus = self.option_menus.iter().filter(|m| m.visible()).map(|m| m as _);
             Box::new(option_menus.chain([&self.tabs as _]))
         } else {
-            Box::new(self.option_menus.iter().filter(|menu| menu.visible()).map(|menu| menu as _))
+            Box::new(option_menus)
         }
     }
 
     /// Mutable popup iterator.
-    fn iter_mut(&mut self) -> Box<dyn Iterator<Item = &mut dyn Popup> + '_> {
+    fn iter_mut(&mut self) -> Box<dyn PopupIteratorMut<'_> + '_> {
+        let option_menus = self.option_menus.iter_mut().filter(|m| m.visible()).map(|m| m as _);
         if self.tabs.visible() {
-            let option_menus = self.option_menus.iter_mut().filter(|m| m.visible()).map(|m| m as _);
             Box::new(option_menus.chain([&mut self.tabs as _]))
         } else {
-            let iter = self.option_menus.iter_mut().filter(|menu| menu.visible()).map(|m| m as _);
-            Box::new(iter)
+            Box::new(option_menus)
         }
     }
 }
+
+// Wrappers for combining Iterator + DoubleEndedIterator trait bounds.
+trait PopupIterator<'a>: Iterator<Item = &'a dyn Popup> + DoubleEndedIterator {}
+impl<'a, T: Iterator<Item = &'a dyn Popup> + DoubleEndedIterator> PopupIterator<'a> for T {}
+trait PopupIteratorMut<'a>: Iterator<Item = &'a mut dyn Popup> + DoubleEndedIterator {}
+impl<'a, T: Iterator<Item = &'a mut dyn Popup> + DoubleEndedIterator> PopupIteratorMut<'a> for T {}

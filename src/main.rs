@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::io::Read;
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use std::os::fd::{AsFd, AsRawFd};
 use std::ptr::NonNull;
@@ -26,7 +27,7 @@ use smithay_client_toolkit::reexports::client::{
     ConnectError, Connection, EventQueue, QueueHandle,
 };
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers, RepeatInfo};
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::engine::webkit::{WebKitError, WebKitState};
@@ -35,7 +36,7 @@ use crate::storage::history::History;
 use crate::storage::Storage;
 use crate::wayland::protocols::{KeyRepeat, ProtocolStates, TextInput};
 use crate::wayland::WaylandDispatch;
-use crate::window::{KeyboardFocus, Window, WindowId};
+use crate::window::{KeyboardFocus, PasteTarget, Window, WindowHandler, WindowId};
 
 mod engine;
 mod storage;
@@ -292,6 +293,35 @@ impl State {
 
         self.clipboard.text = text;
     }
+
+    /// Request clipboard paste.
+    fn request_paste(&mut self, target: PasteTarget) {
+        // Get available Wayland text selection.
+        let selection_offer = match self.protocol_states.data_device.data().selection_offer() {
+            Some(selection_offer) => selection_offer,
+            None => return,
+        };
+        let mut pipe = match selection_offer.receive("text/plain".into()) {
+            Ok(pipe) => pipe,
+            Err(err) => {
+                warn!("Clipboard paste failed: {err}");
+                return;
+            },
+        };
+
+        // Asynchronously write paste text to the window.
+        let mut queue = self.queue.clone();
+        source::unix_fd_add_local(pipe.as_raw_fd(), IOCondition::IN, move |_, _| {
+            // Read available text from pipe.
+            let mut text = String::new();
+            pipe.read_to_string(&mut text).unwrap();
+
+            // Forward text to the paste target.
+            queue.paste(target, text);
+
+            ControlFlow::Break
+        });
+    }
 }
 
 /// Key status tracking for WlKeyboard.
@@ -413,6 +443,12 @@ pub struct Position<T = i32> {
 impl<T> Position<T> {
     fn new(x: T, y: T) -> Self {
         Self { x, y }
+    }
+}
+
+impl Position<f64> {
+    fn i32_round(&self) -> Position {
+        Position::new(self.x.round() as i32, self.y.round() as i32)
     }
 }
 

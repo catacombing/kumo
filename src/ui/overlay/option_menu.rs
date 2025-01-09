@@ -569,6 +569,7 @@ impl Popup for OptionMenu {
 }
 
 /// Entry in an option menu.
+#[derive(Default)]
 pub struct OptionMenuItem {
     /// Option menu text.
     pub label: String,

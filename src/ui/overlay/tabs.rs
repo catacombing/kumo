@@ -573,7 +573,13 @@ impl Popup for Tabs {
         }
     }
 
-    fn touch_down(&mut self, time: u32, id: i32, position: Position<f64>, _modifiers: Modifiers) {
+    fn touch_down(
+        &mut self,
+        time: u32,
+        id: i32,
+        logical_position: Position<f64>,
+        _modifiers: Modifiers,
+    ) {
         // Only accept a single touch point in the UI.
         if self.touch_state.slot.is_some() {
             return;
@@ -581,7 +587,7 @@ impl Popup for Tabs {
         self.touch_state.slot = Some(id);
 
         // Convert position to physical space.
-        let position = position * self.scale;
+        let position = logical_position * self.scale;
         self.touch_state.position = position;
         self.touch_state.start = position;
 
@@ -620,7 +626,7 @@ impl Popup for Tabs {
         } else if rect_contains(group_label_position, group_label_size, position)
             && self.group != NO_GROUP_ID
         {
-            self.group_label.touch_down(time, position - group_label_position);
+            self.group_label.touch_down(time, logical_position, position - group_label_position);
             self.touch_state.action = TouchAction::GroupLabelTouch;
             self.keyboard_focus = Some(KeyboardInputElement::GroupLabel);
         } else {
@@ -670,7 +676,7 @@ impl Popup for Tabs {
         }
     }
 
-    fn touch_up(&mut self, _time: u32, id: i32, _modifiers: Modifiers) {
+    fn touch_up(&mut self, time: u32, id: i32, _modifiers: Modifiers) {
         // Ignore all unknown touch points.
         if self.touch_state.slot != Some(id) {
             return;
@@ -732,7 +738,7 @@ impl Popup for Tabs {
                 }
             },
             // Forward group label events.
-            TouchAction::GroupLabelTouch => self.group_label.touch_up(),
+            TouchAction::GroupLabelTouch => self.group_label.touch_up(time),
             // Switch tabs for tap actions on a tab.
             TouchAction::TabTap => {
                 if let Some((&RenderTab { engine, .. }, close)) =
@@ -776,6 +782,12 @@ impl Popup for Tabs {
                 self.group_label.input.text_input_state(Position::new(x, y))
             },
             _ => TextInputChange::Disabled,
+        }
+    }
+
+    fn paste(&mut self, text: String) {
+        if let Some(KeyboardInputElement::GroupLabel) = self.keyboard_focus {
+            self.group_label.input.paste(text);
         }
     }
 
@@ -1109,7 +1121,7 @@ struct GroupLabel {
 
 impl GroupLabel {
     fn new(window_id: WindowId, mut queue: MtQueueHandle<State>) -> Self {
-        let mut input = TextField::new(FONT_SIZE);
+        let mut input = TextField::new(window_id, queue.clone(), FONT_SIZE);
         input.set_submit_handler(Box::new(move |label| queue.update_group_label(window_id, label)));
 
         Self {
@@ -1224,14 +1236,19 @@ impl GroupLabel {
     }
 
     /// Handle touch press events.
-    pub fn touch_down(&mut self, time: u32, position: Position<f64>) {
+    pub fn touch_down(
+        &mut self,
+        time: u32,
+        absolute_position: Position<f64>,
+        position: Position<f64>,
+    ) {
         if !self.editing {
             return;
         }
 
         // Forward event to text field.
         let (text_position, _) = self.text_geometry();
-        self.input.touch_down(time, position - text_position);
+        self.input.touch_down(time, absolute_position, position - text_position);
     }
 
     /// Handle touch motion events.
@@ -1246,7 +1263,7 @@ impl GroupLabel {
     }
 
     /// Handle touch release events.
-    pub fn touch_up(&mut self) {
+    pub fn touch_up(&mut self, time: u32) {
         // Enable editing on touch release.
         if !self.editing {
             self.input.set_text(&self.text);
@@ -1256,7 +1273,7 @@ impl GroupLabel {
         }
 
         // Forward event to text field.
-        self.input.touch_up();
+        self.input.touch_up(time);
     }
 
     /// Get physical geometry of the text input area.

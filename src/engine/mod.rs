@@ -135,6 +135,9 @@ pub trait Engine {
     /// Set preedit text at the current cursor position.
     fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32);
 
+    /// Paste clipboard text.
+    fn paste(&mut self, text: String);
+
     /// Clear engine focus.
     fn clear_focus(&mut self);
 

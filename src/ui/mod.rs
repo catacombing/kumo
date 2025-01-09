@@ -3,9 +3,11 @@
 use std::borrow::Cow;
 use std::mem;
 use std::ops::{Bound, Range, RangeBounds};
+use std::time::Duration;
 
 use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose};
 use funq::MtQueueHandle;
+use glib::{source, ControlFlow, Priority, Source};
 use glutin::display::Display;
 use pangocairo::cairo::LinearGradient;
 use pangocairo::pango::{Alignment, SCALE as PANGO_SCALE};
@@ -19,7 +21,7 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::storage::history::{HistoryMatch, MAX_MATCHES};
 use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::window::{TextInputChange, TextInputState};
+use crate::window::{PasteTarget, TextInputChange, TextInputState, WindowHandler};
 use crate::{gl, rect_contains, History, Position, Size, State, WindowId};
 
 pub mod engine_backdrop;
@@ -31,6 +33,9 @@ pub const MAX_TAP_DISTANCE: f64 = 400.;
 
 /// Maximum interval between taps to be considered a double/trible-tap.
 const MAX_MULTI_TAP_MILLIS: u32 = 300;
+
+/// Minimum time before a tap is considered a long-press.
+const LONG_PRESS_MILLIS: u32 = 300;
 
 /// Logical height of the non-browser UI.
 const TOOLBAR_HEIGHT: u32 = 50;
@@ -87,6 +92,14 @@ pub trait UiHandler {
 
     /// Hide history suggestions popup.
     fn close_history_menu(&mut self, window_id: WindowId);
+
+    /// Show long-press text input popup.
+    fn open_text_menu(
+        &mut self,
+        window_id: WindowId,
+        position: Position,
+        selection: Option<String>,
+    );
 }
 
 impl UiHandler for State {
@@ -128,6 +141,17 @@ impl UiHandler for State {
             window.close_history_menu();
         }
     }
+
+    fn open_text_menu(
+        &mut self,
+        window_id: WindowId,
+        position: Position,
+        selection: Option<String>,
+    ) {
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            window.open_text_menu(position, selection);
+        }
+    }
 }
 
 pub struct Ui {
@@ -138,6 +162,7 @@ pub struct Ui {
     viewport: WpViewport,
     compositor: CompositorState,
 
+    origin: Position,
     size: Size,
     scale: f64,
 
@@ -189,6 +214,7 @@ impl Ui {
             tabs_button: Default::default(),
             prev_button: Default::default(),
             separator: Default::default(),
+            origin: Default::default(),
             dirty: Default::default(),
             size: Default::default(),
         };
@@ -202,7 +228,8 @@ impl Ui {
     /// Update the logical UI size.
     pub fn set_size(&mut self, size: Size) {
         let toolbar_height = Self::toolbar_height();
-        self.subsurface.set_position(0, (size.height - toolbar_height) as i32);
+        self.origin = Position::new(0, (size.height - toolbar_height) as i32);
+        self.subsurface.set_position(self.origin.x, self.origin.y);
 
         self.size = Size::new(size.width, toolbar_height);
         self.dirty = true;
@@ -305,7 +332,7 @@ impl Ui {
         &mut self,
         time: u32,
         id: i32,
-        position: Position<f64>,
+        logical_position: Position<f64>,
         _modifiers: Modifiers,
     ) {
         // Only accept a single touch point in the UI.
@@ -315,7 +342,7 @@ impl Ui {
         self.touch_point = Some(id);
 
         // Convert position to physical space.
-        let position = position * self.scale;
+        let position = logical_position * self.scale;
 
         // Get uribar constraints.
         let uribar_position = self.uribar_position().into();
@@ -323,7 +350,8 @@ impl Ui {
 
         if rect_contains(uribar_position, uribar_size, position) {
             // Forward touch event.
-            self.uribar.touch_down(time, position - uribar_position);
+            let absolute_logical_position = logical_position + self.origin.into();
+            self.uribar.touch_down(time, absolute_logical_position, position - uribar_position);
 
             self.touch_focus = TouchFocusElement::UriBar;
             self.keyboard_focus_uribar();
@@ -372,7 +400,7 @@ impl Ui {
     }
 
     /// Handle touch release events.
-    pub fn touch_up(&mut self, _time: u32, id: i32, _modifiers: Modifiers) {
+    pub fn touch_up(&mut self, time: u32, id: i32, _modifiers: Modifiers) {
         // Ignore all unknown touch points.
         if self.touch_point != Some(id) {
             return;
@@ -381,7 +409,7 @@ impl Ui {
 
         match self.touch_focus {
             // Forward touch event.
-            TouchFocusElement::UriBar => self.uribar.touch_up(),
+            TouchFocusElement::UriBar => self.uribar.touch_up(time),
             TouchFocusElement::TabsButton(position) => {
                 let uribar_x = self.uribar_position().x as f64;
                 let uribar_width = self.uribar_size().width as f64;
@@ -406,7 +434,7 @@ impl Ui {
         }
     }
 
-    /// Insert text at the current cursor position.
+    /// Insert IME text at the current cursor position.
     pub fn commit_string(&mut self, text: String) {
         if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
             self.uribar.text_field.commit_string(text);
@@ -428,6 +456,13 @@ impl Ui {
                 self.uribar.text_field.text_input_state(uribar_pos)
             },
             _ => TextInputChange::Disabled,
+        }
+    }
+
+    /// Paste text at the current cursor position.
+    pub fn paste(&mut self, text: String) {
+        if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
+            self.uribar.text_field.paste(text);
         }
     }
 
@@ -461,13 +496,13 @@ impl Ui {
     /// Physical position of the URI bar.
     fn uribar_position(&self) -> Position {
         let horizontal_padding = X_PADDING * self.scale;
-        let prev_button_x = self.prev_button_position().x;
-        let prev_button_width = self.prev_button.size().width as i32;
-        let x = prev_button_x + prev_button_width + horizontal_padding.round() as i32;
+        let prev_button_x = self.prev_button_position().x as f64;
+        let prev_button_width = self.prev_button.size().width as f64;
+        let x = prev_button_x + prev_button_width + horizontal_padding.round();
 
         let y = self.size.height as f64 * self.scale * (1. - URIBAR_HEIGHT_PERCENTAGE) / 2.;
 
-        Position::new(x, y.round() as i32)
+        Position::new(x, y).i32_round()
     }
 
     /// Physical size of the URI bar.
@@ -486,14 +521,14 @@ impl Ui {
     fn tabs_button_position(&self) -> Position {
         let x = ((self.size.width - TABS_BUTTON_SIZE) as f64 - X_PADDING) * self.scale;
         let y = (self.size.height - TABS_BUTTON_SIZE) as f64 * self.scale / 2.;
-        Position::new(x.round() as i32, y.round() as i32)
+        Position::new(x, y).i32_round()
     }
 
     /// Physical position of the previous page button.
     fn prev_button_position(&self) -> Position {
-        let x = (X_PADDING * self.scale).round() as i32;
+        let x = X_PADDING * self.scale;
         let y = (self.size.height - PREV_BUTTON_SIZE) as f64 * self.scale / 2.;
-        Position::new(x, y.round() as i32)
+        Position::new(x, y).i32_round()
     }
 
     /// Physical position of the toolbar separator.
@@ -525,7 +560,7 @@ struct Uribar {
 impl Uribar {
     fn new(window_id: WindowId, history: History, queue: MtQueueHandle<State>) -> Self {
         // Setup text input with submission handling.
-        let mut text_field = TextField::new(FONT_SIZE);
+        let mut text_field = TextField::new(window_id, queue.clone(), FONT_SIZE);
         let mut submit_queue = queue.clone();
         text_field.set_submit_handler(Box::new(move |uri| submit_queue.load_uri(window_id, uri)));
         text_field.set_purpose(ContentPurpose::Url);
@@ -678,11 +713,16 @@ impl Uribar {
     }
 
     /// Handle touch press events.
-    pub fn touch_down(&mut self, time: u32, position: Position<f64>) {
+    pub fn touch_down(
+        &mut self,
+        time: u32,
+        absolute_logical_position: Position<f64>,
+        position: Position<f64>,
+    ) {
         // Forward event to text field.
         let mut relative_position = position;
         relative_position.x -= X_PADDING * self.scale;
-        self.text_field.touch_down(time, relative_position);
+        self.text_field.touch_down(time, absolute_logical_position, relative_position);
     }
 
     /// Handle touch motion events.
@@ -694,9 +734,9 @@ impl Uribar {
     }
 
     /// Handle touch release events.
-    pub fn touch_up(&mut self) {
+    pub fn touch_up(&mut self, time: u32) {
         // Forward event to text field.
-        self.text_field.touch_up();
+        self.text_field.touch_up(time);
     }
 }
 
@@ -851,6 +891,7 @@ impl PrevButton {
 }
 
 /// Elements accepting keyboard focus.
+#[derive(Debug)]
 enum KeyboardInputElement {
     UriBar,
 }
@@ -874,10 +915,14 @@ pub struct TextField {
 
     selection: Option<Range<i32>>,
 
+    long_press_source: Option<Source>,
     touch_state: TouchState,
 
     text_change_handler: Box<dyn FnMut(&mut Self)>,
     submit_handler: Box<dyn FnMut(String)>,
+
+    queue: MtQueueHandle<State>,
+    window_id: WindowId,
 
     autocomplete: String,
 
@@ -892,13 +937,16 @@ pub struct TextField {
 }
 
 impl TextField {
-    fn new(font_size: u8) -> Self {
+    fn new(window_id: WindowId, queue: MtQueueHandle<State>, font_size: u8) -> Self {
         Self {
+            window_id,
+            queue,
             layout: TextLayout::new(font_size, 1.),
             text_change_handler: Box::new(|_| {}),
             submit_handler: Box::new(|_| {}),
             change_cause: ChangeCause::Other,
             purpose: ContentPurpose::Normal,
+            long_press_source: Default::default(),
             text_input_dirty: Default::default(),
             cursor_offset: Default::default(),
             scroll_offset: Default::default(),
@@ -1004,6 +1052,14 @@ impl TextField {
 
         self.text_input_dirty = true;
         self.dirty = true;
+    }
+
+    /// Get selection text.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn selection_text(&self) -> Option<String> {
+        let selection = self.selection.as_ref()?;
+        let range = selection.start as usize..selection.end as usize;
+        Some(self.text()[range].to_owned())
     }
 
     /// Submit current text input.
@@ -1129,6 +1185,14 @@ impl TextField {
                 self.set_text(&text);
                 self.emit_text_changed();
             },
+            (Keysym::XF86_Copy, ..) | (Keysym::C, true, true) => {
+                if let Some(text) = self.selection_text() {
+                    self.queue.set_clipboard(text);
+                }
+            },
+            (Keysym::XF86_Paste, ..) | (Keysym::V, true, true) => {
+                self.queue.request_paste(PasteTarget::Ui(self.window_id))
+            },
             (keysym, _, false) => {
                 // Delete selection before writing new text.
                 if let Some(selection) = self.selection.take() {
@@ -1180,7 +1244,15 @@ impl TextField {
     }
 
     /// Handle touch press events.
-    pub fn touch_down(&mut self, time: u32, position: Position<f64>) {
+    ///
+    /// The `absolute_position` should be the text input's global location in
+    /// logical space and is used for opening popups.
+    pub fn touch_down(
+        &mut self,
+        time: u32,
+        absolute_logical_position: Position<f64>,
+        position: Position<f64>,
+    ) {
         // Get byte offset from X/Y position.
         let x = ((position.x - self.scroll_offset) * PANGO_SCALE as f64).round() as i32;
         let y = (position.y * PANGO_SCALE as f64).round() as i32;
@@ -1189,6 +1261,26 @@ impl TextField {
 
         // Update touch state.
         self.touch_state.down(time, position, byte_index, self.focused);
+
+        // Stage timer for option menu popup.
+        if self.touch_state.action == TouchAction::Tap {
+            // Ensure active timeouts are cleared.
+            self.clear_long_press_timeout();
+
+            // Create a new timeout.
+            let delay = Duration::from_millis(LONG_PRESS_MILLIS as u64);
+
+            let position = absolute_logical_position.i32_round();
+            let mut selection = self.selection_text();
+            let mut queue = self.queue.clone();
+            let window_id = self.window_id;
+            let source = source::timeout_source_new(delay, None, Priority::DEFAULT, move || {
+                queue.open_text_menu(window_id, position, selection.take());
+                ControlFlow::Break
+            });
+            source.attach(None);
+            self.long_press_source = Some(source);
+        }
     }
 
     /// Handle touch motion events.
@@ -1203,6 +1295,9 @@ impl TextField {
             TouchAction::Drag => {
                 self.scroll_offset += delta.x;
                 self.clamp_scroll_offset();
+
+                self.clear_long_press_timeout();
+
                 self.dirty = true;
             },
             // Modify selection boundaries.
@@ -1237,6 +1332,8 @@ impl TextField {
                 // Ensure selection end stays visible.
                 self.update_scroll_offset();
 
+                self.clear_long_press_timeout();
+
                 self.text_input_dirty = true;
                 self.dirty = true;
             },
@@ -1246,7 +1343,10 @@ impl TextField {
     }
 
     /// Handle touch release events.
-    pub fn touch_up(&mut self) {
+    pub fn touch_up(&mut self, time: u32) {
+        // Always reset long-press timers.
+        self.clear_long_press_timeout();
+
         // Ignore release handling for drag actions.
         if matches!(
             self.touch_state.action,
@@ -1266,7 +1366,10 @@ impl TextField {
         let byte_index = self.cursor_byte_index(index, offset);
 
         // Handle single/double/triple-taps.
+        let ms_since_down = time - self.touch_state.last_time;
         match self.touch_state.action {
+            // Long pressed is handled by a timer, so we just ignore the release.
+            TouchAction::Tap if ms_since_down >= LONG_PRESS_MILLIS => (),
             // Move cursor to tap location.
             TouchAction::Tap => {
                 // Update cursor index.
@@ -1338,6 +1441,32 @@ impl TextField {
 
     /// Insert text at the current cursor position.
     fn commit_string(&mut self, text: String) {
+        // Set reason for next IME update.
+        self.change_cause = ChangeCause::InputMethod;
+
+        self.paste(text);
+    }
+
+    /// Set preedit text at the current cursor position.
+    fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
+        // Delete selection as soon as preedit starts.
+        if !text.is_empty() {
+            if let Some(selection) = self.selection.take() {
+                self.delete_selected(selection);
+            }
+        }
+
+        self.preedit = (text, cursor_begin, cursor_end);
+
+        // Ensure preedit end is visible.
+        self.update_scroll_offset();
+
+        self.text_input_dirty = true;
+        self.dirty = true;
+    }
+
+    /// Paste text into the input element.
+    fn paste(&mut self, text: String) {
         // Delete selection before writing new text.
         if let Some(selection) = self.selection.take() {
             self.delete_selected(selection);
@@ -1354,27 +1483,6 @@ impl TextField {
         self.cursor_index += text.len() as i32;
 
         // Ensure cursor is visible.
-        self.update_scroll_offset();
-
-        // Set reason for next IME update.
-        self.change_cause = ChangeCause::InputMethod;
-
-        self.text_input_dirty = true;
-        self.dirty = true;
-    }
-
-    /// Set preedit text at the current cursor position.
-    fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
-        // Delete selection as soon as preedit starts.
-        if !text.is_empty() {
-            if let Some(selection) = self.selection.take() {
-                self.delete_selected(selection);
-            }
-        }
-
-        self.preedit = (text, cursor_begin, cursor_end);
-
-        // Ensure preedit end is visible.
         self.update_scroll_offset();
 
         self.text_input_dirty = true;
@@ -1554,6 +1662,13 @@ impl TextField {
         let clamped_offset = self.scroll_offset.min(0.).max(min_offset);
         self.dirty |= clamped_offset != self.scroll_offset;
         self.scroll_offset = clamped_offset;
+    }
+
+    /// Cancel active long-press popup timers.
+    fn clear_long_press_timeout(&mut self) {
+        if let Some(source) = self.long_press_source.take() {
+            source.destroy();
+        }
     }
 }
 

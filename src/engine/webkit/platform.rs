@@ -44,7 +44,7 @@ mod imp {
 
     use crate::engine::webkit::input_method_context::InputMethodContext as KumoInputMethodContext;
     use crate::engine::webkit::WebKitHandler;
-    use crate::engine::EngineId;
+    use crate::engine::{EngineHandler, EngineId};
     use crate::{Position, State};
 
     /// Argb8888 drm format.

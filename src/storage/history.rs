@@ -47,7 +47,7 @@ impl History {
         if let Some(db) = &self.db {
             let normalized_uri = history_uri.to_string(true);
             if let Err(err) = db.visit(&normalized_uri) {
-                error!("Failed to write URI to history: {err}");
+                error!("Failed to write URI {normalized_uri:?} to history: {err}");
             }
         }
 
@@ -71,7 +71,7 @@ impl History {
         if let Some(db) = &self.db {
             let normalized_uri = history_uri.to_string(true);
             if let Err(err) = db.set_title(&normalized_uri, &title) {
-                error!("Failed to write title to history: {err}");
+                error!("Failed to write title for {normalized_uri:?} to history: {err}");
             }
         }
 
@@ -80,6 +80,29 @@ impl History {
         if let Some(history) = entries.get_mut(&history_uri) {
             history.title = title;
         }
+    }
+
+    /// Delete an entry from the history ( ͡° ͜ʖ ͡°).
+    pub fn delete(&self, uri: &str) {
+        let mut history_uri = HistoryUri::new(uri);
+        history_uri.normalize();
+
+        // Ignore invalid URIs.
+        if history_uri.base.is_empty() {
+            return;
+        }
+
+        // Update filesystem history.
+        if let Some(db) = &self.db {
+            let normalized_uri = history_uri.to_string(true);
+            if let Err(err) = db.delete(&normalized_uri) {
+                error!("Failed to delete {normalized_uri:?} from history: {err}");
+            }
+        }
+
+        // Update in-memory history.
+        let mut entries = self.entries.write().unwrap();
+        entries.retain(|key, _| key != &history_uri);
     }
 
     /// Get autocomplete suggestion for an input.
@@ -163,6 +186,15 @@ impl History {
 
         matches
     }
+
+    /// Get history entries sorted by their last access timestamp.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn entries(&self) -> rusqlite::Result<Vec<(HistoryUri, HistoryEntry)>> {
+        match &self.db {
+            Some(db) => db.load(),
+            None => Ok(Vec::new()),
+        }
+    }
 }
 
 /// DB for persisting history data.
@@ -179,7 +211,8 @@ impl HistoryDb {
             "CREATE TABLE IF NOT EXISTS history (
                 uri TEXT NOT NULL PRIMARY KEY,
                 title TEXT DEFAULT '',
-                views INTEGER NOT NULL DEFAULT 1
+                views INTEGER NOT NULL DEFAULT 1,
+                last_access INTEGER NOT NULL
             )",
             [],
         )?;
@@ -189,17 +222,28 @@ impl HistoryDb {
 
     /// Load history from file.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn load(&self) -> rusqlite::Result<HashMap<HistoryUri, HistoryEntry>> {
-        let mut statement = self.connection.prepare("SELECT uri, title, views FROM history")?;
+    fn load<T>(&self) -> rusqlite::Result<T>
+    where
+        T: FromIterator<(HistoryUri, HistoryEntry)>,
+    {
+        let mut statement = self.connection.prepare(
+            "SELECT uri, title, views, last_access FROM history ORDER BY last_access DESC",
+        )?;
         let history = statement
             .query_map([], |row| {
                 let uri: String = row.get(0)?;
                 let title: String = row.get(1)?;
                 let views: i32 = row.get(2)?;
-                Ok((HistoryUri::new(&uri), HistoryEntry { title, views: views as u32 }))
+                let last_access: i64 = row.get(3)?;
+                Ok((HistoryUri::new(&uri), HistoryEntry {
+                    title,
+                    views: views as u32,
+                    last_access,
+                }))
             })?
             .flatten()
             .collect();
+
         Ok(history)
     }
 
@@ -207,8 +251,8 @@ impl HistoryDb {
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn visit(&self, uri: &str) -> rusqlite::Result<()> {
         self.connection.execute(
-            "INSERT INTO history (uri) VALUES (?1)
-                ON CONFLICT (uri) DO UPDATE SET views=views+1",
+            "INSERT INTO history (uri, last_access) VALUES (?1, unixepoch())
+                ON CONFLICT (uri) DO UPDATE SET views=views+1, last_access=unixepoch()",
             [uri],
         )?;
 
@@ -222,6 +266,14 @@ impl HistoryDb {
 
         Ok(())
     }
+
+    /// Delete a URI from the history.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn delete(&self, uri: &str) -> rusqlite::Result<()> {
+        self.connection.execute("DELETE FROM history WHERE uri=?1", [uri])?;
+
+        Ok(())
+    }
 }
 
 /// Match for a history query.
@@ -232,15 +284,16 @@ pub struct HistoryMatch {
 }
 
 /// Single entry in the browser history.
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct HistoryEntry {
     pub title: String,
     pub views: u32,
+    pub last_access: i64,
 }
 
 /// URI split into scheme, base, and path.
-#[derive(Hash, Eq, PartialEq, Default, Debug)]
-struct HistoryUri {
+#[derive(Clone, Hash, Eq, PartialEq, Default, Debug)]
+pub struct HistoryUri {
     /// Scheme without trailing colons or slashes.
     scheme: String,
     base: String,
@@ -267,6 +320,28 @@ impl HistoryUri {
         let path = split.map(String::from).collect();
 
         Self { base, path, scheme: scheme.into() }
+    }
+
+    /// Convert the URI back to its string representation.
+    pub fn to_string(&self, include_scheme: bool) -> String {
+        // Calculate the maximum possible length for allocation purposes.
+        let path_len: usize = self.path.iter().map(|path| path.len() + "/".len()).sum();
+        let max_len = self.scheme.len() + "://".len() + self.base.len() + "/".len() + path_len;
+        let mut uri = String::with_capacity(max_len);
+
+        if include_scheme {
+            uri.push_str(&self.scheme);
+            uri.push_str("://");
+        }
+
+        uri.push_str(&self.base);
+
+        for segment in &self.path {
+            uri.push('/');
+            uri.push_str(segment);
+        }
+
+        uri
     }
 
     /// Get autocomplete suggestion for this URI.
@@ -310,28 +385,6 @@ impl HistoryUri {
     /// avoid bloating the history with multiple URIs per target resource.
     fn normalize(&mut self) {
         self.path.retain(|p| !p.is_empty())
-    }
-
-    /// Convert the URI back to its string representation.
-    fn to_string(&self, include_scheme: bool) -> String {
-        // Calculate the maximum possible length for allocation purposes.
-        let path_len: usize = self.path.iter().map(|path| path.len() + "/".len()).sum();
-        let max_len = self.scheme.len() + "://".len() + self.base.len() + "/".len() + path_len;
-        let mut uri = String::with_capacity(max_len);
-
-        if include_scheme {
-            uri.push_str(&self.scheme);
-            uri.push_str("://");
-        }
-
-        uri.push_str(&self.base);
-
-        for segment in &self.path {
-            uri.push('/');
-            uri.push_str(segment);
-        }
-
-        uri
     }
 }
 

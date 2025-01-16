@@ -7,6 +7,8 @@ use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
+use crate::storage::history::History as HistoryDb;
+use crate::ui::overlay::history::History;
 use crate::ui::overlay::option_menu::{
     OptionMenu, OptionMenuId, OptionMenuItem, OptionMenuPosition,
 };
@@ -15,6 +17,7 @@ use crate::ui::Renderer;
 use crate::window::TextInputChange;
 use crate::{gl, rect_contains, Position, Size, State, WindowId};
 
+pub mod history;
 pub mod option_menu;
 pub mod tabs;
 
@@ -122,9 +125,10 @@ impl Overlay {
         surface: WlSurface,
         viewport: WpViewport,
         compositor: CompositorState,
+        history_db: HistoryDb,
     ) -> Self {
+        let popups = Popups::new(window_id, queue.clone(), history_db);
         let renderer = Renderer::new(display, surface.clone());
-        let popups = Popups::new(window_id, queue.clone());
 
         Self {
             compositor,
@@ -242,7 +246,7 @@ impl Overlay {
         // NOTE: This is a simplification of actual popup opaque region combination
         // since it's currently not possible to make the overlay surface fully
         // opaque by combining multiple smaller popups.
-        self.popups.tabs.visible()
+        self.popups.tabs.visible() || self.popups.history.visible()
     }
 
     /// Handle new key press.
@@ -381,6 +385,12 @@ impl Overlay {
         &mut self.popups.tabs
     }
 
+    /// Change the history UI visibility.
+    pub fn set_history_visible(&mut self, visible: bool) {
+        self.dirty |= visible != self.popups.history.visible();
+        self.popups.history.set_visible(visible);
+    }
+
     /// Show an option menu.
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn open_option_menu<I>(
@@ -415,13 +425,15 @@ impl Overlay {
 /// Overlay popup windows.
 struct Popups {
     option_menus: Vec<OptionMenu>,
+    history: History,
     tabs: Tabs,
 }
 
 impl Popups {
-    fn new(window_id: WindowId, queue: MtQueueHandle<State>) -> Self {
+    fn new(window_id: WindowId, queue: MtQueueHandle<State>, history_db: HistoryDb) -> Self {
+        let history = History::new(window_id, queue.clone(), history_db);
         let tabs = Tabs::new(window_id, queue);
-        Self { tabs, option_menus: Default::default() }
+        Self { history, tabs, option_menus: Default::default() }
     }
 
     /// Update logical popup size.
@@ -429,6 +441,7 @@ impl Popups {
         for menu in &mut self.option_menus {
             menu.set_size(size);
         }
+        self.history.set_size(size);
         self.tabs.set_size(size);
     }
 
@@ -437,13 +450,16 @@ impl Popups {
         for menu in &mut self.option_menus {
             menu.set_scale(scale);
         }
+        self.history.set_scale(scale);
         self.tabs.set_scale(scale);
     }
 
     /// Non-mutable popup iterator.
     fn iter(&self) -> Box<dyn PopupIterator + '_> {
         let option_menus = self.option_menus.iter().filter(|m| m.visible()).map(|m| m as _);
-        if self.tabs.visible() {
+        if self.history.visible() {
+            Box::new(option_menus.chain([&self.history as _]))
+        } else if self.tabs.visible() {
             Box::new(option_menus.chain([&self.tabs as _]))
         } else {
             Box::new(option_menus)
@@ -453,7 +469,9 @@ impl Popups {
     /// Mutable popup iterator.
     fn iter_mut(&mut self) -> Box<dyn PopupIteratorMut<'_> + '_> {
         let option_menus = self.option_menus.iter_mut().filter(|m| m.visible()).map(|m| m as _);
-        if self.tabs.visible() {
+        if self.history.visible() {
+            Box::new(option_menus.chain([&mut self.history as _]))
+        } else if self.tabs.visible() {
             Box::new(option_menus.chain([&mut self.tabs as _]))
         } else {
             Box::new(option_menus)

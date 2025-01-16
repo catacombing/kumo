@@ -209,6 +209,7 @@ impl Window {
             overlay_surface,
             overlay_viewport,
             protocol_states.compositor.clone(),
+            storage.history.clone(),
         );
 
         // Create UI renderer.
@@ -1020,12 +1021,25 @@ impl Window {
     }
 
     /// Open or close the tabs UI.
-    pub fn set_tabs_ui_visibility(&mut self, visible: bool) {
+    pub fn set_tabs_ui_visible(&mut self, visible: bool) {
         self.overlay.tabs_mut().set_visible(visible);
 
         if visible {
             self.set_keyboard_focus(KeyboardFocus::None);
         }
+
+        self.unstall();
+    }
+
+    /// Open or close the history UI.
+    pub fn set_history_ui_visibile(&mut self, visible: bool) {
+        self.overlay.set_history_visible(visible);
+
+        if visible {
+            self.set_keyboard_focus(KeyboardFocus::None);
+        }
+
+        self.unstall();
     }
 
     /// Create a new dropdown popup.

@@ -21,6 +21,7 @@ The following noteworthy features are implemented:
  - Shell-like URI completion
  - Session recovery
  - Tab groups
+ - History management
 
 ## Demo
 

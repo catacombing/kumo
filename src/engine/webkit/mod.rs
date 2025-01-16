@@ -36,11 +36,11 @@ use wpe_webkit::{
 };
 
 use crate::engine::webkit::platform::WebKitDisplay;
-use crate::engine::{Engine, EngineId, Group, GroupId, BG};
+use crate::engine::{Engine, EngineHandler, EngineId, Group, GroupId, BG};
 use crate::storage::cookie_whitelist::CookieWhitelist;
 use crate::ui::overlay::option_menu::{Anchor, OptionMenuId, OptionMenuItem, OptionMenuPosition};
 use crate::window::{TextInputChange, WindowHandler};
-use crate::{KeyboardFocus, PasteTarget, Position, Size, State};
+use crate::{PasteTarget, Position, Size, State};
 
 mod input_method_context;
 mod platform;
@@ -74,32 +74,11 @@ trait WebKitHandler {
     /// Update buffer's opaque region.
     fn set_opaque_rectangles(&mut self, engine_id: EngineId, rects: Vec<WPERectangle>);
 
-    /// Update current URI for an engine.
-    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String);
-
-    /// Update current title for an engine.
-    fn set_engine_title(&mut self, engine_id: EngineId, title: String);
-
     /// Open popup.
     fn open_menu(&mut self, engine_id: EngineId, menu: Menu, rect: Option<(i32, i32, i32, i32)>);
 
     /// Close popup.
     fn close_menu(&mut self, menu_id: OptionMenuId);
-
-    /// Handle fullscreen enter/leave.
-    fn set_fullscreen(&mut self, engine_id: EngineId, enable: bool);
-
-    /// Open URI in a new tab.
-    fn open_in_tab(&mut self, engine_id: EngineId, uri: String);
-
-    /// Open URI in a new window.
-    fn open_in_window(&mut self, uri: String);
-
-    /// Add host to the cookie whitelist.
-    fn add_cookie_exception(&mut self, host: String);
-
-    /// Remove host from the cookie whitelist.
-    fn remove_cookie_exception(&mut self, host: String);
 }
 
 impl WebKitHandler for State {
@@ -184,22 +163,6 @@ impl WebKitHandler for State {
         };
     }
 
-    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String) {
-        let window_id = engine_id.window_id();
-
-        if let Some(window) = self.windows.get_mut(&window_id) {
-            window.set_engine_uri(engine_id, uri);
-        }
-    }
-
-    fn set_engine_title(&mut self, engine_id: EngineId, title: String) {
-        let window_id = engine_id.window_id();
-
-        if let Some(window) = self.windows.get_mut(&window_id) {
-            window.set_engine_title(&self.storage.history, engine_id, title);
-        }
-    }
-
     fn open_menu(&mut self, engine_id: EngineId, menu: Menu, rect: Option<(i32, i32, i32, i32)>) {
         let window = match self.windows.get_mut(&engine_id.window_id()) {
             Some(window) => window,
@@ -280,44 +243,6 @@ impl WebKitHandler for State {
         }
 
         window.close_option_menu(menu_id);
-    }
-
-    fn set_fullscreen(&mut self, engine_id: EngineId, enable: bool) {
-        if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
-            window.request_fullscreen(engine_id, enable);
-        }
-    }
-
-    fn open_in_tab(&mut self, engine_id: EngineId, uri: String) {
-        let window = match self.windows.get_mut(&engine_id.window_id()) {
-            Some(window) => window,
-            None => return,
-        };
-
-        let tab_id = window.add_tab(false, false, engine_id.group_id()).ok();
-        if let Some(engine) = tab_id.and_then(|id| window.tab(id)) {
-            engine.load_uri(&uri);
-        }
-    }
-
-    fn open_in_window(&mut self, uri: String) {
-        let window = match self.create_window().ok().and_then(|id| self.windows.get_mut(&id)) {
-            Some(window) => window,
-            None => return,
-        };
-
-        window.set_keyboard_focus(KeyboardFocus::None);
-        if let Some(engine) = window.active_tab() {
-            engine.load_uri(&uri);
-        }
-    }
-
-    fn add_cookie_exception(&mut self, host: String) {
-        self.storage.cookie_whitelist.add(&host);
-    }
-
-    fn remove_cookie_exception(&mut self, host: String) {
-        self.storage.cookie_whitelist.remove(&host);
     }
 }
 
@@ -1133,7 +1058,12 @@ impl ContextMenu {
             Some(ContextMenuItem::Reload) => engine.web_view.reload(),
             Some(ContextMenuItem::OpenInNewTab) => {
                 if let Some(uri) = self.uri() {
-                    engine.queue.open_in_tab(engine.id, uri);
+                    engine.queue.open_in_tab(
+                        engine.id.window_id(),
+                        engine.id.group_id(),
+                        uri,
+                        false,
+                    );
                 }
             },
             Some(ContextMenuItem::OpenInNewWindow) => {

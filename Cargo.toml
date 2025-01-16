@@ -56,7 +56,7 @@ pangocairo = "0.20.0"
 profiling = { version = "1.0.14", optional = true, features = ["profile-with-puffin"] }
 puffin_http = { version = "0.16.0", optional = true }
 raw-window-handle = "0.6.0"
-rusqlite = { version = "0.32.0", features = ["uuid"] }
+rusqlite = { version = "0.32.0", features = ["uuid", "chrono"] }
 smallvec = "1.13.2"
 smithay-client-toolkit = { version = "0.19.1", default-features = false, features = ["xkbcommon"] }
 thiserror = "2.0.3"
@@ -70,6 +70,7 @@ drm = "0.14.0"
 libc.workspace = true
 uuid = { version = "1.11.0", features = ["v4"] }
 librsvg = "2.58.5"
+chrono = "0.4.39"
 
 [build-dependencies]
 gl_generator = "0.14.0"

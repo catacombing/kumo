@@ -20,7 +20,7 @@ use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_vie
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::storage::history::{HistoryMatch, MAX_MATCHES};
-use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBuilder};
+use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
 use crate::window::{PasteTarget, TextInputChange, TextInputState, WindowHandler};
 use crate::{gl, rect_contains, History, Position, Size, State, WindowId};
 
@@ -122,8 +122,7 @@ impl UiHandler for State {
             Some(window) => window,
             None => return,
         };
-        window.set_tabs_ui_visibility(true);
-        window.unstall();
+        window.set_tabs_ui_visible(true);
     }
 
     fn open_history_menu(
@@ -1753,4 +1752,108 @@ enum TouchAction {
     DragSelectionStart,
     DragSelectionEnd,
     Focus,
+}
+
+/// Button with an SVG icon.
+pub struct SvgButton {
+    texture: Option<Texture>,
+
+    on_svg: Svg,
+    off_svg: Option<Svg>,
+    enabled: bool,
+
+    padding_color: [f64; 3],
+    padding_size: f64,
+    bg: [f64; 3],
+
+    dirty: bool,
+    size: Size,
+    scale: f64,
+}
+
+impl SvgButton {
+    pub fn new(svg: Svg) -> Self {
+        Self {
+            padding_color: [0.09, 0.09, 0.09],
+            bg: [0.15, 0.15, 0.15],
+            padding_size: 10.,
+            enabled: true,
+            on_svg: svg,
+            dirty: true,
+            scale: 1.,
+            off_svg: Default::default(),
+            texture: Default::default(),
+            size: Default::default(),
+        }
+    }
+
+    /// Create a new SVG button with separate on/off state.
+    pub fn new_toggle(on_svg: Svg, off_svg: Svg) -> Self {
+        Self {
+            on_svg,
+            padding_color: [0.09, 0.09, 0.09],
+            bg: [0.15, 0.15, 0.15],
+            off_svg: Some(off_svg),
+            padding_size: 10.,
+            enabled: true,
+            dirty: true,
+            scale: 1.,
+            texture: Default::default(),
+            size: Default::default(),
+        }
+    }
+
+    /// Get this button's OpenGL texture.
+    pub fn texture(&mut self) -> &Texture {
+        // Ensure texture is up to date.
+        if mem::take(&mut self.dirty) {
+            // Ensure texture is cleared while program is bound.
+            if let Some(texture) = self.texture.take() {
+                texture.delete();
+            }
+            self.texture = Some(self.draw());
+        }
+
+        self.texture.as_ref().unwrap()
+    }
+
+    /// Draw the button into an OpenGL texture.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn draw(&self) -> Texture {
+        // Clear with background color.
+        let builder = TextureBuilder::new(self.size.into());
+        builder.clear(self.padding_color);
+
+        // Draw button background.
+        let padding = self.padding_size * self.scale;
+        let width = self.size.width as f64 - 2. * padding;
+        let height = self.size.height as f64 - 2. * padding;
+        builder.context().rectangle(padding, padding, width.round(), height.round());
+        builder.context().set_source_rgb(self.bg[0], self.bg[1], self.bg[2]);
+        builder.context().fill().unwrap();
+
+        // Draw button's icon.
+        let svg = self.off_svg.filter(|_| !self.enabled).unwrap_or(self.on_svg);
+        let icon_size = width.min(height) * 0.5;
+        let icon_x = padding + (width - icon_size) / 2.;
+        let icon_y = padding + (height - icon_size) / 2.;
+        builder.rasterize_svg(svg, icon_x, icon_y, icon_size, icon_size);
+
+        builder.build()
+    }
+
+    /// Set the physical size and scale of the button.
+    fn set_geometry(&mut self, size: Size, scale: f64) {
+        self.size = size;
+        self.scale = scale;
+
+        // Force redraw.
+        self.dirty = true;
+    }
+
+    /// Update toggle state.
+    fn set_enabled(&mut self, enabled: bool) {
+        self.dirty |= self.enabled != enabled;
+        self.enabled = enabled;
+    }
 }

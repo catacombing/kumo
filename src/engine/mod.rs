@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::ui::overlay::option_menu::OptionMenuId;
 use crate::window::TextInputChange;
-use crate::{Position, Size, WindowId};
+use crate::{KeyboardFocus, Position, Size, State, WindowId};
 
 pub mod webkit;
 
@@ -157,6 +157,86 @@ pub trait Engine {
     fn restore_session(&self, session: Vec<u8>);
 
     fn as_any(&mut self) -> &mut dyn Any;
+}
+
+#[funq::callbacks(State)]
+pub trait EngineHandler {
+    /// Update current URI for an engine.
+    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String);
+
+    /// Update current title for an engine.
+    fn set_engine_title(&mut self, engine_id: EngineId, title: String);
+
+    /// Handle fullscreen enter/leave.
+    fn set_fullscreen(&mut self, engine_id: EngineId, enable: bool);
+
+    /// Open URI in a new tab.
+    fn open_in_tab(&mut self, window_id: WindowId, group_id: GroupId, uri: String, focus: bool);
+
+    /// Open URI in a new window.
+    fn open_in_window(&mut self, uri: String);
+
+    /// Add host to the cookie whitelist.
+    fn add_cookie_exception(&mut self, host: String);
+
+    /// Remove host from the cookie whitelist.
+    fn remove_cookie_exception(&mut self, host: String);
+}
+
+impl EngineHandler for State {
+    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String) {
+        let window_id = engine_id.window_id();
+
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            window.set_engine_uri(engine_id, uri);
+        }
+    }
+
+    fn set_engine_title(&mut self, engine_id: EngineId, title: String) {
+        let window_id = engine_id.window_id();
+
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            window.set_engine_title(&self.storage.history, engine_id, title);
+        }
+    }
+
+    fn set_fullscreen(&mut self, engine_id: EngineId, enable: bool) {
+        if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
+            window.request_fullscreen(engine_id, enable);
+        }
+    }
+
+    fn open_in_tab(&mut self, window_id: WindowId, group_id: GroupId, uri: String, focus: bool) {
+        let window = match self.windows.get_mut(&window_id) {
+            Some(window) => window,
+            None => return,
+        };
+
+        let tab_id = window.add_tab(false, focus, group_id).ok();
+        if let Some(engine) = tab_id.and_then(|id| window.tab(id)) {
+            engine.load_uri(&uri);
+        }
+    }
+
+    fn open_in_window(&mut self, uri: String) {
+        let window = match self.create_window().ok().and_then(|id| self.windows.get_mut(&id)) {
+            Some(window) => window,
+            None => return,
+        };
+
+        window.set_keyboard_focus(KeyboardFocus::None);
+        if let Some(engine) = window.active_tab() {
+            engine.load_uri(&uri);
+        }
+    }
+
+    fn add_cookie_exception(&mut self, host: String) {
+        self.storage.cookie_whitelist.add(&host);
+    }
+
+    fn remove_cookie_exception(&mut self, host: String) {
+        self.storage.cookie_whitelist.remove(&host);
+    }
 }
 
 /// Unique identifier for one engine instance.

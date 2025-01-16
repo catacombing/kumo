@@ -720,6 +720,7 @@ pub enum Svg {
     PersistentOff,
     PersistentOn,
     Close,
+    Menu,
 }
 
 impl Svg {
@@ -730,6 +731,7 @@ impl Svg {
             Self::PersistentOff => include_bytes!("../../svgs/persistent_off.svg"),
             Self::PersistentOn => include_bytes!("../../svgs/persistent_on.svg"),
             Self::Close => include_bytes!("../../svgs/close.svg"),
+            Self::Menu => include_bytes!("../../svgs/menu.svg"),
         }
     }
 }

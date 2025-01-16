@@ -11,7 +11,7 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use crate::engine::{Engine, EngineId, Group, GroupId, NO_GROUP, NO_GROUP_ID};
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::{TextField, MAX_TAP_DISTANCE};
+use crate::ui::{SvgButton, TextField, MAX_TAP_DISTANCE};
 use crate::window::TextInputChange;
 use crate::{gl, rect_contains, Position, Size, State, WindowId};
 
@@ -48,11 +48,8 @@ const TAB_HEIGHT: u32 = 50;
 /// Logical height of the UI buttons.
 const BUTTON_HEIGHT: u32 = 60;
 
-/// Size of the button icons.
-const ICON_SIZE: f64 = 30.;
-
 #[funq::callbacks(State)]
-trait TabsHandler {
+pub trait TabsHandler {
     /// Create a new tab and switch to it.
     fn add_tab(&mut self, window_id: WindowId, group_id: GroupId);
 
@@ -76,6 +73,12 @@ trait TabsHandler {
 
     /// Update a tab group's label.
     fn update_group_label(&mut self, window_id: WindowId, label: String);
+
+    /// Open history UI.
+    fn show_history_ui(&mut self, window_id: WindowId);
+
+    /// Close the tabs UI.
+    fn close_tabs_ui(&mut self, window_id: WindowId);
 }
 
 impl TabsHandler for State {
@@ -86,7 +89,7 @@ impl TabsHandler for State {
         };
 
         let _ = window.add_tab(true, true, group_id);
-        window.set_tabs_ui_visibility(false);
+        window.set_tabs_ui_visible(false);
     }
 
     fn set_active_tab(&mut self, engine_id: EngineId) {
@@ -96,7 +99,7 @@ impl TabsHandler for State {
         };
 
         window.set_active_tab(engine_id);
-        window.set_tabs_ui_visibility(false);
+        window.set_tabs_ui_visible(false);
     }
 
     fn close_tab(&mut self, engine_id: EngineId) {
@@ -152,6 +155,22 @@ impl TabsHandler for State {
 
         window.update_group_label(label);
     }
+
+    fn show_history_ui(&mut self, window_id: WindowId) {
+        let window = match self.windows.get_mut(&window_id) {
+            Some(window) => window,
+            None => return,
+        };
+        window.set_history_ui_visibile(true);
+    }
+
+    fn close_tabs_ui(&mut self, window_id: WindowId) {
+        let window = match self.windows.get_mut(&window_id) {
+            Some(window) => window,
+            None => return,
+        };
+        window.set_tabs_ui_visible(false);
+    }
 }
 
 /// Tab overview UI.
@@ -165,11 +184,12 @@ pub struct Tabs {
     queue: MtQueueHandle<State>,
     window_id: WindowId,
 
-    new_tab_button: PlusButton,
+    close_group_button: SvgButton,
     cycle_group_button: SvgButton,
     persistent_button: SvgButton,
     new_group_button: PlusButton,
-    close_group_button: SvgButton,
+    new_tab_button: PlusButton,
+    menu_button: SvgButton,
 
     keyboard_focus: Option<KeyboardInputElement>,
     touch_state: TouchState,
@@ -191,6 +211,7 @@ impl Tabs {
             persistent_button: SvgButton::new_toggle(Svg::PersistentOn, Svg::PersistentOff),
             cycle_group_button: SvgButton::new(Svg::ArrowLeft),
             close_group_button: SvgButton::new(Svg::Close),
+            menu_button: SvgButton::new(Svg::Menu),
             scale: 1.0,
             new_group_button: Default::default(),
             keyboard_focus: Default::default(),
@@ -294,18 +315,32 @@ impl Tabs {
         Position::new(0., self.new_tab_button_position().y)
     }
 
+    /// Physical size of the menu button.
+    ///
+    /// This includes all padding since that is included in the texture.
+    fn menu_button_size(&self) -> Size {
+        Self::button_size(self.scale)
+    }
+
+    /// Physical position of the menu button.
+    ///
+    /// This includes all padding since that is included in the texture.
+    fn menu_button_position(&self) -> Position<f64> {
+        Position::new(0., 0.)
+    }
+
     /// Physical size of the persistent mode button.
     ///
     /// This includes all padding since that is included in the texture.
     fn persistent_button_size(&self) -> Size {
-        Self::button_size(self.scale)
+        self.menu_button_size()
     }
 
     /// Physical position of the persistent mode button.
     ///
     /// This includes all padding since that is included in the texture.
     fn persistent_button_position(&self) -> Position<f64> {
-        Position::new(0., 0.)
+        self.menu_button_position()
     }
 
     /// Physical size of the tab group creation button.
@@ -364,6 +399,7 @@ impl Tabs {
     /// The tuple's second element will be `true` when the position matches the
     /// close button of the tab.
     fn tab_at(&self, mut position: Position<f64>) -> Option<(&RenderTab, bool)> {
+        let tabs_start_y = self.group_label_position().y + self.group_label_size().height as f64;
         let tabs_end_y = self.new_tab_button_position().y;
         let y_padding = TABS_Y_PADDING * self.scale;
         let x_padding = TABS_X_PADDING * self.scale;
@@ -374,6 +410,7 @@ impl Tabs {
         // boundaries.
         if position.x < x_padding
             || position.x >= x_padding + tab_size.width
+            || position.y < tabs_start_y
             || position.y >= tabs_end_y
         {
             return None;
@@ -460,7 +497,9 @@ impl Popup for Tabs {
         let persistent_button_position: Position<f32> = self.persistent_button_position().into();
         let new_group_button_position: Position<f32> = self.new_group_button_position().into();
         let new_tab_button_position: Position<f32> = self.new_tab_button_position().into();
+        let menu_button_position: Position<f32> = self.menu_button_position().into();
         let group_label_position: Position<f32> = self.group_label_position().into();
+        let tabs_start = group_label_position.y + self.group_label_size().height as f32;
         let tab_size = self.tab_size();
 
         // Get UI textures.
@@ -473,6 +512,7 @@ impl Popup for Tabs {
         let persistent_button = self.persistent_button.texture();
         let new_group_button = self.new_group_button.texture();
         let new_tab_button = self.new_tab_button.texture();
+        let menu_button = self.menu_button.texture();
         let group_label = self.group_label.texture();
 
         // Draw background.
@@ -493,7 +533,7 @@ impl Popup for Tabs {
             // Render only tabs within the viewport.
             texture_pos.y -= texture.height as f32;
             if texture_pos.y < new_tab_button_position.y
-                && texture_pos.y > -1. * texture.height as f32
+                && texture_pos.y > tabs_start - texture.height as f32
             {
                 unsafe { renderer.draw_texture_at(texture, texture_pos, None) };
             }
@@ -503,27 +543,26 @@ impl Popup for Tabs {
         }
 
         // Draw tab group label.
-        texture_pos = group_label_position;
-        unsafe { renderer.draw_texture_at(group_label, texture_pos, None) };
+        unsafe {
+            renderer.draw_texture_at(group_label, group_label_position, None);
 
-        // Draw buttons last, to render over scrolled tabs and label.
-        texture_pos = new_tab_button_position;
-        unsafe { renderer.draw_texture_at(new_tab_button, texture_pos, None) };
-        texture_pos = cycle_group_button_position;
-        unsafe { renderer.draw_texture_at(cycle_group_button, texture_pos, None) };
+            // Draw buttons last, to render over scrolled tabs and label.
+            renderer.draw_texture_at(new_tab_button, new_tab_button_position, None);
+            renderer.draw_texture_at(cycle_group_button, cycle_group_button_position, None);
 
-        // Change new group to close group while editing the group label.
-        texture_pos = new_group_button_position;
-        if self.group_label.editing {
-            unsafe { renderer.draw_texture_at(close_group_button, texture_pos, None) };
-        } else {
-            unsafe { renderer.draw_texture_at(new_group_button, texture_pos, None) };
-        }
+            // Change new group to close group while editing the group label.
+            if self.group_label.editing {
+                renderer.draw_texture_at(close_group_button, new_group_button_position, None);
+            } else {
+                renderer.draw_texture_at(new_group_button, new_group_button_position, None);
+            }
 
-        // Prevent persistent mode toggling for the default group.
-        if self.group != NO_GROUP_ID {
-            texture_pos = persistent_button_position;
-            unsafe { renderer.draw_texture_at(persistent_button, texture_pos, None) };
+            // Show menu button for default group, and persistency button for all others.
+            if self.group == NO_GROUP_ID {
+                renderer.draw_texture_at(menu_button, menu_button_position, None);
+            } else {
+                renderer.draw_texture_at(persistent_button, persistent_button_position, None);
+            }
         }
     }
 
@@ -541,6 +580,7 @@ impl Popup for Tabs {
         self.close_group_button.set_geometry(self.new_group_button_size(), self.scale);
         self.new_group_button.set_geometry(self.new_group_button_size(), self.scale);
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
+        self.menu_button.set_geometry(self.menu_button_size(), self.scale);
         self.group_label.set_geometry(self.group_label_size(), self.scale);
         self.texture_cache.clear_textures();
     }
@@ -559,6 +599,7 @@ impl Popup for Tabs {
         self.close_group_button.set_geometry(self.new_group_button_size(), self.scale);
         self.new_group_button.set_geometry(self.new_group_button_size(), self.scale);
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
+        self.menu_button.set_geometry(self.menu_button_size(), self.scale);
         self.group_label.set_geometry(self.group_label_size(), self.scale);
         self.texture_cache.clear_textures();
     }
@@ -594,21 +635,26 @@ impl Popup for Tabs {
         // Get button geometries.
         let cycle_group_button_position = self.cycle_group_button_position();
         let cycle_group_button_size = self.cycle_group_button_size().into();
-        let persistent_button_position = self.persistent_button_position();
-        let persistent_button_size = self.persistent_button_size().into();
         let new_group_button_position = self.new_group_button_position();
         let new_group_button_size = self.new_group_button_size().into();
         let new_tab_button_position = self.new_tab_button_position();
         let new_tab_button_size = self.new_tab_button_size().into();
+        let menu_button_position = self.menu_button_position();
+        let menu_button_size = self.menu_button_size().into();
         let group_label_position = self.group_label_position();
         let group_label_size = self.group_label_size().into();
 
         if rect_contains(cycle_group_button_position, cycle_group_button_size, position) {
             self.touch_state.action = TouchAction::CycleGroupTap;
             self.clear_keyboard_focus();
-        } else if rect_contains(persistent_button_position, persistent_button_size, position) {
-            self.touch_state.action = TouchAction::PersistentTap;
-            self.clear_keyboard_focus();
+        } else if rect_contains(menu_button_position, menu_button_size, position) {
+            if self.group == NO_GROUP_ID {
+                self.touch_state.action = TouchAction::MenuTap;
+                self.clear_keyboard_focus();
+            } else {
+                self.touch_state.action = TouchAction::PersistentTap;
+                self.clear_keyboard_focus();
+            }
         } else if rect_contains(new_group_button_position, new_group_button_size, position) {
             // Close on new group button tap while editing the group label.
             //
@@ -694,8 +740,17 @@ impl Popup for Tabs {
                     self.queue.cycle_tab_group(self.window_id, self.group);
                 }
             },
+            // Open options menu.
+            TouchAction::MenuTap => {
+                let menu_button_position = self.menu_button_position();
+                let menu_button_size = self.menu_button_size().into();
+                let position = self.touch_state.position;
+
+                if rect_contains(menu_button_position, menu_button_size, position) {
+                    self.queue.show_history_ui(self.window_id);
+                }
+            },
             // Toggle group's persistent mode.
-            TouchAction::PersistentTap if self.group == NO_GROUP_ID => (),
             TouchAction::PersistentTap => {
                 let persistent_button_position = self.persistent_button_position();
                 let persistent_button_size = self.persistent_button_size().into();
@@ -883,7 +938,7 @@ impl TextureCache {
 
             // Calculate available area font font rendering.
             let close_position = Tabs::close_button_position(tab_size, scale);
-            let text_width = (close_position.x - close_position.y).round() as i32;
+            let text_width = (close_position.x - close_position.y * 2.).round() as i32;
             let text_size = Size::new(text_width, tab_size.height as i32);
             text_options.position(Position::new(close_position.y, 0.));
             text_options.size(text_size);
@@ -977,7 +1032,7 @@ impl PlusButton {
         builder.context().fill().unwrap();
 
         // Set general stroke properties.
-        let icon_size = ICON_SIZE * self.scale;
+        let icon_size = height * 0.5;
         let line_width = self.scale;
         let center_x = self.size.width as f64 / 2.;
         let center_y = self.size.height as f64 / 2.;
@@ -1008,100 +1063,6 @@ impl PlusButton {
 
         // Force redraw.
         self.dirty = true;
-    }
-}
-
-/// Button with an SVG icon.
-struct SvgButton {
-    texture: Option<Texture>,
-
-    on_svg: Svg,
-    off_svg: Option<Svg>,
-    enabled: bool,
-
-    dirty: bool,
-    size: Size,
-    scale: f64,
-}
-
-impl SvgButton {
-    fn new(svg: Svg) -> Self {
-        Self {
-            enabled: true,
-            on_svg: svg,
-            dirty: true,
-            scale: 1.,
-            off_svg: Default::default(),
-            texture: Default::default(),
-            size: Default::default(),
-        }
-    }
-
-    /// Create a new SVG button with separate on/off state.
-    fn new_toggle(on_svg: Svg, off_svg: Svg) -> Self {
-        Self {
-            on_svg,
-            off_svg: Some(off_svg),
-            enabled: true,
-            dirty: true,
-            scale: 1.,
-            texture: Default::default(),
-            size: Default::default(),
-        }
-    }
-
-    fn texture(&mut self) -> &Texture {
-        // Ensure texture is up to date.
-        if mem::take(&mut self.dirty) {
-            // Ensure texture is cleared while program is bound.
-            if let Some(texture) = self.texture.take() {
-                texture.delete();
-            }
-            self.texture = Some(self.draw());
-        }
-
-        self.texture.as_ref().unwrap()
-    }
-
-    /// Draw the button into an OpenGL texture.
-    #[cfg_attr(feature = "profiling", profiling::function)]
-    fn draw(&self) -> Texture {
-        // Clear with background color.
-        let builder = TextureBuilder::new(self.size.into());
-        builder.clear(TABS_BG);
-
-        // Draw button background.
-        let x_padding = BUTTON_X_PADDING * self.scale;
-        let y_padding = BUTTON_Y_PADDING * self.scale;
-        let width = self.size.width as f64 - 2. * x_padding;
-        let height = self.size.height as f64 - 2. * y_padding;
-        builder.context().rectangle(x_padding, y_padding, width.round(), height.round());
-        builder.context().set_source_rgb(NEW_TAB_BG[0], NEW_TAB_BG[1], NEW_TAB_BG[2]);
-        builder.context().fill().unwrap();
-
-        // Draw button's icon.
-        let svg = self.off_svg.filter(|_| !self.enabled).unwrap_or(self.on_svg);
-        let icon_size = ICON_SIZE * self.scale;
-        let icon_x = x_padding + (width - icon_size) / 2.;
-        let icon_y = y_padding + (height - icon_size) / 2.;
-        builder.rasterize_svg(svg, icon_x, icon_y, icon_size, icon_size);
-
-        builder.build()
-    }
-
-    /// Set the physical size and scale of the button.
-    fn set_geometry(&mut self, size: Size, scale: f64) {
-        self.size = size;
-        self.scale = scale;
-
-        // Force redraw.
-        self.dirty = true;
-    }
-
-    /// Update toggle state.
-    fn set_enabled(&mut self, enabled: bool) {
-        self.dirty |= self.enabled != enabled;
-        self.enabled = enabled;
     }
 }
 
@@ -1304,6 +1265,7 @@ enum TouchAction {
     #[default]
     TabTap,
     TabDrag,
+    MenuTap,
     NewTabTap,
     NewGroupTap,
     CloseGroupTap,

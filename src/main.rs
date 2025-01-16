@@ -7,7 +7,7 @@ use std::os::fd::{AsFd, AsRawFd};
 use std::ptr::NonNull;
 use std::rc::Rc;
 use std::time::Duration;
-use std::{env, io, mem};
+use std::{env, io, mem, process};
 
 use funq::{MtQueueHandle, Queue, StQueueHandle};
 use glib::{source, ControlFlow, IOCondition, MainLoop, Priority, Source};
@@ -64,9 +64,18 @@ enum Error {
     Sql(#[from] rusqlite::Error),
     #[error("{0}")]
     Io(#[from] io::Error),
+    #[error("local database version ({0}) is higher than latest supported version ({1})")]
+    UnknownDbVersion(u8, u8),
 }
 
-fn main() -> Result<(), Error> {
+fn main() {
+    if let Err(err) = run() {
+        eprintln!("Error: {err}");
+        process::exit(1);
+    }
+}
+
+fn run() -> Result<(), Error> {
     // Setup logging.
     let directives = env::var("RUST_LOG").unwrap_or("warn,kumo=info".into());
     let env_filter = EnvFilter::builder().parse_lossy(directives);

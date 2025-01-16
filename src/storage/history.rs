@@ -5,9 +5,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::RwLock;
 
-use rusqlite::Connection as SqliteConnection;
+use rusqlite::{Connection as SqliteConnection, Transaction};
 use smallvec::SmallVec;
 use tracing::error;
+
+use crate::storage::DbVersion;
 
 /// Maximum scored history matches compared.
 pub const MAX_MATCHES: usize = 25;
@@ -23,7 +25,7 @@ impl History {
     pub fn new(db: Option<Rc<SqliteConnection>>) -> rusqlite::Result<Self> {
         let (db, entries) = match db {
             Some(db) => {
-                let db = HistoryDb::new(db)?;
+                let db = HistoryDb::new(db);
                 let entries = db.load()?;
                 (Some(db), Rc::new(RwLock::new(entries)))
             },
@@ -205,19 +207,8 @@ struct HistoryDb {
 
 impl HistoryDb {
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn new(connection: Rc<SqliteConnection>) -> rusqlite::Result<Self> {
-        // Setup history table if it doesn't exist yet.
-        connection.execute(
-            "CREATE TABLE IF NOT EXISTS history (
-                uri TEXT NOT NULL PRIMARY KEY,
-                title TEXT DEFAULT '',
-                views INTEGER NOT NULL DEFAULT 1,
-                last_access INTEGER NOT NULL
-            )",
-            [],
-        )?;
-
-        Ok(Self { connection })
+    fn new(connection: Rc<SqliteConnection>) -> Self {
+        Self { connection }
     }
 
     /// Load history from file.
@@ -392,6 +383,27 @@ impl From<&str> for HistoryUri {
     fn from(s: &str) -> Self {
         Self::new(s)
     }
+}
+
+/// Run database migrations inside a transaction.
+pub fn run_migrations(
+    transaction: &Transaction<'_>,
+    db_version: DbVersion,
+) -> rusqlite::Result<()> {
+    // Create table if it doesn't exist yet.
+    if db_version == DbVersion::Zero {
+        transaction.execute(
+            "CREATE TABLE IF NOT EXISTS history (
+                uri TEXT NOT NULL PRIMARY KEY,
+                title TEXT DEFAULT '',
+                views INTEGER NOT NULL DEFAULT 1,
+                last_access INTEGER NOT NULL
+            )",
+            [],
+        )?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

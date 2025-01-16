@@ -3,11 +3,12 @@
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use rusqlite::{params, Connection as SqliteConnection, OptionalExtension};
+use rusqlite::{params, Connection as SqliteConnection, OptionalExtension, Transaction};
 use tracing::error;
 use uuid::Uuid;
 
 use crate::engine::Group;
+use crate::storage::DbVersion;
 
 /// Tab groups.
 #[derive(Clone)]
@@ -16,13 +17,9 @@ pub struct Groups {
 }
 
 impl Groups {
-    pub fn new(db: Option<Rc<SqliteConnection>>) -> rusqlite::Result<Self> {
-        let db = match db {
-            Some(db) => Some(GroupsDb::new(db)?),
-            None => None,
-        };
-
-        Ok(Self { db })
+    pub fn new(db: Option<Rc<SqliteConnection>>) -> Self {
+        let db = db.map(GroupsDb::new);
+        Self { db }
     }
 
     /// Get a group's config from its ID.
@@ -94,17 +91,8 @@ struct GroupsDb {
 
 impl GroupsDb {
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn new(connection: Rc<SqliteConnection>) -> rusqlite::Result<Self> {
-        // Setup table if it doesn't exist yet.
-        connection.execute(
-            "CREATE TABLE IF NOT EXISTS tab_group (
-                id BLOB NOT NULL PRIMARY KEY,
-                label TEXT NOT NULL
-            )",
-            [],
-        )?;
-
-        Ok(Self { connection })
+    fn new(connection: Rc<SqliteConnection>) -> Self {
+        Self { connection }
     }
 
     /// Get a group's details from its ID.
@@ -146,4 +134,23 @@ impl GroupsDb {
         let groups = statement.query_map([], |row| row.get(0))?.flatten().collect();
         Ok(groups)
     }
+}
+
+/// Run database migrations inside a transaction.
+pub fn run_migrations(
+    transaction: &Transaction<'_>,
+    db_version: DbVersion,
+) -> rusqlite::Result<()> {
+    // Create table if it doesn't exist yet.
+    if db_version == DbVersion::Zero {
+        transaction.execute(
+            "CREATE TABLE IF NOT EXISTS tab_group (
+                id BLOB NOT NULL PRIMARY KEY,
+                label TEXT NOT NULL
+            )",
+            [],
+        )?;
+    }
+
+    Ok(())
 }

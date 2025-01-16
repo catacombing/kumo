@@ -2,9 +2,10 @@
 
 use std::rc::Rc;
 
-use rusqlite::Connection as SqliteConnection;
+use rusqlite::{Connection as SqliteConnection, Transaction};
 use tracing::error;
 
+use crate::storage::DbVersion;
 use crate::Error;
 
 /// Cookie persistance exceptions.
@@ -14,19 +15,8 @@ pub struct CookieWhitelist {
 }
 
 impl CookieWhitelist {
-    pub fn new(connection: Option<Rc<SqliteConnection>>) -> rusqlite::Result<Self> {
-        if let Some(connection) = &connection {
-            // Create table if it doesn't exist yet.
-            connection.execute(
-                "CREATE TABLE IF NOT EXISTS cookie_exceptions (
-                    host TEXT NOT NULL,
-                    UNIQUE(host)
-                )",
-                [],
-            )?;
-        }
-
-        Ok(Self { connection })
+    pub fn new(connection: Option<Rc<SqliteConnection>>) -> Self {
+        Self { connection }
     }
 
     /// Get all allowed hosts.
@@ -100,4 +90,23 @@ where
         error!("cookie whiteliste database error: {err}");
     }
     result
+}
+
+/// Run database migrations inside a transaction.
+pub fn run_migrations(
+    transaction: &Transaction<'_>,
+    db_version: DbVersion,
+) -> rusqlite::Result<()> {
+    // Create table if it doesn't exist yet.
+    if db_version == DbVersion::Zero {
+        transaction.execute(
+            "CREATE TABLE IF NOT EXISTS cookie_exceptions (
+                host TEXT NOT NULL,
+                UNIQUE(host)
+            )",
+            [],
+        )?;
+    }
+
+    Ok(())
 }

@@ -4,11 +4,12 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::{fs, process};
 
-use rusqlite::{params, Connection as SqliteConnection};
+use rusqlite::{params, Connection as SqliteConnection, Transaction};
 use tracing::error;
 use uuid::Uuid;
 
 use crate::engine::{Engine, Group};
+use crate::storage::DbVersion;
 use crate::window::WindowId;
 
 /// Browser session storage.
@@ -19,12 +20,9 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new(db: Option<Rc<SqliteConnection>>) -> rusqlite::Result<Self> {
-        let db = match db {
-            Some(db) => Some(SessionDb::new(db)?),
-            None => None,
-        };
-        Ok(Self { db, pid: process::id() })
+    pub fn new(db: Option<Rc<SqliteConnection>>) -> Self {
+        let db = db.map(SessionDb::new);
+        Self { db, pid: process::id() }
     }
 
     /// Update the browser session for a window.
@@ -106,21 +104,8 @@ struct SessionDb {
 
 impl SessionDb {
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn new(connection: Rc<SqliteConnection>) -> rusqlite::Result<Self> {
-        // Setup session table if it doesn't exist yet.
-        connection.execute(
-            "CREATE TABLE IF NOT EXISTS session (
-                pid INTEGER NOT NULL,
-                window_id INTEGER NOT NULL,
-                group_id BLOB NOT NULL,
-                data BLOB NOT NULL,
-                uri TEXT NOT NULL,
-                focused INTEGER NOT NULL
-            )",
-            [],
-        )?;
-
-        Ok(Self { connection })
+    fn new(connection: Rc<SqliteConnection>) -> Self {
+        Self { connection }
     }
 
     /// Update the active browser session for a window.
@@ -223,4 +208,27 @@ impl<'a> SessionRecord<'a> {
 
         Some(Self { group, data: engine.session(), uri: engine.uri(), focused })
     }
+}
+
+/// Run database migrations inside a transaction.
+pub fn run_migrations(
+    transaction: &Transaction<'_>,
+    db_version: DbVersion,
+) -> rusqlite::Result<()> {
+    // Create table if it doesn't exist yet.
+    if db_version == DbVersion::Zero {
+        transaction.execute(
+            "CREATE TABLE IF NOT EXISTS session (
+                pid INTEGER NOT NULL,
+                window_id INTEGER NOT NULL,
+                group_id BLOB NOT NULL,
+                data BLOB NOT NULL,
+                uri TEXT NOT NULL,
+                focused INTEGER NOT NULL
+            )",
+            [],
+        )?;
+    }
+
+    Ok(())
 }

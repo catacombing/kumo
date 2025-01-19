@@ -511,6 +511,11 @@ impl Window {
             *text_input_state = engine.text_input_state();
         }
 
+        // Avoid rendering engine without any changes.
+        if !engine.dirty() && self.last_rendered_engine == Some(engine.id()) {
+            return;
+        }
+
         // Check if engine has a buffer attached.
         let engine_buffer = match engine.wl_buffer() {
             Some(engine_buffer) => engine_buffer,
@@ -534,29 +539,26 @@ impl Window {
         let dst_height = (src_height / self.scale).round() as i32;
         self.engine_viewport.set_destination(dst_width, dst_height);
 
-        // Render buffer if it requires a redraw.
-        if engine.dirty() || self.last_rendered_engine != Some(engine.id()) {
-            // Update opaque region.
-            self.engine_surface.set_opaque_region(engine.opaque_region());
+        // Update opaque region.
+        self.engine_surface.set_opaque_region(engine.opaque_region());
 
-            // Attach buffer with its damage since the last frame.
-            self.engine_surface.attach(Some(engine_buffer), 0, 0);
-            match engine.take_buffer_damage() {
-                Some(damage_rects) => {
-                    for (x, y, width, height) in damage_rects {
-                        self.engine_surface.damage_buffer(x, y, width, height);
-                    }
-                },
-                None => self.engine_surface.damage(0, 0, dst_width, dst_height),
-            }
-            self.engine_surface.commit();
-
-            // Request new engine frame.
-            engine.frame_done();
-
-            self.last_rendered_engine = self.active_tab;
-            self.stalled = false;
+        // Attach buffer with its damage since the last frame.
+        self.engine_surface.attach(Some(engine_buffer), 0, 0);
+        match engine.take_buffer_damage() {
+            Some(damage_rects) => {
+                for (x, y, width, height) in damage_rects {
+                    self.engine_surface.damage_buffer(x, y, width, height);
+                }
+            },
+            None => self.engine_surface.damage(0, 0, dst_width, dst_height),
         }
+        self.engine_surface.commit();
+
+        // Request new engine frame.
+        engine.frame_done();
+
+        self.last_rendered_engine = self.active_tab;
+        self.stalled = false;
     }
 
     /// Unstall the renderer.

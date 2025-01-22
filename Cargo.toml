@@ -45,32 +45,32 @@ xkbcommon-sys = "1.4.1"
 # Dependencies only used by the binary.
 [dependencies]
 bitflags = "2.5.0"
+chrono = "0.4.39"
 dashmap = "6.0.1"
 dirs = "5.0.1"
+drm = "0.14.0"
 funq = { path = "./funq" }
 gio.workspace = true
 glib.workspace = true
 glutin = { version = "0.32.1", default-features = false, features = ["wayland"] }
 indexmap = "2.2.6"
+libc.workspace = true
+librsvg = "2.58.5"
 pangocairo = "0.20.0"
 profiling = { version = "1.0.14", optional = true, features = ["profile-with-puffin"] }
 puffin_http = { version = "0.16.0", optional = true }
 raw-window-handle = "0.6.0"
 rusqlite = { version = "0.32.0", features = ["uuid", "chrono"] }
+rustix.workspace = true
 smallvec = "1.13.2"
 smithay-client-toolkit = { version = "0.19.1", default-features = false, features = ["xkbcommon"] }
 thiserror = "2.0.3"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-wayland-backend = { version = "=0.3.4", features = ["client_system"] }
-wpe-webkit = { path = "./wpe-webkit" }
-wpe-platform = { path = "./wpe-platform" }
-rustix.workspace = true
-drm = "0.14.0"
-libc.workspace = true
 uuid = { version = "1.11.0", features = ["v4"] }
-librsvg = "2.58.5"
-chrono = "0.4.39"
+wayland-backend = { version = "=0.3.4", features = ["client_system"] }
+wpe-platform = { path = "./wpe-platform" }
+wpe-webkit = { path = "./wpe-webkit" }
 
 [build-dependencies]
 gl_generator = "0.14.0"

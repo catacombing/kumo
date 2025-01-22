@@ -28,7 +28,6 @@ use smithay_client_toolkit::shell::xdg::window::{
 };
 use smithay_client_toolkit::shell::WaylandSurface;
 
-use crate::engine::webkit::WebKitError;
 use crate::engine::{Engine, EngineId, Group, GroupId, NO_GROUP_ID, NO_GROUP_REF};
 use crate::storage::groups::Groups;
 use crate::storage::history::{History, HistoryMatch, MAX_MATCHES};
@@ -172,12 +171,12 @@ impl Window {
     pub fn new(
         protocol_states: &ProtocolStates,
         connection: Connection,
-        egl_display: Display,
+        display: Display,
         queue: StQueueHandle<State>,
         wayland_queue: QueueHandle<State>,
         storage: &Storage,
         engine_state: Rc<RefCell<WebKitState>>,
-    ) -> Result<Self, WebKitError> {
+    ) -> Self {
         let id = WindowId::new();
 
         // Create all surfaces and subsurfaces.
@@ -205,7 +204,7 @@ impl Window {
         let mut overlay = Overlay::new(
             id,
             queue.handle(),
-            egl_display.clone(),
+            display.clone(),
             overlay_surface,
             overlay_viewport,
             protocol_states.compositor.clone(),
@@ -216,7 +215,7 @@ impl Window {
         let mut ui = Ui::new(
             id,
             queue.handle(),
-            egl_display.clone(),
+            display.clone(),
             ui_surface,
             ui_subsurface,
             ui_viewport,
@@ -226,7 +225,7 @@ impl Window {
 
         // Create engine backdrop.
         let mut engine_backdrop = EngineBackdrop::new(
-            egl_display,
+            display,
             surface.clone(),
             backdrop_viewport,
             protocol_states,
@@ -284,9 +283,9 @@ impl Window {
         };
 
         // Create initial browser tab.
-        window.add_tab(true, true, NO_GROUP_ID)?;
+        window.add_tab(true, true, NO_GROUP_ID);
 
-        Ok(window)
+        window
     }
 
     /// Get the ID of this window.
@@ -311,20 +310,20 @@ impl Window {
         focus_uribar: bool,
         switch_focus: bool,
         group_id: GroupId,
-    ) -> Result<EngineId, WebKitError> {
+    ) -> EngineId {
         // Get the tab group for the new engine.
         let group = self.groups.get(&group_id).unwrap_or(NO_GROUP_REF);
 
         // Create a new browser engine.
         let engine_id = EngineId::new(self.id, group.id());
-        let engine = self.engine_state.borrow_mut().create_engine(
+        let engine = Box::new(self.engine_state.borrow_mut().create_engine(
             group,
             engine_id,
             self.engine_size(),
             self.scale,
-        )?;
+        ));
 
-        self.tabs.insert(engine_id, Box::new(engine));
+        self.tabs.insert(engine_id, engine);
 
         // Switch the active tab.
         if switch_focus {
@@ -345,7 +344,7 @@ impl Window {
 
         self.unstall();
 
-        Ok(engine_id)
+        engine_id
     }
 
     /// Close a tab.
@@ -398,7 +397,7 @@ impl Window {
         self.active_tab = engine_id.into();
 
         // Update URI bar.
-        if let Some(engine) = self.active_tab() {
+        if let Some(engine) = self.active_tab.and_then(|id| self.tabs.get(&id)) {
             self.ui.set_uri(&engine.uri());
         }
 
@@ -419,7 +418,7 @@ impl Window {
             None => Cow::Owned(format!("{SEARCH_URI}{uri}")),
         };
 
-        if let Some(engine) = self.active_tab() {
+        if let Some(engine) = self.active_tab_mut() {
             engine.load_uri(&uri);
         }
 
@@ -516,17 +515,12 @@ impl Window {
             return;
         }
 
-        // Check if engine has a buffer attached.
-        let engine_buffer = match engine.wl_buffer() {
-            Some(engine_buffer) => engine_buffer,
-            // Clear attached surface if we've switched to an engine that
-            // doesn't have a buffer yet.
-            None => {
-                self.engine_surface.attach(None, 0, 0);
-                self.engine_surface.commit();
-                return;
-            },
-        };
+        // Attach the engine's buffer.
+        if !engine.attach_buffer(&self.engine_surface) {
+            self.engine_surface.attach(None, 0, 0);
+            self.engine_surface.commit();
+            return;
+        }
 
         // Update viewporter buffer transform.
 
@@ -543,7 +537,6 @@ impl Window {
         self.engine_surface.set_opaque_region(engine.opaque_region());
 
         // Attach buffer with its damage since the last frame.
-        self.engine_surface.attach(Some(engine_buffer), 0, 0);
         match engine.take_buffer_damage() {
             Some(damage_rects) => {
                 for (x, y, width, height) in damage_rects {

@@ -980,8 +980,8 @@ impl RenderTab {
     fn new(engine: &dyn Engine, active_tab: Option<EngineId>) -> Self {
         let engine_id = engine.id();
         Self {
-            uri: (engine.uri(), Some(engine_id) == active_tab),
-            title: engine.title(),
+            uri: (engine.uri().into(), Some(engine_id) == active_tab),
+            title: engine.title().into(),
             engine: engine_id,
         }
     }

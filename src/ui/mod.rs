@@ -110,8 +110,8 @@ impl UiHandler for State {
     }
 
     fn load_prev(&mut self, window_id: WindowId) {
-        if let Some(window) = self.windows.get(&window_id) {
-            if let Some(engine) = window.active_tab() {
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            if let Some(engine) = window.active_tab_mut() {
                 engine.load_prev();
             }
         }

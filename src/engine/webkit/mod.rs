@@ -21,6 +21,7 @@ use smithay_client_toolkit::compositor::Region;
 use smithay_client_toolkit::dmabuf::{DmabufFeedback, DmabufState};
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::protocol::wl_region::WlRegion;
+use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Proxy, QueueHandle};
 use smithay_client_toolkit::reexports::protocols::wp::linux_dmabuf::zv1::client as _dmabuf;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
@@ -304,7 +305,7 @@ impl WebKitState {
         engine_id: EngineId,
         size: Size,
         scale: f64,
-    ) -> Result<WebKitEngine, WebKitError> {
+    ) -> WebKitEngine {
         // Create a new network session for this group if necessary.
         let group_id = engine_id.group_id();
         let network_session = self.network_sessions.entry(group_id).or_insert_with(|| {
@@ -368,7 +369,7 @@ impl WebKitState {
         // Load adblock content filter.
         load_adblock(web_view.clone());
 
-        Ok(WebKitEngine {
+        WebKitEngine {
             webkit_display,
             web_view,
             scale,
@@ -382,7 +383,7 @@ impl WebKitState {
             buffer: Default::default(),
             dirty: Default::default(),
             menu: Default::default(),
-        })
+        }
     }
 }
 
@@ -493,12 +494,18 @@ impl Engine for WebKitEngine {
         self.id
     }
 
-    fn dirty(&self) -> bool {
+    fn dirty(&mut self) -> bool {
         self.dirty
     }
 
-    fn wl_buffer(&self) -> Option<&WlBuffer> {
-        self.buffer.as_ref().map(|(wl_buffer, _)| wl_buffer.deref())
+    fn attach_buffer(&mut self, surface: &WlSurface) -> bool {
+        match &self.buffer {
+            Some((buffer, _)) => {
+                surface.attach(Some(buffer), 0, 0);
+                true
+            },
+            None => false,
+        }
     }
 
     fn buffer_size(&self) -> Size {
@@ -627,20 +634,20 @@ impl Engine for WebKitEngine {
         self.webkit_display.touch(time, id, position, modifiers, EventType::TouchMove);
     }
 
-    fn load_uri(&self, uri: &str) {
+    fn load_uri(&mut self, uri: &str) {
         self.web_view.load_uri(uri);
     }
 
-    fn load_prev(&self) {
+    fn load_prev(&mut self) {
         self.web_view.go_back();
     }
 
-    fn uri(&self) -> String {
-        self.web_view.uri().unwrap_or_default().into()
+    fn uri(&self) -> Cow<'_, str> {
+        self.web_view.uri().unwrap_or_default().to_string().into()
     }
 
-    fn title(&self) -> String {
-        self.web_view.title().unwrap_or_default().into()
+    fn title(&self) -> Cow<'_, str> {
+        self.web_view.title().unwrap_or_default().to_string().into()
     }
 
     fn text_input_state(&self) -> TextInputChange {
@@ -704,8 +711,8 @@ impl Engine for WebKitEngine {
         }
     }
 
-    fn set_fullscreen(&mut self, fullscreened: bool) {
-        self.webkit_display.set_fullscreen(fullscreened);
+    fn set_fullscreen(&mut self, fullscreen: bool) {
+        self.webkit_display.set_fullscreen(fullscreen);
     }
 
     fn session(&self) -> Vec<u8> {

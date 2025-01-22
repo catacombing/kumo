@@ -95,23 +95,20 @@ fn run() -> Result<(), Error> {
     let mut state = State::new(queue.local_handle(), main_loop.clone())?;
 
     // Create our initial window.
-    let window_id = state.create_window()?;
+    let window_id = state.create_window();
 
     // Create an empty tab for loading a new page.
     let mut is_first_tab = true;
-    let get_empty_tab = |window: &mut Window,
-                         is_first_tab: &mut bool,
-                         group_id: GroupId,
-                         focus: bool|
-     -> Result<_, Error> {
-        if *is_first_tab && group_id == NO_GROUP_ID {
-            window.set_keyboard_focus(KeyboardFocus::None);
-            *is_first_tab = false;
-            Ok(window.active_tab().unwrap().id())
-        } else {
-            Ok(window.add_tab(false, focus, group_id)?)
-        }
-    };
+    let get_empty_tab =
+        |window: &mut Window, is_first_tab: &mut bool, group_id: GroupId, focus: bool| -> _ {
+            if *is_first_tab && group_id == NO_GROUP_ID {
+                window.set_keyboard_focus(KeyboardFocus::None);
+                *is_first_tab = false;
+                window.active_tab().unwrap().id()
+            } else {
+                window.add_tab(false, focus, group_id)
+            }
+        };
 
     // Get all sessions requiring restoration, sorted by PID and window ID.
     let mut orphan_sessions = state.storage.session.orphans();
@@ -129,7 +126,7 @@ fn run() -> Result<(), Error> {
         if session_pid != Some(entry.pid) || session_window_id != Some(entry.window_id) {
             // Create a new window.
             if session_pid.is_some() || session_window_id.is_some() {
-                let new_window_id = state.create_window()?;
+                let new_window_id = state.create_window();
                 window = state.windows.get_mut(&new_window_id).unwrap();
                 is_first_tab = true;
             }
@@ -149,8 +146,8 @@ fn run() -> Result<(), Error> {
         };
 
         // Restore the session in a new empty tab.
-        let engine_id = get_empty_tab(window, &mut is_first_tab, group_id, entry.focused)?;
-        if let Some(engine) = window.tab(engine_id) {
+        let engine_id = get_empty_tab(window, &mut is_first_tab, group_id, entry.focused);
+        if let Some(engine) = window.tab_mut(engine_id) {
             engine.restore_session(mem::take(&mut entry.session_data));
             engine.load_uri(&entry.uri);
         }
@@ -169,7 +166,7 @@ fn run() -> Result<(), Error> {
     // Spawn a new tab for every CLI argument.
     let window = state.windows.get_mut(&window_id).unwrap();
     for arg in env::args().skip(1) {
-        get_empty_tab(window, &mut is_first_tab, NO_GROUP_ID, true)?;
+        get_empty_tab(window, &mut is_first_tab, NO_GROUP_ID, true);
         window.load_uri(arg, true);
     }
 
@@ -262,7 +259,7 @@ impl State {
     }
 
     /// Create a new browser window.
-    fn create_window(&mut self) -> Result<WindowId, WebKitError> {
+    fn create_window(&mut self) -> WindowId {
         // Setup new window.
         let connection = self.connection.clone();
         let window = Window::new(
@@ -273,14 +270,14 @@ impl State {
             self.wayland_queue(),
             &self.storage,
             self.engine_state.clone(),
-        )?;
+        );
         let window_id = window.id();
         self.windows.insert(window_id, window);
 
         // Ensure Wayland processing is kicked off.
         self.wayland_dispatch();
 
-        Ok(window_id)
+        window_id
     }
 
     /// Get access to the Wayland queue.

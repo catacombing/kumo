@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use smithay_client_toolkit::dmabuf::DmabufFeedback;
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
 use smithay_client_toolkit::reexports::client::protocol::wl_region::WlRegion;
+use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
 use uuid::Uuid;
@@ -31,10 +32,14 @@ pub trait Engine {
     fn id(&self) -> EngineId;
 
     /// Check if the engine requires a redraw.
-    fn dirty(&self) -> bool;
+    ///
+    /// This will always be called **before** any rendering is done.
+    fn dirty(&mut self) -> bool;
 
-    /// Get the Wayland buffer for rendering the engine's current content.
-    fn wl_buffer(&self) -> Option<&WlBuffer>;
+    /// Attach the engine's buffer to the supplied surface.
+    ///
+    /// Should return `false` when no surface was attached.
+    fn attach_buffer(&mut self, surface: &WlSurface) -> bool;
 
     /// Get the Wayland buffer's current physical size.
     fn buffer_size(&self) -> Size;
@@ -50,16 +55,18 @@ pub trait Engine {
     }
 
     /// Notify engine that the frame was completed.
-    fn frame_done(&mut self);
+    fn frame_done(&mut self) {}
 
     /// Notify engine that a buffer was released.
-    fn buffer_released(&mut self, buffer: &WlBuffer);
+    fn buffer_released(&mut self, _buffer: &WlBuffer) {}
 
     /// Update DMA buffer feedback.
-    fn dmabuf_feedback(&mut self, feedback: &DmabufFeedback);
+    fn dmabuf_feedback(&mut self, _feedback: &DmabufFeedback) {}
 
     /// Get the buffer's opaque region.
-    fn opaque_region(&self) -> Option<&WlRegion>;
+    fn opaque_region(&self) -> Option<&WlRegion> {
+        None
+    }
 
     /// Update the browser engine's size.
     fn set_size(&mut self, size: Size);
@@ -112,16 +119,16 @@ pub trait Engine {
     fn touch_motion(&mut self, time: u32, id: i32, position: Position<f64>, modifiers: Modifiers);
 
     /// Load a new page.
-    fn load_uri(&self, uri: &str);
+    fn load_uri(&mut self, uri: &str);
 
     /// Go to the previous page.
-    fn load_prev(&self);
+    fn load_prev(&mut self);
 
     /// Get current URI.
-    fn uri(&self) -> String;
+    fn uri(&self) -> Cow<'_, str>;
 
     /// Get tab title.
-    fn title(&self) -> String;
+    fn title(&self) -> Cow<'_, str>;
 
     /// Get IME text_input state.
     fn text_input_state(&self) -> TextInputChange;
@@ -148,7 +155,7 @@ pub trait Engine {
     fn close_option_menu(&mut self, menu_id: Option<OptionMenuId>);
 
     /// Notify engine about change to the fullscreen state.
-    fn set_fullscreen(&mut self, fulscreened: bool);
+    fn set_fullscreen(&mut self, fullscreen: bool);
 
     /// Get a serialized version of the current session.
     fn session(&self) -> Vec<u8>;
@@ -212,20 +219,21 @@ impl EngineHandler for State {
             None => return,
         };
 
-        let tab_id = window.add_tab(false, focus, group_id).ok();
-        if let Some(engine) = tab_id.and_then(|id| window.tab(id)) {
+        let tab_id = window.add_tab(false, focus, group_id);
+        if let Some(engine) = window.tab_mut(tab_id) {
             engine.load_uri(&uri);
         }
     }
 
     fn open_in_window(&mut self, uri: String) {
-        let window = match self.create_window().ok().and_then(|id| self.windows.get_mut(&id)) {
+        let window_id = self.create_window();
+        let window = match self.windows.get_mut(&window_id) {
             Some(window) => window,
             None => return,
         };
 
         window.set_keyboard_focus(KeyboardFocus::None);
-        if let Some(engine) = window.active_tab() {
+        if let Some(engine) = window.active_tab_mut() {
             engine.load_uri(&uri);
         }
     }

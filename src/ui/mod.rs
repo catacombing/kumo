@@ -26,7 +26,7 @@ use crate::{gl, rect_contains, History, Position, Size, State, WindowId};
 
 pub mod engine_backdrop;
 pub mod overlay;
-mod renderer;
+pub mod renderer;
 
 /// Square of the maximum distance before touch input is considered a drag.
 pub const MAX_TAP_DISTANCE: f64 = 400.;
@@ -110,8 +110,8 @@ impl UiHandler for State {
     }
 
     fn load_prev(&mut self, window_id: WindowId) {
-        if let Some(window) = self.windows.get(&window_id) {
-            if let Some(engine) = window.active_tab() {
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            if let Some(engine) = window.active_tab_mut() {
                 engine.load_prev();
             }
         }

@@ -9,8 +9,9 @@ license = "GPL-3.0"
 edition = "2021"
 
 [features]
-default = []
+default = ["servo"]
 profiling = ["dep:profiling", "dep:puffin_http"]
+servo = ["dep:libservo", "dep:surfman", "dep:rustls"]
 
 [workspace]
 members = [
@@ -45,32 +46,35 @@ xkbcommon-sys = "1.4.1"
 # Dependencies only used by the binary.
 [dependencies]
 bitflags = "2.5.0"
+chrono = "0.4.39"
 dashmap = "6.0.1"
 dirs = "5.0.1"
+drm = "0.14.0"
 funq = { path = "./funq" }
 gio.workspace = true
 glib.workspace = true
 glutin = { version = "0.32.1", default-features = false, features = ["wayland"] }
 indexmap = "2.2.6"
+libc.workspace = true
+librsvg = "2.58.5"
+libservo = { git = "https://github.com/servo/servo", optional = true }
 pangocairo = "0.20.0"
 profiling = { version = "1.0.14", optional = true, features = ["profile-with-puffin"] }
 puffin_http = { version = "0.16.0", optional = true }
 raw-window-handle = "0.6.0"
+rustls = { version = "0.23.21", default-features = false, features = ["ring"], optional = true }
 rusqlite = { version = "0.32.0", features = ["uuid", "chrono"] }
+rustix.workspace = true
 smallvec = "1.13.2"
 smithay-client-toolkit = { version = "0.19.1", default-features = false, features = ["xkbcommon"] }
+surfman = { git = "https://github.com/servo/surfman", rev = "300789ddbda45c89e9165c31118bf1c4c07f89f6", default-features = false, features = ["sm-x11"], optional = true }
 thiserror = "2.0.3"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+uuid = { version = "1.12.0", features = ["v4"] }
 wayland-backend = { version = "=0.3.4", features = ["client_system"] }
-wpe-webkit = { path = "./wpe-webkit" }
 wpe-platform = { path = "./wpe-platform" }
-rustix.workspace = true
-drm = "0.14.0"
-libc.workspace = true
-uuid = { version = "1.11.0", features = ["v4"] }
-librsvg = "2.58.5"
-chrono = "0.4.39"
+wpe-webkit = { path = "./wpe-webkit" }
 
 [build-dependencies]
 gl_generator = "0.14.0"

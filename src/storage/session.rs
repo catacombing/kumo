@@ -206,7 +206,7 @@ impl<'a> SessionRecord<'a> {
             return None;
         }
 
-        Some(Self { group, data: engine.session(), uri: engine.uri(), focused })
+        Some(Self { group, data: engine.session(), uri: engine.uri().into(), focused })
     }
 }
 

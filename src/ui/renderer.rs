@@ -75,21 +75,6 @@ impl Renderer {
         self.sized(size).swap_buffers();
     }
 
-    /// Get render state requiring a size.
-    fn sized(&mut self, size: Size) -> &SizedRenderer {
-        // Initialize or resize sized state.
-        match &mut self.sized {
-            // Resize renderer.
-            Some(sized) => sized.resize(size),
-            // Create sized state.
-            None => {
-                self.sized = Some(SizedRenderer::new(&self.display, &self.surface, size));
-            },
-        }
-
-        self.sized.as_ref().unwrap()
-    }
-
     /// Render texture at a position in viewport-coordinates.
     ///
     /// Specifying a `size` will automatically scale the texture to render at
@@ -129,6 +114,21 @@ impl Renderer {
         gl::BindTexture(gl::TEXTURE_2D, texture.id);
 
         gl::DrawArrays(gl::TRIANGLES, 0, 6);
+    }
+
+    /// Get render state requiring a size.
+    fn sized(&mut self, size: Size) -> &SizedRenderer {
+        // Initialize or resize sized state.
+        match &mut self.sized {
+            // Resize renderer.
+            Some(sized) => sized.resize(size),
+            // Create sized state.
+            None => {
+                self.sized = Some(SizedRenderer::new(&self.display, &self.surface, size));
+            },
+        }
+
+        self.sized.as_ref().unwrap()
     }
 }
 
@@ -342,6 +342,11 @@ impl Texture {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
             Self { id, width, height }
         }
+    }
+
+    // TODO: Servo testing.
+    pub fn from_raw(id: u32, width: usize, height: usize) -> Self {
+        Self { id, width, height }
     }
 
     /// Delete this texture.

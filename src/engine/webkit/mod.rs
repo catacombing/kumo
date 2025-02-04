@@ -337,6 +337,11 @@ impl WebKitState {
         web_view.set_background_color(&mut color);
 
         // Notify UI about URI and title changes.
+        let load_queue = self.queue.clone();
+        web_view.connect_load_changed(move |web_view, _| {
+            let uri = web_view.uri().unwrap_or_default().to_string();
+            load_queue.clone().set_engine_uri(engine_id, uri);
+        });
         let uri_queue = self.queue.clone();
         web_view.connect_uri_notify(move |web_view| {
             let uri = web_view.uri().unwrap_or_default().to_string();

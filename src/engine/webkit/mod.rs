@@ -504,6 +504,8 @@ impl Engine for WebKitEngine {
     }
 
     fn attach_buffer(&mut self, surface: &WlSurface) -> bool {
+        self.dirty = false;
+
         match &self.buffer {
             Some((buffer, _)) => {
                 surface.attach(Some(buffer), 0, 0);
@@ -531,8 +533,6 @@ impl Engine for WebKitEngine {
     }
 
     fn frame_done(&mut self) {
-        self.dirty = false;
-
         if let Some((_, dmabuf)) = &mut self.buffer {
             self.webkit_display.frame_done(dmabuf);
         }

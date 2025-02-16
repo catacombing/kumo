@@ -371,6 +371,13 @@ impl WebKitState {
             true
         });
 
+        // Listen for page load progress.
+        let load_progress_queue = self.queue.clone();
+        web_view.connect_estimated_load_progress_notify(move |web_view| {
+            let progress = web_view.estimated_load_progress();
+            load_progress_queue.clone().set_load_progress(engine_id, progress);
+        });
+
         // Load adblock content filter.
         load_adblock(web_view.clone());
 

@@ -338,7 +338,9 @@ impl Window {
             self.set_keyboard_focus(KeyboardFocus::Ui);
             self.ui.keyboard_focus_uribar();
         }
+
         if switch_focus {
+            self.ui.set_load_progress(1.);
             self.ui.set_uri("");
         }
 
@@ -396,9 +398,10 @@ impl Window {
     pub fn set_active_tab(&mut self, engine_id: impl Into<Option<EngineId>>) {
         self.active_tab = engine_id.into();
 
-        // Update URI bar.
+        // Update URI and load progress.
         if let Some(engine) = self.active_tab.and_then(|id| self.tabs.get(&id)) {
             self.ui.set_uri(&engine.uri());
+            self.ui.set_load_progress(1.);
         }
 
         // Update tabs popup.
@@ -1012,6 +1015,14 @@ impl Window {
         if let Some(engine) = self.tabs.get(&engine_id) {
             let uri = engine.uri();
             history.set_title(&uri, title);
+        }
+    }
+
+    /// Update an engine's load progress.
+    pub fn set_load_progress(&mut self, engine_id: EngineId, progress: f64) {
+        if self.active_tab == Some(engine_id) {
+            self.ui.set_load_progress(progress);
+            self.unstall();
         }
     }
 

@@ -177,6 +177,11 @@ pub trait EngineHandler {
     /// Handle fullscreen enter/leave.
     fn set_fullscreen(&mut self, engine_id: EngineId, enable: bool);
 
+    /// Update page load progress.
+    ///
+    /// The `progress` argument is a percentage between 0.0 and 1.0.
+    fn set_load_progress(&mut self, engine_id: EngineId, progress: f64);
+
     /// Open URI in a new tab.
     fn open_in_tab(&mut self, window_id: WindowId, group_id: GroupId, uri: String, focus: bool);
 
@@ -192,17 +197,13 @@ pub trait EngineHandler {
 
 impl EngineHandler for State {
     fn set_engine_uri(&mut self, engine_id: EngineId, uri: String) {
-        let window_id = engine_id.window_id();
-
-        if let Some(window) = self.windows.get_mut(&window_id) {
+        if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
             window.set_engine_uri(engine_id, uri);
         }
     }
 
     fn set_engine_title(&mut self, engine_id: EngineId, title: String) {
-        let window_id = engine_id.window_id();
-
-        if let Some(window) = self.windows.get_mut(&window_id) {
+        if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
             window.set_engine_title(&self.storage.history, engine_id, title);
         }
     }
@@ -210,6 +211,12 @@ impl EngineHandler for State {
     fn set_fullscreen(&mut self, engine_id: EngineId, enable: bool) {
         if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
             window.request_fullscreen(engine_id, enable);
+        }
+    }
+
+    fn set_load_progress(&mut self, engine_id: EngineId, progress: f64) {
+        if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
+            window.set_load_progress(engine_id, progress);
         }
     }
 

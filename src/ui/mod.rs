@@ -177,6 +177,8 @@ pub struct Ui {
     queue: MtQueueHandle<State>,
     window_id: WindowId,
 
+    last_load_progress: f64,
+    load_progress: f64,
     last_tab_count: usize,
     dirty: bool,
 }
@@ -206,6 +208,8 @@ impl Ui {
             uribar,
             queue,
             touch_focus: TouchFocusElement::UriBar,
+            last_load_progress: 1.0,
+            load_progress: 1.0,
             scale: 1.0,
             last_tab_count: Default::default(),
             keyboard_focus: Default::default(),
@@ -256,6 +260,11 @@ impl Ui {
         self.uribar.set_geometry(self.uribar_size(), scale);
     }
 
+    /// Update the engine's load progress.
+    pub fn set_load_progress(&mut self, load_progress: f64) {
+        self.load_progress = load_progress;
+    }
+
     /// Render current UI state.
     ///
     /// Returns `true` if rendering was performed.
@@ -263,9 +272,13 @@ impl Ui {
     pub fn draw(&mut self, tab_count: usize) -> bool {
         // Abort early if UI is up to date.
         let dirty = self.dirty();
-        if !dirty && self.last_tab_count == tab_count {
+        if !dirty
+            && self.last_tab_count == tab_count
+            && self.last_load_progress == self.load_progress
+        {
             return false;
         }
+        self.last_load_progress = self.load_progress;
         self.last_tab_count = tab_count;
         self.dirty = false;
 
@@ -304,7 +317,13 @@ impl Ui {
                 gl::Clear(gl::COLOR_BUFFER_BIT);
 
                 // Draw UI elements.
-                renderer.draw_texture_at(separator_texture, separator_pos.into(), separator_size);
+                if separator_size.width > 0. {
+                    renderer.draw_texture_at(
+                        separator_texture,
+                        separator_pos.into(),
+                        separator_size,
+                    );
+                }
                 renderer.draw_texture_at(prev_button_texture, prev_button_pos.into(), None);
                 renderer.draw_texture_at(tabs_button_texture, tabs_button_pos.into(), None);
                 renderer.draw_texture_at(uribar_texture, uribar_pos.into(), None);
@@ -484,7 +503,7 @@ impl Ui {
 
     /// Check whether UI needs redraw.
     pub fn dirty(&self) -> bool {
-        self.dirty || self.uribar.dirty()
+        self.dirty || self.uribar.dirty() || self.last_load_progress != self.load_progress
     }
 
     /// Logical height of the URI toolbar without separator.
@@ -538,6 +557,7 @@ impl Ui {
     /// Physical size of the toolbar separator.
     fn separator_size(&self) -> Size<f32> {
         let mut physical_size = self.size * self.scale;
+        physical_size.width = (physical_size.width as f64 * self.load_progress).round() as u32;
         physical_size.height = (SEPARATOR_HEIGHT as f64 * self.scale).round() as u32;
         physical_size.into()
     }

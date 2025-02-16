@@ -461,9 +461,13 @@ impl Window {
 
         // Draw UI.
         if !overlay_opaque && !self.fullscreened {
+            let has_history = self
+                .active_tab
+                .and_then(|id| self.tabs.get(&id))
+                .is_some_and(|engine| engine.has_prev());
             let tab_group = self.overlay.tabs_mut().active_tab_group();
             let tab_count = self.tabs.values().filter(|t| t.id().group_id() == tab_group).count();
-            let ui_rendered = self.ui.draw(tab_count);
+            let ui_rendered = self.ui.draw(tab_count, has_history);
             self.stalled &= !ui_rendered;
         }
 

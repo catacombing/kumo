@@ -179,6 +179,7 @@ pub struct Ui {
 
     last_load_progress: f64,
     load_progress: f64,
+    last_has_history: bool,
     last_tab_count: usize,
     dirty: bool,
 }
@@ -211,6 +212,7 @@ impl Ui {
             last_load_progress: 1.0,
             load_progress: 1.0,
             scale: 1.0,
+            last_has_history: Default::default(),
             last_tab_count: Default::default(),
             keyboard_focus: Default::default(),
             touch_point: Default::default(),
@@ -269,16 +271,14 @@ impl Ui {
     ///
     /// Returns `true` if rendering was performed.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    pub fn draw(&mut self, tab_count: usize) -> bool {
+    pub fn draw(&mut self, tab_count: usize, has_history: bool) -> bool {
         // Abort early if UI is up to date.
         let dirty = self.dirty();
-        if !dirty
-            && self.last_tab_count == tab_count
-            && self.last_load_progress == self.load_progress
-        {
+        if !dirty && self.last_tab_count == tab_count && self.last_has_history == has_history {
             return false;
         }
         self.last_load_progress = self.load_progress;
+        self.last_has_history = has_history;
         self.last_tab_count = tab_count;
         self.dirty = false;
 
@@ -305,8 +305,8 @@ impl Ui {
             //
             // This must happen with the renderer bound to ensure new textures are
             // associated with the correct program.
+            let prev_button_texture = has_history.then(|| self.prev_button.texture());
             let tabs_button_texture = self.tabs_button.texture(tab_count);
-            let prev_button_texture = self.prev_button.texture();
             let separator_texture = self.separator.texture();
             let uribar_texture = self.uribar.texture();
 
@@ -324,7 +324,9 @@ impl Ui {
                         separator_size,
                     );
                 }
-                renderer.draw_texture_at(prev_button_texture, prev_button_pos.into(), None);
+                if let Some(prev_button_texture) = prev_button_texture {
+                    renderer.draw_texture_at(prev_button_texture, prev_button_pos.into(), None);
+                }
                 renderer.draw_texture_at(tabs_button_texture, tabs_button_pos.into(), None);
                 renderer.draw_texture_at(uribar_texture, uribar_pos.into(), None);
             }

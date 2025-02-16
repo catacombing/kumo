@@ -654,6 +654,10 @@ impl Engine for WebKitEngine {
         self.web_view.go_back();
     }
 
+    fn has_prev(&self) -> bool {
+        self.web_view.can_go_back()
+    }
+
     fn uri(&self) -> Cow<'_, str> {
         self.web_view.uri().unwrap_or_default().to_string().into()
     }

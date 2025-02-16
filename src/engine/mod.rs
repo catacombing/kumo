@@ -124,6 +124,9 @@ pub trait Engine {
     /// Go to the previous page.
     fn load_prev(&mut self);
 
+    /// Check if engine has any history.
+    fn has_prev(&self) -> bool;
+
     /// Get current URI.
     fn uri(&self) -> Cow<'_, str>;
 

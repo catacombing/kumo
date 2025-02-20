@@ -224,7 +224,7 @@ impl History {
         let available_height = ui_height - close_button_height;
 
         // Calculate height of all history entries.
-        let num_entries = self.history_textures.textures.len();
+        let num_entries = self.history_textures.len();
         let mut entries_height =
             (num_entries * (entry_height as usize + entry_padding)).saturating_sub(entry_padding);
 

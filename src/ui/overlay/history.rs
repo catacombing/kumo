@@ -133,9 +133,10 @@ impl History {
     ///
     /// This includes all padding since that is included in the texture.
     fn close_button_position(&self) -> Position<f64> {
-        let width = self.button_size().width;
-        let x = (self.size.width as f64 * self.scale).round() - width as f64;
-        Position::new(x, 0.)
+        let button_size = self.button_size();
+        let x = (self.size.width as f64 * self.scale).round() - button_size.width as f64;
+        let y = (self.size.height as f64 * self.scale).round() - button_size.height as f64;
+        Position::new(x, y)
     }
 
     /// Get physical size of the history entry close button.
@@ -165,15 +166,15 @@ impl History {
     fn entry_at(&self, mut position: Position<f64>) -> Option<(&HistoryUri, bool)> {
         let y_padding = ENTRY_Y_PADDING * self.scale;
         let x_padding = ENTRY_X_PADDING * self.scale;
-        let entry_start_y = self.close_button_position().y + self.button_size().height as f64;
-        let entry_end_y = self.size.height as f64 * self.scale - x_padding;
+        let entry_end_y = self.close_button_position().y;
+
         let entry_size_int = self.entry_size();
         let entry_size: Size<f64> = entry_size_int.into();
 
         // Check whether position is within history list boundaries.
         if position.x < x_padding
             || position.x >= x_padding + entry_size.width
-            || position.y < entry_start_y
+            || position.y < 0.
             || position.y >= entry_end_y
         {
             return None;
@@ -255,9 +256,9 @@ impl Popup for History {
         self.clamp_scroll_offset();
 
         // Get geometry required for rendering.
+        let x_padding = (ENTRY_X_PADDING * self.scale) as f32;
         let close_button_position: Position<f32> = self.close_button_position().into();
         let ui_height = (self.size.height as f64 * self.scale).round() as f32;
-        let history_start = close_button_position.y + self.button_size().height as f32;
         let button_height = self.button_size().height as i32;
         let entry_size = self.entry_size();
 
@@ -279,22 +280,20 @@ impl Popup for History {
         }
 
         // Scissor crop top entry, to not overlap the buttons.
-        let scissor_height = (ui_height - close_button_position.y) as i32 - button_height;
         unsafe {
             gl::Enable(gl::SCISSOR_TEST);
-            gl::Scissor(0, 0, i32::MAX, scissor_height);
+            gl::Scissor(0, button_height, i32::MAX, ui_height as i32);
         }
 
         // Draw history list.
-        let x_padding = (ENTRY_X_PADDING * self.scale) as f32;
         let mut texture_pos =
-            Position::new(x_padding, ui_height - x_padding + self.scroll_offset as f32);
+            Position::new(x_padding, close_button_position.y + self.scroll_offset as f32);
         for i in 0..self.history_textures.len() {
             // Render only entries within the viewport.
             texture_pos.y -= entry_size.height as f32;
-            if texture_pos.y <= history_start - entry_size.height as f32 {
+            if texture_pos.y <= -(entry_size.height as f32) {
                 break;
-            } else if texture_pos.y < ui_height {
+            } else if texture_pos.y < close_button_position.y {
                 let texture = self.history_textures.texture(i, entry_size, self.scale);
                 unsafe { renderer.draw_texture_at(texture, texture_pos, None) };
             }

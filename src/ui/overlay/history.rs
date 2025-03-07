@@ -5,6 +5,7 @@ use std::mem;
 
 use chrono::{DateTime, Local};
 use funq::MtQueueHandle;
+use pangocairo::pango::Alignment;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
 use crate::engine::{EngineHandler, NO_GROUP_ID};
@@ -49,6 +50,9 @@ const ENTRY_Y_PADDING: f64 = 1.;
 /// Padding around the history entry "X" button.
 const ENTRY_CLOSE_PADDING: f64 = 40.;
 
+/// Message prompt for bulk history deletions.
+const DELETE_CONFIRMATION_TEXT: &str = "Confirm deleting history entries?";
+
 #[funq::callbacks(State)]
 trait HistoryHandler {
     /// Close the history UI.
@@ -68,6 +72,9 @@ impl HistoryHandler for State {
 /// History UI.
 pub struct History {
     history_textures: HistoryTextures,
+    delete_prompt: ConfirmationPrompt,
+    confirm_button: SvgButton,
+    delete_button: SvgButton,
     close_button: SvgButton,
     scroll_offset: f64,
 
@@ -81,6 +88,8 @@ pub struct History {
 
     history_db: HistoryDb,
 
+    pending_delete_confirmation: bool,
+
     visible: bool,
     dirty: bool,
 }
@@ -91,8 +100,12 @@ impl History {
             history_db,
             window_id,
             queue,
+            confirm_button: SvgButton::new(Svg::Checkmark),
             close_button: SvgButton::new(Svg::Close),
+            delete_button: SvgButton::new(Svg::Bin),
+            pending_delete_confirmation: Default::default(),
             history_textures: Default::default(),
+            delete_prompt: Default::default(),
             scroll_offset: Default::default(),
             touch_state: Default::default(),
             visible: Default::default(),
@@ -137,6 +150,31 @@ impl History {
         let x = (self.size.width as f64 * self.scale).round() - button_size.width as f64;
         let y = (self.size.height as f64 * self.scale).round() - button_size.height as f64;
         Position::new(x, y)
+    }
+
+    /// Physical position of the bulk delete button.
+    ///
+    /// This includes all padding since that is included in the texture.
+    fn delete_button_position(&self) -> Position<f64> {
+        let button_size = self.button_size();
+        let y = (self.size.height as f64 * self.scale).round() - button_size.height as f64;
+        Position::new(0., y)
+    }
+
+    /// Get default physical UI text prompt size.
+    ///
+    /// This includes all padding, since that is part of the texture.
+    fn delete_prompt_size(&self) -> Size {
+        Size::new(self.size.width, self.size.height / 4) * self.scale
+    }
+
+    /// Physical position of the bulk delete confirmation prompt.
+    ///
+    /// This includes all padding since that is included in the texture.
+    fn delete_prompt_position(&self) -> Position<f64> {
+        let prompt_size = self.delete_prompt_size();
+        let y = (self.size.height as f64 * self.scale - prompt_size.height as f64) / 2.;
+        Position::new(0., y)
     }
 
     /// Get physical size of the history entry close button.
@@ -257,6 +295,8 @@ impl Popup for History {
 
         // Get geometry required for rendering.
         let x_padding = (ENTRY_X_PADDING * self.scale) as f32;
+        let delete_prompt_position: Position<f32> = self.delete_prompt_position().into();
+        let delete_button_position: Position<f32> = self.delete_button_position().into();
         let close_button_position: Position<f32> = self.close_button_position().into();
         let ui_height = (self.size.height as f64 * self.scale).round() as f32;
         let button_height = self.button_size().height as i32;
@@ -267,6 +307,11 @@ impl Popup for History {
         // This must happen with the renderer bound to ensure new textures are
         // associated with the correct program.
         self.history_textures.free_unused_textures();
+        let delete_button = if self.pending_delete_confirmation {
+            self.confirm_button.texture()
+        } else {
+            self.delete_button.texture()
+        };
         let close_button = self.close_button.texture();
 
         // Draw background.
@@ -279,32 +324,41 @@ impl Popup for History {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        // Scissor crop top entry, to not overlap the buttons.
-        unsafe {
-            gl::Enable(gl::SCISSOR_TEST);
-            gl::Scissor(0, button_height, i32::MAX, ui_height as i32);
-        }
-
-        // Draw history list.
-        let mut texture_pos =
-            Position::new(x_padding, close_button_position.y + self.scroll_offset as f32);
-        for i in 0..self.history_textures.len() {
-            // Render only entries within the viewport.
-            texture_pos.y -= entry_size.height as f32;
-            if texture_pos.y <= -(entry_size.height as f32) {
-                break;
-            } else if texture_pos.y < close_button_position.y {
-                let texture = self.history_textures.texture(i, entry_size, self.scale);
-                unsafe { renderer.draw_texture_at(texture, texture_pos, None) };
+        if !self.pending_delete_confirmation {
+            // Scissor crop top entry, to not overlap the buttons.
+            unsafe {
+                gl::Enable(gl::SCISSOR_TEST);
+                gl::Scissor(0, button_height, i32::MAX, ui_height as i32);
             }
 
-            // Add padding after the history entry.
-            texture_pos.y -= (ENTRY_Y_PADDING * self.scale) as f32
+            // Draw history list.
+            let mut texture_pos =
+                Position::new(x_padding, close_button_position.y + self.scroll_offset as f32);
+            for i in 0..self.history_textures.len() {
+                // Render only entries within the viewport.
+                texture_pos.y -= entry_size.height as f32;
+                if texture_pos.y <= -(entry_size.height as f32) {
+                    break;
+                } else if texture_pos.y < close_button_position.y {
+                    let texture = self.history_textures.texture(i, entry_size, self.scale);
+                    unsafe { renderer.draw_texture_at(texture, texture_pos, None) };
+                }
+
+                // Add padding after the history entry.
+                texture_pos.y -= (ENTRY_Y_PADDING * self.scale) as f32
+            }
+
+            unsafe { gl::Disable(gl::SCISSOR_TEST) };
         }
 
-        unsafe { gl::Disable(gl::SCISSOR_TEST) };
+        // Render delete confirmation text.
+        if self.pending_delete_confirmation {
+            let delete_prompt = self.delete_prompt.texture();
+            unsafe { renderer.draw_texture_at(delete_prompt, delete_prompt_position, None) };
+        }
 
-        // Draw close button.
+        // Draw buttons.
+        unsafe { renderer.draw_texture_at(delete_button, delete_button_position, None) };
         unsafe { renderer.draw_texture_at(close_button, close_button_position, None) };
     }
 
@@ -317,6 +371,9 @@ impl Popup for History {
         self.dirty = true;
 
         // Update UI element sizes.
+        self.delete_prompt.set_geometry(self.delete_prompt_size(), self.scale);
+        self.confirm_button.set_geometry(self.button_size(), self.scale);
+        self.delete_button.set_geometry(self.button_size(), self.scale);
         self.close_button.set_geometry(self.button_size(), self.scale);
     }
 
@@ -329,6 +386,9 @@ impl Popup for History {
         self.dirty = true;
 
         // Update UI element scales.
+        self.delete_prompt.set_geometry(self.delete_prompt_size(), self.scale);
+        self.confirm_button.set_geometry(self.button_size(), self.scale);
+        self.delete_button.set_geometry(self.button_size(), self.scale);
         self.close_button.set_geometry(self.button_size(), self.scale);
     }
 
@@ -349,10 +409,13 @@ impl Popup for History {
         self.touch_state.start = position;
 
         // Get button geometries.
+        let delete_button_position = self.delete_button_position();
         let close_button_position = self.close_button_position();
         let button_size = self.button_size().into();
 
-        if rect_contains(close_button_position, button_size, position) {
+        if rect_contains(delete_button_position, button_size, position) {
+            self.touch_state.action = TouchAction::DeleteTap;
+        } else if rect_contains(close_button_position, button_size, position) {
             self.touch_state.action = TouchAction::CloseTap;
         } else {
             self.touch_state.action = TouchAction::EntryTap;
@@ -428,8 +491,31 @@ impl Popup for History {
                 },
                 None => (),
             },
+            // Abort deletion if confirmation is pending.
+            TouchAction::CloseTap if self.pending_delete_confirmation => {
+                self.pending_delete_confirmation = false;
+                self.dirty = true;
+            },
             // Close the history UI.
             TouchAction::CloseTap => self.queue.close_history(self.window_id),
+            // Prompt for confirmation on first press.
+            TouchAction::DeleteTap if !self.pending_delete_confirmation => {
+                self.pending_delete_confirmation = true;
+                self.dirty = true;
+            },
+            // Confirm deletion on second press.
+            TouchAction::DeleteTap => {
+                // Delete all history entries.
+                self.history_db.bulk_delete(None);
+
+                // Update the history entries.
+                let entries = self.history_db.entries().unwrap_or_default();
+                self.history_textures.set_entries(entries);
+
+                // Clear confirmation prompt.
+                self.pending_delete_confirmation = false;
+                self.dirty = true;
+            },
             TouchAction::EntryDrag => (),
         }
     }
@@ -578,6 +664,57 @@ impl HistoryTextures {
     }
 }
 
+/// Deletion confirmation text dialog.
+#[derive(Default)]
+struct ConfirmationPrompt {
+    texture: Option<Texture>,
+
+    dirty: bool,
+    size: Size,
+    scale: f64,
+}
+
+impl ConfirmationPrompt {
+    /// Get this text's OpenGL texture.
+    pub fn texture(&mut self) -> &Texture {
+        // Ensure texture is up to date.
+        if mem::take(&mut self.dirty) {
+            // Ensure texture is cleared while program is bound.
+            if let Some(texture) = self.texture.take() {
+                texture.delete();
+            }
+            self.texture = Some(self.draw());
+        }
+
+        self.texture.as_ref().unwrap()
+    }
+
+    /// Draw the text into an OpenGL texture.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn draw(&self) -> Texture {
+        // Clear with background color.
+        let builder = TextureBuilder::new(self.size.into());
+        builder.clear(HISTORY_BG);
+
+        // Render confirmation prompt text.
+        let layout = TextLayout::new(FONT_SIZE, self.scale);
+        layout.set_alignment(Alignment::Center);
+        layout.set_text(DELETE_CONFIRMATION_TEXT);
+        builder.rasterize(&layout, &TextOptions::new());
+
+        builder.build()
+    }
+
+    /// Set the physical size and scale of the text.
+    fn set_geometry(&mut self, size: Size, scale: f64) {
+        self.size = size;
+        self.scale = scale;
+
+        // Force redraw.
+        self.dirty = true;
+    }
+}
+
 /// Touch event tracking.
 #[derive(Default)]
 struct TouchState {
@@ -594,4 +731,5 @@ enum TouchAction {
     EntryTap,
     EntryDrag,
     CloseTap,
+    DeleteTap,
 }

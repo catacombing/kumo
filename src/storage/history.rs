@@ -107,6 +107,27 @@ impl History {
         entries.retain(|key, _| key != &history_uri);
     }
 
+    /// Bulk delete history entries.
+    pub fn bulk_delete(&self, filter: Option<&str>) {
+        // Update filesystem history.
+        if let Some(db) = &self.db {
+            if let Err(err) = db.bulk_delete(filter) {
+                error!("Failed to delete items matching {filter:?} from history: {err}");
+            }
+        }
+
+        // Update in-memory history.
+        let mut entries = self.entries.write().unwrap();
+        match filter {
+            Some(filter) => {
+                entries.retain(|uri, entry| {
+                    uri.to_string(true).contains(filter) || entry.title.contains(filter)
+                });
+            },
+            None => entries.clear(),
+        }
+    }
+
     /// Get autocomplete suggestion for an input.
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn autocomplete(&self, input: &str) -> Option<String> {
@@ -262,6 +283,23 @@ impl HistoryDb {
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn delete(&self, uri: &str) -> rusqlite::Result<()> {
         self.connection.execute("DELETE FROM history WHERE uri=?1", [uri])?;
+
+        Ok(())
+    }
+
+    /// Bulk delete URIs from history.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn bulk_delete(&self, filter: Option<&str>) -> rusqlite::Result<()> {
+        match filter {
+            Some(filter) => {
+                let filter = format!("%{filter}%");
+                self.connection
+                    .execute("DELETE FROM history WHERE uri like ?1 OR title like ?1", [filter])?;
+            },
+            None => {
+                self.connection.execute("DELETE FROM history", [])?;
+            },
+        }
 
         Ok(())
     }

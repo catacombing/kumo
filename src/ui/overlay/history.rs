@@ -6,15 +6,15 @@ use std::mem;
 use chrono::{DateTime, Local};
 use funq::MtQueueHandle;
 use pangocairo::pango::Alignment;
-use smithay_client_toolkit::seat::keyboard::Modifiers;
+use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::engine::{EngineHandler, NO_GROUP_ID};
 use crate::storage::history::{History as HistoryDb, HistoryEntry, HistoryUri};
 use crate::ui::overlay::tabs::TabsHandler;
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::{SvgButton, MAX_TAP_DISTANCE};
-use crate::window::WindowId;
+use crate::ui::{SvgButton, TextField, MAX_TAP_DISTANCE};
+use crate::window::{TextInputChange, WindowId};
 use crate::{gl, rect_contains, Position, Size, State};
 
 /// History view background color.
@@ -50,13 +50,13 @@ const ENTRY_Y_PADDING: f64 = 1.;
 /// Padding around the history entry "X" button.
 const ENTRY_CLOSE_PADDING: f64 = 40.;
 
-/// Message prompt for bulk history deletions.
-const DELETE_CONFIRMATION_TEXT: &str = "Confirm deleting history entries?";
-
 #[funq::callbacks(State)]
 trait HistoryHandler {
     /// Close the history UI.
     fn close_history(&mut self, window_id: WindowId);
+
+    /// Update history filter.
+    fn set_history_filter(&mut self, window_id: WindowId, filter: String);
 }
 
 impl HistoryHandler for State {
@@ -67,6 +67,14 @@ impl HistoryHandler for State {
         };
         window.set_history_ui_visibile(false);
     }
+
+    fn set_history_filter(&mut self, window_id: WindowId, filter: String) {
+        let window = match self.windows.get_mut(&window_id) {
+            Some(window) => window,
+            None => return,
+        };
+        window.set_history_filter(filter);
+    }
 }
 
 /// History UI.
@@ -76,8 +84,10 @@ pub struct History {
     confirm_button: SvgButton,
     delete_button: SvgButton,
     close_button: SvgButton,
+    filter: HistoryFilter,
     scroll_offset: f64,
 
+    keyboard_focus: Option<KeyboardInputElement>,
     touch_state: TouchState,
 
     size: Size,
@@ -96,15 +106,19 @@ pub struct History {
 
 impl History {
     pub fn new(window_id: WindowId, queue: MtQueueHandle<State>, history_db: HistoryDb) -> Self {
+        let filter = HistoryFilter::new(window_id, queue.clone());
+
         Self {
             history_db,
             window_id,
+            filter,
             queue,
             confirm_button: SvgButton::new(Svg::Checkmark),
             close_button: SvgButton::new(Svg::Close),
             delete_button: SvgButton::new(Svg::Bin),
             pending_delete_confirmation: Default::default(),
             history_textures: Default::default(),
+            keyboard_focus: Default::default(),
             delete_prompt: Default::default(),
             scroll_offset: Default::default(),
             touch_state: Default::default(),
@@ -131,6 +145,17 @@ impl History {
             self.history_textures.set_entries(entries);
             self.scroll_offset = 0.;
         }
+    }
+
+    /// Set history filter.
+    pub fn set_filter(&mut self, filter: String) {
+        // Update current filter.
+        self.dirty |= self.history_textures.filter != filter;
+        self.history_textures.filter = filter;
+
+        // Update entries to apply filter.
+        let entries = self.history_db.entries().unwrap_or_default();
+        self.history_textures.set_entries(entries);
     }
 
     /// Get default physical UI button size.
@@ -175,6 +200,26 @@ impl History {
         let prompt_size = self.delete_prompt_size();
         let y = (self.size.height as f64 * self.scale - prompt_size.height as f64) / 2.;
         Position::new(0., y)
+    }
+
+    /// Get default physical history filter size.
+    ///
+    /// This includes all padding, since that is part of the texture.
+    fn filter_size(&self) -> Size {
+        let button_size = self.button_size();
+        let width = self.size.width as f64 * self.scale - 2. * button_size.width as f64;
+        let height = BUTTON_HEIGHT as f64 * self.scale;
+        Size::new(width.round() as u32, height.round() as u32)
+    }
+
+    /// Physical position of the bulk delete confirmation prompt.
+    ///
+    /// This includes all padding since that is included in the texture.
+    fn filter_position(&self) -> Position<f64> {
+        let delete_button_position = self.delete_button_position();
+        let x = delete_button_position.x + self.button_size().width as f64;
+        let y = delete_button_position.y + BUTTON_PADDING * self.scale;
+        Position::new(x, y)
     }
 
     /// Get physical size of the history entry close button.
@@ -278,7 +323,7 @@ impl History {
 
 impl Popup for History {
     fn dirty(&self) -> bool {
-        self.dirty
+        self.dirty || self.filter.input.dirty
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
@@ -299,6 +344,7 @@ impl Popup for History {
         let delete_button_position: Position<f32> = self.delete_button_position().into();
         let close_button_position: Position<f32> = self.close_button_position().into();
         let ui_height = (self.size.height as f64 * self.scale).round() as f32;
+        let filter_position: Position<f32> = self.filter_position().into();
         let button_height = self.button_size().height as i32;
         let entry_size = self.entry_size();
 
@@ -313,6 +359,7 @@ impl Popup for History {
             self.delete_button.texture()
         };
         let close_button = self.close_button.texture();
+        let filter_label = self.filter.texture();
 
         // Draw background.
         //
@@ -353,13 +400,17 @@ impl Popup for History {
 
         // Render delete confirmation text.
         if self.pending_delete_confirmation {
-            let delete_prompt = self.delete_prompt.texture();
+            let entry_count = self.history_textures.len();
+            let delete_prompt = self.delete_prompt.texture(entry_count);
             unsafe { renderer.draw_texture_at(delete_prompt, delete_prompt_position, None) };
         }
 
         // Draw buttons.
         unsafe { renderer.draw_texture_at(delete_button, delete_button_position, None) };
         unsafe { renderer.draw_texture_at(close_button, close_button_position, None) };
+
+        // Draw filter text.
+        unsafe { renderer.draw_texture_at(filter_label, filter_position, None) };
     }
 
     fn position(&self) -> Position {
@@ -375,6 +426,7 @@ impl Popup for History {
         self.confirm_button.set_geometry(self.button_size(), self.scale);
         self.delete_button.set_geometry(self.button_size(), self.scale);
         self.close_button.set_geometry(self.button_size(), self.scale);
+        self.filter.set_geometry(self.filter_size(), self.scale);
     }
 
     fn size(&self) -> Size {
@@ -390,13 +442,26 @@ impl Popup for History {
         self.confirm_button.set_geometry(self.button_size(), self.scale);
         self.delete_button.set_geometry(self.button_size(), self.scale);
         self.close_button.set_geometry(self.button_size(), self.scale);
+        self.filter.set_geometry(self.filter_size(), self.scale);
     }
 
     fn opaque_region(&self) -> Size {
         self.size
     }
 
-    fn touch_down(&mut self, _time: u32, id: i32, position: Position<f64>, _modifiers: Modifiers) {
+    fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
+        if let Some(KeyboardInputElement::Filter) = self.keyboard_focus {
+            self.filter.input.press_key(raw, keysym, modifiers)
+        }
+    }
+
+    fn touch_down(
+        &mut self,
+        time: u32,
+        id: i32,
+        logical_position: Position<f64>,
+        _modifiers: Modifiers,
+    ) {
         // Only accept a single touch point in the UI.
         if self.touch_state.slot.is_some() {
             return;
@@ -404,21 +469,34 @@ impl Popup for History {
         self.touch_state.slot = Some(id);
 
         // Convert position to physical space.
-        let position = position * self.scale;
+        let position = logical_position * self.scale;
         self.touch_state.position = position;
         self.touch_state.start = position;
 
         // Get button geometries.
         let delete_button_position = self.delete_button_position();
         let close_button_position = self.close_button_position();
+        let filter_position = self.filter_position();
+        let filter_size = self.filter_size().into();
         let button_size = self.button_size().into();
 
         if rect_contains(delete_button_position, button_size, position) {
             self.touch_state.action = TouchAction::DeleteTap;
+            self.clear_keyboard_focus();
         } else if rect_contains(close_button_position, button_size, position) {
             self.touch_state.action = TouchAction::CloseTap;
+            self.clear_keyboard_focus();
+        } else if rect_contains(filter_position, filter_size, position) {
+            let (text_position, _) = self.filter.text_geometry();
+            let relative_position = position - filter_position - text_position;
+            self.filter.input.touch_down(time, logical_position, relative_position);
+
+            self.filter.input.set_focus(true);
+            self.touch_state.action = TouchAction::FilterTouch;
+            self.keyboard_focus = Some(KeyboardInputElement::Filter);
         } else {
             self.touch_state.action = TouchAction::EntryTap;
+            self.clear_keyboard_focus();
         }
     }
 
@@ -454,12 +532,18 @@ impl Popup for History {
                 self.clamp_scroll_offset();
                 self.dirty |= self.scroll_offset != old_offset;
             },
+            // Forward filter label events.
+            TouchAction::FilterTouch => {
+                let (text_position, _) = self.filter.text_geometry();
+                let relative_position = position - self.filter_position() - text_position;
+                self.filter.input.touch_motion(relative_position);
+            },
             // Ignore drag when tap started on a UI element.
             _ => (),
         }
     }
 
-    fn touch_up(&mut self, _time: u32, id: i32, _modifiers: Modifiers) {
+    fn touch_up(&mut self, time: u32, id: i32, _modifiers: Modifiers) {
         // Ignore all unknown touch points.
         if self.touch_state.slot != Some(id) {
             return;
@@ -500,13 +584,29 @@ impl Popup for History {
             TouchAction::CloseTap => self.queue.close_history(self.window_id),
             // Prompt for confirmation on first press.
             TouchAction::DeleteTap if !self.pending_delete_confirmation => {
-                self.pending_delete_confirmation = true;
-                self.dirty = true;
+                if !self.history_textures.is_empty() {
+                    self.pending_delete_confirmation = true;
+                    self.dirty = true;
+                } else {
+                    // Clear filter if there are no matching entries.
+                    self.history_textures.filter.clear();
+                    self.filter.input.set_text("");
+
+                    // Update the history entries.
+                    let entries = self.history_db.entries().unwrap_or_default();
+                    self.history_textures.set_entries(entries);
+                }
             },
             // Confirm deletion on second press.
             TouchAction::DeleteTap => {
                 // Delete all history entries.
-                self.history_db.bulk_delete(None);
+                let filter = (!self.history_textures.filter.is_empty())
+                    .then_some(self.history_textures.filter.as_str());
+                self.history_db.bulk_delete(filter);
+
+                // Clear active filter.
+                self.history_textures.filter.clear();
+                self.filter.input.set_text("");
 
                 // Update the history entries.
                 let entries = self.history_db.entries().unwrap_or_default();
@@ -516,8 +616,57 @@ impl Popup for History {
                 self.pending_delete_confirmation = false;
                 self.dirty = true;
             },
+            // Forward filter label events.
+            TouchAction::FilterTouch => self.filter.input.touch_up(time),
             TouchAction::EntryDrag => (),
         }
+    }
+
+    fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32) {
+        if let Some(KeyboardInputElement::Filter) = self.keyboard_focus {
+            self.filter.input.delete_surrounding_text(before_length, after_length);
+        }
+    }
+
+    fn commit_string(&mut self, text: String) {
+        if let Some(KeyboardInputElement::Filter) = self.keyboard_focus {
+            self.filter.input.commit_string(text);
+        }
+    }
+
+    fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
+        if let Some(KeyboardInputElement::Filter) = self.keyboard_focus {
+            self.filter.input.set_preedit_string(text, cursor_begin, cursor_end);
+        }
+    }
+
+    fn text_input_state(&mut self) -> TextInputChange {
+        match self.keyboard_focus {
+            Some(KeyboardInputElement::Filter) => {
+                let filter_position = self.filter_position();
+                let x = filter_position.x.round() as i32;
+                let y = filter_position.y.round() as i32;
+                self.filter.input.text_input_state(Position::new(x, y))
+            },
+            _ => TextInputChange::Disabled,
+        }
+    }
+
+    fn paste(&mut self, text: String) {
+        if let Some(KeyboardInputElement::Filter) = self.keyboard_focus {
+            self.filter.input.paste(text);
+        }
+    }
+
+    fn has_keyboard_focus(&self) -> bool {
+        self.keyboard_focus.is_some()
+    }
+
+    fn clear_keyboard_focus(&mut self) {
+        self.filter.input.set_focus(false);
+        self.filter.input.submit();
+
+        self.keyboard_focus = None;
     }
 }
 
@@ -526,11 +675,16 @@ impl Popup for History {
 struct HistoryTextures {
     textures: HashMap<HistoryUri, (HistoryEntry, Texture)>,
     entries: Vec<(HistoryUri, HistoryEntry)>,
+    filter: String,
 }
 
 impl HistoryTextures {
     /// Update the history entries.
-    fn set_entries(&mut self, entries: Vec<(HistoryUri, HistoryEntry)>) {
+    fn set_entries(&mut self, mut entries: Vec<(HistoryUri, HistoryEntry)>) {
+        entries.retain(|(uri, entry)| {
+            uri.to_string(true).contains(&self.filter) || entry.title.contains(&self.filter)
+        });
+
         self.entries = entries;
     }
 
@@ -662,6 +816,11 @@ impl HistoryTextures {
     fn len(&self) -> usize {
         self.entries.len()
     }
+
+    /// Check whether there are any entries.
+    fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
 }
 
 /// Deletion confirmation text dialog.
@@ -669,6 +828,7 @@ impl HistoryTextures {
 struct ConfirmationPrompt {
     texture: Option<Texture>,
 
+    last_entry_count: usize,
     dirty: bool,
     size: Size,
     scale: f64,
@@ -676,14 +836,15 @@ struct ConfirmationPrompt {
 
 impl ConfirmationPrompt {
     /// Get this text's OpenGL texture.
-    pub fn texture(&mut self) -> &Texture {
+    pub fn texture(&mut self, entry_count: usize) -> &Texture {
         // Ensure texture is up to date.
-        if mem::take(&mut self.dirty) {
+        if mem::take(&mut self.dirty) || self.last_entry_count != entry_count {
             // Ensure texture is cleared while program is bound.
             if let Some(texture) = self.texture.take() {
                 texture.delete();
             }
-            self.texture = Some(self.draw());
+            self.texture = Some(self.draw(entry_count));
+            self.last_entry_count = entry_count;
         }
 
         self.texture.as_ref().unwrap()
@@ -691,7 +852,7 @@ impl ConfirmationPrompt {
 
     /// Draw the text into an OpenGL texture.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    pub fn draw(&self) -> Texture {
+    pub fn draw(&self, entry_count: usize) -> Texture {
         // Clear with background color.
         let builder = TextureBuilder::new(self.size.into());
         builder.clear(HISTORY_BG);
@@ -699,7 +860,7 @@ impl ConfirmationPrompt {
         // Render confirmation prompt text.
         let layout = TextLayout::new(FONT_SIZE, self.scale);
         layout.set_alignment(Alignment::Center);
-        layout.set_text(DELETE_CONFIRMATION_TEXT);
+        layout.set_text(&format!("Confirm deleting {entry_count} history entries?"));
         builder.rasterize(&layout, &TextOptions::new());
 
         builder.build()
@@ -712,6 +873,98 @@ impl ConfirmationPrompt {
 
         // Force redraw.
         self.dirty = true;
+    }
+}
+
+/// History filter text input.
+struct HistoryFilter {
+    input: TextField,
+
+    texture: Option<Texture>,
+
+    size: Size,
+    scale: f64,
+}
+
+impl HistoryFilter {
+    fn new(window_id: WindowId, mut queue: MtQueueHandle<State>) -> Self {
+        let mut input = TextField::new(window_id, queue.clone(), FONT_SIZE);
+        input.set_text_change_handler(Box::new(move |label| {
+            queue.set_history_filter(window_id, label.text())
+        }));
+        Self { input, scale: 1., texture: Default::default(), size: Default::default() }
+    }
+
+    fn texture(&mut self) -> &Texture {
+        // Ensure texture is up to date.
+        if mem::take(&mut self.input.dirty) {
+            // Ensure texture is cleared while program is bound.
+            if let Some(texture) = self.texture.take() {
+                texture.delete();
+            }
+            self.texture = Some(self.draw());
+        }
+
+        self.texture.as_ref().unwrap()
+    }
+
+    /// Draw the label into an OpenGL texture.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn draw(&mut self) -> Texture {
+        // Add padding to text dimensions.
+        let (mut text_position, text_size) = self.text_geometry();
+        text_position.x += self.input.scroll_offset;
+
+        // Set text rendering options.
+        let mut text_options = TextOptions::new();
+        text_options.cursor_position(self.input.cursor_index());
+        text_options.autocomplete(self.input.autocomplete().into());
+        text_options.preedit(self.input.preedit.clone());
+        text_options.position(text_position);
+        text_options.size(text_size.into());
+        text_options.set_ellipsize(false);
+
+        if self.input.focused {
+            // Show cursor or selection when focused.
+            if self.input.selection.is_some() {
+                text_options.selection(self.input.selection.clone());
+            } else {
+                text_options.show_cursor();
+            }
+        } else {
+            // Show placeholder without focus.
+            text_options.set_placeholder("Filter…");
+        }
+
+        // Rasterize the text field.
+        let layout = self.input.layout();
+        layout.set_scale(self.scale);
+        let builder = TextureBuilder::new(self.size.into());
+        builder.clear(ENTRY_BG);
+        builder.rasterize(layout, &text_options);
+
+        builder.build()
+    }
+
+    /// Set the physical size and scale of the text field.
+    fn set_geometry(&mut self, size: Size, scale: f64) {
+        self.size = size;
+        self.scale = scale;
+
+        // Update text input width.
+        let (_, text_size) = self.text_geometry();
+        self.input.set_width(text_size.width as f64);
+
+        // Force redraw.
+        self.input.dirty = true;
+    }
+
+    /// Get physical geometry of the text input area.
+    fn text_geometry(&self) -> (Position<f64>, Size) {
+        let padding = (BUTTON_PADDING * self.scale).round();
+        let width = (self.size.width as f64 - 2. * padding).round();
+        let size = Size::new(width as u32, self.size.height);
+        (Position::new(padding, 0.), size)
     }
 }
 
@@ -732,4 +985,10 @@ enum TouchAction {
     EntryDrag,
     CloseTap,
     DeleteTap,
+    FilterTouch,
+}
+
+/// Elements accepting keyboard focus.
+enum KeyboardInputElement {
+    Filter,
 }

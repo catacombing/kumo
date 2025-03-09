@@ -391,6 +391,11 @@ impl Overlay {
         self.popups.history.set_visible(visible);
     }
 
+    /// Change the history filter.
+    pub fn set_history_filter(&mut self, filter: String) {
+        self.popups.history.set_filter(filter);
+    }
+
     /// Show an option menu.
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn open_option_menu<I>(

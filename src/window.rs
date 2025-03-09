@@ -1052,6 +1052,12 @@ impl Window {
         self.unstall();
     }
 
+    /// Set the history UI filter.
+    pub fn set_history_filter(&mut self, filter: String) {
+        self.overlay.set_history_filter(filter);
+        self.unstall();
+    }
+
     /// Create a new dropdown popup.
     pub fn open_option_menu<I>(
         &mut self,

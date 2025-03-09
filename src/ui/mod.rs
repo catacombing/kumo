@@ -1266,8 +1266,8 @@ impl TextField {
 
     /// Handle touch press events.
     ///
-    /// The `absolute_position` should be the text input's global location in
-    /// logical space and is used for opening popups.
+    /// The `absolute_logical_position` should be the text input's global
+    /// location in logical space and is used for opening popups.
     pub fn touch_down(
         &mut self,
         time: u32,

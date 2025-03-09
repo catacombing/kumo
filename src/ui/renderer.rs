@@ -17,7 +17,7 @@ use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, SwapInterval, WindowSurface};
 use pangocairo::cairo::{Context, Format, ImageSurface, Rectangle};
 use pangocairo::pango::{
-    AttrColor, AttrInt, AttrList, EllipsizeMode, FontDescription, Layout, Underline,
+    AttrColor, AttrInt, AttrList, EllipsizeMode, FontDescription, Layout, Style, Underline,
     SCALE as PANGO_SCALE,
 };
 use raw_window_handle::{RawWindowHandle, WaylandWindowHandle};
@@ -496,6 +496,24 @@ impl TextureBuilder {
             layout.set_attributes(Some(&attributes));
         }
 
+        // Render placeholder text.
+        let mut rendered_placeholder = false;
+        if let Some(placeholder) = &text_options.placeholder {
+            if text_without_virtual.is_none() && layout.text().is_empty() {
+                // Set placeholder text.
+                layout.set_text(placeholder);
+                rendered_placeholder = true;
+
+                // Apply placeholder style transforms.
+                let mut it_attr = AttrInt::new_style(Style::Italic);
+                it_attr.set_start_index(0);
+                it_attr.set_end_index(placeholder.len() as u32);
+                let attributes = layout.attributes().unwrap_or_default();
+                attributes.insert(it_attr);
+                layout.set_attributes(Some(&attributes));
+            }
+        }
+
         // Render text.
         self.context.move_to(position.x, text_y);
         self.context.set_source_rgb(color[0], color[1], color[2]);
@@ -521,6 +539,8 @@ impl TextureBuilder {
         // Reset text to remove preedit/autocomplete.
         if let Some(text) = text_without_virtual.take() {
             layout.set_text(&text);
+        } else if rendered_placeholder {
+            layout.set_text("");
         }
     }
 
@@ -568,6 +588,7 @@ pub struct TextOptions {
     show_cursor: bool,
     cursor_pos: i32,
     ellipsize: bool,
+    placeholder: Option<&'static str>,
 }
 
 impl TextOptions {
@@ -578,6 +599,7 @@ impl TextOptions {
             ellipsize: true,
             cursor_pos: -1,
             autocomplete: Default::default(),
+            placeholder: Default::default(),
             show_cursor: Default::default(),
             selection: Default::default(),
             position: Default::default(),
@@ -639,6 +661,11 @@ impl TextOptions {
     /// Set whether text should be truncated with an ellipsis.
     pub fn set_ellipsize(&mut self, ellipsize: bool) {
         self.ellipsize = ellipsize;
+    }
+
+    /// Set placeholder value for empty text fields.
+    pub fn set_placeholder(&mut self, placeholder: &'static str) {
+        self.placeholder = Some(placeholder);
     }
 }
 

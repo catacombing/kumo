@@ -121,7 +121,7 @@ impl History {
         match filter {
             Some(filter) => {
                 entries.retain(|uri, entry| {
-                    uri.to_string(true).contains(filter) || entry.title.contains(filter)
+                    !uri.to_string(true).contains(filter) && !entry.title.contains(filter)
                 });
             },
             None => entries.clear(),

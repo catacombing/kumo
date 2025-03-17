@@ -385,9 +385,16 @@ impl HistoryUri {
             return false;
         }
 
+        // Ignore `www` subdomain since it is frequently optional.
+        let base = if !input_uri.base.starts_with("www.") {
+            self.base.strip_prefix("www.").unwrap_or(&self.base)
+        } else {
+            &self.base
+        };
+
         // Check if input is submatch of base without any path segments.
-        if self.base != input_uri.base {
-            return input_uri.path.is_empty() && self.base.starts_with(&input_uri.base);
+        if base != input_uri.base {
+            return input_uri.path.is_empty() && base.starts_with(&input_uri.base);
         }
 
         // Abort if input is longer than URI.
@@ -397,9 +404,17 @@ impl HistoryUri {
         }
 
         // Check for difference in path segments.
+        let ignore_case = input_uri.is_lowercase();
         for (i, (segment, input_segment)) in self.path.iter().zip(&input_uri.path).enumerate() {
+            // Allow case mismatch with fully lowercased input URI.
+            let segment = if ignore_case {
+                Cow::Owned(segment.to_lowercase())
+            } else {
+                Cow::Borrowed(segment)
+            };
+
             if !segment.starts_with(input_segment)
-                || (input_segment != segment && i + 1 != input_path_len)
+                || (*input_segment != *segment && i + 1 != input_path_len)
             {
                 return false;
             }
@@ -414,6 +429,16 @@ impl HistoryUri {
     /// avoid bloating the history with multiple URIs per target resource.
     fn normalize(&mut self) {
         self.path.retain(|p| !p.is_empty())
+    }
+
+    /// Check if all characters are lowercase.
+    ///
+    /// Ambiguous characters that are neither upper- nor lowercase are
+    /// considered lowercase.
+    fn is_lowercase(&self) -> bool {
+        self.scheme.chars().all(|c| !c.is_uppercase())
+            && self.base.chars().all(|c| !c.is_uppercase())
+            && self.path.iter().flat_map(|p| p.chars()).all(|c| !c.is_uppercase())
     }
 }
 
@@ -570,5 +595,25 @@ mod tests {
         assert!(!uri.autocomplete(&"example.org/path/segmen/".into()));
         assert!(!uri.autocomplete(&"example.org/path//segment".into()));
         assert!(!uri.autocomplete(&"example.org//".into()));
+    }
+
+    #[test]
+    fn www_subdomain_autocomplete() {
+        let uri = HistoryUri::new("https://www.example.org/one/two/three");
+        assert!(uri.autocomplete(&"https://www.example.org/".into()));
+        assert!(uri.autocomplete(&"https://example.org/".into()));
+        assert!(uri.autocomplete(&"example.org/on".into()));
+        assert!(uri.autocomplete(&"example.org/".into()));
+        assert!(uri.autocomplete(&"example.org".into()));
+    }
+
+    #[test]
+    fn ignore_case_autocomplete() {
+        let uri = HistoryUri::new("https://example.org/One/Two/Three");
+        assert!(uri.autocomplete(&"example.org/one/two/thre".into()));
+        assert!(uri.autocomplete(&"example.org/one/two".into()));
+        assert!(uri.autocomplete(&"example.org/one/".into()));
+
+        assert!(!uri.autocomplete(&"example.org/One/tw".into()));
     }
 }

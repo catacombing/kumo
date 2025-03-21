@@ -149,6 +149,16 @@ impl History {
             .iter()
             .filter(|(uri, _)| uri.autocomplete(&input_uri))
             .max_by_key(|(_, entry)| entry.views)?;
+        let mut uri = Cow::Borrowed(uri);
+
+        // Strip `www` from suggestion if input did not contain it.
+        if !input_uri.base.starts_with("www.") && !"www".starts_with(&input_uri.base) {
+            let mut new_uri = HistoryUri::clone(&uri);
+            if let Some(base) = uri.base.strip_prefix("www.") {
+                new_uri.base = base.into();
+            }
+            uri = Cow::Owned(new_uri);
+        }
 
         let mut uri_str = uri.to_string(!input_uri.scheme.is_empty());
 
@@ -386,7 +396,7 @@ impl HistoryUri {
         }
 
         // Ignore `www` subdomain since it is frequently optional.
-        let base = if !input_uri.base.starts_with("www.") {
+        let base = if !input_uri.base.starts_with("www.") && !"www".starts_with(&input_uri.base) {
             self.base.strip_prefix("www.").unwrap_or(&self.base)
         } else {
             &self.base
@@ -595,6 +605,17 @@ mod tests {
         assert!(!uri.autocomplete(&"example.org/path/segmen/".into()));
         assert!(!uri.autocomplete(&"example.org/path//segment".into()));
         assert!(!uri.autocomplete(&"example.org//".into()));
+    }
+
+    #[test]
+    fn subdomain_autocomplete() {
+        let uri = HistoryUri::new("https://www.example.org/one/two/three");
+        assert!(!uri.autocomplete(&"ww.".into()));
+        assert!(uri.autocomplete(&"ww".into()));
+
+        let uri = HistoryUri::new("https://catacomb.example.org/one/two/three");
+        assert!(!uri.autocomplete(&"ca.".into()));
+        assert!(uri.autocomplete(&"ca".into()));
     }
 
     #[test]

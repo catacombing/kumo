@@ -628,7 +628,7 @@ impl Popup for History {
         }
     }
 
-    fn commit_string(&mut self, text: String) {
+    fn commit_string(&mut self, text: &str) {
         if let Some(KeyboardInputElement::Filter) = self.keyboard_focus {
             self.filter.input.commit_string(text);
         }
@@ -652,7 +652,7 @@ impl Popup for History {
         }
     }
 
-    fn paste(&mut self, text: String) {
+    fn paste(&mut self, text: &str) {
         if let Some(KeyboardInputElement::Filter) = self.keyboard_focus {
             self.filter.input.paste(text);
         }

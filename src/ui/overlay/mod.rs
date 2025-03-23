@@ -74,7 +74,7 @@ pub trait Popup {
     fn delete_surrounding_text(&mut self, _before_length: u32, _after_length: u32) {}
 
     /// Insert IME text at the current cursor position.
-    fn commit_string(&mut self, _text: String) {}
+    fn commit_string(&mut self, _text: &str) {}
 
     /// Set preedit text at the current cursor position.
     fn set_preedit_string(&mut self, _text: String, _cursor_begin: i32, _cursor_end: i32) {}
@@ -85,7 +85,7 @@ pub trait Popup {
     }
 
     /// Paste text at the current cursor position.
-    fn paste(&mut self, _text: String) {}
+    fn paste(&mut self, _text: &str) {}
 
     /// Check if popup has keyboard input element focused.
     fn has_keyboard_focus(&self) -> bool {
@@ -323,7 +323,7 @@ impl Overlay {
     }
 
     /// Insert text at the current cursor position.
-    pub fn commit_string(&mut self, text: String) {
+    pub fn commit_string(&mut self, text: &str) {
         let focused_popup = self.keyboard_focus.and_then(|focus| self.popups.iter_mut().nth(focus));
         if let Some(popup) = focused_popup {
             popup.commit_string(text);
@@ -331,7 +331,7 @@ impl Overlay {
     }
 
     /// Insert text at the current cursor position.
-    pub fn paste(&mut self, text: String) {
+    pub fn paste(&mut self, text: &str) {
         let focused_popup = self.keyboard_focus.and_then(|focus| self.popups.iter_mut().nth(focus));
         if let Some(popup) = focused_popup {
             popup.paste(text);

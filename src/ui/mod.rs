@@ -455,7 +455,7 @@ impl Ui {
     }
 
     /// Insert IME text at the current cursor position.
-    pub fn commit_string(&mut self, text: String) {
+    pub fn commit_string(&mut self, text: &str) {
         if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
             self.uribar.text_field.commit_string(text);
         }
@@ -480,7 +480,7 @@ impl Ui {
     }
 
     /// Paste text at the current cursor position.
-    pub fn paste(&mut self, text: String) {
+    pub fn paste(&mut self, text: &str) {
         if let Some(KeyboardInputElement::UriBar) = self.keyboard_focus {
             self.uribar.text_field.paste(text);
         }
@@ -1189,8 +1189,15 @@ impl TextField {
             },
             (Keysym::Tab, false, false) => {
                 // Ignore tab without completion available.
-                let text = self.text();
+                let mut text = self.text();
                 if self.autocomplete.is_empty() || self.cursor_index() < text.len() as i32 {
+                    // Insert `/` when at the end of input without a suggestion.
+                    if text.len() as i32 == self.cursor_index + self.cursor_offset {
+                        text.push('/');
+                        self.set_text(&text);
+                        self.emit_text_changed();
+                    }
+
                     return;
                 }
 
@@ -1202,7 +1209,7 @@ impl TextField {
                     .skip_while(|(_, b)| !AUTOCOMPLETE_SEPARATORS.contains(b))
                     .find_map(|(i, b)| (!AUTOCOMPLETE_SEPARATORS.contains(&b)).then_some(i))
                     .unwrap_or(self.autocomplete.len());
-                let text = format!("{}{}", text, &self.autocomplete[..complete_index]);
+                text.push_str(&self.autocomplete[..complete_index]);
                 self.set_text(&text);
                 self.emit_text_changed();
             },
@@ -1461,7 +1468,7 @@ impl TextField {
     }
 
     /// Insert text at the current cursor position.
-    fn commit_string(&mut self, text: String) {
+    fn commit_string(&mut self, text: &str) {
         // Set reason for next IME update.
         self.change_cause = ChangeCause::InputMethod;
 
@@ -1487,7 +1494,7 @@ impl TextField {
     }
 
     /// Paste text into the input element.
-    fn paste(&mut self, text: String) {
+    fn paste(&mut self, text: &str) {
         // Delete selection before writing new text.
         if let Some(selection) = self.selection.take() {
             self.delete_selected(selection);
@@ -1496,7 +1503,7 @@ impl TextField {
         // Add text to input element.
         let index = self.cursor_index() as usize;
         let mut input_text = self.text();
-        input_text.insert_str(index, &text);
+        input_text.insert_str(index, text);
         self.layout.set_text(&input_text);
         self.emit_text_changed();
 

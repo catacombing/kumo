@@ -816,7 +816,7 @@ impl Popup for Tabs {
         }
     }
 
-    fn commit_string(&mut self, text: String) {
+    fn commit_string(&mut self, text: &str) {
         if let Some(KeyboardInputElement::GroupLabel) = self.keyboard_focus {
             self.group_label.input.commit_string(text);
         }
@@ -840,7 +840,7 @@ impl Popup for Tabs {
         }
     }
 
-    fn paste(&mut self, text: String) {
+    fn paste(&mut self, text: &str) {
         if let Some(KeyboardInputElement::GroupLabel) = self.keyboard_focus {
             self.group_label.input.paste(text);
         }

@@ -102,11 +102,11 @@ impl WindowHandler for State {
 
         match (window.keyboard_focus, target) {
             (KeyboardFocus::Overlay, PasteTarget::Ui(_)) => {
-                window.overlay.paste(text);
+                window.overlay.paste(&text);
                 window.unstall();
             },
             (KeyboardFocus::Ui, PasteTarget::Ui(_)) => {
-                window.ui.paste(text);
+                window.ui.paste(&text);
                 window.unstall();
             },
             (KeyboardFocus::Browser, PasteTarget::Browser(engine_id))
@@ -932,8 +932,8 @@ impl Window {
     /// Insert text at the current cursor position.
     pub fn commit_string(&mut self, text: String) {
         match self.keyboard_focus {
-            KeyboardFocus::Ui => self.ui.commit_string(text),
-            KeyboardFocus::Overlay => self.overlay.commit_string(text),
+            KeyboardFocus::Ui => self.ui.commit_string(&text),
+            KeyboardFocus::Overlay => self.overlay.commit_string(&text),
             KeyboardFocus::Browser => {
                 let engine = match self.active_tab_mut() {
                     Some(engine) => engine,

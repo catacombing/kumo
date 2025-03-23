@@ -841,6 +841,9 @@ impl Window {
             if self.overlay.has_keyboard_focus() {
                 self.set_keyboard_focus(KeyboardFocus::Overlay);
             }
+        } else if self.engine_backdrop.surface() == surface {
+            // Clear focus when tapping the engine backdrop.
+            self.set_keyboard_focus(KeyboardFocus::None);
         }
 
         // Unstall if UI changed.
@@ -1190,6 +1193,7 @@ impl Window {
             || self.xdg.wl_surface() == surface
             || self.ui.surface() == surface
             || self.overlay.surface() == surface
+            || self.engine_backdrop.surface() == surface
     }
 
     /// Get underlying XDG shell window.

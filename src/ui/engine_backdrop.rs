@@ -121,6 +121,11 @@ impl EngineBackdrop {
 
         true
     }
+
+    /// Get underlying Wayland surface.
+    pub fn surface(&self) -> &WlSurface {
+        &self.surface
+    }
 }
 
 /// Single-color buffer implementation backend.

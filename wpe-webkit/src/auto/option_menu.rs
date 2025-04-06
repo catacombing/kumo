@@ -5,6 +5,7 @@
 
 use std::boxed::Box as Box_;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -67,7 +68,7 @@ impl OptionMenu {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"close\0".as_ptr() as *const _,
+                c"close".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     close_trampoline::<F> as *const (),
                 )),

@@ -5,6 +5,7 @@
 
 use std::boxed::Box as Box_;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -176,7 +177,7 @@ impl UserContentManager {
                 detail.map(|name| format!("script-message-received::{name}\0"));
             let signal_name: &[u8] = detailed_signal_name
                 .as_ref()
-                .map_or(&b"script-message-received\0"[..], |n| n.as_bytes());
+                .map_or(c"script-message-received".to_bytes(), |n| n.as_bytes());
             connect_raw(
                 self.as_ptr() as *mut _,
                 signal_name.as_ptr() as *const _,
@@ -215,7 +216,7 @@ impl UserContentManager {
                 detail.map(|name| format!("script-message-with-reply-received::{name}\0"));
             let signal_name: &[u8] = detailed_signal_name
                 .as_ref()
-                .map_or(&b"script-message-with-reply-received\0"[..], |n| n.as_bytes());
+                .map_or(c"script-message-with-reply-received".to_bytes(), |n| n.as_bytes());
             connect_raw(
                 self.as_ptr() as *mut _,
                 signal_name.as_ptr() as *const _,

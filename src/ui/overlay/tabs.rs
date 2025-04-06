@@ -8,7 +8,7 @@ use funq::MtQueueHandle;
 use pangocairo::pango::Alignment;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
-use crate::engine::{Engine, EngineId, Group, GroupId, NO_GROUP, NO_GROUP_ID};
+use crate::engine::{Engine, EngineId, Favicon, Group, GroupId, NO_GROUP, NO_GROUP_ID};
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
 use crate::ui::{SvgButton, TextField, MAX_TAP_DISTANCE};
@@ -47,6 +47,9 @@ const TAB_HEIGHT: u32 = 50;
 
 /// Logical height of the UI buttons.
 const BUTTON_HEIGHT: u32 = 60;
+
+/// Favicon width and height at scale 1.
+const FAVICON_SIZE: f64 = 28.;
 
 #[funq::callbacks(State)]
 pub trait TabsHandler {
@@ -235,6 +238,12 @@ impl Tabs {
         self.dirty = true;
     }
 
+    /// Reload an engine's favicon.
+    #[allow(clippy::borrowed_box)]
+    pub fn update_favicon(&mut self, tab: &Box<dyn Engine>) {
+        self.dirty |= self.texture_cache.update_favicon(tab);
+    }
+
     /// Update the active tab.
     pub fn set_active_tab(&mut self, active_tab: Option<EngineId>) {
         self.texture_cache.set_active_tab(active_tab);
@@ -388,6 +397,12 @@ impl Tabs {
         Position::new(x, button_padding)
     }
 
+    /// Size of the favicon image.
+    fn favicon_size(&self) -> Size {
+        let size = (FAVICON_SIZE * self.scale).round() as u32;
+        Size::new(size, size)
+    }
+
     /// Physical size of each tab.
     fn tab_size(&self) -> Size {
         let width = self.size.width - (2. * TABS_X_PADDING).round() as u32;
@@ -500,6 +515,7 @@ impl Popup for Tabs {
         let menu_button_position: Position<f32> = self.menu_button_position().into();
         let group_label_position: Position<f32> = self.group_label_position().into();
         let tabs_start = group_label_position.y + self.group_label_size().height as f32;
+        let favicon_size: Size<f32> = self.favicon_size().into();
         let tab_size = self.tab_size();
 
         // Get UI textures.
@@ -525,17 +541,33 @@ impl Popup for Tabs {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
+        // Enable blending for favicons.
+        unsafe {
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        }
+
         // Draw individual tabs.
         let mut texture_pos = cycle_group_button_position;
         texture_pos.x += (TABS_X_PADDING * self.scale) as f32;
         texture_pos.y += self.scroll_offset as f32;
-        for texture in tab_textures {
+        for (tab_texture, favicon_texture) in tab_textures {
             // Render only tabs within the viewport.
-            texture_pos.y -= texture.height as f32;
+            texture_pos.y -= tab_texture.height as f32;
             if texture_pos.y < new_tab_button_position.y
-                && texture_pos.y > tabs_start - texture.height as f32
+                && texture_pos.y > tabs_start - tab_texture.height as f32
             {
-                unsafe { renderer.draw_texture_at(texture, texture_pos, None) };
+                unsafe { renderer.draw_texture_at(tab_texture, texture_pos, None) };
+
+                if let Some(favicon_texture) = favicon_texture {
+                    // Center favicon within the tab.
+                    let offset = (tab_texture.height as i32 - favicon_size.height as i32) / 2;
+                    let mut favicon_pos = texture_pos;
+                    favicon_pos.x += offset as f32;
+                    favicon_pos.y += offset as f32;
+
+                    unsafe { renderer.draw_texture_at(favicon_texture, favicon_pos, favicon_size) };
+                }
             }
 
             // Add padding after the tab.
@@ -544,6 +576,8 @@ impl Popup for Tabs {
 
         // Draw tab group label.
         unsafe {
+            gl::Disable(gl::BLEND);
+
             renderer.draw_texture_at(group_label, group_label_position, None);
 
             // Draw buttons last, to render over scrolled tabs and label.
@@ -863,7 +897,8 @@ impl Popup for Tabs {
 /// Tab texture cache by URI.
 #[derive(Default)]
 struct TextureCache {
-    textures: HashMap<(String, bool), Texture>,
+    textures: HashMap<TabTextureCacheKey<'static>, Texture>,
+    favicons: HashMap<glib::GString, Texture>,
     tabs: Vec<RenderTab>,
 }
 
@@ -880,7 +915,33 @@ impl TextureCache {
     /// Update the active tab for this cache.
     fn set_active_tab(&mut self, active_tab: Option<EngineId>) {
         for tab in &mut self.tabs {
-            tab.uri.1 = Some(tab.engine) == active_tab;
+            tab.active = Some(tab.engine) == active_tab;
+        }
+    }
+
+    /// Update an existing engine's favicon.
+    ///
+    /// Returns `true` if a tab's favicon was reloaded.
+    #[allow(clippy::borrowed_box)]
+    fn update_favicon(&mut self, tab: &Box<dyn Engine>) -> bool {
+        let render_tab = match self.tabs.iter_mut().find(|render_tab| render_tab.engine == tab.id())
+        {
+            Some(render_tab) => render_tab,
+            None => return false,
+        };
+
+        let resource_uri = match tab.favicon_uri() {
+            Some(resource_uri) => resource_uri,
+            None => return false,
+        };
+
+        // Update favicon unless it was already loaded.
+        if render_tab.favicon.as_ref().map_or(true, |f| f.resource_uri != resource_uri) {
+            render_tab.favicon = tab.favicon();
+
+            true
+        } else {
+            false
         }
     }
 
@@ -893,15 +954,30 @@ impl TextureCache {
     ///
     /// This will automatically maintain an internal cache to avoid re-drawing
     /// textures for tabs that have not changed.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn textures(
         &mut self,
         tab_size: Size,
         scale: f64,
         group: GroupId,
-    ) -> impl Iterator<Item = &Texture> {
+    ) -> impl Iterator<Item = (&Texture, Option<&Texture>)> {
         // Remove unused URIs from cache.
-        self.textures.retain(|uri, texture| {
-            let retain = self.tabs.iter().any(|tab| &tab.uri == uri);
+        self.textures.retain(|cache_key, texture| {
+            let retain = self.tabs.iter().any(|tab| &tab.key() == cache_key);
+
+            // Release OpenGL texture.
+            if !retain {
+                texture.delete();
+            }
+
+            retain
+        });
+
+        // Remove unused favicons from cache.
+        self.favicons.retain(|resource_uri, texture| {
+            let retain = self.tabs.iter().any(|tab| {
+                tab.favicon.as_ref().is_some_and(|favicon| &favicon.resource_uri == resource_uri)
+            });
 
             // Release OpenGL texture.
             if !retain {
@@ -913,8 +989,22 @@ impl TextureCache {
 
         // Create textures for missing tabs.
         for tab in group_tabs(&self.tabs, group) {
+            // Create favicon texture.
+            if let Some(favicon) = tab.favicon.as_ref() {
+                if !self.favicons.contains_key(&favicon.resource_uri) {
+                    // Add favicon to texture cache.
+                    let texture = Texture::new_with_format(
+                        &favicon.bytes,
+                        favicon.width,
+                        favicon.height,
+                        gl::BGRA_EXT,
+                    );
+                    self.favicons.insert(favicon.resource_uri.clone(), texture);
+                }
+            }
+
             // Ignore tabs we already rendered.
-            if self.textures.contains_key(&tab.uri) {
+            if self.textures.contains_key(&tab.key()) {
                 continue;
             }
 
@@ -923,24 +1013,28 @@ impl TextureCache {
 
             // Fallback to URI if title is empty.
             if tab.title.trim().is_empty() {
-                layout.set_text(&tab.uri.0);
+                layout.set_text(&tab.uri);
             } else {
                 layout.set_text(&tab.title);
             }
 
             // Configure text rendering options.
             let mut text_options = TextOptions::new();
-            if tab.uri.1 {
+            if tab.active {
                 text_options.text_color(ACTIVE_TAB_FG);
             } else {
                 text_options.text_color(INACTIVE_TAB_FG);
             }
 
-            // Calculate available area font font rendering.
+            // Calculate spacing to the left of tab text.
             let close_position = Tabs::close_button_position(tab_size, scale);
-            let text_width = (close_position.x - close_position.y * 2.).round() as i32;
-            let text_size = Size::new(text_width, tab_size.height as i32);
-            text_options.position(Position::new(close_position.y, 0.));
+            let x_offset =
+                if tab.favicon.is_some() { tab_size.height as f64 } else { close_position.y };
+
+            // Calculate available area font font rendering.
+            let text_width = close_position.x - close_position.y - x_offset;
+            let text_size = Size::new(text_width.round() as i32, tab_size.height as i32);
+            text_options.position(Position::new(x_offset, 0.));
             text_options.size(text_size);
 
             // Render text to the texture.
@@ -959,32 +1053,66 @@ impl TextureCache {
             context.set_line_width(scale);
             context.stroke().unwrap();
 
-            self.textures.insert(tab.uri.clone(), builder.build());
+            self.textures.insert(tab.owned_key(), builder.build());
         }
 
         // Get textures for all tabs in reverse order.
-        group_tabs(&self.tabs, group).rev().map(|tab| self.textures.get(&tab.uri).unwrap())
+        group_tabs(&self.tabs, group).rev().map(|tab| {
+            let favicon_texture =
+                tab.favicon.as_ref().and_then(|favicon| self.favicons.get(&*favicon.resource_uri));
+            let texture = self.textures.get(&tab.key()).unwrap();
+            (texture, favicon_texture)
+        })
     }
 }
 
 /// Information required to render a tab.
 #[derive(Debug)]
 struct RenderTab {
-    // Engine URI and its activity state.
-    uri: (String, bool),
     engine: EngineId,
+    uri: String,
     title: String,
+    active: bool,
+    favicon: Option<Favicon>,
 }
 
 impl RenderTab {
     fn new(engine: &dyn Engine, active_tab: Option<EngineId>) -> Self {
         let engine_id = engine.id();
         Self {
-            uri: (engine.uri().into(), Some(engine_id) == active_tab),
+            active: Some(engine_id) == active_tab,
             title: engine.title().into(),
+            favicon: engine.favicon(),
+            uri: engine.uri().into(),
             engine: engine_id,
         }
     }
+
+    /// Get a borrowed texture cache key.
+    fn key<'a>(&'a self) -> TabTextureCacheKey<'a> {
+        TabTextureCacheKey {
+            has_favicon: self.favicon.is_some(),
+            uri: Cow::Borrowed(&self.uri),
+            active: self.active,
+        }
+    }
+
+    /// Get an owned texture cache key.
+    fn owned_key(&self) -> TabTextureCacheKey<'static> {
+        TabTextureCacheKey {
+            has_favicon: self.favicon.is_some(),
+            uri: Cow::Owned(self.uri.clone()),
+            active: self.active,
+        }
+    }
+}
+
+/// Indexing key for the tab texture cache.
+#[derive(Hash, PartialEq, Eq, Debug)]
+struct TabTextureCacheKey<'a> {
+    uri: Cow<'a, str>,
+    active: bool,
+    has_favicon: bool,
 }
 
 /// Button with a `+` as icon.

@@ -50,7 +50,7 @@ impl UserMediaPermissionRequest {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::is-for-audio-device\0".as_ptr() as *const _,
+                c"notify::is-for-audio-device".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_is_for_audio_device_trampoline::<F> as *const (),
                 )),
@@ -78,7 +78,7 @@ impl UserMediaPermissionRequest {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::is-for-video-device\0".as_ptr() as *const _,
+                c"notify::is-for-video-device".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_is_for_video_device_trampoline::<F> as *const (),
                 )),

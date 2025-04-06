@@ -2,6 +2,7 @@
 // from /usr/share/gir-1.0
 // from ../gir-files
 // DO NOT EDIT
+#![allow(deprecated)]
 
 use std::boxed::Box as Box_;
 
@@ -177,6 +178,8 @@ impl Settings {
         }
     }
 
+    #[cfg_attr(feature = "v2_48", deprecated = "Since 2.48")]
+    #[allow(deprecated)]
     #[doc(alias = "webkit_settings_get_enable_dns_prefetching")]
     #[doc(alias = "get_enable_dns_prefetching")]
     #[doc(alias = "enable-dns-prefetching")]
@@ -488,6 +491,17 @@ impl Settings {
         unsafe { from_glib_none(ffi::webkit_settings_get_user_agent(self.to_glib_none().0)) }
     }
 
+    #[cfg(feature = "v2_48")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v2_48")))]
+    #[doc(alias = "webkit_settings_get_webrtc_udp_ports_range")]
+    #[doc(alias = "get_webrtc_udp_ports_range")]
+    #[doc(alias = "webrtc-udp-ports-range")]
+    pub fn webrtc_udp_ports_range(&self) -> Option<glib::GString> {
+        unsafe {
+            from_glib_none(ffi::webkit_settings_get_webrtc_udp_ports_range(self.to_glib_none().0))
+        }
+    }
+
     #[doc(alias = "webkit_settings_get_zoom_text_only")]
     #[doc(alias = "get_zoom_text_only")]
     #[doc(alias = "zoom-text-only")]
@@ -651,6 +665,8 @@ impl Settings {
         }
     }
 
+    #[cfg_attr(feature = "v2_48", deprecated = "Since 2.48")]
+    #[allow(deprecated)]
     #[doc(alias = "webkit_settings_set_enable_dns_prefetching")]
     #[doc(alias = "enable-dns-prefetching")]
     pub fn set_enable_dns_prefetching(&self, enabled: bool) {
@@ -1043,6 +1059,19 @@ impl Settings {
         }
     }
 
+    #[cfg(feature = "v2_48")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v2_48")))]
+    #[doc(alias = "webkit_settings_set_webrtc_udp_ports_range")]
+    #[doc(alias = "webrtc-udp-ports-range")]
+    pub fn set_webrtc_udp_ports_range(&self, udp_port_range: &str) {
+        unsafe {
+            ffi::webkit_settings_set_webrtc_udp_ports_range(
+                self.to_glib_none().0,
+                udp_port_range.to_glib_none().0,
+            );
+        }
+    }
+
     #[doc(alias = "webkit_settings_set_zoom_text_only")]
     #[doc(alias = "zoom-text-only")]
     pub fn set_zoom_text_only(&self, zoom_text_only: bool) {
@@ -1091,7 +1120,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::allow-file-access-from-file-urls\0".as_ptr() as *const _,
+                c"notify::allow-file-access-from-file-urls".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_allow_file_access_from_file_urls_trampoline::<F> as *const (),
                 )),
@@ -1117,7 +1146,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::allow-modal-dialogs\0".as_ptr() as *const _,
+                c"notify::allow-modal-dialogs".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_allow_modal_dialogs_trampoline::<F> as *const (),
                 )),
@@ -1145,7 +1174,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::allow-top-navigation-to-data-urls\0".as_ptr() as *const _,
+                c"notify::allow-top-navigation-to-data-urls".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_allow_top_navigation_to_data_urls_trampoline::<F> as *const (),
                 )),
@@ -1173,7 +1202,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::allow-universal-access-from-file-urls\0".as_ptr() as *const _,
+                c"notify::allow-universal-access-from-file-urls".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_allow_universal_access_from_file_urls_trampoline::<F> as *const (),
                 )),
@@ -1196,7 +1225,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::auto-load-images\0".as_ptr() as *const _,
+                c"notify::auto-load-images".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_auto_load_images_trampoline::<F> as *const (),
                 )),
@@ -1222,7 +1251,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::cursive-font-family\0".as_ptr() as *const _,
+                c"notify::cursive-font-family".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_cursive_font_family_trampoline::<F> as *const (),
                 )),
@@ -1245,7 +1274,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::default-charset\0".as_ptr() as *const _,
+                c"notify::default-charset".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_default_charset_trampoline::<F> as *const (),
                 )),
@@ -1271,7 +1300,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::default-font-family\0".as_ptr() as *const _,
+                c"notify::default-font-family".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_default_font_family_trampoline::<F> as *const (),
                 )),
@@ -1297,7 +1326,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::default-font-size\0".as_ptr() as *const _,
+                c"notify::default-font-size".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_default_font_size_trampoline::<F> as *const (),
                 )),
@@ -1325,7 +1354,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::default-monospace-font-size\0".as_ptr() as *const _,
+                c"notify::default-monospace-font-size".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_default_monospace_font_size_trampoline::<F> as *const (),
                 )),
@@ -1351,7 +1380,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::disable-web-security\0".as_ptr() as *const _,
+                c"notify::disable-web-security".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_disable_web_security_trampoline::<F> as *const (),
                 )),
@@ -1379,7 +1408,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::draw-compositing-indicators\0".as_ptr() as *const _,
+                c"notify::draw-compositing-indicators".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_draw_compositing_indicators_trampoline::<F> as *const (),
                 )),
@@ -1407,7 +1436,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-2d-canvas-acceleration\0".as_ptr() as *const _,
+                c"notify::enable-2d-canvas-acceleration".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_2d_canvas_acceleration_trampoline::<F> as *const (),
                 )),
@@ -1433,7 +1462,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-caret-browsing\0".as_ptr() as *const _,
+                c"notify::enable-caret-browsing".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_caret_browsing_trampoline::<F> as *const (),
                 )),
@@ -1461,7 +1490,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-developer-extras\0".as_ptr() as *const _,
+                c"notify::enable-developer-extras".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_developer_extras_trampoline::<F> as *const (),
                 )),
@@ -1470,6 +1499,7 @@ impl Settings {
         }
     }
 
+    #[cfg_attr(feature = "v2_48", deprecated = "Since 2.48")]
     #[doc(alias = "enable-dns-prefetching")]
     pub fn connect_enable_dns_prefetching_notify<F: Fn(&Self) + 'static>(
         &self,
@@ -1489,7 +1519,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-dns-prefetching\0".as_ptr() as *const _,
+                c"notify::enable-dns-prefetching".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_dns_prefetching_trampoline::<F> as *const (),
                 )),
@@ -1517,7 +1547,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-encrypted-media\0".as_ptr() as *const _,
+                c"notify::enable-encrypted-media".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_encrypted_media_trampoline::<F> as *const (),
                 )),
@@ -1543,7 +1573,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-fullscreen\0".as_ptr() as *const _,
+                c"notify::enable-fullscreen".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_fullscreen_trampoline::<F> as *const (),
                 )),
@@ -1569,7 +1599,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-html5-database\0".as_ptr() as *const _,
+                c"notify::enable-html5-database".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_html5_database_trampoline::<F> as *const (),
                 )),
@@ -1597,7 +1627,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-html5-local-storage\0".as_ptr() as *const _,
+                c"notify::enable-html5-local-storage".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_html5_local_storage_trampoline::<F> as *const (),
                 )),
@@ -1625,7 +1655,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-hyperlink-auditing\0".as_ptr() as *const _,
+                c"notify::enable-hyperlink-auditing".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_hyperlink_auditing_trampoline::<F> as *const (),
                 )),
@@ -1651,7 +1681,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-javascript\0".as_ptr() as *const _,
+                c"notify::enable-javascript".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_javascript_trampoline::<F> as *const (),
                 )),
@@ -1679,7 +1709,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-javascript-markup\0".as_ptr() as *const _,
+                c"notify::enable-javascript-markup".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_javascript_markup_trampoline::<F> as *const (),
                 )),
@@ -1702,7 +1732,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-media\0".as_ptr() as *const _,
+                c"notify::enable-media".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_media_trampoline::<F> as *const (),
                 )),
@@ -1730,7 +1760,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-media-capabilities\0".as_ptr() as *const _,
+                c"notify::enable-media-capabilities".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_media_capabilities_trampoline::<F> as *const (),
                 )),
@@ -1756,7 +1786,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-media-stream\0".as_ptr() as *const _,
+                c"notify::enable-media-stream".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_media_stream_trampoline::<F> as *const (),
                 )),
@@ -1782,7 +1812,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-mediasource\0".as_ptr() as *const _,
+                c"notify::enable-mediasource".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_mediasource_trampoline::<F> as *const (),
                 )),
@@ -1810,7 +1840,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-mock-capture-devices\0".as_ptr() as *const _,
+                c"notify::enable-mock-capture-devices".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_mock_capture_devices_trampoline::<F> as *const (),
                 )),
@@ -1836,7 +1866,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-page-cache\0".as_ptr() as *const _,
+                c"notify::enable-page-cache".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_page_cache_trampoline::<F> as *const (),
                 )),
@@ -1864,7 +1894,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-resizable-text-areas\0".as_ptr() as *const _,
+                c"notify::enable-resizable-text-areas".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_resizable_text_areas_trampoline::<F> as *const (),
                 )),
@@ -1892,7 +1922,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-site-specific-quirks\0".as_ptr() as *const _,
+                c"notify::enable-site-specific-quirks".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_site_specific_quirks_trampoline::<F> as *const (),
                 )),
@@ -1920,7 +1950,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-smooth-scrolling\0".as_ptr() as *const _,
+                c"notify::enable-smooth-scrolling".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_smooth_scrolling_trampoline::<F> as *const (),
                 )),
@@ -1948,7 +1978,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-spatial-navigation\0".as_ptr() as *const _,
+                c"notify::enable-spatial-navigation".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_spatial_navigation_trampoline::<F> as *const (),
                 )),
@@ -1974,7 +2004,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-tabs-to-links\0".as_ptr() as *const _,
+                c"notify::enable-tabs-to-links".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_tabs_to_links_trampoline::<F> as *const (),
                 )),
@@ -1997,7 +2027,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-webaudio\0".as_ptr() as *const _,
+                c"notify::enable-webaudio".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_webaudio_trampoline::<F> as *const (),
                 )),
@@ -2020,7 +2050,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-webgl\0".as_ptr() as *const _,
+                c"notify::enable-webgl".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_webgl_trampoline::<F> as *const (),
                 )),
@@ -2043,7 +2073,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-webrtc\0".as_ptr() as *const _,
+                c"notify::enable-webrtc".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_webrtc_trampoline::<F> as *const (),
                 )),
@@ -2071,7 +2101,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-write-console-messages-to-stdout\0".as_ptr() as *const _,
+                c"notify::enable-write-console-messages-to-stdout".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_write_console_messages_to_stdout_trampoline::<F> as *const (),
                 )),
@@ -2097,7 +2127,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::fantasy-font-family\0".as_ptr() as *const _,
+                c"notify::fantasy-font-family".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_fantasy_font_family_trampoline::<F> as *const (),
                 )),
@@ -2125,7 +2155,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::javascript-can-access-clipboard\0".as_ptr() as *const _,
+                c"notify::javascript-can-access-clipboard".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_javascript_can_access_clipboard_trampoline::<F> as *const (),
                 )),
@@ -2153,7 +2183,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::javascript-can-open-windows-automatically\0".as_ptr() as *const _,
+                c"notify::javascript-can-open-windows-automatically".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_javascript_can_open_windows_automatically_trampoline::<F> as *const (),
                 )),
@@ -2181,7 +2211,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::media-content-types-requiring-hardware-support\0".as_ptr() as *const _,
+                c"notify::media-content-types-requiring-hardware-support".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_media_content_types_requiring_hardware_support_trampoline::<F>
                         as *const (),
@@ -2210,7 +2240,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::media-playback-allows-inline\0".as_ptr() as *const _,
+                c"notify::media-playback-allows-inline".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_media_playback_allows_inline_trampoline::<F> as *const (),
                 )),
@@ -2238,7 +2268,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::media-playback-requires-user-gesture\0".as_ptr() as *const _,
+                c"notify::media-playback-requires-user-gesture".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_media_playback_requires_user_gesture_trampoline::<F> as *const (),
                 )),
@@ -2264,7 +2294,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::minimum-font-size\0".as_ptr() as *const _,
+                c"notify::minimum-font-size".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_minimum_font_size_trampoline::<F> as *const (),
                 )),
@@ -2290,7 +2320,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::monospace-font-family\0".as_ptr() as *const _,
+                c"notify::monospace-font-family".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_monospace_font_family_trampoline::<F> as *const (),
                 )),
@@ -2318,7 +2348,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::pictograph-font-family\0".as_ptr() as *const _,
+                c"notify::pictograph-font-family".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_pictograph_font_family_trampoline::<F> as *const (),
                 )),
@@ -2344,7 +2374,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::print-backgrounds\0".as_ptr() as *const _,
+                c"notify::print-backgrounds".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_print_backgrounds_trampoline::<F> as *const (),
                 )),
@@ -2372,7 +2402,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::sans-serif-font-family\0".as_ptr() as *const _,
+                c"notify::sans-serif-font-family".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_sans_serif_font_family_trampoline::<F> as *const (),
                 )),
@@ -2398,7 +2428,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::serif-font-family\0".as_ptr() as *const _,
+                c"notify::serif-font-family".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_serif_font_family_trampoline::<F> as *const (),
                 )),
@@ -2421,9 +2451,39 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::user-agent\0".as_ptr() as *const _,
+                c"notify::user-agent".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_user_agent_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[cfg(feature = "v2_48")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v2_48")))]
+    #[doc(alias = "webrtc-udp-ports-range")]
+    pub fn connect_webrtc_udp_ports_range_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_webrtc_udp_ports_range_trampoline<
+            F: Fn(&Settings) + 'static,
+        >(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::webrtc-udp-ports-range".as_ptr() as *const _,
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_webrtc_udp_ports_range_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -2444,7 +2504,7 @@ impl Settings {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::zoom-text-only\0".as_ptr() as *const _,
+                c"notify::zoom-text-only".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_zoom_text_only_trampoline::<F> as *const (),
                 )),
@@ -2565,6 +2625,7 @@ impl SettingsBuilder {
         Self { builder: self.builder.property("enable-developer-extras", enable_developer_extras) }
     }
 
+    #[cfg_attr(feature = "v2_48", deprecated = "Since 2.48")]
     pub fn enable_dns_prefetching(self, enable_dns_prefetching: bool) -> Self {
         Self { builder: self.builder.property("enable-dns-prefetching", enable_dns_prefetching) }
     }
@@ -2777,6 +2838,14 @@ impl SettingsBuilder {
 
     pub fn user_agent(self, user_agent: impl Into<glib::GString>) -> Self {
         Self { builder: self.builder.property("user-agent", user_agent.into()) }
+    }
+
+    #[cfg(feature = "v2_48")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v2_48")))]
+    pub fn webrtc_udp_ports_range(self, webrtc_udp_ports_range: impl Into<glib::GString>) -> Self {
+        Self {
+            builder: self.builder.property("webrtc-udp-ports-range", webrtc_udp_ports_range.into()),
+        }
     }
 
     pub fn zoom_text_only(self, zoom_text_only: bool) -> Self {

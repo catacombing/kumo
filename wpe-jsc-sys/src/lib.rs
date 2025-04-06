@@ -13,15 +13,17 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[allow(unused_imports)]
-use glib::{gboolean, gconstpointer, gpointer, GType};
-#[allow(unused_imports)]
-use libc::{
+use std::ffi::{
     c_char, c_double, c_float, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort, c_void,
-    intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE,
 };
+
+#[allow(unused_imports)]
+use glib::{gboolean, gconstpointer, gpointer, GType};
 #[cfg(unix)]
 #[allow(unused_imports)]
 use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
+#[allow(unused_imports)]
+use libc::{intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE};
 use {glib_sys as glib, gobject_sys as gobject};
 
 // Enums
@@ -62,8 +64,8 @@ pub const JSC_TYPED_ARRAY_FLOAT64: JSCTypedArrayType = 11;
 
 // Constants
 pub const JSC_MAJOR_VERSION: c_int = 2;
-pub const JSC_MICRO_VERSION: c_int = 3;
-pub const JSC_MINOR_VERSION: c_int = 45;
+pub const JSC_MICRO_VERSION: c_int = 0;
+pub const JSC_MINOR_VERSION: c_int = 49;
 pub const JSC_OPTIONS_USE_DFG: &[u8] = b"useDFGJIT\0";
 pub const JSC_OPTIONS_USE_FTL: &[u8] = b"useFTLJIT\0";
 pub const JSC_OPTIONS_USE_JIT: &[u8] = b"useJIT\0";
@@ -98,6 +100,7 @@ pub type JSCClassSetPropertyFunction = Option<
 >;
 pub type JSCExceptionHandler =
     Option<unsafe extern "C" fn(*mut JSCContext, *mut JSCException, gpointer)>;
+pub type JSCExecutor = Option<unsafe extern "C" fn(*mut JSCValue, *mut JSCValue, gpointer)>;
 pub type JSCOptionsFunc =
     Option<unsafe extern "C" fn(*const c_char, JSCOptionType, *const c_char, gpointer) -> gboolean>;
 
@@ -303,7 +306,6 @@ impl ::std::fmt::Debug for JSCWeakValue {
     }
 }
 
-#[link(name = "WPEWebKit-2.0")]
 extern "C" {
 
     //=========================================================================
@@ -551,6 +553,11 @@ extern "C" {
         context: *mut JSCContext,
         instance: gpointer,
         jsc_class: *mut JSCClass,
+    ) -> *mut JSCValue;
+    pub fn jsc_value_new_promise(
+        context: *mut JSCContext,
+        executor: JSCExecutor,
+        user_data: gpointer,
     ) -> *mut JSCValue;
     pub fn jsc_value_new_string(context: *mut JSCContext, string: *const c_char) -> *mut JSCValue;
     pub fn jsc_value_new_string_from_bytes(

@@ -194,6 +194,12 @@ impl Event {
         unsafe { ffi::wpe_event_get_time(self.to_glib_none().0) }
     }
 
+    //#[doc(alias = "wpe_event_get_user_data")]
+    //#[doc(alias = "get_user_data")]
+    // pub fn user_data(&self) -> /*Unimplemented*/Option<Basic: Pointer> {
+    //    unsafe { TODO: call ffi:wpe_event_get_user_data() }
+    //}
+
     #[doc(alias = "wpe_event_get_view")]
     #[doc(alias = "get_view")]
     pub fn view(&self) -> Option<View> {
@@ -257,6 +263,11 @@ impl Event {
     pub fn scroll_is_stop(&self) -> bool {
         unsafe { from_glib(ffi::wpe_event_scroll_is_stop(self.to_glib_none().0)) }
     }
+
+    //#[doc(alias = "wpe_event_set_user_data")]
+    // pub fn set_user_data(&self, user_data: /*Unimplemented*/Option<Basic:
+    // Pointer>) {    unsafe { TODO: call ffi:wpe_event_set_user_data() }
+    //}
 
     #[doc(alias = "wpe_event_touch_get_sequence_id")]
     pub fn touch_get_sequence_id(&self) -> u32 {

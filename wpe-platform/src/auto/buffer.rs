@@ -21,12 +21,7 @@ impl Buffer {
     pub const NONE: Option<&'static Buffer> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Buffer>> Sealed for T {}
-}
-
-pub trait BufferExt: IsA<Buffer> + sealed::Sealed + 'static {
+pub trait BufferExt: IsA<Buffer> + 'static {
     #[doc(alias = "wpe_buffer_get_height")]
     #[doc(alias = "get_height")]
     fn height(&self) -> i32 {

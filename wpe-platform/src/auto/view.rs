@@ -5,13 +5,13 @@
 
 use std::boxed::Box as Box_;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
 
 use crate::{
-    ffi, Buffer, BufferDMABufFormats, Display, Event, GestureController, Monitor, Toplevel,
-    ToplevelState,
+    ffi, Buffer, BufferDMABufFormats, Display, Event, GestureController, Toplevel, ToplevelState,
 };
 
 glib::wrapper! {
@@ -32,12 +32,7 @@ impl View {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::View>> Sealed for T {}
-}
-
-pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
+pub trait ViewExt: IsA<View> + 'static {
     #[doc(alias = "wpe_view_buffer_released")]
     fn buffer_released(&self, buffer: &impl IsA<Buffer>) {
         unsafe {
@@ -93,6 +88,12 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
         }
     }
 
+    //#[doc(alias = "wpe_view_get_accessible")]
+    //#[doc(alias = "get_accessible")]
+    // fn accessible(&self) -> /*Ignored*/Option<ViewAccessible> {
+    //    unsafe { TODO: call ffi:wpe_view_get_accessible() }
+    //}
+
     #[doc(alias = "wpe_view_get_display")]
     #[doc(alias = "get_display")]
     fn display(&self) -> Option<Display> {
@@ -127,12 +128,6 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
         unsafe { from_glib(ffi::wpe_view_get_mapped(self.as_ref().to_glib_none().0)) }
     }
 
-    #[doc(alias = "wpe_view_get_monitor")]
-    #[doc(alias = "get_monitor")]
-    fn monitor(&self) -> Option<Monitor> {
-        unsafe { from_glib_none(ffi::wpe_view_get_monitor(self.as_ref().to_glib_none().0)) }
-    }
-
     #[doc(alias = "wpe_view_get_preferred_dma_buf_formats")]
     #[doc(alias = "get_preferred_dma_buf_formats")]
     fn preferred_dma_buf_formats(&self) -> Option<BufferDMABufFormats> {
@@ -148,6 +143,12 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
     fn scale(&self) -> f64 {
         unsafe { ffi::wpe_view_get_scale(self.as_ref().to_glib_none().0) }
     }
+
+    //#[doc(alias = "wpe_view_get_screen")]
+    //#[doc(alias = "get_screen")]
+    // fn screen(&self) -> /*Ignored*/Option<Screen> {
+    //    unsafe { TODO: call ffi:wpe_view_get_screen() }
+    //}
 
     #[doc(alias = "wpe_view_get_toplevel")]
     #[doc(alias = "get_toplevel")]
@@ -285,7 +286,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"buffer-released\0".as_ptr() as *const _,
+                c"buffer-released".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     buffer_released_trampoline::<Self, F> as *const (),
                 )),
@@ -311,7 +312,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"buffer-rendered\0".as_ptr() as *const _,
+                c"buffer-rendered".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     buffer_rendered_trampoline::<Self, F> as *const (),
                 )),
@@ -333,7 +334,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"closed\0".as_ptr() as *const _,
+                c"closed".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     closed_trampoline::<Self, F> as *const (),
                 )),
@@ -356,7 +357,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"event\0".as_ptr() as *const _,
+                c"event".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     event_trampoline::<Self, F> as *const (),
                 )),
@@ -384,7 +385,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"preferred-dma-buf-formats-changed\0".as_ptr() as *const _,
+                c"preferred-dma-buf-formats-changed".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     preferred_dma_buf_formats_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -406,7 +407,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"resized\0".as_ptr() as *const _,
+                c"resized".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     resized_trampoline::<Self, F> as *const (),
                 )),
@@ -435,7 +436,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"toplevel-state-changed\0".as_ptr() as *const _,
+                c"toplevel-state-changed".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     toplevel_state_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -458,7 +459,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::has-focus\0".as_ptr() as *const _,
+                c"notify::has-focus".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_has_focus_trampoline::<Self, F> as *const (),
                 )),
@@ -481,7 +482,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::height\0".as_ptr() as *const _,
+                c"notify::height".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_height_trampoline::<Self, F> as *const (),
                 )),
@@ -504,32 +505,9 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::mapped\0".as_ptr() as *const _,
+                c"notify::mapped".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_mapped_trampoline::<Self, F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[doc(alias = "monitor")]
-    fn connect_monitor_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn notify_monitor_trampoline<P: IsA<View>, F: Fn(&P) + 'static>(
-            this: *mut ffi::WPEView,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(View::from_glib_borrow(this).unsafe_cast_ref())
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                b"notify::monitor\0".as_ptr() as *const _,
-                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
-                    notify_monitor_trampoline::<Self, F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -550,9 +528,32 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::scale\0".as_ptr() as *const _,
+                c"notify::scale".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_scale_trampoline::<Self, F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "screen")]
+    fn connect_screen_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_screen_trampoline<P: IsA<View>, F: Fn(&P) + 'static>(
+            this: *mut ffi::WPEView,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(View::from_glib_borrow(this).unsafe_cast_ref())
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::screen".as_ptr() as *const _,
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_screen_trampoline::<Self, F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -573,7 +574,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::toplevel\0".as_ptr() as *const _,
+                c"notify::toplevel".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_toplevel_trampoline::<Self, F> as *const (),
                 )),
@@ -596,7 +597,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::toplevel-state\0".as_ptr() as *const _,
+                c"notify::toplevel-state".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_toplevel_state_trampoline::<Self, F> as *const (),
                 )),
@@ -619,7 +620,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::visible\0".as_ptr() as *const _,
+                c"notify::visible".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_visible_trampoline::<Self, F> as *const (),
                 )),
@@ -642,7 +643,7 @@ pub trait ViewExt: IsA<View> + sealed::Sealed + 'static {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::width\0".as_ptr() as *const _,
+                c"notify::width".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_width_trampoline::<Self, F> as *const (),
                 )),

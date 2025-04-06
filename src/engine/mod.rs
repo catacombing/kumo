@@ -166,6 +166,16 @@ pub trait Engine {
     /// Restore a browser session.
     fn restore_session(&self, session: Vec<u8>);
 
+    /// Get favicon for the current page.
+    fn favicon(&self) -> Option<Favicon> {
+        None
+    }
+
+    /// Get the current favicon resource URI.
+    fn favicon_uri(&self) -> Option<glib::GString> {
+        None
+    }
+
     fn as_any(&mut self) -> &mut dyn Any;
 }
 
@@ -196,6 +206,9 @@ pub trait EngineHandler {
 
     /// Remove host from the cookie whitelist.
     fn remove_cookie_exception(&mut self, host: String);
+
+    /// Trigger a favicon update for an engine.
+    fn update_favicon(&mut self, engine_id: EngineId);
 }
 
 impl EngineHandler for State {
@@ -254,6 +267,12 @@ impl EngineHandler for State {
 
     fn remove_cookie_exception(&mut self, host: String) {
         self.storage.cookie_whitelist.remove(&host);
+    }
+
+    fn update_favicon(&mut self, engine_id: EngineId) {
+        if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
+            window.update_favicon(engine_id);
+        }
     }
 }
 
@@ -337,4 +356,13 @@ impl Default for GroupId {
     fn default() -> Self {
         NO_GROUP_ID
     }
+}
+
+/// Page favicon data.
+#[derive(Clone, Debug)]
+pub struct Favicon {
+    pub resource_uri: glib::GString,
+    pub bytes: glib::Bytes,
+    pub width: usize,
+    pub height: usize,
 }

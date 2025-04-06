@@ -5,6 +5,7 @@
 
 use std::boxed::Box as Box_;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -144,7 +145,7 @@ impl AuthenticationRequest {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"authenticated\0".as_ptr() as *const _,
+                c"authenticated".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     authenticated_trampoline::<F> as *const (),
                 )),
@@ -166,7 +167,7 @@ impl AuthenticationRequest {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"cancelled\0".as_ptr() as *const _,
+                c"cancelled".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     cancelled_trampoline::<F> as *const (),
                 )),

@@ -32,8 +32,8 @@ unsafe impl<T: DisplayImpl> IsSubclassable<T> for Display {
         klass.get_egl_display = None;
         klass.get_keymap = None;
         klass.get_preferred_dma_buf_formats = Some(preferred_dmabuf_formats::<T>);
-        klass.get_n_monitors = None;
-        klass.get_monitor = None;
+        klass.get_n_screens = None;
+        klass.get_screen = None;
         klass.get_drm_device = None;
         klass.get_drm_render_node = Some(render_node::<T>);
         klass.create_input_method_context = Some(create_input_method_context::<T>);
@@ -54,6 +54,7 @@ unsafe extern "C" fn preferred_dmabuf_formats<T: DisplayImpl>(
 
 unsafe extern "C" fn create_input_method_context<T: DisplayImpl>(
     display: *mut WPEDisplay,
+    _view: *mut WPEView,
 ) -> *mut WPEInputMethodContext {
     let instance = &*(display as *mut T::Instance);
     instance.imp().create_input_method_context().to_glib_none().0

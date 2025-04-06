@@ -6,6 +6,7 @@
 use std::boxed::Box as Box_;
 use std::pin::Pin;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -46,11 +47,7 @@ impl CookieManager {
             user_data: glib::ffi::gpointer,
         ) {
             let mut error = std::ptr::null_mut();
-            let _ = ffi::webkit_cookie_manager_add_cookie_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
+            ffi::webkit_cookie_manager_add_cookie_finish(_source_object as *mut _, res, &mut error);
             let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
             let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
                 Box_::from_raw(user_data as *mut _);
@@ -107,7 +104,7 @@ impl CookieManager {
             user_data: glib::ffi::gpointer,
         ) {
             let mut error = std::ptr::null_mut();
-            let _ = ffi::webkit_cookie_manager_delete_cookie_finish(
+            ffi::webkit_cookie_manager_delete_cookie_finish(
                 _source_object as *mut _,
                 res,
                 &mut error,
@@ -364,7 +361,7 @@ impl CookieManager {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"changed\0".as_ptr() as *const _,
+                c"changed".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     changed_trampoline::<F> as *const (),
                 )),

@@ -5,6 +5,7 @@
 
 use std::boxed::Box as Box_;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -29,12 +30,7 @@ impl InputMethodContext {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::InputMethodContext>> Sealed for T {}
-}
-
-pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'static {
+pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
     #[doc(alias = "wpe_input_method_context_filter_key_event")]
     fn filter_key_event(&self, event: &Event) -> bool {
         unsafe {
@@ -64,6 +60,26 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'sta
     fn display(&self) -> Option<Display> {
         unsafe {
             from_glib_none(ffi::wpe_input_method_context_get_display(
+                self.as_ref().to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "wpe_input_method_context_get_input_hints")]
+    #[doc(alias = "get_input_hints")]
+    #[doc(alias = "input-hints")]
+    fn input_hints(&self) -> InputHints {
+        unsafe {
+            from_glib(ffi::wpe_input_method_context_get_input_hints(self.as_ref().to_glib_none().0))
+        }
+    }
+
+    #[doc(alias = "wpe_input_method_context_get_input_purpose")]
+    #[doc(alias = "get_input_purpose")]
+    #[doc(alias = "input-purpose")]
+    fn input_purpose(&self) -> InputPurpose {
+        unsafe {
+            from_glib(ffi::wpe_input_method_context_get_input_purpose(
                 self.as_ref().to_glib_none().0,
             ))
         }
@@ -104,6 +120,28 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'sta
         }
     }
 
+    #[doc(alias = "wpe_input_method_context_set_input_hints")]
+    #[doc(alias = "input-hints")]
+    fn set_input_hints(&self, hints: InputHints) {
+        unsafe {
+            ffi::wpe_input_method_context_set_input_hints(
+                self.as_ref().to_glib_none().0,
+                hints.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "wpe_input_method_context_set_input_purpose")]
+    #[doc(alias = "input-purpose")]
+    fn set_input_purpose(&self, purpose: InputPurpose) {
+        unsafe {
+            ffi::wpe_input_method_context_set_input_purpose(
+                self.as_ref().to_glib_none().0,
+                purpose.into_glib(),
+            );
+        }
+    }
+
     #[doc(alias = "wpe_input_method_context_set_surrounding")]
     fn set_surrounding(&self, text: &str, cursor_index: u32, selection_index: u32) {
         let length = text.len() as _;
@@ -118,26 +156,6 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'sta
         }
     }
 
-    #[doc(alias = "input-hints")]
-    fn input_hints(&self) -> InputHints {
-        ObjectExt::property(self.as_ref(), "input-hints")
-    }
-
-    #[doc(alias = "input-hints")]
-    fn set_input_hints(&self, input_hints: InputHints) {
-        ObjectExt::set_property(self.as_ref(), "input-hints", input_hints)
-    }
-
-    #[doc(alias = "input-purpose")]
-    fn input_purpose(&self) -> InputPurpose {
-        ObjectExt::property(self.as_ref(), "input-purpose")
-    }
-
-    #[doc(alias = "input-purpose")]
-    fn set_input_purpose(&self, input_purpose: InputPurpose) {
-        ObjectExt::set_property(self.as_ref(), "input-purpose", input_purpose)
-    }
-
     #[doc(alias = "committed")]
     fn connect_committed<F: Fn(&Self, &str) + 'static>(&self, f: F) -> SignalHandlerId {
         unsafe extern "C" fn committed_trampoline<
@@ -145,7 +163,7 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'sta
             F: Fn(&P, &str) + 'static,
         >(
             this: *mut ffi::WPEInputMethodContext,
-            text: *mut libc::c_char,
+            text: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
@@ -158,7 +176,7 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'sta
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"committed\0".as_ptr() as *const _,
+                c"committed".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     committed_trampoline::<Self, F> as *const (),
                 )),
@@ -177,8 +195,8 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'sta
             F: Fn(&P, i32, u32) + 'static,
         >(
             this: *mut ffi::WPEInputMethodContext,
-            offset: libc::c_int,
-            n_chars: libc::c_uint,
+            offset: std::ffi::c_int,
+            n_chars: std::ffi::c_uint,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
@@ -188,7 +206,7 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'sta
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"delete-surrounding\0".as_ptr() as *const _,
+                c"delete-surrounding".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     delete_surrounding_trampoline::<Self, F> as *const (),
                 )),
@@ -213,7 +231,7 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'sta
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"preedit-changed\0".as_ptr() as *const _,
+                c"preedit-changed".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     preedit_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -238,7 +256,7 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'sta
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"preedit-finished\0".as_ptr() as *const _,
+                c"preedit-finished".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     preedit_finished_trampoline::<Self, F> as *const (),
                 )),
@@ -263,7 +281,7 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'sta
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"preedit-started\0".as_ptr() as *const _,
+                c"preedit-started".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     preedit_started_trampoline::<Self, F> as *const (),
                 )),
@@ -289,7 +307,7 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'sta
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::input-hints\0".as_ptr() as *const _,
+                c"notify::input-hints".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_input_hints_trampoline::<Self, F> as *const (),
                 )),
@@ -315,7 +333,7 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + sealed::Sealed + 'sta
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::input-purpose\0".as_ptr() as *const _,
+                c"notify::input-purpose".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_input_purpose_trampoline::<Self, F> as *const (),
                 )),

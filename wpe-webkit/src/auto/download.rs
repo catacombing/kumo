@@ -5,6 +5,7 @@
 
 use std::boxed::Box as Box_;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -114,7 +115,7 @@ impl Download {
     ) -> SignalHandlerId {
         unsafe extern "C" fn created_destination_trampoline<F: Fn(&Download, &str) + 'static>(
             this: *mut ffi::WebKitDownload,
-            destination: *mut libc::c_char,
+            destination: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
@@ -124,7 +125,7 @@ impl Download {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"created-destination\0".as_ptr() as *const _,
+                c"created-destination".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     created_destination_trampoline::<F> as *const (),
                 )),
@@ -142,7 +143,7 @@ impl Download {
             F: Fn(&Download, &str) -> bool + 'static,
         >(
             this: *mut ffi::WebKitDownload,
-            suggested_filename: *mut libc::c_char,
+            suggested_filename: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
             let f: &F = &*(f as *const F);
@@ -153,7 +154,7 @@ impl Download {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"decide-destination\0".as_ptr() as *const _,
+                c"decide-destination".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     decide_destination_trampoline::<F> as *const (),
                 )),
@@ -176,7 +177,7 @@ impl Download {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"failed\0".as_ptr() as *const _,
+                c"failed".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     failed_trampoline::<F> as *const (),
                 )),
@@ -198,7 +199,7 @@ impl Download {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"finished\0".as_ptr() as *const _,
+                c"finished".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     finished_trampoline::<F> as *const (),
                 )),
@@ -221,7 +222,7 @@ impl Download {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"received-data\0".as_ptr() as *const _,
+                c"received-data".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     received_data_trampoline::<F> as *const (),
                 )),
@@ -244,7 +245,7 @@ impl Download {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::allow-overwrite\0".as_ptr() as *const _,
+                c"notify::allow-overwrite".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_allow_overwrite_trampoline::<F> as *const (),
                 )),
@@ -267,7 +268,7 @@ impl Download {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::destination\0".as_ptr() as *const _,
+                c"notify::destination".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_destination_trampoline::<F> as *const (),
                 )),
@@ -293,7 +294,7 @@ impl Download {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::estimated-progress\0".as_ptr() as *const _,
+                c"notify::estimated-progress".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_estimated_progress_trampoline::<F> as *const (),
                 )),
@@ -316,7 +317,7 @@ impl Download {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::response\0".as_ptr() as *const _,
+                c"notify::response".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_response_trampoline::<F> as *const (),
                 )),

@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, BufferDMABufFormats, Display, Monitor, ToplevelState, View};
+use crate::{ffi, BufferDMABufFormats, Display, ToplevelState, View};
 
 glib::wrapper! {
     #[doc(alias = "WPEToplevel")]
@@ -59,12 +59,7 @@ impl ToplevelBuilder {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Toplevel>> Sealed for T {}
-}
-
-pub trait ToplevelExt: IsA<Toplevel> + sealed::Sealed + 'static {
+pub trait ToplevelExt: IsA<Toplevel> + 'static {
     #[doc(alias = "wpe_toplevel_closed")]
     fn closed(&self) {
         unsafe {
@@ -74,7 +69,7 @@ pub trait ToplevelExt: IsA<Toplevel> + sealed::Sealed + 'static {
 
     #[doc(alias = "wpe_toplevel_foreach_view")]
     fn foreach_view<P: FnMut(&Toplevel, &View) -> bool>(&self, func: P) {
-        let func_data: P = func;
+        let mut func_data: P = func;
         unsafe extern "C" fn func_func<P: FnMut(&Toplevel, &View) -> bool>(
             toplevel: *mut ffi::WPEToplevel,
             view: *mut ffi::WPEView,
@@ -86,12 +81,12 @@ pub trait ToplevelExt: IsA<Toplevel> + sealed::Sealed + 'static {
             (*callback)(&toplevel, &view).into_glib()
         }
         let func = Some(func_func::<P> as _);
-        let super_callback0: &P = &func_data;
+        let super_callback0: &mut P = &mut func_data;
         unsafe {
             ffi::wpe_toplevel_foreach_view(
                 self.as_ref().to_glib_none().0,
                 func,
-                super_callback0 as *const _ as *mut _,
+                super_callback0 as *mut _ as *mut _,
             );
         }
     }
@@ -111,12 +106,6 @@ pub trait ToplevelExt: IsA<Toplevel> + sealed::Sealed + 'static {
     #[doc(alias = "get_max_views")]
     fn max_views(&self) -> u32 {
         unsafe { ffi::wpe_toplevel_get_max_views(self.as_ref().to_glib_none().0) }
-    }
-
-    #[doc(alias = "wpe_toplevel_get_monitor")]
-    #[doc(alias = "get_monitor")]
-    fn monitor(&self) -> Option<Monitor> {
-        unsafe { from_glib_none(ffi::wpe_toplevel_get_monitor(self.as_ref().to_glib_none().0)) }
     }
 
     #[doc(alias = "wpe_toplevel_get_n_views")]
@@ -140,6 +129,12 @@ pub trait ToplevelExt: IsA<Toplevel> + sealed::Sealed + 'static {
     fn scale(&self) -> f64 {
         unsafe { ffi::wpe_toplevel_get_scale(self.as_ref().to_glib_none().0) }
     }
+
+    //#[doc(alias = "wpe_toplevel_get_screen")]
+    //#[doc(alias = "get_screen")]
+    // fn screen(&self) -> /*Ignored*/Option<Screen> {
+    //    unsafe { TODO: call ffi:wpe_toplevel_get_screen() }
+    //}
 
     #[doc(alias = "wpe_toplevel_get_size")]
     #[doc(alias = "get_size")]
@@ -172,13 +167,6 @@ pub trait ToplevelExt: IsA<Toplevel> + sealed::Sealed + 'static {
         unsafe { from_glib(ffi::wpe_toplevel_minimize(self.as_ref().to_glib_none().0)) }
     }
 
-    #[doc(alias = "wpe_toplevel_monitor_changed")]
-    fn monitor_changed(&self) {
-        unsafe {
-            ffi::wpe_toplevel_monitor_changed(self.as_ref().to_glib_none().0);
-        }
-    }
-
     #[doc(alias = "wpe_toplevel_preferred_dma_buf_formats_changed")]
     fn preferred_dma_buf_formats_changed(&self) {
         unsafe {
@@ -204,6 +192,13 @@ pub trait ToplevelExt: IsA<Toplevel> + sealed::Sealed + 'static {
     fn scale_changed(&self, scale: f64) {
         unsafe {
             ffi::wpe_toplevel_scale_changed(self.as_ref().to_glib_none().0, scale);
+        }
+    }
+
+    #[doc(alias = "wpe_toplevel_screen_changed")]
+    fn screen_changed(&self) {
+        unsafe {
+            ffi::wpe_toplevel_screen_changed(self.as_ref().to_glib_none().0);
         }
     }
 

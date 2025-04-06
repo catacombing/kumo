@@ -30,9 +30,6 @@ pub use self::keymap::Keymap;
 mod keymap_xkb;
 pub use self::keymap_xkb::KeymapXKB;
 
-mod monitor;
-pub use self::monitor::Monitor;
-
 mod toplevel;
 pub use self::toplevel::Toplevel;
 
@@ -69,7 +66,6 @@ pub(crate) mod traits {
     pub use super::gesture_controller::GestureControllerExt;
     pub use super::input_method_context::InputMethodContextExt;
     pub use super::keymap::KeymapExt;
-    pub use super::monitor::MonitorExt;
     pub use super::toplevel::ToplevelExt;
     pub use super::view::ViewExt;
 }

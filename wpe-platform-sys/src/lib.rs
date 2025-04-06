@@ -13,15 +13,17 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[allow(unused_imports)]
-use glib::{gboolean, gconstpointer, gpointer, GType};
-#[allow(unused_imports)]
-use libc::{
+use std::ffi::{
     c_char, c_double, c_float, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort, c_void,
-    intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE,
 };
+
+#[allow(unused_imports)]
+use glib::{gboolean, gconstpointer, gpointer, GType};
 #[cfg(unix)]
 #[allow(unused_imports)]
 use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
+#[allow(unused_imports)]
+use libc::{intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE};
 use xkbcommon::{xkb_keymap, xkb_state};
 use {glib_sys as glib, gobject_sys as gobject, xkbcommon_sys as xkbcommon};
 
@@ -86,6 +88,28 @@ pub const WPE_INPUT_SOURCE_TABLET_PAD: WPEInputSource = 6;
 
 pub type WPEPixelFormat = c_int;
 pub const WPE_PIXEL_FORMAT_ARGB8888: WPEPixelFormat = 0;
+
+pub type WPESettingsError = c_int;
+pub const WPE_SETTINGS_ERROR_INCORRECT_TYPE: WPESettingsError = 0;
+pub const WPE_SETTINGS_ERROR_NOT_REGISTERED: WPESettingsError = 1;
+pub const WPE_SETTINGS_ERROR_ALREADY_REGISTERED: WPESettingsError = 2;
+pub const WPE_SETTINGS_ERROR_INVALID_VALUE: WPESettingsError = 3;
+
+pub type WPESettingsHintingStyle = c_int;
+pub const WPE_SETTINGS_HINTING_STYLE_NONE: WPESettingsHintingStyle = 0;
+pub const WPE_SETTINGS_HINTING_STYLE_SLIGHT: WPESettingsHintingStyle = 1;
+pub const WPE_SETTINGS_HINTING_STYLE_MEDIUM: WPESettingsHintingStyle = 2;
+pub const WPE_SETTINGS_HINTING_STYLE_FULL: WPESettingsHintingStyle = 3;
+
+pub type WPESettingsSource = c_int;
+pub const WPE_SETTINGS_SOURCE_PLATFORM: WPESettingsSource = 0;
+pub const WPE_SETTINGS_SOURCE_APPLICATION: WPESettingsSource = 1;
+
+pub type WPESettingsSubpixelLayout = c_int;
+pub const WPE_SETTINGS_SUBPIXEL_LAYOUT_RGB: WPESettingsSubpixelLayout = 0;
+pub const WPE_SETTINGS_SUBPIXEL_LAYOUT_BGR: WPESettingsSubpixelLayout = 1;
+pub const WPE_SETTINGS_SUBPIXEL_LAYOUT_VRGB: WPESettingsSubpixelLayout = 2;
+pub const WPE_SETTINGS_SUBPIXEL_LAYOUT_VBGR: WPESettingsSubpixelLayout = 3;
 
 pub type WPEViewError = c_int;
 pub const WPE_VIEW_ERROR_RENDER_FAILED: WPEViewError = 0;
@@ -2374,8 +2398,23 @@ pub const WPE_KEY_zerosubscript: c_int = 16785536;
 pub const WPE_KEY_zerosuperior: c_int = 16785520;
 pub const WPE_KEY_zstroke: c_int = 16777654;
 pub const WPE_PLATFORM_MAJOR_VERSION: c_int = 2;
-pub const WPE_PLATFORM_MICRO_VERSION: c_int = 3;
-pub const WPE_PLATFORM_MINOR_VERSION: c_int = 45;
+pub const WPE_PLATFORM_MICRO_VERSION: c_int = 0;
+pub const WPE_PLATFORM_MINOR_VERSION: c_int = 49;
+pub const WPE_SETTING_CURSOR_BLINK_TIME: &[u8] = b"/wpe-platform/cursor-blink-time\0";
+pub const WPE_SETTING_DARK_MODE: &[u8] = b"/wpe-platform/dark-mode\0";
+pub const WPE_SETTING_DISABLE_ANIMATIONS: &[u8] = b"/wpe-platform/disable-animations\0";
+pub const WPE_SETTING_DOUBLE_CLICK_DISTANCE: &[u8] =
+    b"/wpe-platform/events/double-click/distance\0";
+pub const WPE_SETTING_DOUBLE_CLICK_TIME: &[u8] = b"/wpe-platform/events/double-click/time\0";
+pub const WPE_SETTING_DRAG_THRESHOLD: &[u8] = b"/wpe-platform/events/gestures/drag-thresold\0";
+pub const WPE_SETTING_FONT_ANTIALIAS: &[u8] = b"/wpe-platform/font-antialias\0";
+pub const WPE_SETTING_FONT_DPI: &[u8] = b"/wpe-platform/font-dpi\0";
+pub const WPE_SETTING_FONT_HINTING_STYLE: &[u8] = b"/wpe-platform/font-hinting-style\0";
+pub const WPE_SETTING_FONT_NAME: &[u8] = b"/wpe-platform/font-name\0";
+pub const WPE_SETTING_FONT_SUBPIXEL_LAYOUT: &[u8] = b"/wpe-platform/font-subpixel-layout\0";
+pub const WPE_SETTING_KEY_REPEAT_DELAY: &[u8] = b"/wpe-platform/events/key-repeat/delay\0";
+pub const WPE_SETTING_KEY_REPEAT_INTERVAL: &[u8] = b"/wpe-platform/events/key-repeat/interval\0";
+pub const WPE_SETTING_TOPLEVEL_DEFAULT_SIZE: &[u8] = b"/wpe-platform/toplevel-default-size\0";
 
 // Flags
 pub type WPEInputHints = c_uint;
@@ -2534,13 +2573,13 @@ pub struct WPEDisplayClass {
         Option<unsafe extern "C" fn(*mut WPEDisplay, *mut *mut glib::GError) -> *mut WPEKeymap>,
     pub get_preferred_dma_buf_formats:
         Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEBufferDMABufFormats>,
-    pub get_n_monitors: Option<unsafe extern "C" fn(*mut WPEDisplay) -> c_uint>,
-    pub get_monitor: Option<unsafe extern "C" fn(*mut WPEDisplay, c_uint) -> *mut WPEMonitor>,
+    pub get_n_screens: Option<unsafe extern "C" fn(*mut WPEDisplay) -> c_uint>,
+    pub get_screen: Option<unsafe extern "C" fn(*mut WPEDisplay, c_uint) -> *mut WPEScreen>,
     pub get_drm_device: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *const c_char>,
     pub get_drm_render_node: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *const c_char>,
     pub use_explicit_sync: Option<unsafe extern "C" fn(*mut WPEDisplay) -> gboolean>,
     pub create_input_method_context:
-        Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEInputMethodContext>,
+        Option<unsafe extern "C" fn(*mut WPEDisplay, *mut WPEView) -> *mut WPEInputMethodContext>,
     pub padding: [gpointer; 32],
 }
 
@@ -2553,8 +2592,8 @@ impl ::std::fmt::Debug for WPEDisplayClass {
             .field("get_egl_display", &self.get_egl_display)
             .field("get_keymap", &self.get_keymap)
             .field("get_preferred_dma_buf_formats", &self.get_preferred_dma_buf_formats)
-            .field("get_n_monitors", &self.get_n_monitors)
-            .field("get_monitor", &self.get_monitor)
+            .field("get_n_screens", &self.get_n_screens)
+            .field("get_screen", &self.get_screen)
             .field("get_drm_device", &self.get_drm_device)
             .field("get_drm_render_node", &self.get_drm_render_node)
             .field("use_explicit_sync", &self.use_explicit_sync)
@@ -2762,33 +2801,6 @@ impl ::std::fmt::Debug for WPEKeymapXKBClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct WPEMonitorClass {
-    pub parent_class: gobject::GObjectClass,
-    pub invalidate: Option<unsafe extern "C" fn(*mut WPEMonitor)>,
-    pub padding: [gpointer; 32],
-}
-
-impl ::std::fmt::Debug for WPEMonitorClass {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WPEMonitorClass @ {self:p}"))
-            .field("parent_class", &self.parent_class)
-            .field("invalidate", &self.invalidate)
-            .field("padding", &self.padding)
-            .finish()
-    }
-}
-
-#[repr(C)]
-#[allow(dead_code)]
-pub struct _WPEMonitorPrivate {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub type WPEMonitorPrivate = _WPEMonitorPrivate;
-
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct WPERectangle {
     pub x: c_int,
     pub y: c_int,
@@ -2809,11 +2821,52 @@ impl ::std::fmt::Debug for WPERectangle {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct WPEScreenClass {
+    pub parent_class: gobject::GObjectClass,
+    pub invalidate: Option<unsafe extern "C" fn(*mut WPEScreen)>,
+    pub padding: [gpointer; 32],
+}
+
+impl ::std::fmt::Debug for WPEScreenClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPEScreenClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .field("invalidate", &self.invalidate)
+            .field("padding", &self.padding)
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _WPEScreenPrivate {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type WPEScreenPrivate = _WPEScreenPrivate;
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WPESettingsClass {
+    pub parent_class: gobject::GObjectClass,
+}
+
+impl ::std::fmt::Debug for WPESettingsClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPESettingsClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct WPEToplevelClass {
     pub parent_class: gobject::GObjectClass,
     pub set_title: Option<unsafe extern "C" fn(*mut WPEToplevel, *const c_char)>,
     pub get_max_views: Option<unsafe extern "C" fn(*mut WPEToplevel) -> c_uint>,
-    pub get_monitor: Option<unsafe extern "C" fn(*mut WPEToplevel) -> *mut WPEMonitor>,
+    pub get_screen: Option<unsafe extern "C" fn(*mut WPEToplevel) -> *mut WPEScreen>,
     pub resize: Option<unsafe extern "C" fn(*mut WPEToplevel, c_int, c_int) -> gboolean>,
     pub set_fullscreen: Option<unsafe extern "C" fn(*mut WPEToplevel, gboolean) -> gboolean>,
     pub set_maximized: Option<unsafe extern "C" fn(*mut WPEToplevel, gboolean) -> gboolean>,
@@ -2829,7 +2882,7 @@ impl ::std::fmt::Debug for WPEToplevelClass {
             .field("parent_class", &self.parent_class)
             .field("set_title", &self.set_title)
             .field("get_max_views", &self.get_max_views)
-            .field("get_monitor", &self.get_monitor)
+            .field("get_screen", &self.get_screen)
             .field("resize", &self.resize)
             .field("set_fullscreen", &self.set_fullscreen)
             .field("set_maximized", &self.set_maximized)
@@ -2848,6 +2901,22 @@ pub struct _WPEToplevelPrivate {
 }
 
 pub type WPEToplevelPrivate = _WPEToplevelPrivate;
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WPEViewAccessibleInterface {
+    pub parent_interface: gobject::GTypeInterface,
+    pub bind: Option<unsafe extern "C" fn(*mut WPEViewAccessible, *const c_char)>,
+}
+
+impl ::std::fmt::Debug for WPEViewAccessibleInterface {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPEViewAccessibleInterface @ {self:p}"))
+            .field("parent_interface", &self.parent_interface)
+            .field("bind", &self.bind)
+            .finish()
+    }
+}
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -2879,6 +2948,7 @@ pub struct WPEViewClass {
     pub set_opaque_rectangles:
         Option<unsafe extern "C" fn(*mut WPEView, *mut WPERectangle, c_uint)>,
     pub can_be_mapped: Option<unsafe extern "C" fn(*mut WPEView) -> gboolean>,
+    pub get_accessible: Option<unsafe extern "C" fn(*mut WPEView) -> *mut WPEViewAccessible>,
     pub padding: [gpointer; 32],
 }
 
@@ -2893,6 +2963,7 @@ impl ::std::fmt::Debug for WPEViewClass {
             .field("set_cursor_from_bytes", &self.set_cursor_from_bytes)
             .field("set_opaque_rectangles", &self.set_opaque_rectangles)
             .field("can_be_mapped", &self.can_be_mapped)
+            .field("get_accessible", &self.get_accessible)
             .field("padding", &self.padding)
             .finish()
     }
@@ -3026,17 +3097,30 @@ impl ::std::fmt::Debug for WPEKeymapXKB {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct WPEMonitor {
+pub struct WPEScreen {
     pub parent_instance: gobject::GObject,
-    pub priv_: *mut WPEMonitorPrivate,
+    pub priv_: *mut WPEScreenPrivate,
 }
 
-impl ::std::fmt::Debug for WPEMonitor {
+impl ::std::fmt::Debug for WPEScreen {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WPEMonitor @ {self:p}"))
+        f.debug_struct(&format!("WPEScreen @ {self:p}"))
             .field("parent_instance", &self.parent_instance)
             .field("priv_", &self.priv_)
             .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct WPESettings {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for WPESettings {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPESettings @ {self:p}")).finish()
     }
 }
 
@@ -3086,7 +3170,19 @@ impl ::std::fmt::Debug for WPEGestureController {
     }
 }
 
-#[link(name = "WPEPlatform-2.0")]
+#[repr(C)]
+#[allow(dead_code)]
+pub struct WPEViewAccessible {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for WPEViewAccessible {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "WPEViewAccessible @ {self:p}")
+    }
+}
+
 extern "C" {
 
     //=========================================================================
@@ -3136,6 +3232,27 @@ extern "C" {
     // WPEPixelFormat
     //=========================================================================
     pub fn wpe_pixel_format_get_type() -> GType;
+
+    //=========================================================================
+    // WPESettingsError
+    //=========================================================================
+    pub fn wpe_settings_error_get_type() -> GType;
+    pub fn wpe_settings_error_quark() -> glib::GQuark;
+
+    //=========================================================================
+    // WPESettingsHintingStyle
+    //=========================================================================
+    pub fn wpe_settings_hinting_style_get_type() -> GType;
+
+    //=========================================================================
+    // WPESettingsSource
+    //=========================================================================
+    pub fn wpe_settings_source_get_type() -> GType;
+
+    //=========================================================================
+    // WPESettingsSubpixelLayout
+    //=========================================================================
+    pub fn wpe_settings_subpixel_layout_get_type() -> GType;
 
     //=========================================================================
     // WPEViewError
@@ -3254,6 +3371,7 @@ extern "C" {
         y: *mut c_double,
     ) -> gboolean;
     pub fn wpe_event_get_time(event: *mut WPEEvent) -> u32;
+    pub fn wpe_event_get_user_data(event: *mut WPEEvent) -> gpointer;
     pub fn wpe_event_get_view(event: *mut WPEEvent) -> *mut WPEView;
     pub fn wpe_event_keyboard_get_keycode(event: *mut WPEEvent) -> c_uint;
     pub fn wpe_event_keyboard_get_keyval(event: *mut WPEEvent) -> c_uint;
@@ -3272,6 +3390,11 @@ extern "C" {
     );
     pub fn wpe_event_scroll_has_precise_deltas(event: *mut WPEEvent) -> gboolean;
     pub fn wpe_event_scroll_is_stop(event: *mut WPEEvent) -> gboolean;
+    pub fn wpe_event_set_user_data(
+        event: *mut WPEEvent,
+        user_data: gpointer,
+        destroy_func: glib::GDestroyNotify,
+    );
     pub fn wpe_event_touch_get_sequence_id(event: *mut WPEEvent) -> u32;
     pub fn wpe_event_unref(event: *mut WPEEvent);
 
@@ -3360,7 +3483,6 @@ extern "C" {
     // WPEBufferDMABufFormats
     //=========================================================================
     pub fn wpe_buffer_dma_buf_formats_get_type() -> GType;
-    pub fn wpe_buffer_dma_buf_formats_new() -> *mut WPEBufferDMABufFormats;
     pub fn wpe_buffer_dma_buf_formats_get_device(
         formats: *mut WPEBufferDMABufFormats,
     ) -> *const c_char;
@@ -3422,13 +3544,14 @@ extern "C" {
         display: *mut WPEDisplay,
         error: *mut *mut glib::GError,
     ) -> *mut WPEKeymap;
-    pub fn wpe_display_get_monitor(display: *mut WPEDisplay, index: c_uint) -> *mut WPEMonitor;
-    pub fn wpe_display_get_n_monitors(display: *mut WPEDisplay) -> c_uint;
+    pub fn wpe_display_get_n_screens(display: *mut WPEDisplay) -> c_uint;
     pub fn wpe_display_get_preferred_dma_buf_formats(
         display: *mut WPEDisplay,
     ) -> *mut WPEBufferDMABufFormats;
-    pub fn wpe_display_monitor_added(display: *mut WPEDisplay, monitor: *mut WPEMonitor);
-    pub fn wpe_display_monitor_removed(display: *mut WPEDisplay, monitor: *mut WPEMonitor);
+    pub fn wpe_display_get_screen(display: *mut WPEDisplay, index: c_uint) -> *mut WPEScreen;
+    pub fn wpe_display_get_settings(display: *mut WPEDisplay) -> *mut WPESettings;
+    pub fn wpe_display_screen_added(display: *mut WPEDisplay, screen: *mut WPEScreen);
+    pub fn wpe_display_screen_removed(display: *mut WPEDisplay, screen: *mut WPEScreen);
     pub fn wpe_display_set_primary(display: *mut WPEDisplay);
     pub fn wpe_display_use_explicit_sync(display: *mut WPEDisplay) -> gboolean;
 
@@ -3446,6 +3569,12 @@ extern "C" {
     pub fn wpe_input_method_context_get_display(
         context: *mut WPEInputMethodContext,
     ) -> *mut WPEDisplay;
+    pub fn wpe_input_method_context_get_input_hints(
+        context: *mut WPEInputMethodContext,
+    ) -> WPEInputHints;
+    pub fn wpe_input_method_context_get_input_purpose(
+        context: *mut WPEInputMethodContext,
+    ) -> WPEInputPurpose;
     pub fn wpe_input_method_context_get_preedit_string(
         context: *mut WPEInputMethodContext,
         text: *mut *mut c_char,
@@ -3460,6 +3589,14 @@ extern "C" {
         y: c_int,
         width: c_int,
         height: c_int,
+    );
+    pub fn wpe_input_method_context_set_input_hints(
+        context: *mut WPEInputMethodContext,
+        hints: WPEInputHints,
+    );
+    pub fn wpe_input_method_context_set_input_purpose(
+        context: *mut WPEInputMethodContext,
+        purpose: WPEInputPurpose,
     );
     pub fn wpe_input_method_context_set_surrounding(
         context: *mut WPEInputMethodContext,
@@ -3506,24 +3643,150 @@ extern "C" {
     );
 
     //=========================================================================
-    // WPEMonitor
+    // WPEScreen
     //=========================================================================
-    pub fn wpe_monitor_get_type() -> GType;
-    pub fn wpe_monitor_get_height(monitor: *mut WPEMonitor) -> c_int;
-    pub fn wpe_monitor_get_id(monitor: *mut WPEMonitor) -> u32;
-    pub fn wpe_monitor_get_physical_height(monitor: *mut WPEMonitor) -> c_int;
-    pub fn wpe_monitor_get_physical_width(monitor: *mut WPEMonitor) -> c_int;
-    pub fn wpe_monitor_get_refresh_rate(monitor: *mut WPEMonitor) -> c_int;
-    pub fn wpe_monitor_get_scale(monitor: *mut WPEMonitor) -> c_double;
-    pub fn wpe_monitor_get_width(monitor: *mut WPEMonitor) -> c_int;
-    pub fn wpe_monitor_get_x(monitor: *mut WPEMonitor) -> c_int;
-    pub fn wpe_monitor_get_y(monitor: *mut WPEMonitor) -> c_int;
-    pub fn wpe_monitor_invalidate(monitor: *mut WPEMonitor);
-    pub fn wpe_monitor_set_physical_size(monitor: *mut WPEMonitor, width: c_int, height: c_int);
-    pub fn wpe_monitor_set_position(monitor: *mut WPEMonitor, x: c_int, y: c_int);
-    pub fn wpe_monitor_set_refresh_rate(monitor: *mut WPEMonitor, refresh_rate: c_int);
-    pub fn wpe_monitor_set_scale(monitor: *mut WPEMonitor, scale: c_double);
-    pub fn wpe_monitor_set_size(monitor: *mut WPEMonitor, width: c_int, height: c_int);
+    pub fn wpe_screen_get_type() -> GType;
+    pub fn wpe_screen_get_height(screen: *mut WPEScreen) -> c_int;
+    pub fn wpe_screen_get_id(screen: *mut WPEScreen) -> u32;
+    pub fn wpe_screen_get_physical_height(screen: *mut WPEScreen) -> c_int;
+    pub fn wpe_screen_get_physical_width(screen: *mut WPEScreen) -> c_int;
+    pub fn wpe_screen_get_refresh_rate(screen: *mut WPEScreen) -> c_int;
+    pub fn wpe_screen_get_scale(screen: *mut WPEScreen) -> c_double;
+    pub fn wpe_screen_get_width(screen: *mut WPEScreen) -> c_int;
+    pub fn wpe_screen_get_x(screen: *mut WPEScreen) -> c_int;
+    pub fn wpe_screen_get_y(screen: *mut WPEScreen) -> c_int;
+    pub fn wpe_screen_invalidate(screen: *mut WPEScreen);
+    pub fn wpe_screen_set_physical_size(screen: *mut WPEScreen, width: c_int, height: c_int);
+    pub fn wpe_screen_set_position(screen: *mut WPEScreen, x: c_int, y: c_int);
+    pub fn wpe_screen_set_refresh_rate(screen: *mut WPEScreen, refresh_rate: c_int);
+    pub fn wpe_screen_set_scale(screen: *mut WPEScreen, scale: c_double);
+    pub fn wpe_screen_set_size(screen: *mut WPEScreen, width: c_int, height: c_int);
+
+    //=========================================================================
+    // WPESettings
+    //=========================================================================
+    pub fn wpe_settings_get_type() -> GType;
+    pub fn wpe_settings_get_boolean(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
+    pub fn wpe_settings_get_byte(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> u8;
+    pub fn wpe_settings_get_double(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> c_double;
+    pub fn wpe_settings_get_int32(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> i32;
+    pub fn wpe_settings_get_int64(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> i64;
+    pub fn wpe_settings_get_string(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> *const c_char;
+    pub fn wpe_settings_get_uint32(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> u32;
+    pub fn wpe_settings_get_uint64(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> u64;
+    pub fn wpe_settings_get_value(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> *mut glib::GVariant;
+    pub fn wpe_settings_load_from_keyfile(
+        settings: *mut WPESettings,
+        keyfile: *mut glib::GKeyFile,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
+    pub fn wpe_settings_register(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        type_: *const glib::GVariantType,
+        default_value: *mut glib::GVariant,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
+    pub fn wpe_settings_save_to_keyfile(settings: *mut WPESettings, keyfile: *mut glib::GKeyFile);
+    pub fn wpe_settings_set_boolean(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        value: gboolean,
+        source: WPESettingsSource,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
+    pub fn wpe_settings_set_byte(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        value: u8,
+        source: WPESettingsSource,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
+    pub fn wpe_settings_set_double(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        value: c_double,
+        source: WPESettingsSource,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
+    pub fn wpe_settings_set_int32(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        value: i32,
+        source: WPESettingsSource,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
+    pub fn wpe_settings_set_int64(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        value: i64,
+        source: WPESettingsSource,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
+    pub fn wpe_settings_set_string(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        value: *const c_char,
+        source: WPESettingsSource,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
+    pub fn wpe_settings_set_uint32(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        value: u32,
+        source: WPESettingsSource,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
+    pub fn wpe_settings_set_uint64(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        value: u64,
+        source: WPESettingsSource,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
+    pub fn wpe_settings_set_value(
+        settings: *mut WPESettings,
+        key: *const c_char,
+        value: *mut glib::GVariant,
+        source: WPESettingsSource,
+        error: *mut *mut glib::GError,
+    ) -> gboolean;
 
     //=========================================================================
     // WPEToplevel
@@ -3538,22 +3801,22 @@ extern "C" {
     pub fn wpe_toplevel_fullscreen(toplevel: *mut WPEToplevel) -> gboolean;
     pub fn wpe_toplevel_get_display(toplevel: *mut WPEToplevel) -> *mut WPEDisplay;
     pub fn wpe_toplevel_get_max_views(toplevel: *mut WPEToplevel) -> c_uint;
-    pub fn wpe_toplevel_get_monitor(toplevel: *mut WPEToplevel) -> *mut WPEMonitor;
     pub fn wpe_toplevel_get_n_views(toplevel: *mut WPEToplevel) -> c_uint;
     pub fn wpe_toplevel_get_preferred_dma_buf_formats(
         toplevel: *mut WPEToplevel,
     ) -> *mut WPEBufferDMABufFormats;
     pub fn wpe_toplevel_get_scale(toplevel: *mut WPEToplevel) -> c_double;
+    pub fn wpe_toplevel_get_screen(toplevel: *mut WPEToplevel) -> *mut WPEScreen;
     pub fn wpe_toplevel_get_size(toplevel: *mut WPEToplevel, width: *mut c_int, height: *mut c_int);
     pub fn wpe_toplevel_get_state(toplevel: *mut WPEToplevel) -> WPEToplevelState;
     pub fn wpe_toplevel_maximize(toplevel: *mut WPEToplevel) -> gboolean;
     pub fn wpe_toplevel_minimize(toplevel: *mut WPEToplevel) -> gboolean;
-    pub fn wpe_toplevel_monitor_changed(toplevel: *mut WPEToplevel);
     pub fn wpe_toplevel_preferred_dma_buf_formats_changed(toplevel: *mut WPEToplevel);
     pub fn wpe_toplevel_resize(toplevel: *mut WPEToplevel, width: c_int, height: c_int)
         -> gboolean;
     pub fn wpe_toplevel_resized(toplevel: *mut WPEToplevel, width: c_int, height: c_int);
     pub fn wpe_toplevel_scale_changed(toplevel: *mut WPEToplevel, scale: c_double);
+    pub fn wpe_toplevel_screen_changed(toplevel: *mut WPEToplevel);
     pub fn wpe_toplevel_set_title(toplevel: *mut WPEToplevel, title: *const c_char);
     pub fn wpe_toplevel_state_changed(toplevel: *mut WPEToplevel, state: WPEToplevelState);
     pub fn wpe_toplevel_unfullscreen(toplevel: *mut WPEToplevel) -> gboolean;
@@ -3577,16 +3840,17 @@ extern "C" {
     pub fn wpe_view_event(view: *mut WPEView, event: *mut WPEEvent);
     pub fn wpe_view_focus_in(view: *mut WPEView);
     pub fn wpe_view_focus_out(view: *mut WPEView);
+    pub fn wpe_view_get_accessible(view: *mut WPEView) -> *mut WPEViewAccessible;
     pub fn wpe_view_get_display(view: *mut WPEView) -> *mut WPEDisplay;
     pub fn wpe_view_get_gesture_controller(view: *mut WPEView) -> *mut WPEGestureController;
     pub fn wpe_view_get_has_focus(view: *mut WPEView) -> gboolean;
     pub fn wpe_view_get_height(view: *mut WPEView) -> c_int;
     pub fn wpe_view_get_mapped(view: *mut WPEView) -> gboolean;
-    pub fn wpe_view_get_monitor(view: *mut WPEView) -> *mut WPEMonitor;
     pub fn wpe_view_get_preferred_dma_buf_formats(
         view: *mut WPEView,
     ) -> *mut WPEBufferDMABufFormats;
     pub fn wpe_view_get_scale(view: *mut WPEView) -> c_double;
+    pub fn wpe_view_get_screen(view: *mut WPEView) -> *mut WPEScreen;
     pub fn wpe_view_get_toplevel(view: *mut WPEView) -> *mut WPEToplevel;
     pub fn wpe_view_get_toplevel_state(view: *mut WPEView) -> WPEToplevelState;
     pub fn wpe_view_get_visible(view: *mut WPEView) -> gboolean;
@@ -3646,6 +3910,12 @@ extern "C" {
         event: *mut WPEEvent,
     );
     pub fn wpe_gesture_controller_is_drag_begin(controller: *mut WPEGestureController) -> gboolean;
+
+    //=========================================================================
+    // WPEViewAccessible
+    //=========================================================================
+    pub fn wpe_view_accessible_get_type() -> GType;
+    pub fn wpe_view_accessible_bind(accessible: *mut WPEViewAccessible, plug_id: *const c_char);
 
     //=========================================================================
     // Other functions

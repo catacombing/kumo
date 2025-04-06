@@ -6,6 +6,7 @@
 use std::boxed::Box as Box_;
 use std::pin::Pin;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -257,7 +258,7 @@ impl NetworkSession {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"download-started\0".as_ptr() as *const _,
+                c"download-started".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     download_started_trampoline::<F> as *const (),
                 )),

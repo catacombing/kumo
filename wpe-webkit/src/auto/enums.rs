@@ -1093,6 +1093,135 @@ impl From<DownloadError> for glib::Value {
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
+#[doc(alias = "WebKitFaviconDatabaseError")]
+pub enum FaviconDatabaseError {
+    #[doc(alias = "WEBKIT_FAVICON_DATABASE_ERROR_NOT_INITIALIZED")]
+    NotInitialized,
+    #[doc(alias = "WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_NOT_FOUND")]
+    FaviconNotFound,
+    #[doc(alias = "WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_UNKNOWN")]
+    FaviconUnknown,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+impl FaviconDatabaseError {
+    #[doc(alias = "webkit_favicon_database_error_quark")]
+    pub fn quark() -> glib::Quark {
+        unsafe { from_glib(ffi::webkit_favicon_database_error_quark()) }
+    }
+}
+
+#[doc(hidden)]
+impl IntoGlib for FaviconDatabaseError {
+    type GlibType = ffi::WebKitFaviconDatabaseError;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WebKitFaviconDatabaseError {
+        match self {
+            Self::NotInitialized => ffi::WEBKIT_FAVICON_DATABASE_ERROR_NOT_INITIALIZED,
+            Self::FaviconNotFound => ffi::WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_NOT_FOUND,
+            Self::FaviconUnknown => ffi::WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_UNKNOWN,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WebKitFaviconDatabaseError> for FaviconDatabaseError {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WebKitFaviconDatabaseError) -> Self {
+        match value {
+            ffi::WEBKIT_FAVICON_DATABASE_ERROR_NOT_INITIALIZED => Self::NotInitialized,
+            ffi::WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_NOT_FOUND => Self::FaviconNotFound,
+            ffi::WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_UNKNOWN => Self::FaviconUnknown,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+impl glib::error::ErrorDomain for FaviconDatabaseError {
+    #[inline]
+    fn domain() -> glib::Quark {
+        static QUARK: ::std::sync::OnceLock<glib::ffi::GQuark> = ::std::sync::OnceLock::new();
+        let quark = *QUARK.get_or_init(|| unsafe {
+            glib::ffi::g_quark_from_static_string(
+                b"WebKitFaviconDatabaseError\0".as_ptr() as *const _
+            )
+        });
+        unsafe { from_glib(quark) }
+    }
+
+    #[inline]
+    fn code(self) -> i32 {
+        self.into_glib()
+    }
+
+    #[inline]
+    #[allow(clippy::match_single_binding)]
+    fn from(code: i32) -> Option<Self> {
+        match unsafe { from_glib(code) } {
+            value => Some(value),
+        }
+    }
+}
+
+impl StaticType for FaviconDatabaseError {
+    #[inline]
+    #[doc(alias = "webkit_favicon_database_error_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::webkit_favicon_database_error_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for FaviconDatabaseError {
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+impl glib::value::ValueType for FaviconDatabaseError {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for FaviconDatabaseError {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+    }
+}
+
+impl ToValue for FaviconDatabaseError {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<FaviconDatabaseError> for glib::Value {
+    #[inline]
+    fn from(v: FaviconDatabaseError) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
 #[doc(alias = "WebKitFeatureStatus")]
 pub enum FeatureStatus {
     #[doc(alias = "WEBKIT_FEATURE_STATUS_EMBEDDER")]

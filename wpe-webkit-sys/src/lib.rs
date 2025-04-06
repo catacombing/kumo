@@ -13,15 +13,17 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[allow(unused_imports)]
-use glib::{gboolean, gconstpointer, gpointer, GType};
-#[allow(unused_imports)]
-use libc::{
+use std::ffi::{
     c_char, c_double, c_float, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort, c_void,
-    intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE,
 };
+
+#[allow(unused_imports)]
+use glib::{gboolean, gconstpointer, gpointer, GType};
 #[cfg(unix)]
 #[allow(unused_imports)]
 use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
+#[allow(unused_imports)]
+use libc::{intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE};
 use wpe::wpe_view_backend;
 use {
     gio_sys as gio, glib_sys as glib, gobject_sys as gobject, soup_sys as soup,
@@ -120,6 +122,11 @@ pub type WebKitDownloadError = c_int;
 pub const WEBKIT_DOWNLOAD_ERROR_NETWORK: WebKitDownloadError = 499;
 pub const WEBKIT_DOWNLOAD_ERROR_CANCELLED_BY_USER: WebKitDownloadError = 400;
 pub const WEBKIT_DOWNLOAD_ERROR_DESTINATION: WebKitDownloadError = 401;
+
+pub type WebKitFaviconDatabaseError = c_int;
+pub const WEBKIT_FAVICON_DATABASE_ERROR_NOT_INITIALIZED: WebKitFaviconDatabaseError = 0;
+pub const WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_NOT_FOUND: WebKitFaviconDatabaseError = 1;
+pub const WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_UNKNOWN: WebKitFaviconDatabaseError = 2;
 
 pub type WebKitFeatureStatus = c_int;
 pub const WEBKIT_FEATURE_STATUS_EMBEDDER: WebKitFeatureStatus = 0;
@@ -235,6 +242,16 @@ pub type WebKitUserStyleLevel = c_int;
 pub const WEBKIT_USER_STYLE_LEVEL_USER: WebKitUserStyleLevel = 0;
 pub const WEBKIT_USER_STYLE_LEVEL_AUTHOR: WebKitUserStyleLevel = 1;
 
+pub type WebKitWebExtensionMatchPatternError = c_int;
+pub const WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_UNKNOWN: WebKitWebExtensionMatchPatternError =
+    899;
+pub const WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_INVALID_SCHEME:
+    WebKitWebExtensionMatchPatternError = 808;
+pub const WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_INVALID_HOST:
+    WebKitWebExtensionMatchPatternError = 809;
+pub const WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_INVALID_PATH:
+    WebKitWebExtensionMatchPatternError = 810;
+
 pub type WebKitWebExtensionMode = c_int;
 pub const WEBKIT_WEB_EXTENSION_MODE_NONE: WebKitWebExtensionMode = 0;
 pub const WEBKIT_WEB_EXTENSION_MODE_MANIFESTV2: WebKitWebExtensionMode = 1;
@@ -256,8 +273,8 @@ pub const WEBKIT_EDITING_COMMAND_REDO: &[u8] = b"Redo\0";
 pub const WEBKIT_EDITING_COMMAND_SELECT_ALL: &[u8] = b"SelectAll\0";
 pub const WEBKIT_EDITING_COMMAND_UNDO: &[u8] = b"Undo\0";
 pub const WEBKIT_MAJOR_VERSION: c_int = 2;
-pub const WEBKIT_MICRO_VERSION: c_int = 3;
-pub const WEBKIT_MINOR_VERSION: c_int = 45;
+pub const WEBKIT_MICRO_VERSION: c_int = 0;
+pub const WEBKIT_MINOR_VERSION: c_int = 49;
 
 // Flags
 pub type WebKitEditorTypingAttributes = c_uint;
@@ -495,6 +512,34 @@ pub struct WebKitEditorStateClass {
 impl ::std::fmt::Debug for WebKitEditorStateClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitEditorStateClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WebKitFaviconClass {
+    pub parent_class: gobject::GObjectClass,
+}
+
+impl ::std::fmt::Debug for WebKitFaviconClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitFaviconClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WebKitFaviconDatabaseClass {
+    pub parent_class: gobject::GObjectClass,
+}
+
+impl ::std::fmt::Debug for WebKitFaviconDatabaseClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitFaviconDatabaseClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -1664,6 +1709,32 @@ impl ::std::fmt::Debug for WebKitEditorState {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct WebKitFavicon {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for WebKitFavicon {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitFavicon @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct WebKitFaviconDatabase {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for WebKitFaviconDatabase {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitFaviconDatabase @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitFileChooserRequest {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2101,8 +2172,6 @@ impl ::std::fmt::Debug for WebKitPermissionRequest {
     }
 }
 
-#[link(name = "WPEWebKit-2.0")]
-#[link(name = "WPEPlatform-2.0")]
 extern "C" {
 
     //=========================================================================
@@ -2150,6 +2219,12 @@ extern "C" {
     //=========================================================================
     pub fn webkit_download_error_get_type() -> GType;
     pub fn webkit_download_error_quark() -> glib::GQuark;
+
+    //=========================================================================
+    // WebKitFaviconDatabaseError
+    //=========================================================================
+    pub fn webkit_favicon_database_error_get_type() -> GType;
+    pub fn webkit_favicon_database_error_quark() -> glib::GQuark;
 
     //=========================================================================
     // WebKitFeatureStatus
@@ -2267,6 +2342,12 @@ extern "C" {
     // WebKitUserStyleLevel
     //=========================================================================
     pub fn webkit_user_style_level_get_type() -> GType;
+
+    //=========================================================================
+    // WebKitWebExtensionMatchPatternError
+    //=========================================================================
+    pub fn webkit_web_extension_match_pattern_error_get_type() -> GType;
+    pub fn webkit_web_extension_match_pattern_error_quark() -> glib::GQuark;
 
     //=========================================================================
     // WebKitWebExtensionMode
@@ -3077,6 +3158,36 @@ extern "C" {
     pub fn webkit_editor_state_is_undo_available(editor_state: *mut WebKitEditorState) -> gboolean;
 
     //=========================================================================
+    // WebKitFavicon
+    //=========================================================================
+    pub fn webkit_favicon_get_type() -> GType;
+    pub fn webkit_favicon_get_bytes(favicon: *mut WebKitFavicon) -> *mut glib::GBytes;
+    pub fn webkit_favicon_get_height(favicon: *mut WebKitFavicon) -> c_int;
+    pub fn webkit_favicon_get_width(favicon: *mut WebKitFavicon) -> c_int;
+
+    //=========================================================================
+    // WebKitFaviconDatabase
+    //=========================================================================
+    pub fn webkit_favicon_database_get_type() -> GType;
+    pub fn webkit_favicon_database_clear(database: *mut WebKitFaviconDatabase);
+    pub fn webkit_favicon_database_get_favicon(
+        database: *mut WebKitFaviconDatabase,
+        page_uri: *const c_char,
+        cancellable: *mut gio::GCancellable,
+        callback: gio::GAsyncReadyCallback,
+        user_data: gpointer,
+    );
+    pub fn webkit_favicon_database_get_favicon_finish(
+        database: *mut WebKitFaviconDatabase,
+        result: *mut gio::GAsyncResult,
+        error: *mut *mut glib::GError,
+    ) -> *mut WebKitFavicon;
+    pub fn webkit_favicon_database_get_favicon_uri(
+        database: *mut WebKitFaviconDatabase,
+        page_uri: *const c_char,
+    ) -> *mut c_char;
+
+    //=========================================================================
     // WebKitFileChooserRequest
     //=========================================================================
     pub fn webkit_file_chooser_request_get_type() -> GType;
@@ -3557,6 +3668,9 @@ extern "C" {
     ) -> *const c_char;
     pub fn webkit_settings_get_serif_font_family(settings: *mut WebKitSettings) -> *const c_char;
     pub fn webkit_settings_get_user_agent(settings: *mut WebKitSettings) -> *const c_char;
+    pub fn webkit_settings_get_webrtc_udp_ports_range(
+        settings: *mut WebKitSettings,
+    ) -> *const c_char;
     pub fn webkit_settings_get_zoom_text_only(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_set_allow_file_access_from_file_urls(
         settings: *mut WebKitSettings,
@@ -3743,6 +3857,10 @@ extern "C" {
         settings: *mut WebKitSettings,
         application_name: *const c_char,
         application_version: *const c_char,
+    );
+    pub fn webkit_settings_set_webrtc_udp_ports_range(
+        settings: *mut WebKitSettings,
+        udp_port_range: *const c_char,
     );
     pub fn webkit_settings_set_zoom_text_only(
         settings: *mut WebKitSettings,
@@ -4190,6 +4308,7 @@ extern "C" {
     pub fn webkit_web_view_get_editor_state(web_view: *mut WebKitWebView)
         -> *mut WebKitEditorState;
     pub fn webkit_web_view_get_estimated_load_progress(web_view: *mut WebKitWebView) -> c_double;
+    pub fn webkit_web_view_get_favicon(web_view: *mut WebKitWebView) -> *mut WebKitFavicon;
     pub fn webkit_web_view_get_find_controller(
         web_view: *mut WebKitWebView,
     ) -> *mut WebKitFindController;
@@ -4398,6 +4517,12 @@ extern "C" {
     pub fn webkit_website_data_manager_get_base_data_directory(
         manager: *mut WebKitWebsiteDataManager,
     ) -> *const c_char;
+    pub fn webkit_website_data_manager_get_favicon_database(
+        manager: *mut WebKitWebsiteDataManager,
+    ) -> *mut WebKitFaviconDatabase;
+    pub fn webkit_website_data_manager_get_favicons_enabled(
+        manager: *mut WebKitWebsiteDataManager,
+    ) -> gboolean;
     pub fn webkit_website_data_manager_get_itp_summary(
         manager: *mut WebKitWebsiteDataManager,
         cancellable: *mut gio::GCancellable,
@@ -4425,6 +4550,10 @@ extern "C" {
         result: *mut gio::GAsyncResult,
         error: *mut *mut glib::GError,
     ) -> gboolean;
+    pub fn webkit_website_data_manager_set_favicons_enabled(
+        manager: *mut WebKitWebsiteDataManager,
+        enabled: gboolean,
+    );
 
     //=========================================================================
     // WebKitWebsitePolicies

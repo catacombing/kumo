@@ -33,6 +33,12 @@ pub use self::download::Download;
 mod editor_state;
 pub use self::editor_state::EditorState;
 
+mod favicon;
+pub use self::favicon::Favicon;
+
+mod favicon_database;
+pub use self::favicon_database::FaviconDatabase;
+
 mod file_chooser_request;
 pub use self::file_chooser_request::FileChooserRequest;
 
@@ -210,8 +216,8 @@ pub use self::enums::InsecureContentEvent;
 pub use self::enums::{
     AuthenticationScheme, AutomationBrowsingContextPresentation, AutoplayPolicy, CacheModel,
     ContextMenuAction, CookieAcceptPolicy, CookiePersistentStorage, CredentialPersistence,
-    DownloadError, FeatureStatus, InputPurpose, JavascriptError, LoadEvent, MediaCaptureState,
-    MediaError, NavigationType, NetworkError, NetworkProxyMode, PermissionState,
+    DownloadError, FaviconDatabaseError, FeatureStatus, InputPurpose, JavascriptError, LoadEvent,
+    MediaCaptureState, MediaError, NavigationType, NetworkError, NetworkProxyMode, PermissionState,
     PolicyDecisionType, PolicyError, SaveMode, ScriptDialogType, SnapshotError, TLSErrorsPolicy,
     UserContentFilterError, UserContentInjectedFrames, UserMessageError, UserScriptInjectionTime,
     UserStyleLevel, WebExtensionMode, WebProcessTerminationReason,

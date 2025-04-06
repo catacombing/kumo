@@ -1033,6 +1033,14 @@ impl Window {
         }
     }
 
+    /// Reload an engine's favicon.
+    pub fn update_favicon(&mut self, engine_id: EngineId) {
+        if let Some(tab) = self.tabs.get(&engine_id) {
+            self.overlay.tabs_mut().update_favicon(tab);
+            self.unstall();
+        }
+    }
+
     /// Open or close the tabs UI.
     pub fn set_tabs_ui_visible(&mut self, visible: bool) {
         self.overlay.tabs_mut().set_visible(visible);

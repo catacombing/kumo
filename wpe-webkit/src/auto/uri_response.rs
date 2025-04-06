@@ -78,7 +78,7 @@ impl URIResponse {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::content-length\0".as_ptr() as *const _,
+                c"notify::content-length".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_content_length_trampoline::<F> as *const (),
                 )),
@@ -101,7 +101,7 @@ impl URIResponse {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::http-headers\0".as_ptr() as *const _,
+                c"notify::http-headers".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_http_headers_trampoline::<F> as *const (),
                 )),
@@ -124,7 +124,7 @@ impl URIResponse {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::mime-type\0".as_ptr() as *const _,
+                c"notify::mime-type".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_mime_type_trampoline::<F> as *const (),
                 )),
@@ -147,7 +147,7 @@ impl URIResponse {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::status-code\0".as_ptr() as *const _,
+                c"notify::status-code".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_status_code_trampoline::<F> as *const (),
                 )),
@@ -173,7 +173,7 @@ impl URIResponse {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::suggested-filename\0".as_ptr() as *const _,
+                c"notify::suggested-filename".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_suggested_filename_trampoline::<F> as *const (),
                 )),
@@ -196,7 +196,7 @@ impl URIResponse {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::uri\0".as_ptr() as *const _,
+                c"notify::uri".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_uri_trampoline::<F> as *const (),
                 )),

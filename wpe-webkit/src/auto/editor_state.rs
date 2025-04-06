@@ -5,6 +5,7 @@
 
 use std::boxed::Box as Box_;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -66,7 +67,7 @@ impl EditorState {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"changed\0".as_ptr() as *const _,
+                c"changed".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     changed_trampoline::<F> as *const (),
                 )),
@@ -92,7 +93,7 @@ impl EditorState {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::typing-attributes\0".as_ptr() as *const _,
+                c"notify::typing-attributes".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_typing_attributes_trampoline::<F> as *const (),
                 )),

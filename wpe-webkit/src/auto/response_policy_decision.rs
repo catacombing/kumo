@@ -69,7 +69,7 @@ impl ResponsePolicyDecision {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::request\0".as_ptr() as *const _,
+                c"notify::request".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_request_trampoline::<F> as *const (),
                 )),
@@ -94,7 +94,7 @@ impl ResponsePolicyDecision {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::response\0".as_ptr() as *const _,
+                c"notify::response".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_response_trampoline::<F> as *const (),
                 )),

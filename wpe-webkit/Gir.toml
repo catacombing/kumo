@@ -30,6 +30,7 @@ generate = [
     "WPEWebKit.DownloadError",
     "WPEWebKit.EditorState",
     "WPEWebKit.EditorTypingAttributes",
+    "WPEWebKit.Favicon",
     "WPEWebKit.FaviconDatabase",
     "WPEWebKit.FaviconDatabaseError",
     "WPEWebKit.Feature",

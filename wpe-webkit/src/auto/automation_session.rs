@@ -5,6 +5,7 @@
 
 use std::boxed::Box as Box_;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -78,13 +79,36 @@ impl AutomationSession {
         unsafe {
             let f: Box_<F> = Box_::new(f);
             let detailed_signal_name = detail.map(|name| format!("create-web-view::{name}\0"));
-            let signal_name: &[u8] =
-                detailed_signal_name.as_ref().map_or(&b"create-web-view\0"[..], |n| n.as_bytes());
+            let signal_name: &[u8] = detailed_signal_name
+                .as_ref()
+                .map_or(c"create-web-view".to_bytes(), |n| n.as_bytes());
             connect_raw(
                 self.as_ptr() as *mut _,
                 signal_name.as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     create_web_view_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "will-close")]
+    pub fn connect_will_close<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn will_close_trampoline<F: Fn(&AutomationSession) + 'static>(
+            this: *mut ffi::WebKitAutomationSession,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"will-close".as_ptr() as *const _,
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    will_close_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )

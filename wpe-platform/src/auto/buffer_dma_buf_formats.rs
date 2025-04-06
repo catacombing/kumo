@@ -17,11 +17,6 @@ glib::wrapper! {
 }
 
 impl BufferDMABufFormats {
-    #[doc(alias = "wpe_buffer_dma_buf_formats_new")]
-    pub fn new() -> BufferDMABufFormats {
-        unsafe { from_glib_full(ffi::wpe_buffer_dma_buf_formats_new()) }
-    }
-
     #[doc(alias = "wpe_buffer_dma_buf_formats_get_device")]
     #[doc(alias = "get_device")]
     pub fn device(&self) -> Option<glib::GString> {
@@ -72,11 +67,5 @@ impl BufferDMABufFormats {
     #[doc(alias = "get_n_groups")]
     pub fn n_groups(&self) -> u32 {
         unsafe { ffi::wpe_buffer_dma_buf_formats_get_n_groups(self.to_glib_none().0) }
-    }
-}
-
-impl Default for BufferDMABufFormats {
-    fn default() -> Self {
-        Self::new()
     }
 }

@@ -317,8 +317,12 @@ pub struct Texture {
 
 impl Texture {
     /// Load a buffer as texture into OpenGL.
-    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn new(buffer: &[u8], width: usize, height: usize) -> Self {
+        Self::new_with_format(buffer, width, height, gl::RGBA)
+    }
+
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn new_with_format(buffer: &[u8], width: usize, height: usize, color_format: u32) -> Self {
         assert!(buffer.len() == width * height * 4);
 
         unsafe {
@@ -330,11 +334,11 @@ impl Texture {
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGBA as i32,
+                color_format as i32,
                 width as i32,
                 height as i32,
                 0,
-                gl::RGBA,
+                color_format,
                 gl::UNSIGNED_BYTE,
                 buffer.as_ptr() as *const _,
             );

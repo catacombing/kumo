@@ -107,6 +107,32 @@ impl Value {
     // ffi:jsc_value_new_object() }
     //}
 
+    #[cfg(feature = "v2_48")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v2_48")))]
+    #[doc(alias = "jsc_value_new_promise")]
+    pub fn new_promise<P: FnMut(&Value, &Value)>(context: &Context, executor: P) -> Value {
+        let mut executor_data: P = executor;
+        unsafe extern "C" fn executor_func<P: FnMut(&Value, &Value)>(
+            resolve: *mut ffi::JSCValue,
+            reject: *mut ffi::JSCValue,
+            user_data: glib::ffi::gpointer,
+        ) {
+            let resolve = from_glib_borrow(resolve);
+            let reject = from_glib_borrow(reject);
+            let callback = user_data as *mut P;
+            (*callback)(&resolve, &reject)
+        }
+        let executor = Some(executor_func::<P> as _);
+        let super_callback0: &mut P = &mut executor_data;
+        unsafe {
+            from_glib_full(ffi::jsc_value_new_promise(
+                context.to_glib_none().0,
+                executor,
+                super_callback0 as *mut _ as *mut _,
+            ))
+        }
+    }
+
     #[doc(alias = "jsc_value_new_string")]
     pub fn new_string(context: &Context, string: Option<&str>) -> Value {
         unsafe {

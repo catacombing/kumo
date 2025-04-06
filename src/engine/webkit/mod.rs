@@ -37,7 +37,7 @@ use wpe_webkit::{
 };
 
 use crate::engine::webkit::platform::WebKitDisplay;
-use crate::engine::{Engine, EngineHandler, EngineId, Group, GroupId, BG};
+use crate::engine::{Engine, EngineHandler, EngineId, Favicon, Group, GroupId, BG};
 use crate::storage::cookie_whitelist::CookieWhitelist;
 use crate::ui::overlay::option_menu::{Anchor, OptionMenuId, OptionMenuItem, OptionMenuPosition};
 use crate::window::{TextInputChange, WindowHandler};
@@ -309,8 +309,10 @@ impl WebKitState {
         // Create a new network session for this group if necessary.
         let group_id = engine_id.group_id();
         let network_session = self.network_sessions.entry(group_id).or_insert_with(|| {
-            xdg_network_session(&self.cookie_whitelist, group.id().uuid())
-                .unwrap_or_else(NetworkSession::new_ephemeral)
+            let network_session = xdg_network_session(&self.cookie_whitelist, group.id().uuid())
+                .unwrap_or_else(NetworkSession::new_ephemeral);
+            network_session.website_data_manager().unwrap().set_favicons_enabled(true);
+            network_session
         });
 
         // Get the DRM render node.
@@ -376,6 +378,12 @@ impl WebKitState {
         web_view.connect_estimated_load_progress_notify(move |web_view| {
             let progress = web_view.estimated_load_progress();
             load_progress_queue.clone().set_load_progress(engine_id, progress);
+        });
+
+        // Update tabs view when on favicon change.
+        let favicon_queue = self.queue.clone();
+        web_view.connect_favicon_notify(move |_web_view| {
+            favicon_queue.clone().update_favicon(engine_id);
         });
 
         // Load adblock content filter.
@@ -741,6 +749,30 @@ impl Engine for WebKitEngine {
     fn restore_session(&self, session: Vec<u8>) {
         let session = WebViewSessionState::new(&Bytes::from_owned(session));
         self.web_view.restore_session_state(&session);
+    }
+
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn favicon(&self) -> Option<Favicon> {
+        let resource_uri = self.favicon_uri()?;
+        let favicon = self.web_view.favicon()?;
+
+        let bytes = favicon.bytes()?;
+        let width = favicon.width();
+        let height = favicon.height();
+
+        (width > 0 && height > 0).then_some(Favicon {
+            resource_uri,
+            bytes,
+            width: width as usize,
+            height: height as usize,
+        })
+    }
+
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn favicon_uri(&self) -> Option<glib::GString> {
+        let data_manager = self.web_view.network_session()?.website_data_manager()?;
+        let favicon_database = data_manager.favicon_database()?;
+        favicon_database.favicon_uri(&self.uri())
     }
 
     fn as_any(&mut self) -> &mut dyn Any {

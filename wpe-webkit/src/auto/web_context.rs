@@ -5,6 +5,7 @@
 
 use std::boxed::Box as Box_;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -267,7 +268,7 @@ impl WebContext {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"automation-started\0".as_ptr() as *const _,
+                c"automation-started".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     automation_started_trampoline::<F> as *const (),
                 )),
@@ -294,7 +295,7 @@ impl WebContext {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"initialize-notification-permissions\0".as_ptr() as *const _,
+                c"initialize-notification-permissions".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     initialize_notification_permissions_trampoline::<F> as *const (),
                 )),
@@ -321,7 +322,7 @@ impl WebContext {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"initialize-web-process-extensions\0".as_ptr() as *const _,
+                c"initialize-web-process-extensions".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     initialize_web_process_extensions_trampoline::<F> as *const (),
                 )),
@@ -349,7 +350,7 @@ impl WebContext {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"user-message-received\0".as_ptr() as *const _,
+                c"user-message-received".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     user_message_received_trampoline::<F> as *const (),
                 )),

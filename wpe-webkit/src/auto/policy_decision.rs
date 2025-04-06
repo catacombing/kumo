@@ -21,12 +21,7 @@ impl PolicyDecision {
     pub const NONE: Option<&'static PolicyDecision> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::PolicyDecision>> Sealed for T {}
-}
-
-pub trait PolicyDecisionExt: IsA<PolicyDecision> + sealed::Sealed + 'static {
+pub trait PolicyDecisionExt: IsA<PolicyDecision> + 'static {
     #[doc(alias = "webkit_policy_decision_download")]
     fn download(&self) {
         unsafe {

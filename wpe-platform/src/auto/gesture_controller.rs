@@ -21,12 +21,7 @@ impl GestureController {
     pub const NONE: Option<&'static GestureController> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::GestureController>> Sealed for T {}
-}
-
-pub trait GestureControllerExt: IsA<GestureController> + sealed::Sealed + 'static {
+pub trait GestureControllerExt: IsA<GestureController> + 'static {
     #[doc(alias = "wpe_gesture_controller_cancel")]
     fn cancel(&self) {
         unsafe {

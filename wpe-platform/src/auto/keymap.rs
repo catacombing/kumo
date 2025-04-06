@@ -21,12 +21,7 @@ impl Keymap {
     pub const NONE: Option<&'static Keymap> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Keymap>> Sealed for T {}
-}
-
-pub trait KeymapExt: IsA<Keymap> + sealed::Sealed + 'static {
+pub trait KeymapExt: IsA<Keymap> + 'static {
     //#[doc(alias = "wpe_keymap_get_entries_for_keyval")]
     //#[doc(alias = "get_entries_for_keyval")]
     // fn is_entries_for_keyval(&self, keyval: u32, entries: /*Ignored*/&mut

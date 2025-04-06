@@ -9,7 +9,7 @@ use std::pin::Pin;
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, ITPThirdParty, WebsiteData, WebsiteDataTypes};
+use crate::{ffi, FaviconDatabase, ITPThirdParty, WebsiteData, WebsiteDataTypes};
 
 glib::wrapper! {
     #[doc(alias = "WebKitWebsiteDataManager")]
@@ -119,6 +119,24 @@ impl WebsiteDataManager {
         }
     }
 
+    #[doc(alias = "webkit_website_data_manager_get_favicon_database")]
+    #[doc(alias = "get_favicon_database")]
+    pub fn favicon_database(&self) -> Option<FaviconDatabase> {
+        unsafe {
+            from_glib_none(ffi::webkit_website_data_manager_get_favicon_database(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "webkit_website_data_manager_get_favicons_enabled")]
+    #[doc(alias = "get_favicons_enabled")]
+    pub fn is_favicons_enabled(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_website_data_manager_get_favicons_enabled(self.to_glib_none().0))
+        }
+    }
+
     #[doc(alias = "webkit_website_data_manager_get_itp_summary")]
     #[doc(alias = "get_itp_summary")]
     pub fn itp_summary<P: FnOnce(Result<Vec<ITPThirdParty>, glib::Error>) + 'static>(
@@ -186,6 +204,16 @@ impl WebsiteDataManager {
     #[doc(alias = "webkit_website_data_manager_is_ephemeral")]
     pub fn is_ephemeral(&self) -> bool {
         unsafe { from_glib(ffi::webkit_website_data_manager_is_ephemeral(self.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_website_data_manager_set_favicons_enabled")]
+    pub fn set_favicons_enabled(&self, enabled: bool) {
+        unsafe {
+            ffi::webkit_website_data_manager_set_favicons_enabled(
+                self.to_glib_none().0,
+                enabled.into_glib(),
+            );
+        }
     }
 }
 

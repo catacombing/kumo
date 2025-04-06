@@ -13,7 +13,7 @@ build = "build.rs"
 
 [package.metadata.system-deps.wpe_webkit_2_0]
 name = "wpe-webkit-2.0"
-version = "2.45"
+version = "2.48"
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

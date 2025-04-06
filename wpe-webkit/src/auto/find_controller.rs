@@ -5,6 +5,7 @@
 
 use std::boxed::Box as Box_;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -113,7 +114,7 @@ impl FindController {
     pub fn connect_counted_matches<F: Fn(&Self, u32) + 'static>(&self, f: F) -> SignalHandlerId {
         unsafe extern "C" fn counted_matches_trampoline<F: Fn(&FindController, u32) + 'static>(
             this: *mut ffi::WebKitFindController,
-            match_count: libc::c_uint,
+            match_count: std::ffi::c_uint,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
@@ -123,7 +124,7 @@ impl FindController {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"counted-matches\0".as_ptr() as *const _,
+                c"counted-matches".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     counted_matches_trampoline::<F> as *const (),
                 )),
@@ -145,7 +146,7 @@ impl FindController {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"failed-to-find-text\0".as_ptr() as *const _,
+                c"failed-to-find-text".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     failed_to_find_text_trampoline::<F> as *const (),
                 )),
@@ -158,7 +159,7 @@ impl FindController {
     pub fn connect_found_text<F: Fn(&Self, u32) + 'static>(&self, f: F) -> SignalHandlerId {
         unsafe extern "C" fn found_text_trampoline<F: Fn(&FindController, u32) + 'static>(
             this: *mut ffi::WebKitFindController,
-            match_count: libc::c_uint,
+            match_count: std::ffi::c_uint,
             f: glib::ffi::gpointer,
         ) {
             let f: &F = &*(f as *const F);
@@ -168,7 +169,7 @@ impl FindController {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"found-text\0".as_ptr() as *const _,
+                c"found-text".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     found_text_trampoline::<F> as *const (),
                 )),
@@ -191,7 +192,7 @@ impl FindController {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::max-match-count\0".as_ptr() as *const _,
+                c"notify::max-match-count".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_max_match_count_trampoline::<F> as *const (),
                 )),
@@ -214,7 +215,7 @@ impl FindController {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::options\0".as_ptr() as *const _,
+                c"notify::options".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_options_trampoline::<F> as *const (),
                 )),
@@ -237,7 +238,7 @@ impl FindController {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::text\0".as_ptr() as *const _,
+                c"notify::text".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_text_trampoline::<F> as *const (),
                 )),

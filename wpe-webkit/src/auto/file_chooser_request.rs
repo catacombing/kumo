@@ -83,7 +83,7 @@ impl FileChooserRequest {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::mime-types\0".as_ptr() as *const _,
+                c"notify::mime-types".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_mime_types_trampoline::<F> as *const (),
                 )),
@@ -108,7 +108,7 @@ impl FileChooserRequest {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::select-multiple\0".as_ptr() as *const _,
+                c"notify::select-multiple".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_select_multiple_trampoline::<F> as *const (),
                 )),
@@ -133,7 +133,7 @@ impl FileChooserRequest {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::selected-files\0".as_ptr() as *const _,
+                c"notify::selected-files".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_selected_files_trampoline::<F> as *const (),
                 )),

@@ -5,6 +5,7 @@
 
 use std::boxed::Box as Box_;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -65,7 +66,7 @@ impl GeolocationManager {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"start\0".as_ptr() as *const _,
+                c"start".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     start_trampoline::<F> as *const (),
                 )),
@@ -87,7 +88,7 @@ impl GeolocationManager {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"stop\0".as_ptr() as *const _,
+                c"stop".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     stop_trampoline::<F> as *const (),
                 )),
@@ -115,7 +116,7 @@ impl GeolocationManager {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-high-accuracy\0".as_ptr() as *const _,
+                c"notify::enable-high-accuracy".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_high_accuracy_trampoline::<F> as *const (),
                 )),

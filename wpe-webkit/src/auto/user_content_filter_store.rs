@@ -134,7 +134,7 @@ impl UserContentFilterStore {
             user_data: glib::ffi::gpointer,
         ) {
             let mut error = std::ptr::null_mut();
-            let _ = ffi::webkit_user_content_filter_store_remove_finish(
+            ffi::webkit_user_content_filter_store_remove_finish(
                 _source_object as *mut _,
                 res,
                 &mut error,

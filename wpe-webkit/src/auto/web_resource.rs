@@ -6,6 +6,7 @@
 use std::boxed::Box as Box_;
 use std::pin::Pin;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{connect_raw, SignalHandlerId};
 use glib::translate::*;
@@ -110,7 +111,7 @@ impl WebResource {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"failed\0".as_ptr() as *const _,
+                c"failed".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     failed_trampoline::<F> as *const (),
                 )),
@@ -141,7 +142,7 @@ impl WebResource {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"failed-with-tls-errors\0".as_ptr() as *const _,
+                c"failed-with-tls-errors".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     failed_with_tls_errors_trampoline::<F> as *const (),
                 )),
@@ -163,7 +164,7 @@ impl WebResource {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"finished\0".as_ptr() as *const _,
+                c"finished".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     finished_trampoline::<F> as *const (),
                 )),
@@ -196,7 +197,7 @@ impl WebResource {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"sent-request\0".as_ptr() as *const _,
+                c"sent-request".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     sent_request_trampoline::<F> as *const (),
                 )),
@@ -219,7 +220,7 @@ impl WebResource {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::response\0".as_ptr() as *const _,
+                c"notify::response".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_response_trampoline::<F> as *const (),
                 )),
@@ -242,7 +243,7 @@ impl WebResource {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::uri\0".as_ptr() as *const _,
+                c"notify::uri".as_ptr() as *const _,
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_uri_trampoline::<F> as *const (),
                 )),

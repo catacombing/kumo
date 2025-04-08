@@ -1,4 +1,4 @@
 [submodule "gir-files"]
 	path = gir-files
-	url = git@github.com:gtk-rs/gir-files
+	url = https://github.com/gtk-rs/gir-files.git
 	update = none

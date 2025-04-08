@@ -153,7 +153,6 @@ pub struct Window {
     touch_points: HashMap<i32, Position<f64>>,
     keyboard_focus: KeyboardFocus,
 
-    fullscreen_request: Option<EngineId>,
     fullscreened: bool,
 
     session_storage: Session,
@@ -270,7 +269,6 @@ impl Window {
             initial_configure_done: Default::default(),
             history_menu_matches: Default::default(),
             last_rendered_engine: Default::default(),
-            fullscreen_request: Default::default(),
             keyboard_focus: Default::default(),
             fullscreened: Default::default(),
             history_menu: Default::default(),
@@ -469,6 +467,9 @@ impl Window {
             let tab_count = self.tabs.values().filter(|t| t.id().group_id() == tab_group).count();
             let ui_rendered = self.ui.draw(tab_count, has_history);
             self.stalled &= !ui_rendered;
+        } else if self.fullscreened {
+            self.ui.surface().attach(None, 0, 0);
+            self.ui.surface().commit();
         }
 
         // Get UI's IME text_input state.
@@ -585,13 +586,14 @@ impl Window {
 
         // Get fullscreen state.
         let is_fullscreen = configure.state.contains(WindowState::FULLSCREEN);
+        let fullscreen_changed = self.fullscreened != is_fullscreen;
 
         // Complete initial configure.
         let was_done = mem::replace(&mut self.initial_configure_done, true);
 
         // Short-circuit if nothing changed.
         let size_unchanged = self.size == size;
-        if size_unchanged && self.fullscreened == is_fullscreen {
+        if size_unchanged && !fullscreen_changed {
             // Still force redraw for the initial configure.
             if !was_done {
                 self.unstall();
@@ -615,13 +617,9 @@ impl Window {
             self.ui.set_size(self.size);
         }
 
-        // Acknowledge pending engine fullscreen requests.
-        let fullscreen_request = self.fullscreen_request.take();
-        let fullscreened = self.fullscreened;
-        if let Some(engine) = self.active_tab_mut() {
-            if Some(engine.id()) == fullscreen_request {
-                engine.set_fullscreen(fullscreened);
-            }
+        // Update engine fullscreen state.
+        if let Some(engine) = self.active_tab_mut().filter(|_| fullscreen_changed) {
+            engine.set_fullscreen(is_fullscreen);
         }
 
         // Destroy history popup, so we don't need to resize it.
@@ -1190,9 +1188,6 @@ impl Window {
         } else {
             self.xdg().unset_fullscreen();
         }
-
-        // Store engine's fullscreen request.
-        self.fullscreen_request = Some(engine_id);
     }
 
     /// Check whether a surface is owned by this window.

@@ -1,5 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=Kumo
-Icon=Kumo
 Exec=kumo
+Comment=A Wayland Mobile Browser
+Icon=Kumo
+Categories=Network;WebBrowser
+Keywords=mobile;wayland

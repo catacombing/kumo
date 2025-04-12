@@ -18,12 +18,12 @@ use std::ffi::{
 };
 
 #[allow(unused_imports)]
-use glib::{gboolean, gconstpointer, gpointer, GType};
+use glib::{GType, gboolean, gconstpointer, gpointer};
+#[allow(unused_imports)]
+use libc::{FILE, intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t};
 #[cfg(unix)]
 #[allow(unused_imports)]
 use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
-#[allow(unused_imports)]
-use libc::{intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE};
 use wpe::wpe_view_backend;
 use {
     gio_sys as gio, glib_sys as glib, gobject_sys as gobject, soup_sys as soup,
@@ -2172,7 +2172,7 @@ impl ::std::fmt::Debug for WebKitPermissionRequest {
     }
 }
 
-extern "C" {
+unsafe extern "C" {
 
     //=========================================================================
     // WebKitAuthenticationScheme
@@ -2900,7 +2900,7 @@ extern "C" {
         session: *mut WebKitAutomationSession,
     ) -> *mut WebKitApplicationInfo;
     pub fn webkit_automation_session_get_id(session: *mut WebKitAutomationSession)
-        -> *const c_char;
+    -> *const c_char;
     pub fn webkit_automation_session_set_application_info(
         session: *mut WebKitAutomationSession,
         info: *mut WebKitApplicationInfo,
@@ -3153,7 +3153,7 @@ extern "C" {
     pub fn webkit_editor_state_is_copy_available(editor_state: *mut WebKitEditorState) -> gboolean;
     pub fn webkit_editor_state_is_cut_available(editor_state: *mut WebKitEditorState) -> gboolean;
     pub fn webkit_editor_state_is_paste_available(editor_state: *mut WebKitEditorState)
-        -> gboolean;
+    -> gboolean;
     pub fn webkit_editor_state_is_redo_available(editor_state: *mut WebKitEditorState) -> gboolean;
     pub fn webkit_editor_state_is_undo_available(editor_state: *mut WebKitEditorState) -> gboolean;
 
@@ -3601,12 +3601,12 @@ extern "C" {
         settings: *mut WebKitSettings,
     ) -> gboolean;
     pub fn webkit_settings_get_enable_hyperlink_auditing(settings: *mut WebKitSettings)
-        -> gboolean;
+    -> gboolean;
     pub fn webkit_settings_get_enable_javascript(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_javascript_markup(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_media(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_media_capabilities(settings: *mut WebKitSettings)
-        -> gboolean;
+    -> gboolean;
     pub fn webkit_settings_get_enable_media_stream(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_mediasource(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_mock_capture_devices(
@@ -3624,7 +3624,7 @@ extern "C" {
     ) -> gboolean;
     pub fn webkit_settings_get_enable_smooth_scrolling(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_spatial_navigation(settings: *mut WebKitSettings)
-        -> gboolean;
+    -> gboolean;
     pub fn webkit_settings_get_enable_tabs_to_links(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_webaudio(settings: *mut WebKitSettings) -> gboolean;
     pub fn webkit_settings_get_enable_webgl(settings: *mut WebKitSettings) -> gboolean;
@@ -3928,7 +3928,7 @@ extern "C" {
         request: *mut WebKitURISchemeRequest,
     ) -> *const c_char;
     pub fn webkit_uri_scheme_request_get_uri(request: *mut WebKitURISchemeRequest)
-        -> *const c_char;
+    -> *const c_char;
     pub fn webkit_uri_scheme_request_get_web_view(
         request: *mut WebKitURISchemeRequest,
     ) -> *mut WebKitWebView;
@@ -4306,7 +4306,7 @@ extern "C" {
         web_view: *mut WebKitWebView,
     ) -> WebKitMediaCaptureState;
     pub fn webkit_web_view_get_editor_state(web_view: *mut WebKitWebView)
-        -> *mut WebKitEditorState;
+    -> *mut WebKitEditorState;
     pub fn webkit_web_view_get_estimated_load_progress(web_view: *mut WebKitWebView) -> c_double;
     pub fn webkit_web_view_get_favicon(web_view: *mut WebKitWebView) -> *mut WebKitFavicon;
     pub fn webkit_web_view_get_find_controller(
@@ -4351,7 +4351,7 @@ extern "C" {
         web_view: *mut WebKitWebView,
     ) -> *mut WebKitWindowProperties;
     pub fn webkit_web_view_get_wpe_view(web_view: *mut WebKitWebView)
-        -> *mut wpe_platform::WPEView;
+    -> *mut wpe_platform::WPEView;
     pub fn webkit_web_view_get_zoom_level(web_view: *mut WebKitWebView) -> c_double;
     pub fn webkit_web_view_go_back(web_view: *mut WebKitWebView);
     pub fn webkit_web_view_go_forward(web_view: *mut WebKitWebView);

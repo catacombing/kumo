@@ -7,10 +7,10 @@ use std::boxed::Box as Box_;
 
 use glib::object::ObjectType as _;
 use glib::prelude::*;
-use glib::signal::{connect_raw, SignalHandlerId};
+use glib::signal::{SignalHandlerId, connect_raw};
 use glib::translate::*;
 
-use crate::{ffi, ScriptMessageReply, UserContentFilter, UserScript, UserStyleSheet};
+use crate::{ScriptMessageReply, UserContentFilter, UserScript, UserStyleSheet, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WebKitUserContentManager")]
@@ -168,8 +168,10 @@ impl UserContentManager {
             value: *mut wpe_java_script_core::ffi::JSCValue,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(value))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(value))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -206,9 +208,11 @@ impl UserContentManager {
             reply: *mut ffi::WebKitScriptMessageReply,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(value), &from_glib_borrow(reply))
-                .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(value), &from_glib_borrow(reply))
+                    .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);

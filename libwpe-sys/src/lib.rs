@@ -2953,7 +2953,7 @@ fn bindgen_test_layout_wpe_gamepad_interface() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_provider_create:
     ///
     /// This method is called by WPEWebKit.
@@ -2963,7 +2963,7 @@ extern "C" {
     /// Since: 1.14
     pub fn wpe_gamepad_provider_create() -> *mut wpe_gamepad_provider;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_provider_destroy:
     /// @provider: opaque libwpe's representation of gamepad provider.
     ///
@@ -2974,7 +2974,7 @@ extern "C" {
     /// Since: 1.14
     pub fn wpe_gamepad_provider_destroy(arg1: *mut wpe_gamepad_provider);
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_provider_set_client:
     /// @provider: opaque libwpe's representation of gamepad provider.
     /// @client_interface: WPEWebKit callbacks for gamepad devices appearance.
@@ -2989,7 +2989,7 @@ extern "C" {
         arg3: *mut ::std::os::raw::c_void,
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_provider_start:
     /// @provider: opaque libwpe's representation of gamepad provider.
     ///
@@ -2999,7 +2999,7 @@ extern "C" {
     /// Since: 1.14
     pub fn wpe_gamepad_provider_start(arg1: *mut wpe_gamepad_provider);
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_provider_stop:
     /// @provider: opaque libwpe's representation of gamepad provider.
     ///
@@ -3009,7 +3009,7 @@ extern "C" {
     /// Since: 1.14
     pub fn wpe_gamepad_provider_stop(arg1: *mut wpe_gamepad_provider);
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_provider_get_backend:
     /// @provider: opaque libwpe's representation of gamepad provider.
     ///
@@ -3023,7 +3023,7 @@ extern "C" {
         arg1: *mut wpe_gamepad_provider,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gampepad_provider_get_view_backend:
     /// @provider: opaque libwpe's representation of gamepad provider.
     /// @gamepad: opaque libwep's representation of gampead
@@ -3036,7 +3036,7 @@ extern "C" {
         arg2: *mut wpe_gamepad,
     ) -> *mut wpe_view_backend;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_provider_dispatch_gamepad_connected:
     /// @provider: opaque libwpe's representation of gamepad provider.
     /// @gamepad_id: application's gamepad device identifier.
@@ -3050,7 +3050,7 @@ extern "C" {
         arg2: usize,
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_provider_dispatch_gamepad_disconnected:
     /// @provider: opaque libwpe's representation of gamepad provider.
     /// @gamepad_id: application's gamepad device identifier.
@@ -3064,7 +3064,7 @@ extern "C" {
         arg2: usize,
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_create:
     /// @provider:  provider of the gamepad to create.
     /// @gamepad_id: opaque application's representation of gamepad provider.
@@ -3077,7 +3077,7 @@ extern "C" {
     /// Since: 1.14
     pub fn wpe_gamepad_create(arg1: *mut wpe_gamepad_provider, arg2: usize) -> *mut wpe_gamepad;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_destroy:
     /// @gamepad: opaque libwpe's representation of gamepad.
     ///
@@ -3087,7 +3087,7 @@ extern "C" {
     /// Since: 1.14
     pub fn wpe_gamepad_destroy(arg1: *mut wpe_gamepad);
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_provider_set_client:
     /// @gamepad: opaque libwpe's representation of gamepad.
     /// @client_interface: WPEWebKit callbacks for gamepad devices events.
@@ -3102,7 +3102,7 @@ extern "C" {
         arg3: *mut ::std::os::raw::c_void,
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_get_id:
     /// @gamepad: opaque libwpe's representation of gamepad.
     ///
@@ -3111,7 +3111,7 @@ extern "C" {
     /// Since: 1.14
     pub fn wpe_gamepad_get_id(arg1: *mut wpe_gamepad) -> *const ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_dispatch_button_changed:
     /// @gamepad: opaque gamepad object.
     /// @button: the standard button that changed its state.
@@ -3127,7 +3127,7 @@ extern "C" {
         arg3: bool,
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_dispatch_axis_changed:
     /// @gamepad: opaque gamepad object.
     /// @axis: the standard axis that changed its state.
@@ -3143,7 +3143,7 @@ extern "C" {
         arg3: f64,
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_gamepad_set_handler:
     /// @provider_iface: (transfer none): Application callbacks for gamepad
     /// provider. @gamepad_iface: (transfer none): Applications callbacks
@@ -3555,10 +3555,10 @@ fn bindgen_test_layout_wpe_input_touch_event() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_key_code_to_unicode(arg1: u32) -> u32;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_unicode_to_key_code(arg1: u32) -> u32;
 }
 /// wpe_loader_interface:
@@ -3642,7 +3642,7 @@ fn bindgen_test_layout_wpe_loader_interface() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_loader_init:
     /// @impl_library_name: (transfer none): Name of the shared library object
     ///     to load as WPE backend implementation.
@@ -3652,7 +3652,7 @@ extern "C" {
     /// Returns: Whether initialization succeeded.
     pub fn wpe_loader_init(impl_library_name: *const ::std::os::raw::c_char) -> bool;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_loader_get_loaded_implementation_library_name:
     ///
     /// Obtain the name of the shared library object loaded as WPE backend
@@ -3821,7 +3821,7 @@ fn bindgen_test_layout_wpe_pasteboard_string_map() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_pasteboard_string_initialize:
     /// @pbstring: (transfer none): A pasteboard string.
     /// @contents: (transfer none): Contents to copy into the pasteboard string.
@@ -3837,7 +3837,7 @@ extern "C" {
         length: u64,
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_pasteboard_string_free:
     /// @pbstring: (transfer none): A pasteboard string.
     ///
@@ -3845,7 +3845,7 @@ extern "C" {
     /// previously allocated by wpe_pasteboard_string_initialize().
     pub fn wpe_pasteboard_string_free(pbstring: *mut wpe_pasteboard_string);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_pasteboard_string_vector_free(arg1: *mut wpe_pasteboard_string_vector);
 }
 #[repr(C)]
@@ -3974,7 +3974,7 @@ fn bindgen_test_layout_wpe_pasteboard_interface() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_pasteboard_get_singleton:
     ///
     /// Obtains the pasteboard object, creating it if neccessary.
@@ -3982,20 +3982,20 @@ extern "C" {
     /// Returns: The pasteboard object.
     pub fn wpe_pasteboard_get_singleton() -> *mut wpe_pasteboard;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_pasteboard_get_types(
         arg1: *mut wpe_pasteboard,
         arg2: *mut wpe_pasteboard_string_vector,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_pasteboard_get_string(
         arg1: *mut wpe_pasteboard,
         arg2: *const ::std::os::raw::c_char,
         arg3: *mut wpe_pasteboard_string,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_pasteboard_write(arg1: *mut wpe_pasteboard, arg2: *mut wpe_pasteboard_string_map);
 }
 pub const wpe_process_type_WPE_PROCESS_TYPE_WEB: wpe_process_type = 0;
@@ -4153,7 +4153,7 @@ fn bindgen_test_layout_wpe_process_provider_interface() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_process_provider_create:
     ///
     /// This method is called by WPEWebKit.
@@ -4163,7 +4163,7 @@ extern "C" {
     /// Since: 1.14
     pub fn wpe_process_provider_create() -> *mut wpe_process_provider;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_process_provider_destroy:
     /// @provider: opaque libwpe's representation of the process provider.
     ///
@@ -4174,7 +4174,7 @@ extern "C" {
     /// Since: 1.14
     pub fn wpe_process_provider_destroy(arg1: *mut wpe_process_provider);
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_process_launch:
     /// @provider: opaque libwpe's representation of the process provider.
     /// @type: the process type to launch.
@@ -4191,7 +4191,7 @@ extern "C" {
         arg3: *mut ::std::os::raw::c_void,
     ) -> i64;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_process_terminate:
     /// @provider: opaque libwpe's representation of the process provider.
     /// @process: identifier for the process to terminate.
@@ -4201,7 +4201,7 @@ extern "C" {
     /// Since: 1.14
     pub fn wpe_process_terminate(arg1: *mut wpe_process_provider, arg2: i64);
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_process_provider_register_interface:
     /// @iface: interface for the process provider.
     ///
@@ -4353,10 +4353,10 @@ fn bindgen_test_layout_wpe_renderer_host_base() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_host_create_client() -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_backend_get_major_version:
     ///
     /// Returns: Major version of the `libwpe` library.
@@ -4365,7 +4365,7 @@ extern "C" {
     ///     instead.
     pub fn wpe_backend_get_major_version() -> ::std::os::raw::c_uint;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_backend_get_minor_version:
     ///
     /// Returns: Minor version of the `libwpe` library.
@@ -4374,7 +4374,7 @@ extern "C" {
     ///     instead.
     pub fn wpe_backend_get_minor_version() -> ::std::os::raw::c_uint;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_backend_get_micro_version:
     ///
     /// Returns: Micro version of the `libwpe` library.
@@ -4383,19 +4383,19 @@ extern "C" {
     ///     instead.
     pub fn wpe_backend_get_micro_version() -> ::std::os::raw::c_uint;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_get_major_version:
     ///
     /// Returns: Major version of the `libwpe` library.
     pub fn wpe_get_major_version() -> ::std::os::raw::c_uint;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_get_minor_version:
     ///
     /// Returns: Minor version of the `libwpe` library.
     pub fn wpe_get_minor_version() -> ::std::os::raw::c_uint;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_get_micro_version:
     ///
     /// Returns: Micro version of the `libwpe` library.
@@ -4563,33 +4563,33 @@ fn bindgen_test_layout_wpe_view_backend_base() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_create() -> *mut wpe_view_backend;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_create_with_backend_interface(
         arg1: *mut wpe_view_backend_interface,
         arg2: *mut ::std::os::raw::c_void,
     ) -> *mut wpe_view_backend;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_destroy(arg1: *mut wpe_view_backend);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_set_backend_client(
         arg1: *mut wpe_view_backend,
         arg2: *const wpe_view_backend_client,
         arg3: *mut ::std::os::raw::c_void,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_set_input_client(
         arg1: *mut wpe_view_backend,
         arg2: *const wpe_view_backend_input_client,
         arg3: *mut ::std::os::raw::c_void,
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_view_backend_set_fullscreen_client:
     /// @view_backend: (transfer none): The view backend to obtains events from.
     /// @client: (transfer none) (nullable): Client with callbacks for the
@@ -4620,7 +4620,7 @@ extern "C" {
 pub type wpe_view_backend_fullscreen_handler = ::std::option::Option<
     unsafe extern "C" fn(userdata: *mut ::std::os::raw::c_void, enable: bool) -> bool,
 >;
-extern "C" {
+unsafe extern "C" {
     /// wpe_view_backend_set_fullscreen_handler:
     /// @view_backend: (transfer none): The view backend to obtains events from.
     /// @handler: (transfer none): Function used by an embedder to implement
@@ -4640,10 +4640,10 @@ extern "C" {
         userdata: *mut ::std::os::raw::c_void,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_initialize(arg1: *mut wpe_view_backend);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_get_renderer_host_fd(
         arg1: *mut wpe_view_backend,
     ) -> ::std::os::raw::c_int;
@@ -4746,27 +4746,27 @@ fn bindgen_test_layout_wpe_view_backend_client() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_dispatch_set_size(arg1: *mut wpe_view_backend, arg2: u32, arg3: u32);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_dispatch_frame_displayed(arg1: *mut wpe_view_backend);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_add_activity_state(arg1: *mut wpe_view_backend, arg2: u32);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_remove_activity_state(arg1: *mut wpe_view_backend, arg2: u32);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_get_activity_state(arg1: *mut wpe_view_backend) -> u32;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_dispatch_get_accessible(
         backend: *mut wpe_view_backend,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_view_backend_dispatch_set_device_scale_factor:
     /// @view_backend: (transfer none): The view backend to configure.
     /// @factor: Scaling factor to apply.
@@ -4794,10 +4794,10 @@ extern "C" {
         arg2: f32,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_get_target_refresh_rate(arg1: *mut wpe_view_backend) -> u32;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_set_target_refresh_rate(arg1: *mut wpe_view_backend, arg2: u32);
 }
 #[repr(C)]
@@ -4919,25 +4919,25 @@ fn bindgen_test_layout_wpe_view_backend_input_client() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_dispatch_keyboard_event(
         arg1: *mut wpe_view_backend,
         arg2: *mut wpe_input_keyboard_event,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_dispatch_pointer_event(
         arg1: *mut wpe_view_backend,
         arg2: *mut wpe_input_pointer_event,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_dispatch_axis_event(
         arg1: *mut wpe_view_backend,
         arg2: *mut wpe_input_axis_event,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_view_backend_dispatch_touch_event(
         arg1: *mut wpe_view_backend,
         arg2: *mut wpe_input_touch_event,
@@ -5067,7 +5067,7 @@ fn bindgen_test_layout_wpe_view_backend_fullscreen_client() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_view_backend_platform_set_fullscreen:
     /// @view_backend: (transfer none): The view backend which fullscreen state
     /// will be changed. @fullscreen: (transfer none): True if fullscreen.
@@ -5084,7 +5084,7 @@ extern "C" {
         arg2: bool,
     ) -> bool;
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_view_backend_dispatch_did_enter_fullscreen:
     /// @view_backend: (transfer none): The view backend that triggered the
     /// event.
@@ -5095,7 +5095,7 @@ extern "C" {
     /// Since: 1.12
     pub fn wpe_view_backend_dispatch_did_enter_fullscreen(arg1: *mut wpe_view_backend);
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_view_backend_dispatch_did_exit_fullscreen:
     /// @view_backend: (transfer none): The view backend that triggered the
     /// event.
@@ -5106,7 +5106,7 @@ extern "C" {
     /// Since: 1.12
     pub fn wpe_view_backend_dispatch_did_exit_fullscreen(arg1: *mut wpe_view_backend);
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_view_backend_dispatch_request_enter_fullscreen:
     /// @view_backend: (transfer none): The view backend that triggered the
     /// event.
@@ -5117,7 +5117,7 @@ extern "C" {
     /// Since: 1.12
     pub fn wpe_view_backend_dispatch_request_enter_fullscreen(arg1: *mut wpe_view_backend);
 }
-extern "C" {
+unsafe extern "C" {
     /// wpe_view_backend_dispatch_request_exit_fullscreen:
     /// @view_backend: (transfer none): The view backend that triggered the
     /// event.
@@ -5670,38 +5670,38 @@ fn bindgen_test_layout_wpe_renderer_backend_egl_offscreen_target_base() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_create(
         arg1: ::std::os::raw::c_int,
     ) -> *mut wpe_renderer_backend_egl;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_destroy(arg1: *mut wpe_renderer_backend_egl);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_get_native_display(
         arg1: *mut wpe_renderer_backend_egl,
     ) -> EGLNativeDisplayType;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_get_platform(arg1: *mut wpe_renderer_backend_egl) -> u32;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_target_create(
         arg1: ::std::os::raw::c_int,
     ) -> *mut wpe_renderer_backend_egl_target;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_target_destroy(arg1: *mut wpe_renderer_backend_egl_target);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_target_set_client(
         arg1: *mut wpe_renderer_backend_egl_target,
         arg2: *const wpe_renderer_backend_egl_target_client,
         arg3: *mut ::std::os::raw::c_void,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_target_initialize(
         arg1: *mut wpe_renderer_backend_egl_target,
         arg2: *mut wpe_renderer_backend_egl,
@@ -5709,47 +5709,47 @@ extern "C" {
         arg4: u32,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_target_get_native_window(
         arg1: *mut wpe_renderer_backend_egl_target,
     ) -> EGLNativeWindowType;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_target_resize(
         arg1: *mut wpe_renderer_backend_egl_target,
         arg2: u32,
         arg3: u32,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_target_frame_will_render(
         arg1: *mut wpe_renderer_backend_egl_target,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_target_frame_rendered(
         arg1: *mut wpe_renderer_backend_egl_target,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_target_deinitialize(arg1: *mut wpe_renderer_backend_egl_target);
 }
-extern "C" {
-    pub fn wpe_renderer_backend_egl_offscreen_target_create(
-    ) -> *mut wpe_renderer_backend_egl_offscreen_target;
+unsafe extern "C" {
+    pub fn wpe_renderer_backend_egl_offscreen_target_create()
+    -> *mut wpe_renderer_backend_egl_offscreen_target;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_offscreen_target_destroy(
         arg1: *mut wpe_renderer_backend_egl_offscreen_target,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_offscreen_target_initialize(
         arg1: *mut wpe_renderer_backend_egl_offscreen_target,
         arg2: *mut wpe_renderer_backend_egl,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_offscreen_target_get_native_window(
         arg1: *mut wpe_renderer_backend_egl_offscreen_target,
     ) -> EGLNativeWindowType;
@@ -5830,7 +5830,7 @@ fn bindgen_test_layout_wpe_renderer_backend_egl_target_client() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wpe_renderer_backend_egl_target_dispatch_frame_complete(
         arg1: *mut wpe_renderer_backend_egl_target,
     );

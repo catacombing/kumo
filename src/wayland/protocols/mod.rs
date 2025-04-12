@@ -9,7 +9,7 @@ use _dmabuf::zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1;
 use _spb::wp_single_pixel_buffer_manager_v1::{self, WpSinglePixelBufferManagerV1};
 use _text_input::zwp_text_input_manager_v3::{self, ZwpTextInputManagerV3};
 use _text_input::zwp_text_input_v3::{self, ZwpTextInputV3};
-use glib::{source, ControlFlow, Priority};
+use glib::{ControlFlow, Priority, source};
 use smithay_client_toolkit::compositor::{CompositorHandler, CompositorState};
 use smithay_client_toolkit::data_device_manager::data_device::{DataDevice, DataDeviceHandler};
 use smithay_client_toolkit::data_device_manager::data_offer::{DataOfferHandler, DragOffer};
@@ -39,8 +39,8 @@ use smithay_client_toolkit::seat::keyboard::{
 use smithay_client_toolkit::seat::pointer::{PointerEvent, PointerEventKind, PointerHandler};
 use smithay_client_toolkit::seat::touch::TouchHandler;
 use smithay_client_toolkit::seat::{Capability, SeatHandler, SeatState};
-use smithay_client_toolkit::shell::xdg::window::{Window, WindowConfigure, WindowHandler};
 use smithay_client_toolkit::shell::xdg::XdgShell;
+use smithay_client_toolkit::shell::xdg::window::{Window, WindowConfigure, WindowHandler};
 use smithay_client_toolkit::subcompositor::SubcompositorState;
 use smithay_client_toolkit::{
     delegate_compositor, delegate_data_device, delegate_dmabuf, delegate_keyboard, delegate_output,

@@ -1,12 +1,12 @@
 //! Trait for subclassing View.
 
-use std::ffi::{c_char, c_uint, CStr};
+use std::ffi::{CStr, c_char, c_uint};
 use std::slice;
 
 use ffi::{WPEBuffer, WPERectangle, WPEView};
 use glib::subclass::prelude::*;
-use glib::translate::{from_glib_none, IntoGlib};
-use glib_sys::{gboolean, GError};
+use glib::translate::{IntoGlib, from_glib_none};
+use glib_sys::{GError, gboolean};
 
 use crate::{Buffer, View};
 
@@ -44,22 +44,26 @@ unsafe extern "C" fn render_buffer<T: ViewImpl>(
     n_damage_rects: c_uint,
     _error: *mut *mut GError,
 ) -> gboolean {
-    let damage_rects = if n_damage_rects > 0 {
-        slice::from_raw_parts(damage_rects, n_damage_rects as usize)
-    } else {
-        &[]
-    };
-    let buffer: Buffer = from_glib_none(buffer);
+    unsafe {
+        let damage_rects = if n_damage_rects > 0 {
+            slice::from_raw_parts(damage_rects, n_damage_rects as usize)
+        } else {
+            &[]
+        };
+        let buffer: Buffer = from_glib_none(buffer);
 
-    let instance = &*(view as *mut T::Instance);
-    instance.imp().render_buffer(buffer, damage_rects);
-    true.into_glib()
+        let instance = &*(view as *mut T::Instance);
+        instance.imp().render_buffer(buffer, damage_rects);
+        true.into_glib()
+    }
 }
 
 unsafe extern "C" fn set_cursor_from_name<T: ViewImpl>(view: *mut WPEView, name: *const c_char) {
-    if let Ok(name) = CStr::from_ptr(name).to_str() {
-        let instance = &*(view as *mut T::Instance);
-        instance.imp().set_cursor_from_name(name);
+    unsafe {
+        if let Ok(name) = CStr::from_ptr(name).to_str() {
+            let instance = &*(view as *mut T::Instance);
+            instance.imp().set_cursor_from_name(name);
+        }
     }
 }
 
@@ -68,7 +72,9 @@ unsafe extern "C" fn set_opaque_rectangles<T: ViewImpl>(
     rects: *mut WPERectangle,
     n_rects: c_uint,
 ) {
-    let rects = slice::from_raw_parts(rects, n_rects as usize);
-    let instance = &*(view as *mut T::Instance);
-    instance.imp().set_opaque_rectangles(rects);
+    unsafe {
+        let rects = slice::from_raw_parts(rects, n_rects as usize);
+        let instance = &*(view as *mut T::Instance);
+        instance.imp().set_opaque_rectangles(rects);
+    }
 }

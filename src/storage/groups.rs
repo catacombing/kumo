@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use rusqlite::{params, Connection as SqliteConnection, OptionalExtension, Transaction};
+use rusqlite::{Connection as SqliteConnection, OptionalExtension, Transaction, params};
 use tracing::error;
 use uuid::Uuid;
 

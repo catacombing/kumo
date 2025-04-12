@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, Event, Gesture};
+use crate::{Event, Gesture, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEGestureController")]
@@ -48,11 +48,7 @@ pub trait GestureControllerExt: IsA<GestureController> + 'static {
                 x.as_mut_ptr(),
                 y.as_mut_ptr(),
             ));
-            if ret {
-                Some((x.assume_init(), y.assume_init()))
-            } else {
-                None
-            }
+            if ret { Some((x.assume_init(), y.assume_init())) } else { None }
         }
     }
 
@@ -67,11 +63,7 @@ pub trait GestureControllerExt: IsA<GestureController> + 'static {
                 x.as_mut_ptr(),
                 y.as_mut_ptr(),
             ));
-            if ret {
-                Some((x.assume_init(), y.assume_init()))
-            } else {
-                None
-            }
+            if ret { Some((x.assume_init(), y.assume_init())) } else { None }
         }
     }
 

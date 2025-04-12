@@ -5,8 +5,8 @@ use std::rc::Rc;
 use rusqlite::{Connection as SqliteConnection, Transaction};
 use tracing::error;
 
-use crate::storage::DbVersion;
 use crate::Error;
+use crate::storage::DbVersion;
 
 /// Cookie persistance exceptions.
 #[derive(Clone)]

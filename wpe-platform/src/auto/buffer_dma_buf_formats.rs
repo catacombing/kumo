@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::{ffi, BufferDMABufFormatUsage};
+use crate::{BufferDMABufFormatUsage, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEBufferDMABufFormats")]

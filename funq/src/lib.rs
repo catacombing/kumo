@@ -1,11 +1,11 @@
 use std::any::Any;
 use std::io;
 use std::os::fd::{AsFd, BorrowedFd, OwnedFd};
-use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
+use std::sync::mpsc::{self, Receiver, Sender};
 
 pub use funq_derive::callbacks;
-use rustix::event::{eventfd, EventfdFlags};
+use rustix::event::{EventfdFlags, eventfd};
 use rustix::io::{read, write};
 
 /// Callback-based event queue.

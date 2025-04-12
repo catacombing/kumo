@@ -10,7 +10,7 @@ use std::time::Duration;
 use std::{env, io, mem, process};
 
 use funq::{MtQueueHandle, Queue, StQueueHandle};
-use glib::{source, ControlFlow, IOCondition, MainLoop, Priority, Source};
+use glib::{ControlFlow, IOCondition, MainLoop, Priority, Source, source};
 use glutin::display::{Display, DisplayApiPreference};
 #[cfg(feature = "profiling")]
 use profiling::puffin;
@@ -32,10 +32,10 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::engine::webkit::{WebKitError, WebKitState};
 use crate::engine::{Group, GroupId, NO_GROUP_ID};
-use crate::storage::history::History;
 use crate::storage::Storage;
-use crate::wayland::protocols::{KeyRepeat, ProtocolStates, TextInput, FrameState};
+use crate::storage::history::History;
 use crate::wayland::WaylandDispatch;
+use crate::wayland::protocols::{FrameState, KeyRepeat, ProtocolStates, TextInput};
 use crate::window::{KeyboardFocus, PasteTarget, Window, WindowHandler, WindowId};
 
 mod engine;
@@ -46,7 +46,7 @@ mod wayland;
 mod window;
 
 mod gl {
-    #![allow(clippy::all)]
+    #![allow(clippy::all, unsafe_op_in_unsafe_fn)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 

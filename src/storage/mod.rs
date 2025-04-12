@@ -6,11 +6,11 @@ use std::{fs, mem};
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use tracing::error;
 
+use crate::Error;
 use crate::storage::cookie_whitelist::CookieWhitelist;
 use crate::storage::groups::Groups;
 use crate::storage::history::History;
 use crate::storage::session::Session;
-use crate::Error;
 
 pub mod cookie_whitelist;
 pub mod groups;

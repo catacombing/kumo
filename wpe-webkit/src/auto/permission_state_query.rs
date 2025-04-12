@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::{ffi, PermissionState, SecurityOrigin};
+use crate::{PermissionState, SecurityOrigin, ffi};
 
 glib::wrapper! {
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

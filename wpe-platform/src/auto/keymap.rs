@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, Modifiers};
+use crate::{Modifiers, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEKeymap")]

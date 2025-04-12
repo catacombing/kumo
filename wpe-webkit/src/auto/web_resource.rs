@@ -8,10 +8,10 @@ use std::pin::Pin;
 
 use glib::object::ObjectType as _;
 use glib::prelude::*;
-use glib::signal::{connect_raw, SignalHandlerId};
+use glib::signal::{SignalHandlerId, connect_raw};
 use glib::translate::*;
 
-use crate::{ffi, URIRequest, URIResponse};
+use crate::{URIRequest, URIResponse, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WebKitWebResource")]
@@ -46,23 +46,25 @@ impl WebResource {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let mut length = std::mem::MaybeUninit::uninit();
-            let ret = ffi::webkit_web_resource_get_data_finish(
-                _source_object as *mut _,
-                res,
-                length.as_mut_ptr(),
-                &mut error,
-            );
-            let result = if error.is_null() {
-                Ok(FromGlibContainer::from_glib_full_num(ret, length.assume_init() as _))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let mut length = std::mem::MaybeUninit::uninit();
+                let ret = ffi::webkit_web_resource_get_data_finish(
+                    _source_object as *mut _,
+                    res,
+                    length.as_mut_ptr(),
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok(FromGlibContainer::from_glib_full_num(ret, length.assume_init() as _))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = data_trampoline::<P>;
         unsafe {
@@ -104,8 +106,10 @@ impl WebResource {
             error: *mut glib::ffi::GError,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(error))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(error))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -135,8 +139,10 @@ impl WebResource {
             errors: gio::ffi::GTlsCertificateFlags,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(certificate), from_glib(errors))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(certificate), from_glib(errors))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -157,8 +163,10 @@ impl WebResource {
             this: *mut ffi::WebKitWebResource,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -186,12 +194,14 @@ impl WebResource {
             redirected_response: *mut ffi::WebKitURIResponse,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                &from_glib_borrow(request),
-                &from_glib_borrow(redirected_response),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    &from_glib_borrow(request),
+                    &from_glib_borrow(redirected_response),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -213,8 +223,10 @@ impl WebResource {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -236,8 +248,10 @@ impl WebResource {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);

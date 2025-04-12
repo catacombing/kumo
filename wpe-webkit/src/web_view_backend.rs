@@ -10,7 +10,7 @@ use crate::WebViewBackend;
 impl WebViewBackend {
     #[doc(alias = "webkit_web_view_backend_new")]
     pub unsafe fn new(backend: *mut wpe_view_backend) -> WebViewBackend {
-        from_glib_full(unsafe { ffi::webkit_web_view_backend_new(backend, None, ptr::null_mut()) })
+        unsafe { from_glib_full(ffi::webkit_web_view_backend_new(backend, None, ptr::null_mut())) }
     }
 
     #[doc(alias = "webkit_web_view_backend_get_wpe_backend")]

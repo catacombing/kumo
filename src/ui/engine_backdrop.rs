@@ -6,15 +6,15 @@
 use _spb::wp_single_pixel_buffer_manager_v1::WpSinglePixelBufferManagerV1;
 use glutin::display::Display;
 use smithay_client_toolkit::compositor::{CompositorState, Region};
-use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::QueueHandle;
+use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::single_pixel_buffer::v1::client as _spb;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 
-use crate::ui::renderer::Renderer;
 use crate::ui::Ui;
+use crate::ui::renderer::Renderer;
 use crate::wayland::protocols::ProtocolStates;
-use crate::{gl, Size, State};
+use crate::{Size, State, gl};
 
 // Fallback color when waiting for engine frame.
 const SPB_COLOR: u32 = u32::MAX / 10;

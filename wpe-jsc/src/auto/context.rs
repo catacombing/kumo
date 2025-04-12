@@ -8,7 +8,7 @@ use std::boxed::Box as Box_;
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, CheckSyntaxMode, CheckSyntaxResult, Exception, Value, VirtualMachine};
+use crate::{CheckSyntaxMode, CheckSyntaxResult, Exception, Value, VirtualMachine, ffi};
 
 glib::wrapper! {
     #[doc(alias = "JSCContext")]
@@ -153,16 +153,20 @@ impl Context {
             exception: *mut ffi::JSCException,
             user_data: glib::ffi::gpointer,
         ) {
-            let context = from_glib_borrow(context);
-            let exception = from_glib_borrow(exception);
-            let callback = &*(user_data as *mut P);
-            (*callback)(&context, &exception)
+            unsafe {
+                let context = from_glib_borrow(context);
+                let exception = from_glib_borrow(exception);
+                let callback = &*(user_data as *mut P);
+                (*callback)(&context, &exception)
+            }
         }
         let handler = Some(handler_func::<P> as _);
         unsafe extern "C" fn destroy_notify_func<P: Fn(&Context, &Exception) + 'static>(
             data: glib::ffi::gpointer,
         ) {
-            let _callback = Box_::from_raw(data as *mut P);
+            unsafe {
+                let _callback = Box_::from_raw(data as *mut P);
+            }
         }
         let destroy_call3 = Some(destroy_notify_func::<P> as _);
         let super_callback0: Box_<P> = handler_data;

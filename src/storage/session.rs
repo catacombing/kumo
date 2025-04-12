@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::{fs, process};
 
-use rusqlite::{params, Connection as SqliteConnection, Transaction};
+use rusqlite::{Connection as SqliteConnection, Transaction, params};
 use tracing::error;
 use uuid::Uuid;
 

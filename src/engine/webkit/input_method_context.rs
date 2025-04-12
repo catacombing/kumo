@@ -1,7 +1,7 @@
 //! IME subclass implementation.
 
-use glib::subclass::types::ObjectSubclassIsExt;
 use glib::Object;
+use glib::subclass::types::ObjectSubclassIsExt;
 
 use crate::window::TextInputChange;
 

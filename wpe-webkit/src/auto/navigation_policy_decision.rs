@@ -6,10 +6,10 @@
 use std::boxed::Box as Box_;
 
 use glib::prelude::*;
-use glib::signal::{connect_raw, SignalHandlerId};
+use glib::signal::{SignalHandlerId, connect_raw};
 use glib::translate::*;
 
-use crate::{ffi, NavigationAction, PolicyDecision};
+use crate::{NavigationAction, PolicyDecision, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WebKitNavigationPolicyDecision")]
@@ -44,8 +44,10 @@ impl NavigationPolicyDecision {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);

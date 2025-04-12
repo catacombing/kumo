@@ -36,16 +36,18 @@ impl<O: IsA<UserContentFilterStore>> UserContentFilterStoreExtManual for O {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let result = FromGlibPtrContainer::from_glib_none(
-                ffi::webkit_user_content_filter_store_fetch_identifiers_finish(
-                    _source_object as *mut _,
-                    res,
-                ),
-            );
-            let callback: Box<glib::thread_guard::ThreadGuard<P>> =
-                Box::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let result = FromGlibPtrContainer::from_glib_none(
+                    ffi::webkit_user_content_filter_store_fetch_identifiers_finish(
+                        _source_object as *mut _,
+                        res,
+                    ),
+                );
+                let callback: Box<glib::thread_guard::ThreadGuard<P>> =
+                    Box::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = fetch_identifiers_trampoline::<P>;
         unsafe {

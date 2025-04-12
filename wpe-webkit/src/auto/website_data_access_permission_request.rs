@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::{ffi, PermissionRequest};
+use crate::{PermissionRequest, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WebKitWebsiteDataAccessPermissionRequest")]

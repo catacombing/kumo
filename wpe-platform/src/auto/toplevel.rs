@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, BufferDMABufFormats, Display, ToplevelState, View};
+use crate::{BufferDMABufFormats, Display, ToplevelState, View, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEToplevel")]
@@ -75,10 +75,12 @@ pub trait ToplevelExt: IsA<Toplevel> + 'static {
             view: *mut ffi::WPEView,
             user_data: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let toplevel = from_glib_borrow(toplevel);
-            let view = from_glib_borrow(view);
-            let callback = user_data as *mut P;
-            (*callback)(&toplevel, &view).into_glib()
+            unsafe {
+                let toplevel = from_glib_borrow(toplevel);
+                let view = from_glib_borrow(view);
+                let callback = user_data as *mut P;
+                (*callback)(&toplevel, &view).into_glib()
+            }
         }
         let func = Some(func_func::<P> as _);
         let super_callback0: &mut P = &mut func_data;

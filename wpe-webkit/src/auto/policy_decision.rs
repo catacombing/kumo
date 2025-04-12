@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, WebsitePolicies};
+use crate::{WebsitePolicies, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WebKitPolicyDecision")]

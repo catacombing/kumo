@@ -3,7 +3,7 @@
 // from ../gir-files
 // DO NOT EDIT
 
-use crate::{ffi, PermissionRequest};
+use crate::{PermissionRequest, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WebKitGeolocationPermissionRequest")]

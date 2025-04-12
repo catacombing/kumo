@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, Keymap};
+use crate::{Keymap, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEKeymapXKB")]

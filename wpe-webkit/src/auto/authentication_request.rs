@@ -7,10 +7,10 @@ use std::boxed::Box as Box_;
 
 use glib::object::ObjectType as _;
 use glib::prelude::*;
-use glib::signal::{connect_raw, SignalHandlerId};
+use glib::signal::{SignalHandlerId, connect_raw};
 use glib::translate::*;
 
-use crate::{ffi, AuthenticationScheme, Credential, SecurityOrigin};
+use crate::{AuthenticationScheme, Credential, SecurityOrigin, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WebKitAuthenticationRequest")]
@@ -138,8 +138,10 @@ impl AuthenticationRequest {
             credential: *mut ffi::WebKitCredential,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(credential))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(credential))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -160,8 +162,10 @@ impl AuthenticationRequest {
             this: *mut ffi::WebKitAuthenticationRequest,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);

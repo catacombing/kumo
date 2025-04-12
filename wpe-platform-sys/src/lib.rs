@@ -18,12 +18,12 @@ use std::ffi::{
 };
 
 #[allow(unused_imports)]
-use glib::{gboolean, gconstpointer, gpointer, GType};
+use glib::{GType, gboolean, gconstpointer, gpointer};
+#[allow(unused_imports)]
+use libc::{FILE, intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t};
 #[cfg(unix)]
 #[allow(unused_imports)]
 use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
-#[allow(unused_imports)]
-use libc::{intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE};
 use xkbcommon::{xkb_keymap, xkb_state};
 use {glib_sys as glib, gobject_sys as gobject, xkbcommon_sys as xkbcommon};
 
@@ -3183,7 +3183,7 @@ impl ::std::fmt::Debug for WPEViewAccessible {
     }
 }
 
-extern "C" {
+unsafe extern "C" {
 
     //=========================================================================
     // WPEBufferDMABufFormatUsage
@@ -3533,7 +3533,7 @@ extern "C" {
     pub fn wpe_display_get_default() -> *mut WPEDisplay;
     pub fn wpe_display_get_primary() -> *mut WPEDisplay;
     pub fn wpe_display_connect(display: *mut WPEDisplay, error: *mut *mut glib::GError)
-        -> gboolean;
+    -> gboolean;
     pub fn wpe_display_get_drm_device(display: *mut WPEDisplay) -> *const c_char;
     pub fn wpe_display_get_drm_render_node(display: *mut WPEDisplay) -> *const c_char;
     pub fn wpe_display_get_egl_display(
@@ -3813,7 +3813,7 @@ extern "C" {
     pub fn wpe_toplevel_minimize(toplevel: *mut WPEToplevel) -> gboolean;
     pub fn wpe_toplevel_preferred_dma_buf_formats_changed(toplevel: *mut WPEToplevel);
     pub fn wpe_toplevel_resize(toplevel: *mut WPEToplevel, width: c_int, height: c_int)
-        -> gboolean;
+    -> gboolean;
     pub fn wpe_toplevel_resized(toplevel: *mut WPEToplevel, width: c_int, height: c_int);
     pub fn wpe_toplevel_scale_changed(toplevel: *mut WPEToplevel, scale: c_double);
     pub fn wpe_toplevel_screen_changed(toplevel: *mut WPEToplevel);

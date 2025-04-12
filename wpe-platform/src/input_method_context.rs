@@ -1,11 +1,11 @@
 //! Trait for subclassing InputMethodContext.
 
-use std::ffi::{c_char, c_int, c_uint, CStr, CString};
+use std::ffi::{CStr, CString, c_char, c_int, c_uint};
 use std::{cmp, ptr};
 
-use ffi::{wpe_input_method_underline_new, WPEInputMethodContext};
+use ffi::{WPEInputMethodContext, wpe_input_method_underline_new};
 use glib::subclass::prelude::*;
-use glib_sys::{g_list_prepend, GList};
+use glib_sys::{GList, g_list_prepend};
 
 use crate::InputMethodContext;
 
@@ -50,44 +50,52 @@ unsafe extern "C" fn get_preedit_string<T: InputMethodContextImpl>(
     underlines: *mut *mut GList,
     cursor_offset: *mut c_uint,
 ) {
-    // Check all the pointers.
-    if return_text.is_null() || underlines.is_null() || cursor_offset.is_null() {
-        return;
-    }
+    unsafe {
+        // Check all the pointers.
+        if return_text.is_null() || underlines.is_null() || cursor_offset.is_null() {
+            return;
+        }
 
-    let instance = &*(input_method_context as *mut T::Instance);
-    let (text, cursor_begin, cursor_end) = match instance.imp().preedit_string() {
-        Some(PreeditString { text, cursor_begin, cursor_end }) => (text, cursor_begin, cursor_end),
-        None => return,
-    };
+        let instance = &*(input_method_context as *mut T::Instance);
+        let (text, cursor_begin, cursor_end) = match instance.imp().preedit_string() {
+            Some(PreeditString { text, cursor_begin, cursor_end }) => {
+                (text, cursor_begin, cursor_end)
+            },
+            None => return,
+        };
 
-    *return_text = CString::new(text).unwrap().into_raw();
+        *return_text = CString::new(text).unwrap().into_raw();
 
-    // Only set cursor offset when the cursor is visible.
-    if cursor_begin > 0 {
-        *cursor_offset = cursor_begin as c_uint;
-    }
+        // Only set cursor offset when the cursor is visible.
+        if cursor_begin > 0 {
+            *cursor_offset = cursor_begin as c_uint;
+        }
 
-    // Add underline between cursor start and end.
-    *underlines = ptr::null_mut();
-    if cursor_begin > 0 && cursor_end > 0 && cursor_begin != cursor_end {
-        let underline = wpe_input_method_underline_new(cursor_begin as u32, cursor_end as u32);
-        *underlines = g_list_prepend(*underlines, underline.cast());
+        // Add underline between cursor start and end.
+        *underlines = ptr::null_mut();
+        if cursor_begin > 0 && cursor_end > 0 && cursor_begin != cursor_end {
+            let underline = wpe_input_method_underline_new(cursor_begin as u32, cursor_end as u32);
+            *underlines = g_list_prepend(*underlines, underline.cast());
+        }
     }
 }
 
 unsafe extern "C" fn focus_in<T: InputMethodContextImpl>(
     input_method_context: *mut WPEInputMethodContext,
 ) {
-    let instance = &*(input_method_context as *mut T::Instance);
-    instance.imp().focus_in();
+    unsafe {
+        let instance = &*(input_method_context as *mut T::Instance);
+        instance.imp().focus_in();
+    }
 }
 
 unsafe extern "C" fn focus_out<T: InputMethodContextImpl>(
     input_method_context: *mut WPEInputMethodContext,
 ) {
-    let instance = &*(input_method_context as *mut T::Instance);
-    instance.imp().focus_out();
+    unsafe {
+        let instance = &*(input_method_context as *mut T::Instance);
+        instance.imp().focus_out();
+    }
 }
 
 unsafe extern "C" fn set_cursor_area<T: InputMethodContextImpl>(
@@ -97,8 +105,10 @@ unsafe extern "C" fn set_cursor_area<T: InputMethodContextImpl>(
     width: c_int,
     height: c_int,
 ) {
-    let instance = &*(input_method_context as *mut T::Instance);
-    instance.imp().set_cursor_area(x, y, width, height);
+    unsafe {
+        let instance = &*(input_method_context as *mut T::Instance);
+        instance.imp().set_cursor_area(x, y, width, height);
+    }
 }
 
 unsafe extern "C" fn set_surrounding<T: InputMethodContextImpl>(
@@ -108,21 +118,25 @@ unsafe extern "C" fn set_surrounding<T: InputMethodContextImpl>(
     cursor_index: c_uint,
     selection_index: c_uint,
 ) {
-    if let Ok(text) = CStr::from_ptr(text).to_str() {
-        // Clamp text to specified maximum length.
-        let length = cmp::min(length as usize, text.len());
-        let text = &text[..length];
+    unsafe {
+        if let Ok(text) = CStr::from_ptr(text).to_str() {
+            // Clamp text to specified maximum length.
+            let length = cmp::min(length as usize, text.len());
+            let text = &text[..length];
 
-        let instance = &*(input_method_context as *mut T::Instance);
-        instance.imp().set_surrounding(text, cursor_index, selection_index);
+            let instance = &*(input_method_context as *mut T::Instance);
+            instance.imp().set_surrounding(text, cursor_index, selection_index);
+        }
     }
 }
 
 unsafe extern "C" fn reset<T: InputMethodContextImpl>(
     input_method_context: *mut WPEInputMethodContext,
 ) {
-    let instance = &*(input_method_context as *mut T::Instance);
-    instance.imp().reset();
+    unsafe {
+        let instance = &*(input_method_context as *mut T::Instance);
+        instance.imp().reset();
+    }
 }
 
 /// IME preedit string details.

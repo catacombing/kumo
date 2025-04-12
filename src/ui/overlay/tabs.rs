@@ -11,9 +11,9 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use crate::engine::{Engine, EngineId, Favicon, Group, GroupId, NO_GROUP, NO_GROUP_ID};
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::{SvgButton, TextField, MAX_TAP_DISTANCE};
+use crate::ui::{MAX_TAP_DISTANCE, SvgButton, TextField};
 use crate::window::TextInputChange;
-use crate::{gl, rect_contains, Position, Size, State, WindowId};
+use crate::{Position, Size, State, WindowId, gl, rect_contains};
 
 /// Tab text color of active tab.
 const ACTIVE_TAB_FG: [f64; 3] = [1., 1., 1.];
@@ -557,7 +557,7 @@ impl Popup for Tabs {
             if texture_pos.y < new_tab_button_position.y
                 && texture_pos.y > tabs_start - tab_texture.height as f32
             {
-                unsafe { renderer.draw_texture_at(tab_texture, texture_pos, None) };
+                renderer.draw_texture_at(tab_texture, texture_pos, None);
 
                 if let Some(favicon_texture) = favicon_texture {
                     // Center favicon within the tab.
@@ -566,7 +566,7 @@ impl Popup for Tabs {
                     favicon_pos.x += offset as f32;
                     favicon_pos.y += offset as f32;
 
-                    unsafe { renderer.draw_texture_at(favicon_texture, favicon_pos, favicon_size) };
+                    renderer.draw_texture_at(favicon_texture, favicon_pos, favicon_size);
                 }
             }
 
@@ -575,28 +575,26 @@ impl Popup for Tabs {
         }
 
         // Draw tab group label.
-        unsafe {
-            gl::Disable(gl::BLEND);
+        unsafe { gl::Disable(gl::BLEND) };
 
-            renderer.draw_texture_at(group_label, group_label_position, None);
+        renderer.draw_texture_at(group_label, group_label_position, None);
 
-            // Draw buttons last, to render over scrolled tabs and label.
-            renderer.draw_texture_at(new_tab_button, new_tab_button_position, None);
-            renderer.draw_texture_at(cycle_group_button, cycle_group_button_position, None);
+        // Draw buttons last, to render over scrolled tabs and label.
+        renderer.draw_texture_at(new_tab_button, new_tab_button_position, None);
+        renderer.draw_texture_at(cycle_group_button, cycle_group_button_position, None);
 
-            // Change new group to close group while editing the group label.
-            if self.group_label.editing {
-                renderer.draw_texture_at(close_group_button, new_group_button_position, None);
-            } else {
-                renderer.draw_texture_at(new_group_button, new_group_button_position, None);
-            }
+        // Change new group to close group while editing the group label.
+        if self.group_label.editing {
+            renderer.draw_texture_at(close_group_button, new_group_button_position, None);
+        } else {
+            renderer.draw_texture_at(new_group_button, new_group_button_position, None);
+        }
 
-            // Show menu button for default group, and persistency button for all others.
-            if self.group == NO_GROUP_ID {
-                renderer.draw_texture_at(menu_button, menu_button_position, None);
-            } else {
-                renderer.draw_texture_at(persistent_button, persistent_button_position, None);
-            }
+        // Show menu button for default group, and persistency button for all others.
+        if self.group == NO_GROUP_ID {
+            renderer.draw_texture_at(menu_button, menu_button_position, None);
+        } else {
+            renderer.draw_texture_at(persistent_button, persistent_button_position, None);
         }
     }
 
@@ -936,7 +934,7 @@ impl TextureCache {
         };
 
         // Update favicon unless it was already loaded.
-        if render_tab.favicon.as_ref().map_or(true, |f| f.resource_uri != resource_uri) {
+        if render_tab.favicon.as_ref().is_none_or(|f| f.resource_uri != resource_uri) {
             render_tab.favicon = tab.favicon();
 
             true

@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::{ffi, Context};
+use crate::{Context, ffi};
 
 glib::wrapper! {
     #[doc(alias = "JSCException")]

@@ -1,6 +1,6 @@
 //! OpenGL UI rendering.
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::num::NonZeroU32;
 use std::ops::{Deref, Range};
 use std::ptr::NonNull;
@@ -17,16 +17,16 @@ use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, SwapInterval, WindowSurface};
 use pangocairo::cairo::{Context, Format, ImageSurface, Rectangle};
 use pangocairo::pango::{
-    AttrColor, AttrInt, AttrList, EllipsizeMode, FontDescription, Layout, Style, Underline,
-    SCALE as PANGO_SCALE,
+    AttrColor, AttrInt, AttrList, EllipsizeMode, FontDescription, Layout, SCALE as PANGO_SCALE,
+    Style, Underline,
 };
 use raw_window_handle::{RawWindowHandle, WaylandWindowHandle};
 use rsvg::{CairoRenderer, Loader};
-use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::Proxy;
+use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 
 use crate::gl::types::{GLfloat, GLint, GLuint};
-use crate::{gl, Position, Size};
+use crate::{Position, Size, gl};
 
 // OpenGL shader programs.
 const VERTEX_SHADER: &str = include_str!("../../shaders/vertex.glsl");
@@ -79,7 +79,7 @@ impl Renderer {
     ///
     /// Specifying a `size` will automatically scale the texture to render at
     /// the desired size. Otherwise the texture's size will be used instead.
-    pub unsafe fn draw_texture_at(
+    pub fn draw_texture_at(
         &self,
         texture: &Texture,
         mut position: Position<f32>,
@@ -99,21 +99,23 @@ impl Renderer {
             None => (texture.width as f32, texture.height as f32),
         };
 
-        // Matrix transforming vertex positions to desired size.
-        let size: Size<f32> = sized.size.into();
-        let x_scale = width / size.width;
-        let y_scale = height / size.height;
-        let matrix = [x_scale, 0., 0., y_scale];
-        gl::UniformMatrix2fv(sized.uniform_matrix, 1, gl::FALSE, matrix.as_ptr());
+        unsafe {
+            // Matrix transforming vertex positions to desired size.
+            let size: Size<f32> = sized.size.into();
+            let x_scale = width / size.width;
+            let y_scale = height / size.height;
+            let matrix = [x_scale, 0., 0., y_scale];
+            gl::UniformMatrix2fv(sized.uniform_matrix, 1, gl::FALSE, matrix.as_ptr());
 
-        // Set texture position offset.
-        position.x /= size.width / 2.;
-        position.y /= size.height / 2.;
-        gl::Uniform2fv(sized.uniform_position, 1, [position.x, -position.y].as_ptr());
+            // Set texture position offset.
+            position.x /= size.width / 2.;
+            position.y /= size.height / 2.;
+            gl::Uniform2fv(sized.uniform_position, 1, [position.x, -position.y].as_ptr());
 
-        gl::BindTexture(gl::TEXTURE_2D, texture.id);
+            gl::BindTexture(gl::TEXTURE_2D, texture.id);
 
-        gl::DrawArrays(gl::TRIANGLES, 0, 6);
+            gl::DrawArrays(gl::TRIANGLES, 0, 6);
+        }
     }
 
     /// Get render state requiring a size.
@@ -284,8 +286,7 @@ impl SizedRenderer {
             );
 
             // Define VBO layout.
-            let name = CStr::from_bytes_with_nul(b"aVertexPosition\0").unwrap();
-            let location = gl::GetAttribLocation(program, name.as_ptr()) as GLuint;
+            let location = gl::GetAttribLocation(program, c"aVertexPosition".as_ptr()) as GLuint;
             gl::VertexAttribPointer(
                 location,
                 2,
@@ -297,10 +298,8 @@ impl SizedRenderer {
             gl::EnableVertexAttribArray(0);
 
             // Get uniform locations.
-            let name = CStr::from_bytes_with_nul(b"uPosition\0").unwrap();
-            let uniform_position = gl::GetUniformLocation(program, name.as_ptr());
-            let name = CStr::from_bytes_with_nul(b"uMatrix\0").unwrap();
-            let uniform_matrix = gl::GetUniformLocation(program, name.as_ptr());
+            let uniform_position = gl::GetUniformLocation(program, c"uPosition".as_ptr());
+            let uniform_matrix = gl::GetUniformLocation(program, c"uMatrix".as_ptr());
 
             (uniform_position, uniform_matrix)
         }

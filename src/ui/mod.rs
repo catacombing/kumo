@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose};
 use funq::MtQueueHandle;
-use glib::{source, ControlFlow, Priority, Source};
+use glib::{ControlFlow, Priority, Source, source};
 use glutin::display::Display;
 use pangocairo::cairo::LinearGradient;
 use pangocairo::pango::{Alignment, SCALE as PANGO_SCALE};
@@ -22,7 +22,7 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use crate::storage::history::{HistoryMatch, MAX_MATCHES};
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
 use crate::window::{PasteTarget, TextInputChange, TextInputState, WindowHandler};
-use crate::{gl, rect_contains, History, Position, Size, State, WindowId};
+use crate::{History, Position, Size, State, WindowId, gl, rect_contains};
 
 pub mod engine_backdrop;
 pub mod overlay;
@@ -1529,11 +1529,7 @@ impl TextField {
     /// This will return the text to be appended behind the cursor when an
     /// autocomplete suggestion is available.
     fn autocomplete(&self) -> &str {
-        if self.focused && self.selection.is_none() {
-            &self.autocomplete
-        } else {
-            ""
-        }
+        if self.focused && self.selection.is_none() { &self.autocomplete } else { "" }
     }
 
     /// Get current IME text_input state.

@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, Buffer, PixelFormat, View};
+use crate::{Buffer, PixelFormat, View, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEBufferSHM")]

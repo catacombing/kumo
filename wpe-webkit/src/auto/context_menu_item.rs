@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, ContextMenu, ContextMenuAction};
+use crate::{ContextMenu, ContextMenuAction, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WebKitContextMenuItem")]

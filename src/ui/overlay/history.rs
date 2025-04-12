@@ -10,12 +10,12 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::engine::{EngineHandler, NO_GROUP_ID};
 use crate::storage::history::{History as HistoryDb, HistoryEntry, HistoryUri};
-use crate::ui::overlay::tabs::TabsHandler;
 use crate::ui::overlay::Popup;
+use crate::ui::overlay::tabs::TabsHandler;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::{SvgButton, TextField, MAX_TAP_DISTANCE};
+use crate::ui::{MAX_TAP_DISTANCE, SvgButton, TextField};
 use crate::window::{TextInputChange, WindowId};
-use crate::{gl, rect_contains, Position, Size, State};
+use crate::{Position, Size, State, gl, rect_contains};
 
 /// History view background color.
 const HISTORY_BG: [f64; 3] = [0.09, 0.09, 0.09];
@@ -388,7 +388,7 @@ impl Popup for History {
                     break;
                 } else if texture_pos.y < close_button_position.y {
                     let texture = self.history_textures.texture(i, entry_size, self.scale);
-                    unsafe { renderer.draw_texture_at(texture, texture_pos, None) };
+                    renderer.draw_texture_at(texture, texture_pos, None);
                 }
 
                 // Add padding after the history entry.
@@ -402,15 +402,15 @@ impl Popup for History {
         if self.pending_delete_confirmation {
             let entry_count = self.history_textures.len();
             let delete_prompt = self.delete_prompt.texture(entry_count);
-            unsafe { renderer.draw_texture_at(delete_prompt, delete_prompt_position, None) };
+            renderer.draw_texture_at(delete_prompt, delete_prompt_position, None);
         }
 
         // Draw buttons.
-        unsafe { renderer.draw_texture_at(delete_button, delete_button_position, None) };
-        unsafe { renderer.draw_texture_at(close_button, close_button_position, None) };
+        renderer.draw_texture_at(delete_button, delete_button_position, None);
+        renderer.draw_texture_at(close_button, close_button_position, None);
 
         // Draw filter text.
-        unsafe { renderer.draw_texture_at(filter_label, filter_position, None) };
+        renderer.draw_texture_at(filter_label, filter_position, None);
     }
 
     fn position(&self) -> Position {

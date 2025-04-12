@@ -38,17 +38,19 @@ impl<O: IsA<CookieManager>> CookieManagerExtManual for O {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let _ = ffi::webkit_cookie_manager_replace_cookies_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
-            let callback: Box<glib::thread_guard::ThreadGuard<P>> =
-                Box::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let _ = ffi::webkit_cookie_manager_replace_cookies_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
+                let callback: Box<glib::thread_guard::ThreadGuard<P>> =
+                    Box::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = replace_cookies_trampoline::<P>;
         unsafe {

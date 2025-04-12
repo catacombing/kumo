@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::{ffi, UserContentInjectedFrames, UserScriptInjectionTime};
+use crate::{UserContentInjectedFrames, UserScriptInjectionTime, ffi};
 
 glib::wrapper! {
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

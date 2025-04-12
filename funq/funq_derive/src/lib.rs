@@ -1,12 +1,12 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::parse::{self, Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    parse_macro_input, Error, FnArg, GenericParam, Ident, ItemTrait, Pat, PatIdent, Path, Token,
-    TraitItem, TraitItemFn,
+    Error, FnArg, GenericParam, Ident, ItemTrait, Pat, PatIdent, Path, Token, TraitItem,
+    TraitItemFn, parse_macro_input,
 };
 
 /// Proc-macro arguments.
@@ -44,7 +44,7 @@ pub fn callbacks(attr: TokenStream, item: TokenStream) -> TokenStream {
     let thread_safe = args
         .get(1)
         .and_then(|arg| arg.segments.first())
-        .map_or(true, |segment| segment.ident != "thread_local");
+        .is_none_or(|segment| segment.ident != "thread_local");
 
     // Always generate thread-local bindings.
     let st_trait_impl = match trait_impl_tokens(&input, &state_path, false) {

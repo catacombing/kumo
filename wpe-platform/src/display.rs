@@ -1,6 +1,6 @@
 //! Trait for subclassing Display.
 
-use std::ffi::{c_char, CStr};
+use std::ffi::{CStr, c_char};
 
 use ffi::{WPEBufferDMABufFormats, WPEDisplay, WPEInputMethodContext, WPEView};
 use glib::subclass::prelude::*;
@@ -41,26 +41,34 @@ unsafe impl<T: DisplayImpl> IsSubclassable<T> for Display {
 }
 
 unsafe extern "C" fn create_view<T: DisplayImpl>(display: *mut WPEDisplay) -> *mut WPEView {
-    let instance = &*(display as *mut T::Instance);
-    instance.imp().create_view().to_glib_none().0
+    unsafe {
+        let instance = &*(display as *mut T::Instance);
+        instance.imp().create_view().to_glib_none().0
+    }
 }
 
 unsafe extern "C" fn preferred_dmabuf_formats<T: DisplayImpl>(
     display: *mut WPEDisplay,
 ) -> *mut WPEBufferDMABufFormats {
-    let instance = &*(display as *mut T::Instance);
-    instance.imp().preferred_dmabuf_formats().to_glib_full()
+    unsafe {
+        let instance = &*(display as *mut T::Instance);
+        instance.imp().preferred_dmabuf_formats().to_glib_full()
+    }
 }
 
 unsafe extern "C" fn create_input_method_context<T: DisplayImpl>(
     display: *mut WPEDisplay,
     _view: *mut WPEView,
 ) -> *mut WPEInputMethodContext {
-    let instance = &*(display as *mut T::Instance);
-    instance.imp().create_input_method_context().to_glib_none().0
+    unsafe {
+        let instance = &*(display as *mut T::Instance);
+        instance.imp().create_input_method_context().to_glib_none().0
+    }
 }
 
 unsafe extern "C" fn render_node<T: DisplayImpl>(display: *mut WPEDisplay) -> *const c_char {
-    let instance = &*(display as *mut T::Instance);
-    instance.imp().render_node().as_ptr()
+    unsafe {
+        let instance = &*(display as *mut T::Instance);
+        instance.imp().render_node().as_ptr()
+    }
 }

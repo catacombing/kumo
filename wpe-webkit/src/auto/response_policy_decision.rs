@@ -6,10 +6,10 @@
 use std::boxed::Box as Box_;
 
 use glib::prelude::*;
-use glib::signal::{connect_raw, SignalHandlerId};
+use glib::signal::{SignalHandlerId, connect_raw};
 use glib::translate::*;
 
-use crate::{ffi, PolicyDecision, URIRequest, URIResponse};
+use crate::{PolicyDecision, URIRequest, URIResponse, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WebKitResponsePolicyDecision")]
@@ -62,8 +62,10 @@ impl ResponsePolicyDecision {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -87,8 +89,10 @@ impl ResponsePolicyDecision {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);

@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::{ffi, FeatureStatus};
+use crate::{FeatureStatus, ffi};
 
 glib::wrapper! {
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

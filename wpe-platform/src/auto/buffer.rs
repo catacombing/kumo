@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, View};
+use crate::{View, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEBuffer")]
@@ -57,11 +57,7 @@ pub trait BufferExt: IsA<Buffer> + 'static {
         unsafe {
             let mut error = std::ptr::null_mut();
             let ret = ffi::wpe_buffer_import_to_pixels(self.as_ref().to_glib_none().0, &mut error);
-            if error.is_null() {
-                Ok(from_glib_none(ret))
-            } else {
-                Err(from_glib_full(error))
-            }
+            if error.is_null() { Ok(from_glib_none(ret)) } else { Err(from_glib_full(error)) }
         }
     }
 

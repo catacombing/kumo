@@ -7,10 +7,10 @@ use std::boxed::Box as Box_;
 
 use glib::object::ObjectType as _;
 use glib::prelude::*;
-use glib::signal::{connect_raw, SignalHandlerId};
+use glib::signal::{SignalHandlerId, connect_raw};
 use glib::translate::*;
 
-use crate::{ffi, OptionMenuItem};
+use crate::{OptionMenuItem, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WebKitOptionMenu")]
@@ -61,8 +61,10 @@ impl OptionMenu {
             this: *mut ffi::WebKitOptionMenu,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);

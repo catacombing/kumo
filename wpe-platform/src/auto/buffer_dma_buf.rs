@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, Buffer, View};
+use crate::{Buffer, View, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEBufferDMABuf")]

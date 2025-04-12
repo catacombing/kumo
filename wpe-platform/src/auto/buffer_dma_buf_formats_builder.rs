@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::{ffi, BufferDMABufFormatUsage, BufferDMABufFormats};
+use crate::{BufferDMABufFormatUsage, BufferDMABufFormats, ffi};
 
 glib::wrapper! {
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

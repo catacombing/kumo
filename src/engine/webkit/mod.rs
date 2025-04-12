@@ -37,7 +37,7 @@ use wpe_webkit::{
 };
 
 use crate::engine::webkit::platform::WebKitDisplay;
-use crate::engine::{Engine, EngineHandler, EngineId, Favicon, Group, GroupId, BG};
+use crate::engine::{BG, Engine, EngineHandler, EngineId, Favicon, Group, GroupId};
 use crate::storage::cookie_whitelist::CookieWhitelist;
 use crate::ui::overlay::option_menu::{Anchor, OptionMenuId, OptionMenuItem, OptionMenuPosition};
 use crate::window::{TextInputChange, WindowHandler};
@@ -723,7 +723,7 @@ impl Engine for WebKitEngine {
 
     fn close_option_menu(&mut self, menu_id: Option<OptionMenuId>) {
         if let Some((id, menu)) = &self.menu {
-            if menu_id.map_or(true, |menu_id| *id == menu_id) {
+            if menu_id.is_none_or(|menu_id| *id == menu_id) {
                 // Notify menu about being closed from our end.
                 menu.close();
 
@@ -1058,7 +1058,7 @@ impl ContextMenu {
         if self.context == HitTestResultContext::DOCUMENT {
             match index {
                 0 if self.has_cookie_exception => {
-                    return Some(ContextMenuItem::RemoveCookieException)
+                    return Some(ContextMenuItem::RemoveCookieException);
                 },
                 0 => return Some(ContextMenuItem::AddCookieException),
                 _ => (),

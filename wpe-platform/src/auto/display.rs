@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, BufferDMABufFormats, Keymap};
+use crate::{BufferDMABufFormats, Keymap, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEDisplay")]
@@ -41,11 +41,7 @@ pub trait DisplayExt: IsA<Display> + 'static {
             let mut error = std::ptr::null_mut();
             let is_ok = ffi::wpe_display_connect(self.as_ref().to_glib_none().0, &mut error);
             debug_assert_eq!(is_ok == glib::ffi::GFALSE, !error.is_null());
-            if error.is_null() {
-                Ok(())
-            } else {
-                Err(from_glib_full(error))
-            }
+            if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) }
         }
     }
 
@@ -75,11 +71,7 @@ pub trait DisplayExt: IsA<Display> + 'static {
         unsafe {
             let mut error = std::ptr::null_mut();
             let ret = ffi::wpe_display_get_keymap(self.as_ref().to_glib_none().0, &mut error);
-            if error.is_null() {
-                Ok(from_glib_none(ret))
-            } else {
-                Err(from_glib_full(error))
-            }
+            if error.is_null() { Ok(from_glib_none(ret)) } else { Err(from_glib_full(error)) }
         }
     }
 

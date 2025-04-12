@@ -41,15 +41,17 @@ impl<O: IsA<WebsiteDataManager>> WebsiteDataManagerExtManual for O {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = ptr::null_mut();
-            let _ = ffi::webkit_website_data_manager_clear_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
-            let callback: Box<P> = Box::from_raw(user_data as *mut _);
-            callback(result);
+            unsafe {
+                let mut error = ptr::null_mut();
+                let _ = ffi::webkit_website_data_manager_clear_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
+                let callback: Box<P> = Box::from_raw(user_data as *mut _);
+                callback(result);
+            }
         }
         let callback = clear_trampoline::<P>;
         unsafe {
@@ -79,15 +81,17 @@ impl<O: IsA<WebsiteDataManager>> WebsiteDataManagerExtManual for O {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = ptr::null_mut();
-            let _ = ffi::webkit_website_data_manager_remove_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
-            let callback: Box<P> = Box::from_raw(user_data as *mut _);
-            callback(result);
+            unsafe {
+                let mut error = ptr::null_mut();
+                let _ = ffi::webkit_website_data_manager_remove_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
+                let callback: Box<P> = Box::from_raw(user_data as *mut _);
+                callback(result);
+            }
         }
         let callback = remove_trampoline::<P>;
         unsafe {

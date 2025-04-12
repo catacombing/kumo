@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::{ffi, NavigationType, URIRequest};
+use crate::{NavigationType, URIRequest, ffi};
 
 glib::wrapper! {
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -23,22 +23,22 @@ use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::{AxisScroll, BTN_LEFT};
+use smithay_client_toolkit::shell::WaylandSurface;
 use smithay_client_toolkit::shell::xdg::window::{
     Window as XdgWindow, WindowConfigure, WindowDecorations,
 };
-use smithay_client_toolkit::shell::WaylandSurface;
 
 use crate::engine::{Engine, EngineId, Group, GroupId, NO_GROUP_ID, NO_GROUP_REF};
+use crate::storage::Storage;
 use crate::storage::groups::Groups;
 use crate::storage::history::{History, HistoryMatch, MAX_MATCHES};
 use crate::storage::session::{Session, SessionRecord};
-use crate::storage::Storage;
+use crate::ui::Ui;
 use crate::ui::engine_backdrop::EngineBackdrop;
+use crate::ui::overlay::Overlay;
 use crate::ui::overlay::option_menu::{
     Borders, OptionMenuId, OptionMenuItem, OptionMenuPosition, ScrollTarget,
 };
-use crate::ui::overlay::Overlay;
-use crate::ui::Ui;
 use crate::uri::{SCHEMES, TLDS};
 use crate::wayland::protocols::ProtocolStates;
 use crate::{Position, Size, State, WebKitState};

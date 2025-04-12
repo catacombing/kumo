@@ -7,9 +7,9 @@ use std::path::{Path, PathBuf};
 use _dmabuf::zwp_linux_dmabuf_feedback_v1::TrancheFlags;
 use drm::node::DrmNode;
 use funq::StQueueHandle;
+use glib::Object;
 use glib::prelude::*;
 use glib::subclass::types::ObjectSubclassIsExt;
-use glib::Object;
 use libc::dev_t;
 use smithay_client_toolkit::dmabuf::DmabufFeedback;
 use smithay_client_toolkit::reexports::protocols::wp::linux_dmabuf::zv1::client as _dmabuf;
@@ -22,8 +22,8 @@ use wpe_platform::{
     Event, EventType, InputSource, ToplevelExt, ViewExt,
 };
 
-use crate::engine::webkit::input_method_context::InputMethodContext;
 use crate::engine::EngineId;
+use crate::engine::webkit::input_method_context::InputMethodContext;
 use crate::{Position, Size, State};
 
 mod imp {
@@ -42,8 +42,8 @@ mod imp {
         ToplevelImpl, ToplevelState, View, ViewExt, ViewImpl,
     };
 
-    use crate::engine::webkit::input_method_context::InputMethodContext as KumoInputMethodContext;
     use crate::engine::webkit::WebKitHandler;
+    use crate::engine::webkit::input_method_context::InputMethodContext as KumoInputMethodContext;
     use crate::engine::{EngineHandler, EngineId};
     use crate::{Position, State};
 

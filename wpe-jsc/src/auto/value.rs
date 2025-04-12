@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, Context, TypedArrayType, ValuePropertyFlags};
+use crate::{Context, TypedArrayType, ValuePropertyFlags, ffi};
 
 glib::wrapper! {
     #[doc(alias = "JSCValue")]

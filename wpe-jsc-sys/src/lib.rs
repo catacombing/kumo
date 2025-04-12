@@ -18,12 +18,12 @@ use std::ffi::{
 };
 
 #[allow(unused_imports)]
-use glib::{gboolean, gconstpointer, gpointer, GType};
+use glib::{GType, gboolean, gconstpointer, gpointer};
+#[allow(unused_imports)]
+use libc::{FILE, intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t};
 #[cfg(unix)]
 #[allow(unused_imports)]
 use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
-#[allow(unused_imports)]
-use libc::{intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE};
 use {glib_sys as glib, gobject_sys as gobject};
 
 // Enums
@@ -306,7 +306,7 @@ impl ::std::fmt::Debug for JSCWeakValue {
     }
 }
 
-extern "C" {
+unsafe extern "C" {
 
     //=========================================================================
     // JSCClass
@@ -462,7 +462,7 @@ extern "C" {
     //=========================================================================
     pub fn jsc_exception_get_type() -> GType;
     pub fn jsc_exception_new(context: *mut JSCContext, message: *const c_char)
-        -> *mut JSCException;
+    -> *mut JSCException;
     pub fn jsc_exception_new_printf(
         context: *mut JSCContext,
         format: *const c_char,
@@ -698,7 +698,7 @@ extern "C" {
     pub fn jsc_options_get_int(option: *const c_char, value: *mut c_int) -> gboolean;
     pub fn jsc_options_get_option_group() -> *mut glib::GOptionGroup;
     pub fn jsc_options_get_range_string(option: *const c_char, value: *mut *mut c_char)
-        -> gboolean;
+    -> gboolean;
     pub fn jsc_options_get_size(option: *const c_char, value: *mut size_t) -> gboolean;
     pub fn jsc_options_get_string(option: *const c_char, value: *mut *mut c_char) -> gboolean;
     pub fn jsc_options_get_uint(option: *const c_char, value: *mut c_uint) -> gboolean;

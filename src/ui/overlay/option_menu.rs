@@ -9,11 +9,11 @@ use funq::MtQueueHandle;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
 use crate::engine::EngineId;
+use crate::ui::Ui;
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::Ui;
 use crate::window::WindowId;
-use crate::{gl, Position, Size, State};
+use crate::{Position, Size, State, gl};
 
 // Option menu colors.
 const FG: [f64; 3] = [1., 1., 1.];
@@ -420,10 +420,8 @@ impl Popup for OptionMenu {
         let size = self.physical_size();
 
         // Draw menu border.
-        unsafe {
-            let border = self.border.get_or_insert_with(|| Texture::new(&BORDER_COLOR, 1, 1));
-            renderer.draw_texture_at(border, position, Some(size.into()));
-        }
+        let border = self.border.get_or_insert_with(|| Texture::new(&BORDER_COLOR, 1, 1));
+        renderer.draw_texture_at(border, position, Some(size.into()));
 
         // Scissor crop last element when it should only be partially visible.
         let borders = self.border_widths() * self.scale;
@@ -454,7 +452,7 @@ impl Popup for OptionMenu {
             // Create and draw the texture.
             let selected = self.selection_index == Some(i);
             let texture = item.texture(selected);
-            unsafe { renderer.draw_texture_at(texture, position, None) };
+            renderer.draw_texture_at(texture, position, None);
 
             position.y += height;
         }

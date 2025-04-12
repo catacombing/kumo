@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::{ffi, BackForwardListItem};
+use crate::{BackForwardListItem, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WebKitBackForwardList")]

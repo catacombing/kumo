@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{ffi, EventType, InputSource, Modifiers, View};
+use crate::{EventType, InputSource, Modifiers, View, ffi};
 
 glib::wrapper! {
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -180,11 +180,7 @@ impl Event {
                 x.as_mut_ptr(),
                 y.as_mut_ptr(),
             ));
-            if ret {
-                Some((x.assume_init(), y.assume_init()))
-            } else {
-                None
-            }
+            if ret { Some((x.assume_init(), y.assume_init())) } else { None }
         }
     }
 

@@ -8,14 +8,14 @@ use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_vie
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::storage::history::History as HistoryDb;
+use crate::ui::Renderer;
 use crate::ui::overlay::history::History;
 use crate::ui::overlay::option_menu::{
     OptionMenu, OptionMenuId, OptionMenuItem, OptionMenuPosition,
 };
 use crate::ui::overlay::tabs::Tabs;
-use crate::ui::Renderer;
 use crate::window::TextInputChange;
-use crate::{gl, rect_contains, Position, Size, State, WindowId};
+use crate::{Position, Size, State, WindowId, gl, rect_contains};
 
 pub mod history;
 pub mod option_menu;

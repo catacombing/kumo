@@ -2,7 +2,7 @@
 
 use std::io::Write;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use _dmabuf::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1;
 use _dmabuf::zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1;
@@ -123,8 +123,18 @@ impl CompositorHandler for State {
         _connection: &Connection,
         _queue: &QueueHandle<Self>,
         surface: &WlSurface,
-        _serial: u32,
+        serial: u32,
     ) {
+        // Debounce duplicate frame events.
+        let now = Instant::now();
+        if serial <= self.frame_state.serial
+            || now - self.frame_state.instant <= Duration::from_millis(1)
+        {
+            return;
+        }
+        self.frame_state.serial = serial;
+        self.frame_state.instant = now;
+
         let window = self.windows.values_mut().find(|window| window.owns_surface(surface));
         if let Some(window) = window {
             window.draw();
@@ -944,5 +954,20 @@ impl Dispatch<WlBuffer, ()> for State {
             wl_buffer::Event::Release => (),
             _ => unreachable!(),
         }
+    }
+}
+
+/// Frame event tracking.
+///
+/// This is used to deduplicate frame events to ensure we only render once per
+/// frame instead of rendering for every single surface callback.
+pub struct FrameState {
+    instant: Instant,
+    serial: u32,
+}
+
+impl Default for FrameState {
+    fn default() -> Self {
+        Self { instant: Instant::now(), serial: Default::default() }
     }
 }

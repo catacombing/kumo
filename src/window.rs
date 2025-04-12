@@ -495,8 +495,21 @@ impl Window {
         }
 
         // Request a new frame if this frame was dirty.
+        //
+        // We request frames for all our surfaces since Sway does not send frame
+        // requests when the requested surface is not updated or invisible and
+        // occasionally does not send frame events when only requesting frames
+        // for subsurfaces.
         let surface = self.xdg.wl_surface();
         if !self.stalled {
+            let overlay_surface = self.overlay.surface();
+            overlay_surface.frame(&self.wayland_queue, overlay_surface.clone());
+
+            self.engine_surface.frame(&self.wayland_queue, self.engine_surface.clone());
+
+            let ui_surface = self.ui.surface();
+            ui_surface.frame(&self.wayland_queue, ui_surface.clone());
+
             surface.frame(&self.wayland_queue, surface.clone());
         }
 

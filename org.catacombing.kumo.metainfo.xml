@@ -51,6 +51,6 @@
         <control>pointing</control>
     </recommends>
     <requires>
-        <display_length compare="ge">360</display_length>
+        <display_length compare="le">1279</display_length>
     </requires>
 </component>

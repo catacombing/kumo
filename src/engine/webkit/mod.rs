@@ -318,7 +318,10 @@ impl WebKitState {
         // Get the DRM render node.
         let Display::Egl(egl_display) = &self.display;
         let device = egl_display.device().expect("get DRM device");
-        let render_node = device.drm_render_device_node_path().expect("get render node");
+        let render_node = device
+            .drm_render_device_node_path()
+            .or_else(|| device.drm_device_node_path())
+            .expect("DRM node has no path");
 
         // Create WebKit platform.
         let webkit_display = WebKitDisplay::new(

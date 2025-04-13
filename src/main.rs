@@ -35,7 +35,7 @@ use crate::engine::{Group, GroupId, NO_GROUP_ID};
 use crate::storage::Storage;
 use crate::storage::history::History;
 use crate::wayland::WaylandDispatch;
-use crate::wayland::protocols::{FrameState, KeyRepeat, ProtocolStates, TextInput};
+use crate::wayland::protocols::{KeyRepeat, ProtocolStates, TextInput};
 use crate::window::{KeyboardFocus, PasteTarget, Window, WindowHandler, WindowId};
 
 mod engine;
@@ -196,7 +196,6 @@ pub struct State {
 
     wayland_queue: Option<EventQueue<Self>>,
     protocol_states: ProtocolStates,
-    frame_state: FrameState,
     connection: Connection,
     egl_display: Display,
 
@@ -250,7 +249,6 @@ impl State {
             wayland_queue: Some(wayland_queue),
             keyboard_focus: Default::default(),
             touch_focus: Default::default(),
-            frame_state: Default::default(),
             text_input: Default::default(),
             clipboard: Default::default(),
             keyboard: Default::default(),

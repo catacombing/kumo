@@ -90,6 +90,13 @@ fn run() -> Result<(), Error> {
         Server::new(&format!("0.0.0.0:{}", puffin_http::DEFAULT_PORT)).unwrap()
     };
 
+    // Set GLib application name.
+    //
+    // This is necessary to match the flatpak ID when run inside flatpak due to
+    // WebKit's internal flatpak sandbox handling, which is why the reverse
+    // domain name notation is used.
+    glib::set_prgname(Some("org.catacombing.kumo"));
+
     let queue = Queue::new()?;
     let main_loop = MainLoop::new(None, true);
     let mut state = State::new(queue.local_handle(), main_loop.clone())?;

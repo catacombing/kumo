@@ -238,7 +238,7 @@ impl Window {
         let decorations = WindowDecorations::RequestServer;
         let xdg = protocol_states.xdg_shell.create_window(surface, decorations, &wayland_queue);
         xdg.set_title("Kumo");
-        xdg.set_app_id("Kumo");
+        xdg.set_app_id("org.catacombing.kumo");
         xdg.commit();
 
         // Resize UI elements to the initial window size.

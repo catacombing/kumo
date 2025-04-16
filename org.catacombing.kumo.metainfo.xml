@@ -5,7 +5,7 @@
     <metadata_license>CC0-1.0</metadata_license>
     <project_license>GPL-3.0-only</project_license>
     <name>Kumo</name>
-    <summary>A Wayland Mobile Browser</summary>
+    <summary>Wayland Mobile Web Browser</summary>
     <developer id="org.catacombing">
         <name>Christian Duerr</name>
     </developer>
@@ -15,6 +15,15 @@
             mobile devices. It is optimized to run on low-end hardware with a
             limited battery life.
         </p>
+        <p>The following noteworthy features are implemented:</p>
+        <ul>
+            <li>Built-in adblocker</li>
+            <li>Whitelist-based cookie policy</li>
+            <li>Shell-like URI completion</li>
+            <li>Session recovery</li>
+            <li>Tab groups</li>
+            <li>History management</li>
+        <ul>
     </description>
     <launchable type="desktop-id">org.catacombing.kumo.desktop</launchable>
     <provides>

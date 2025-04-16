@@ -1,4 +1,4 @@
-# Kumo - A Wayland Mobile Browser
+# Kumo - Wayland Mobile Web Browser
 
 <p>
   <img src="./logo.svg" width="10%" align="left">

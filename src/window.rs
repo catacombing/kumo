@@ -309,23 +309,45 @@ impl Window {
         switch_focus: bool,
         group_id: GroupId,
     ) -> EngineId {
+        self.add_tab_from_engine(focus_uribar, switch_focus, group_id, None)
+    }
+
+    /// Add a tab from an existing engine.
+    ///
+    /// This will position the tab after the engine it was spawned from, to
+    /// represent their direct association.
+    pub fn add_tab_from_engine(
+        &mut self,
+        focus_uribar: bool,
+        switch_focus: bool,
+        group_id: GroupId,
+        engine_id: impl Into<Option<EngineId>>,
+    ) -> EngineId {
         // Get the tab group for the new engine.
         let group = self.groups.get(&group_id).unwrap_or(NO_GROUP_REF);
 
         // Create a new browser engine.
-        let engine_id = EngineId::new(self.id, group.id());
+        let new_engine_id = EngineId::new(self.id, group.id());
         let engine = Box::new(self.engine_state.borrow_mut().create_engine(
             group,
-            engine_id,
+            new_engine_id,
             self.engine_size(),
             self.scale,
         ));
 
-        self.tabs.insert(engine_id, engine);
+        // Insert tab after the specified `engine_id`, or at the end.
+        match engine_id.into().and_then(|id| self.tabs.get_index_of(&id)) {
+            Some(index) if index + 1 < self.tabs.len() => {
+                self.tabs.insert_before(index + 1, new_engine_id, engine);
+            },
+            _ => {
+                self.tabs.insert(new_engine_id, engine);
+            },
+        }
 
         // Switch the active tab.
         if switch_focus {
-            self.active_tab = Some(engine_id);
+            self.active_tab = Some(new_engine_id);
         }
 
         // Update tabs popup.
@@ -344,7 +366,7 @@ impl Window {
 
         self.unstall();
 
-        engine_id
+        new_engine_id
     }
 
     /// Close a tab.

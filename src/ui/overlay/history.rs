@@ -8,7 +8,7 @@ use funq::MtQueueHandle;
 use pangocairo::pango::Alignment;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
-use crate::engine::{EngineHandler, NO_GROUP_ID};
+use crate::engine::NO_GROUP_ID;
 use crate::storage::history::{History as HistoryDb, HistoryEntry, HistoryUri};
 use crate::ui::overlay::Popup;
 use crate::ui::overlay::tabs::TabsHandler;
@@ -57,6 +57,9 @@ trait HistoryHandler {
 
     /// Update history filter.
     fn set_history_filter(&mut self, window_id: WindowId, filter: String);
+
+    /// Open history URI in a new tab.
+    fn open_history_in_tab(&mut self, window_id: WindowId, uri: String);
 }
 
 impl HistoryHandler for State {
@@ -74,6 +77,18 @@ impl HistoryHandler for State {
             None => return,
         };
         window.set_history_filter(filter);
+    }
+
+    fn open_history_in_tab(&mut self, window_id: WindowId, uri: String) {
+        let window = match self.windows.get_mut(&window_id) {
+            Some(window) => window,
+            None => return,
+        };
+
+        let tab_id = window.add_tab(false, true, NO_GROUP_ID);
+        if let Some(engine) = window.tab_mut(tab_id) {
+            engine.load_uri(&uri);
+        }
     }
 }
 
@@ -556,7 +571,7 @@ impl Popup for History {
                 Some((uri, false)) => {
                     // Create new tab for the selected URI.
                     let uri = uri.to_string(true);
-                    self.queue.open_in_tab(self.window_id, NO_GROUP_ID, uri, true);
+                    self.queue.open_history_in_tab(self.window_id, uri);
 
                     // Close all overlay windows.
                     self.queue.close_history(self.window_id);

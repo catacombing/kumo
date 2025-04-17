@@ -1116,12 +1116,7 @@ impl ContextMenu {
             Some(ContextMenuItem::Reload) => engine.web_view.reload(),
             Some(ContextMenuItem::OpenInNewTab) => {
                 if let Some(uri) = self.uri() {
-                    engine.queue.open_in_tab(
-                        engine.id.window_id(),
-                        engine.id.group_id(),
-                        uri,
-                        false,
-                    );
+                    engine.queue.open_in_tab(engine.id, uri);
                 }
             },
             Some(ContextMenuItem::OpenInNewWindow) => {

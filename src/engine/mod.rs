@@ -196,7 +196,7 @@ pub trait EngineHandler {
     fn set_load_progress(&mut self, engine_id: EngineId, progress: f64);
 
     /// Open URI in a new tab.
-    fn open_in_tab(&mut self, window_id: WindowId, group_id: GroupId, uri: String, focus: bool);
+    fn open_in_tab(&mut self, engine_id: EngineId, uri: String);
 
     /// Open URI in a new window.
     fn open_in_window(&mut self, uri: String);
@@ -236,13 +236,13 @@ impl EngineHandler for State {
         }
     }
 
-    fn open_in_tab(&mut self, window_id: WindowId, group_id: GroupId, uri: String, focus: bool) {
-        let window = match self.windows.get_mut(&window_id) {
+    fn open_in_tab(&mut self, engine_id: EngineId, uri: String) {
+        let window = match self.windows.get_mut(&engine_id.window_id()) {
             Some(window) => window,
             None => return,
         };
 
-        let tab_id = window.add_tab(false, focus, group_id);
+        let tab_id = window.add_tab_from_engine(false, false, engine_id.group_id(), engine_id);
         if let Some(engine) = window.tab_mut(tab_id) {
             engine.load_uri(&uri);
         }

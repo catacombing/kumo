@@ -1063,6 +1063,10 @@ impl Window {
     pub fn set_load_progress(&mut self, engine_id: EngineId, progress: f64) {
         if self.active_tab == Some(engine_id) {
             self.ui.set_load_progress(progress);
+        }
+        self.overlay.tabs_mut().set_load_progress(engine_id, progress);
+
+        if self.ui.dirty() || self.overlay.dirty() {
             self.unstall();
         }
     }

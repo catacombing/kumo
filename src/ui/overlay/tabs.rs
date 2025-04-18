@@ -23,6 +23,8 @@ const INACTIVE_TAB_FG: [f64; 3] = [0.8, 0.8, 0.8];
 const TABS_BG: [f64; 3] = [0.09, 0.09, 0.09];
 /// New tab button background color.
 const NEW_TAB_BG: [f64; 3] = [0.15, 0.15, 0.15];
+/// Tab load progress highlight color.
+const PROGRESS_TAB_BG: [f64; 4] = [0.46, 0.16, 0.16, 0.5];
 
 /// Tab font size.
 const FONT_SIZE: u8 = 20;
@@ -238,10 +240,15 @@ impl Tabs {
         self.dirty = true;
     }
 
-    /// Reload an engine's favicon.
+    /// Reload a tab's favicon.
     #[allow(clippy::borrowed_box)]
     pub fn update_favicon(&mut self, tab: &Box<dyn Engine>) {
         self.dirty |= self.texture_cache.update_favicon(tab);
+    }
+
+    /// Update a tab's load progress.
+    pub fn set_load_progress(&mut self, engine_id: EngineId, load_progress: f64) {
+        self.dirty |= self.texture_cache.set_load_progress(engine_id, load_progress);
     }
 
     /// Update the active tab.
@@ -917,6 +924,19 @@ impl TextureCache {
         }
     }
 
+    /// Update a tab's load progress.
+    ///
+    /// Returns `true` if the load progress of a tab was updated.
+    fn set_load_progress(&mut self, engine_id: EngineId, load_progress: f64) -> bool {
+        match self.tabs.iter_mut().find(|tab| tab.engine == engine_id) {
+            Some(tab) => {
+                tab.load_progress = (load_progress * 100.).ceil() as u8;
+                true
+            },
+            None => false,
+        }
+    }
+
     /// Update an existing engine's favicon.
     ///
     /// Returns `true` if a tab's favicon was reloaded.
@@ -934,13 +954,12 @@ impl TextureCache {
         };
 
         // Update favicon unless it was already loaded.
-        if render_tab.favicon.as_ref().is_none_or(|f| f.resource_uri != resource_uri) {
+        let changed = render_tab.favicon.as_ref().is_none_or(|f| f.resource_uri != resource_uri);
+        if changed {
             render_tab.favicon = tab.favicon();
-
-            true
-        } else {
-            false
         }
+
+        changed
     }
 
     /// Clear all cached textures.
@@ -959,7 +978,7 @@ impl TextureCache {
         scale: f64,
         group: GroupId,
     ) -> impl Iterator<Item = (&Texture, Option<&Texture>)> {
-        // Remove unused URIs from cache.
+        // Remove unused textures from cache.
         self.textures.retain(|cache_key, texture| {
             let retain = self.tabs.iter().any(|tab| &tab.key() == cache_key);
 
@@ -1010,11 +1029,7 @@ impl TextureCache {
             let layout = TextLayout::new(FONT_SIZE, scale);
 
             // Fallback to URI if title is empty.
-            if tab.title.trim().is_empty() {
-                layout.set_text(&tab.uri);
-            } else {
-                layout.set_text(&tab.title);
-            }
+            layout.set_text(tab.label());
 
             // Configure text rendering options.
             let mut text_options = TextOptions::new();
@@ -1035,9 +1050,19 @@ impl TextureCache {
             text_options.position(Position::new(x_offset, 0.));
             text_options.size(text_size);
 
-            // Render text to the texture.
+            // Render background with load progress indication.
             let builder = TextureBuilder::new(tab_size.into());
             builder.clear(NEW_TAB_BG);
+            if tab.load_progress < 100 {
+                let width = tab_size.width as f64 / 100. * tab.load_progress as f64;
+                let [r, g, b, a] = PROGRESS_TAB_BG;
+
+                builder.context().rectangle(0., 0., width, tab_size.height as f64);
+                builder.context().set_source_rgba(r, g, b, a);
+                builder.context().fill().unwrap();
+            }
+
+            // Render text to the texture.
             builder.rasterize(&layout, &text_options);
 
             // Render close `X`.
@@ -1072,6 +1097,7 @@ struct RenderTab {
     title: String,
     active: bool,
     favicon: Option<Favicon>,
+    load_progress: u8,
 }
 
 impl RenderTab {
@@ -1082,15 +1108,22 @@ impl RenderTab {
             title: engine.title().into(),
             favicon: engine.favicon(),
             uri: engine.uri().into(),
+            load_progress: 100,
             engine: engine_id,
         }
+    }
+
+    /// Get the tab's rendered text.
+    fn label(&self) -> &str {
+        if self.title.trim().is_empty() { &self.uri } else { &self.title }
     }
 
     /// Get a borrowed texture cache key.
     fn key<'a>(&'a self) -> TabTextureCacheKey<'a> {
         TabTextureCacheKey {
-            has_favicon: self.favicon.is_some(),
-            uri: Cow::Borrowed(&self.uri),
+            favicon_uri: self.favicon.as_ref().map(|f| Cow::Borrowed(&f.resource_uri)),
+            label: Cow::Borrowed(self.label()),
+            load_progress: self.load_progress,
             active: self.active,
         }
     }
@@ -1098,8 +1131,9 @@ impl RenderTab {
     /// Get an owned texture cache key.
     fn owned_key(&self) -> TabTextureCacheKey<'static> {
         TabTextureCacheKey {
-            has_favicon: self.favicon.is_some(),
-            uri: Cow::Owned(self.uri.clone()),
+            favicon_uri: self.favicon.as_ref().map(|f| Cow::Owned(f.resource_uri.clone())),
+            label: Cow::Owned(self.label().to_string()),
+            load_progress: self.load_progress,
             active: self.active,
         }
     }
@@ -1108,9 +1142,10 @@ impl RenderTab {
 /// Indexing key for the tab texture cache.
 #[derive(Hash, PartialEq, Eq, Debug)]
 struct TabTextureCacheKey<'a> {
-    uri: Cow<'a, str>,
+    favicon_uri: Option<Cow<'a, glib::GString>>,
+    label: Cow<'a, str>,
+    load_progress: u8,
     active: bool,
-    has_favicon: bool,
 }
 
 /// Button with a `+` as icon.

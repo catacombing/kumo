@@ -18,7 +18,7 @@ use profiling::puffin;
 use puffin_http::Server;
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
 use smithay_client_toolkit::data_device_manager::data_source::CopyPasteSource;
-use smithay_client_toolkit::reexports::client::globals::{self, GlobalError};
+use smithay_client_toolkit::reexports::client::globals::{self, BindError, GlobalError};
 use smithay_client_toolkit::reexports::client::protocol::wl_keyboard::WlKeyboard;
 use smithay_client_toolkit::reexports::client::protocol::wl_pointer::WlPointer;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
@@ -27,7 +27,7 @@ use smithay_client_toolkit::reexports::client::{
     ConnectError, Connection, EventQueue, QueueHandle,
 };
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers, RepeatInfo};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::engine::webkit::{WebKitError, WebKitState};
@@ -54,6 +54,8 @@ mod gl {
 enum Error {
     #[error("{0}")]
     WaylandConnect(#[from] ConnectError),
+    #[error("Wayland protocol error for {0}: {1}")]
+    WaylandProtocol(&'static str, #[source] BindError),
     #[error("{0}")]
     Glutin(#[from] glutin::error::Error),
     #[error("{0}")]
@@ -70,7 +72,7 @@ enum Error {
 
 fn main() {
     if let Err(err) = run() {
-        eprintln!("Error: {err}");
+        error!("[CRITICAL] {err}");
         process::exit(1);
     }
 }
@@ -228,7 +230,7 @@ impl State {
         // Initialize Wayland connection.
         let connection = Connection::connect_to_env()?;
         let (globals, wayland_queue) = globals::registry_queue_init(&connection)?;
-        let protocol_states = ProtocolStates::new(&globals, &wayland_queue.handle());
+        let protocol_states = ProtocolStates::new(&globals, &wayland_queue.handle())?;
 
         // Get EGL display.
         let display = NonNull::new(connection.backend().display_ptr().cast()).unwrap();

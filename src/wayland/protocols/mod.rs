@@ -51,7 +51,7 @@ use smithay_client_toolkit::{
 use crate::wayland::protocols::fractional_scale::{FractionalScaleHandler, FractionalScaleManager};
 use crate::wayland::protocols::viewporter::Viewporter;
 use crate::window::WindowHandler as _;
-use crate::{CurrentRepeat, KeyboardState, State};
+use crate::{CurrentRepeat, Error, KeyboardState, State};
 
 pub mod fractional_scale;
 pub mod viewporter;
@@ -75,21 +75,27 @@ pub struct ProtocolStates {
 }
 
 impl ProtocolStates {
-    pub fn new(globals: &GlobalList, queue: &QueueHandle<State>) -> Self {
+    pub fn new(globals: &GlobalList, queue: &QueueHandle<State>) -> Result<Self, Error> {
         // SPB is optional for rendering the engine backdrop.
         let single_pixel_buffer = globals.bind(queue, 1..=1, ()).ok();
         let text_input = TextInputManager::new(globals, queue);
         let registry = RegistryState::new(globals);
-        let compositor = CompositorState::bind(globals, queue).unwrap();
+        let compositor = CompositorState::bind(globals, queue)
+            .map_err(|err| Error::WaylandProtocol("wl_compositor", err))?;
         let wl_compositor = compositor.wl_compositor().clone();
-        let fractional_scale = FractionalScaleManager::new(globals, queue).unwrap();
-        let subcompositor = SubcompositorState::bind(wl_compositor, globals, queue).unwrap();
-        let viewporter = Viewporter::new(globals, queue).unwrap();
-        let xdg_shell = XdgShell::bind(globals, queue).unwrap();
+        let fractional_scale = FractionalScaleManager::new(globals, queue)
+            .map_err(|err| Error::WaylandProtocol("wp_fractional_scale", err))?;
+        let subcompositor = SubcompositorState::bind(wl_compositor, globals, queue)
+            .map_err(|err| Error::WaylandProtocol("wl_subcompositor", err))?;
+        let viewporter = Viewporter::new(globals, queue)
+            .map_err(|err| Error::WaylandProtocol("wp_viewporter", err))?;
+        let xdg_shell = XdgShell::bind(globals, queue)
+            .map_err(|err| Error::WaylandProtocol("xdg_shell", err))?;
         let dmabuf = DmabufState::new(globals, queue);
         let output = OutputState::new(globals, queue);
         let seat = SeatState::new(globals, queue);
-        let data_device_manager = DataDeviceManagerState::bind(globals, queue).unwrap();
+        let data_device_manager = DataDeviceManagerState::bind(globals, queue)
+            .map_err(|err| Error::WaylandProtocol("wl_data_device_manager", err))?;
 
         // Get data device for the default seat.
         let default_seat = seat.seats().next().unwrap();
@@ -98,7 +104,7 @@ impl ProtocolStates {
         // Immediately request default DMA buffer feedback.
         let _ = dmabuf.get_default_feedback(queue);
 
-        Self {
+        Ok(Self {
             single_pixel_buffer,
             data_device_manager,
             fractional_scale,
@@ -112,7 +118,7 @@ impl ProtocolStates {
             dmabuf,
             output,
             seat,
-        }
+        })
     }
 }
 

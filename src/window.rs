@@ -1028,14 +1028,21 @@ impl Window {
 
     /// Update an engine's URI.
     pub fn set_engine_uri(&mut self, engine_id: EngineId, uri: String) {
-        // Short-circuit if the engine's URI has not changed.
-        if self.overlay.tabs_mut().tab_uri(engine_id).is_some_and(|old| old == uri) {
-            return;
-        }
-
         // Update UI if the URI change is for the active tab.
+        //
+        // This always needs to be performed since `Self::set_engine_title` might have
+        // changed the URI or the navigation could be between different normalization
+        // forms (e.g. example.org -> https://example.org)
         if Some(engine_id) == self.active_tab {
             self.ui.set_uri(&uri);
+        }
+
+        // Short-circuit if the engine's URI has not changed.
+        if self.overlay.tabs_mut().tab_uri(engine_id).is_some_and(|old| old == uri) {
+            if self.ui.dirty() {
+                self.unstall();
+            }
+            return;
         }
 
         // Update tabs popup.

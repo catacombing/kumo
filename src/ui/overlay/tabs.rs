@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 
 use funq::MtQueueHandle;
 use glib::{ControlFlow, Priority, Source, source};
+use indexmap::IndexMap;
 use pangocairo::pango::Alignment;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
@@ -270,21 +271,15 @@ impl Tabs {
         // Get index of tab being reordered.
         let mut old_reordering_tab = None;
         if let TouchAction::TabReordering(engine_id) = self.touch_state.action {
-            old_reordering_tab = self
-                .texture_cache
-                .tabs
-                .iter()
-                .position(|tab| tab.engine == engine_id)
-                .map(|i| (i, engine_id));
+            old_reordering_tab =
+                self.texture_cache.tabs.get_index_of(&engine_id).map(|i| (i, engine_id));
         }
 
         self.texture_cache.set_tabs(tabs, active_tab);
 
         // Adjust reordering touch origin to account for new tab location.
         if let Some((old_position, engine_id)) = old_reordering_tab {
-            if let Some(new_position) =
-                self.texture_cache.tabs.iter().position(|tab| tab.engine == engine_id)
-            {
+            if let Some(new_position) = self.texture_cache.tabs.get_index_of(&engine_id) {
                 let tabs_moved = new_position as f64 - old_position as f64;
                 let tab_height = self.tab_size().height as f64;
                 self.touch_state.start.y += tabs_moved * tab_height;
@@ -350,6 +345,11 @@ impl Tabs {
     pub fn start_tab_reordering(&mut self, tab: EngineId) {
         self.touch_state.action = TouchAction::TabReordering(tab);
         self.dirty = true;
+    }
+
+    /// Get current URI of a tab.
+    pub fn tab_uri(&self, tab: EngineId) -> Option<&str> {
+        self.texture_cache.tabs.get(&tab).map(|tab| tab.uri.as_str())
     }
 
     /// Physical size of the tab creation button bar.
@@ -480,7 +480,7 @@ impl Tabs {
     ///
     /// The tuple's second element will be `true` when the position matches the
     /// close button of the tab.
-    fn tab_at(&self, mut position: Position<f64>) -> Option<(&RenderTab, bool)> {
+    fn tab_at(&self, mut position: Position<f64>) -> Option<(EngineId, bool)> {
         let tabs_start_y = self.group_label_position().y + self.group_label_size().height as f64;
         let tabs_end_y = self.new_tab_button_position().y;
         let y_padding = TABS_Y_PADDING * self.scale;
@@ -512,7 +512,7 @@ impl Tabs {
         // Find tab at the specified offset.
         let rindex = (new_tab_relative / (tab_size.height + y_padding).round()) as usize;
         let tabs = group_tabs(&self.texture_cache.tabs, self.group);
-        let tab = tabs.rev().nth(rindex)?;
+        let (tab, _) = tabs.rev().nth(rindex)?;
 
         // Check if click is within close button bounds.
         //
@@ -522,7 +522,7 @@ impl Tabs {
         let tab_relative_x = position.x - x_padding;
         let close = tab_relative_x >= close_position.x - close_position.y;
 
-        Some((tab, close))
+        Some((*tab, close))
     }
 
     /// Clamp tabs view viewport offset.
@@ -609,7 +609,7 @@ impl Tabs {
 
         // Calculate tab's target index.
         let tabs = &self.texture_cache.tabs;
-        let tab_index = match tabs.iter().position(|tab| tab.engine == engine_id) {
+        let tab_index = match tabs.get_index_of(&engine_id) {
             Some(index) => index as isize,
             None => return,
         };
@@ -889,14 +889,14 @@ impl Popup for Tabs {
             self.group_label.touch_down(time, logical_position, position - group_label_position);
             self.touch_state.action = TouchAction::GroupLabelTouch;
             self.keyboard_focus = Some(KeyboardInputElement::GroupLabel);
-        } else if let Some((&RenderTab { engine, .. }, close)) = self.tab_at(position) {
-            self.touch_state.action = TouchAction::TabTap(engine, close);
+        } else if let Some((engine_id, close)) = self.tab_at(position) {
+            self.touch_state.action = TouchAction::TabTap(engine_id, close);
             self.clear_keyboard_focus();
 
             // Create timer for tab reordering.
             let mut queue = self.queue.clone();
             self.touch_state.stage_long_press_callback(move || {
-                queue.start_tab_reordering(engine);
+                queue.start_tab_reordering(engine_id);
             });
         } else {
             self.touch_state.action = TouchAction::None;
@@ -1100,7 +1100,7 @@ impl Popup for Tabs {
 struct TextureCache {
     textures: HashMap<TabTextureCacheKey<'static>, Texture>,
     favicons: HashMap<glib::GString, Texture>,
-    tabs: Vec<RenderTab>,
+    tabs: IndexMap<EngineId, RenderTab>,
 }
 
 impl TextureCache {
@@ -1110,13 +1110,17 @@ impl TextureCache {
         T: Iterator<Item = &'a Box<dyn Engine>>,
     {
         self.tabs.clear();
-        self.tabs.extend(tabs.map(|tab| RenderTab::new(tab.as_ref(), active_tab)));
+        self.tabs.extend(tabs.map(|tab| {
+            let engine_id = tab.id();
+            let tab = RenderTab::new(tab.as_ref(), active_tab == Some(engine_id));
+            (engine_id, tab)
+        }));
     }
 
     /// Update the active tab for this cache.
     fn set_active_tab(&mut self, active_tab: Option<EngineId>) {
-        for tab in &mut self.tabs {
-            tab.active = Some(tab.engine) == active_tab;
+        for (engine_id, tab) in &mut self.tabs {
+            tab.active = Some(*engine_id) == active_tab;
         }
     }
 
@@ -1124,7 +1128,7 @@ impl TextureCache {
     ///
     /// Returns `true` if the load progress of a tab was updated.
     fn set_load_progress(&mut self, engine_id: EngineId, load_progress: f64) -> bool {
-        match self.tabs.iter_mut().find(|tab| tab.engine == engine_id) {
+        match self.tabs.get_mut(&engine_id) {
             Some(tab) => {
                 tab.load_progress = (load_progress * 100.).ceil() as u8;
                 true
@@ -1138,8 +1142,7 @@ impl TextureCache {
     /// Returns `true` if a tab's favicon was reloaded.
     #[allow(clippy::borrowed_box)]
     fn update_favicon(&mut self, tab: &Box<dyn Engine>) -> bool {
-        let render_tab = match self.tabs.iter_mut().find(|render_tab| render_tab.engine == tab.id())
-        {
+        let render_tab = match self.tabs.get_mut(&tab.id()) {
             Some(render_tab) => render_tab,
             None => return false,
         };
@@ -1176,7 +1179,7 @@ impl TextureCache {
     ) -> impl Iterator<Item = TabTextures> {
         // Remove unused textures from cache.
         self.textures.retain(|cache_key, texture| {
-            let retain = self.tabs.iter().any(|tab| &tab.key() == cache_key);
+            let retain = self.tabs.values().any(|tab| &tab.key() == cache_key);
 
             // Release OpenGL texture.
             if !retain {
@@ -1188,7 +1191,7 @@ impl TextureCache {
 
         // Remove unused favicons from cache.
         self.favicons.retain(|resource_uri, texture| {
-            let retain = self.tabs.iter().any(|tab| {
+            let retain = self.tabs.values().any(|tab| {
                 tab.favicon.as_ref().is_some_and(|favicon| &favicon.resource_uri == resource_uri)
             });
 
@@ -1201,7 +1204,7 @@ impl TextureCache {
         });
 
         // Create textures for missing tabs.
-        for tab in group_tabs(&self.tabs, group) {
+        for (_, tab) in group_tabs(&self.tabs, group) {
             // Create favicon texture.
             if let Some(favicon) = tab.favicon.as_ref() {
                 if !self.favicons.contains_key(&favicon.resource_uri) {
@@ -1276,16 +1279,16 @@ impl TextureCache {
         }
 
         // Get textures for all tabs in reverse order.
-        group_tabs(&self.tabs, group)
-            .rev()
-            .map(|tab| TabTextures::new(&self.textures, &self.favicons, tab))
+        group_tabs(&self.tabs, group).rev().map(|(engine_id, tab)| {
+            TabTextures::new(&self.textures, &self.favicons, *engine_id, tab)
+        })
     }
 
     /// Get the texture for one specific tab.
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn tab_textures(&mut self, engine_id: EngineId) -> Option<TabTextures> {
-        let tab = self.tabs.iter().find(|tab| tab.engine == engine_id)?;
-        Some(TabTextures::new(&self.textures, &self.favicons, tab))
+        let tab = self.tabs.get(&engine_id)?;
+        Some(TabTextures::new(&self.textures, &self.favicons, engine_id, tab))
     }
 }
 
@@ -1305,18 +1308,18 @@ impl<'a> TabTextures<'a> {
     fn new(
         tabs: &'a HashMap<TabTextureCacheKey<'static>, Texture>,
         favicons: &'a HashMap<glib::GString, Texture>,
+        engine_id: EngineId,
         render_tab: &'a RenderTab,
     ) -> Self {
         let favicon = render_tab.favicon.as_ref().and_then(|f| favicons.get(&*f.resource_uri));
         let tab = tabs.get(&render_tab.key()).unwrap();
-        Self { engine_id: render_tab.engine, favicon, tab }
+        Self { engine_id, favicon, tab }
     }
 }
 
 /// Information required to render a tab.
 #[derive(Debug)]
 struct RenderTab {
-    engine: EngineId,
     uri: String,
     title: String,
     active: bool,
@@ -1325,15 +1328,13 @@ struct RenderTab {
 }
 
 impl RenderTab {
-    fn new(engine: &dyn Engine, active_tab: Option<EngineId>) -> Self {
-        let engine_id = engine.id();
+    fn new(engine: &dyn Engine, active: bool) -> Self {
         Self {
-            active: Some(engine_id) == active_tab,
+            active,
             title: engine.title().into(),
             favicon: engine.favicon(),
             uri: engine.uri().into(),
             load_progress: 100,
-            engine: engine_id,
         }
     }
 
@@ -1696,6 +1697,9 @@ enum KeyboardInputElement {
 }
 
 /// Get iterator over tabs in a tab group.
-fn group_tabs(tabs: &[RenderTab], group: GroupId) -> impl DoubleEndedIterator<Item = &RenderTab> {
-    tabs.iter().filter(move |tab| tab.engine.group_id() == group)
+fn group_tabs(
+    tabs: &IndexMap<EngineId, RenderTab>,
+    group: GroupId,
+) -> impl DoubleEndedIterator<Item = (&EngineId, &RenderTab)> {
+    tabs.iter().filter(move |(engine_id, _)| engine_id.group_id() == group)
 }

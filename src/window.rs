@@ -1028,18 +1028,23 @@ impl Window {
 
     /// Update an engine's URI.
     pub fn set_engine_uri(&mut self, engine_id: EngineId, uri: String) {
+        // Short-circuit if the engine's URI has not changed.
+        if self.overlay.tabs_mut().tab_uri(engine_id).is_some_and(|old| old == uri) {
+            return;
+        }
+
         // Update UI if the URI change is for the active tab.
         if Some(engine_id) == self.active_tab {
             self.ui.set_uri(&uri);
-
-            // Unstall if UI changed.
-            if self.ui.dirty() {
-                self.unstall();
-            }
         }
 
         // Update tabs popup.
         self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
+
+        // Redraw if visible surface was changed.
+        if self.overlay.opaque() || self.ui.dirty() {
+            self.unstall();
+        }
 
         let group = self.groups.get(&engine_id.group_id()).unwrap_or(NO_GROUP_REF);
         if !group.ephemeral {

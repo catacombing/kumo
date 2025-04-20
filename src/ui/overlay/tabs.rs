@@ -1248,14 +1248,15 @@ impl TextureCache {
 
             // Render background with load progress indication.
             let builder = TextureBuilder::new(tab_size.into());
+            let context = builder.context();
             builder.clear(NEW_TAB_BG);
             if tab.load_progress < 100 {
                 let width = tab_size.width as f64 / 100. * tab.load_progress as f64;
                 let [r, g, b, a] = PROGRESS_TAB_BG;
 
-                builder.context().rectangle(0., 0., width, tab_size.height as f64);
-                builder.context().set_source_rgba(r, g, b, a);
-                builder.context().fill().unwrap();
+                context.rectangle(0., 0., width, tab_size.height as f64);
+                context.set_source_rgba(r, g, b, a);
+                context.fill().unwrap();
             }
 
             // Render text to the texture.
@@ -1263,7 +1264,6 @@ impl TextureCache {
 
             // Render close `X`.
             let size = Tabs::close_button_size(tab_size, scale);
-            let context = builder.context();
             context.move_to(close_position.x, close_position.y);
             context.line_to(close_position.x + size.width, close_position.y + size.height);
             context.move_to(close_position.x + size.width, close_position.y);

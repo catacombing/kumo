@@ -60,6 +60,7 @@ impl Renderer {
     }
 
     /// Perform drawing with this renderer.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn draw<F: FnOnce(&Renderer)>(&mut self, size: Size, fun: F) {
         self.sized(size).make_current();
 
@@ -151,6 +152,7 @@ struct SizedRenderer {
 
 impl SizedRenderer {
     /// Create sized renderer state.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn new(display: &Display, surface: &WlSurface, size: Size) -> Self {
         // Create EGL surface and context and make it current.
         let (egl_surface, egl_context) = Self::create_surface(display, surface, size);
@@ -188,6 +190,7 @@ impl SizedRenderer {
     }
 
     /// Create a new EGL surface.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn create_surface(
         display: &Display,
         surface: &WlSurface,
@@ -233,6 +236,7 @@ impl SizedRenderer {
     }
 
     /// Create the OpenGL program.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn create_program() -> (GLint, GLint) {
         unsafe {
             // Create vertex shader.
@@ -366,6 +370,7 @@ pub struct TextureBuilder {
 }
 
 impl TextureBuilder {
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn new(size: Size<i32>) -> Self {
         let image_surface = ImageSurface::create(Format::ARgb32, size.width, size.height).unwrap();
         let context = Context::new(&image_surface).unwrap();
@@ -374,6 +379,7 @@ impl TextureBuilder {
     }
 
     /// Fill entire buffer with a single color.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn clear(&self, color: [f64; 3]) {
         self.context.set_source_rgb(color[0], color[1], color[2]);
         self.context.paint().unwrap();

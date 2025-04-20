@@ -23,7 +23,7 @@
             <li>Session recovery</li>
             <li>Tab groups</li>
             <li>History management</li>
-        <ul>
+        </ul>
     </description>
     <launchable type="desktop-id">org.catacombing.kumo.desktop</launchable>
     <provides>
@@ -48,6 +48,16 @@
         </screenshot>
     </screenshots>
     <releases>
+        <release version="1.0.0" date="2025-04-20">
+            <description>
+                <p>Kumo Version 1.0.0</p>
+                <ul>
+                    <li>Group tabs with pages they were opened from</li>
+                    <li>Add tab view load progress highlights</li>
+                    <li>Allow reordering tabs in tab view</li>
+                </ul>
+            </description>
+        </release>
         <release version="0.0.0" date="2025-04-11">
             <description>
                 <p>Preview release of Kumo</p>

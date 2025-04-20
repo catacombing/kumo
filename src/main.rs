@@ -604,12 +604,12 @@ impl Mul<f64> for Size {
     }
 }
 
-impl Mul<f64> for Size<f64> {
+impl<T: Mul<T, Output = T> + Copy> Mul<T> for Size<T> {
     type Output = Self;
 
-    fn mul(mut self, scale: f64) -> Self {
-        self.width *= scale;
-        self.height *= scale;
+    fn mul(mut self, scale: T) -> Self {
+        self.width = self.width * scale;
+        self.height = self.height * scale;
         self
     }
 }

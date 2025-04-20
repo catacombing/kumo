@@ -3,15 +3,17 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::mem;
+use std::time::{Duration, Instant};
 
 use funq::MtQueueHandle;
+use glib::{ControlFlow, Priority, Source, source};
 use pangocairo::pango::Alignment;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::engine::{Engine, EngineId, Favicon, Group, GroupId, NO_GROUP, NO_GROUP_ID};
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::{MAX_TAP_DISTANCE, SvgButton, TextField};
+use crate::ui::{LONG_PRESS_MILLIS, MAX_TAP_DISTANCE, SvgButton, TextField};
 use crate::window::TextInputChange;
 use crate::{Position, Size, State, WindowId, gl, rect_contains};
 
@@ -53,6 +55,9 @@ const BUTTON_HEIGHT: u32 = 60;
 /// Favicon width and height at scale 1.
 const FAVICON_SIZE: f64 = 28.;
 
+/// Scale of a tab being drag & dropped.
+const REORDERING_SCALE: f32 = 0.9;
+
 #[funq::callbacks(State)]
 pub trait TabsHandler {
     /// Create a new tab and switch to it.
@@ -63,6 +68,9 @@ pub trait TabsHandler {
 
     /// Close a tab.
     fn close_tab(&mut self, engine_id: EngineId);
+
+    /// Move an existing tab to a new position in the tabs list.
+    fn move_tab(&mut self, engine_id: EngineId, new_index: usize);
 
     /// Cycle overview to the next tab group.
     fn cycle_tab_group(&mut self, window_id: WindowId, group_id: GroupId);
@@ -84,6 +92,9 @@ pub trait TabsHandler {
 
     /// Close the tabs UI.
     fn close_tabs_ui(&mut self, window_id: WindowId);
+
+    /// Start tab drop & drag.
+    fn start_tab_reordering(&mut self, tab: EngineId);
 }
 
 impl TabsHandler for State {
@@ -114,6 +125,15 @@ impl TabsHandler for State {
         };
 
         window.close_tab(engine_id);
+    }
+
+    fn move_tab(&mut self, engine_id: EngineId, new_index: usize) {
+        let window = match self.windows.get_mut(&engine_id.window_id()) {
+            Some(window) => window,
+            None => return,
+        };
+
+        window.move_tab(engine_id, new_index);
     }
 
     fn cycle_tab_group(&mut self, window_id: WindowId, group_id: GroupId) {
@@ -176,10 +196,19 @@ impl TabsHandler for State {
         };
         window.set_tabs_ui_visible(false);
     }
+
+    fn start_tab_reordering(&mut self, tab: EngineId) {
+        let window = match self.windows.get_mut(&tab.window_id()) {
+            Some(window) => window,
+            None => return,
+        };
+        window.start_tab_reordering(tab);
+    }
 }
 
 /// Tab overview UI.
 pub struct Tabs {
+    last_reordering_scroll: Option<Instant>,
     texture_cache: TextureCache,
     scroll_offset: f64,
 
@@ -218,6 +247,7 @@ impl Tabs {
             close_group_button: SvgButton::new(Svg::Close),
             menu_button: SvgButton::new(Svg::Menu),
             scale: 1.0,
+            last_reordering_scroll: Default::default(),
             new_group_button: Default::default(),
             keyboard_focus: Default::default(),
             new_tab_button: Default::default(),
@@ -232,11 +262,35 @@ impl Tabs {
     }
 
     /// Update the tracked tabs.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn set_tabs<'a, T>(&mut self, tabs: T, active_tab: Option<EngineId>)
     where
         T: Iterator<Item = &'a Box<dyn Engine>>,
     {
+        // Get index of tab being reordered.
+        let mut old_reordering_tab = None;
+        if let TouchAction::TabReordering(engine_id) = self.touch_state.action {
+            old_reordering_tab = self
+                .texture_cache
+                .tabs
+                .iter()
+                .position(|tab| tab.engine == engine_id)
+                .map(|i| (i, engine_id));
+        }
+
         self.texture_cache.set_tabs(tabs, active_tab);
+
+        // Adjust reordering touch origin to account for new tab location.
+        if let Some((old_position, engine_id)) = old_reordering_tab {
+            if let Some(new_position) =
+                self.texture_cache.tabs.iter().position(|tab| tab.engine == engine_id)
+            {
+                let tabs_moved = new_position as f64 - old_position as f64;
+                let tab_height = self.tab_size().height as f64;
+                self.touch_state.start.y += tabs_moved * tab_height;
+            }
+        }
+
         self.dirty = true;
     }
 
@@ -290,6 +344,12 @@ impl Tabs {
     pub fn set_visible(&mut self, visible: bool) {
         self.dirty |= self.visible != visible;
         self.visible = visible;
+    }
+
+    /// Start tab drop & drag.
+    pub fn start_tab_reordering(&mut self, tab: EngineId) {
+        self.touch_state.action = TouchAction::TabReordering(tab);
+        self.dirty = true;
     }
 
     /// Physical size of the tab creation button bar.
@@ -495,6 +555,72 @@ impl Tabs {
         // Calculate tab content outside the viewport.
         tabs_height.saturating_sub(available_height)
     }
+
+    /// Handle scrolling for the tab reordering.
+    ///
+    /// This will automatically scroll the tabs view when the tab being
+    /// reordered is at the top or bottom of the tabs list while scrolling
+    /// is available.
+    fn add_reordering_scroll_offset(&mut self, engine_id: EngineId) {
+        let group_label_position = self.group_label_position();
+        let tabs_start = group_label_position.y + self.group_label_size().height as f64;
+        let tabs_end = self.new_tab_button_position().y;
+        let tab_height = self.tab_size().height as f64;
+
+        if self.touch_state.position.y < tabs_start + tab_height {
+            if let Some(last_scroll) = self.last_reordering_scroll {
+                // Scroll tabs list, clamping the offset to get the real distance travelled.
+                let old_offset = self.scroll_offset;
+                self.scroll_offset += last_scroll.elapsed().as_millis() as f64;
+                self.clamp_scroll_offset();
+
+                // Adjust tab position and touch offset.
+                self.touch_state.start.y += self.scroll_offset - old_offset;
+                self.shift_reordering_tab(engine_id);
+            }
+
+            self.last_reordering_scroll = Some(Instant::now());
+            self.dirty = true;
+        } else if self.touch_state.position.y >= tabs_end - tab_height {
+            if let Some(last_scroll) = self.last_reordering_scroll {
+                // Scroll tabs list, clamping the offset to get the real distance travelled.
+                let old_offset = self.scroll_offset;
+                self.scroll_offset -= last_scroll.elapsed().as_millis() as f64;
+                self.clamp_scroll_offset();
+
+                // Adjust tab position and touch offset.
+                self.touch_state.start.y += self.scroll_offset - old_offset;
+                self.shift_reordering_tab(engine_id);
+            }
+
+            self.last_reordering_scroll = Some(Instant::now());
+            self.dirty = true;
+        } else {
+            self.last_reordering_scroll = None;
+        }
+    }
+
+    /// Shift the tab being reordered to its target position.
+    fn shift_reordering_tab(&mut self, engine_id: EngineId) {
+        // Calculate number of tab positions the reordering tab needs to be moved by.
+        let delta = self.touch_state.position.y - self.touch_state.start.y;
+        let tab_height = self.tab_size().height as f64;
+        let tabs_moved = (delta / tab_height).round() as isize;
+
+        // Calculate tab's target index.
+        let tabs = &self.texture_cache.tabs;
+        let tab_index = match tabs.iter().position(|tab| tab.engine == engine_id) {
+            Some(index) => index as isize,
+            None => return,
+        };
+        let new_index = (tab_index + tabs_moved).clamp(0, tabs.len() as isize - 1);
+
+        // If the tab moved by at least half a tab's height, move the tab's position and
+        // placeholder to the new target location.
+        if new_index != tab_index {
+            self.queue.move_tab(engine_id, new_index as usize);
+        }
+    }
 }
 
 impl Popup for Tabs {
@@ -524,6 +650,19 @@ impl Popup for Tabs {
         let tabs_start = group_label_position.y + self.group_label_size().height as f32;
         let favicon_size: Size<f32> = self.favicon_size().into();
         let tab_size = self.tab_size();
+
+        // Get reordering tab and animate reordering scroll offset.
+        let reordering_tab = match (self.touch_state.action, self.touch_state.slot) {
+            (TouchAction::TabReordering(tab), Some(_)) => {
+                self.add_reordering_scroll_offset(tab);
+                Some(tab)
+            },
+            _ => {
+                self.last_reordering_scroll = None;
+                None
+            },
+        };
+        let mut reordering_tab_position = Position::default();
 
         // Get UI textures.
         //
@@ -558,27 +697,63 @@ impl Popup for Tabs {
         let mut texture_pos = cycle_group_button_position;
         texture_pos.x += (TABS_X_PADDING * self.scale) as f32;
         texture_pos.y += self.scroll_offset as f32;
-        for (tab_texture, favicon_texture) in tab_textures {
+        for tab_textures in tab_textures {
             // Render only tabs within the viewport.
-            texture_pos.y -= tab_texture.height as f32;
+            texture_pos.y -= tab_textures.tab.height as f32;
             if texture_pos.y < new_tab_button_position.y
-                && texture_pos.y > tabs_start - tab_texture.height as f32
+                && texture_pos.y > tabs_start - tab_textures.tab.height as f32
+                && reordering_tab != Some(tab_textures.engine_id)
             {
-                renderer.draw_texture_at(tab_texture, texture_pos, None);
+                renderer.draw_texture_at(tab_textures.tab, texture_pos, None);
 
-                if let Some(favicon_texture) = favicon_texture {
+                if let Some(favicon_texture) = tab_textures.favicon {
                     // Center favicon within the tab.
-                    let offset = (tab_texture.height as i32 - favicon_size.height as i32) / 2;
-                    let mut favicon_pos = texture_pos;
-                    favicon_pos.x += offset as f32;
-                    favicon_pos.y += offset as f32;
+                    let offset = (tab_textures.tab.height as f32 - favicon_size.height) / 2.;
+                    let favicon_pos = texture_pos + Position::new(offset, offset);
 
                     renderer.draw_texture_at(favicon_texture, favicon_pos, favicon_size);
                 }
+            } else if reordering_tab == Some(tab_textures.engine_id) {
+                reordering_tab_position = texture_pos;
             }
 
             // Add padding after the tab.
             texture_pos.y -= (TABS_Y_PADDING * self.scale) as f32
+        }
+
+        // Draw tab in the process of reordering.
+        if let Some(textures) = reordering_tab.and_then(|tab| self.texture_cache.tab_textures(tab))
+        {
+            // Add drag offset to tab position.
+            let start: Position<f32> = self.touch_state.start.into();
+            let end: Position<f32> = self.touch_state.position.into();
+            reordering_tab_position.y += end.y - start.y;
+
+            // Ensure at least half the tab stays within tabs list.
+            let half_height = (tab_size.height / 2) as f32;
+            reordering_tab_position.y = reordering_tab_position
+                .y
+                .clamp(tabs_start - half_height, new_tab_button_position.y - half_height);
+
+            // Downscale tab texture to distinguish it from the other tabs.
+            let width = (textures.tab.width as f32 * REORDERING_SCALE).round();
+            let height = (textures.tab.height as f32 * REORDERING_SCALE).round();
+            let size = Size::new(width, height);
+            reordering_tab_position.x += (textures.tab.width as f32 - width) / 2.;
+            reordering_tab_position.y += (textures.tab.height as f32 - height) / 2.;
+
+            renderer.draw_texture_at(textures.tab, reordering_tab_position, size);
+
+            if let Some(favicon_texture) = textures.favicon {
+                // Downscale favicon size.
+                let favicon_size = favicon_size * REORDERING_SCALE;
+
+                // Center favicon within the tab.
+                let offset = (height - favicon_size.height) / 2.;
+                let favicon_position = reordering_tab_position + Position::new(offset, offset);
+
+                renderer.draw_texture_at(favicon_texture, favicon_position, favicon_size);
+            }
         }
 
         // Draw tab group label.
@@ -714,8 +889,17 @@ impl Popup for Tabs {
             self.group_label.touch_down(time, logical_position, position - group_label_position);
             self.touch_state.action = TouchAction::GroupLabelTouch;
             self.keyboard_focus = Some(KeyboardInputElement::GroupLabel);
+        } else if let Some((&RenderTab { engine, .. }, close)) = self.tab_at(position) {
+            self.touch_state.action = TouchAction::TabTap(engine, close);
+            self.clear_keyboard_focus();
+
+            // Create timer for tab reordering.
+            let mut queue = self.queue.clone();
+            self.touch_state.stage_long_press_callback(move || {
+                queue.start_tab_reordering(engine);
+            });
         } else {
-            self.touch_state.action = TouchAction::TabTap;
+            self.touch_state.action = TouchAction::None;
             self.clear_keyboard_focus();
         }
     }
@@ -737,7 +921,7 @@ impl Popup for Tabs {
         let old_position = mem::replace(&mut self.touch_state.position, position);
 
         match self.touch_state.action {
-            TouchAction::TabTap | TouchAction::TabDrag => {
+            TouchAction::TabTap(..) | TouchAction::TabDrag => {
                 // Ignore dragging until tap distance limit is exceeded.
                 let delta = self.touch_state.position - self.touch_state.start;
                 if delta.x.powi(2) + delta.y.powi(2) <= MAX_TAP_DISTANCE {
@@ -745,19 +929,32 @@ impl Popup for Tabs {
                 }
                 self.touch_state.action = TouchAction::TabDrag;
 
+                // Stop long-press timeout.
+                self.touch_state.clear_long_press_timeout();
+
                 // Immediately start moving the tabs list.
                 let old_offset = self.scroll_offset;
                 self.scroll_offset += self.touch_state.position.y - old_position.y;
                 self.clamp_scroll_offset();
                 self.dirty |= self.scroll_offset != old_offset;
             },
+            // Handle tab drag & drop.
+            TouchAction::TabReordering(engine_id) => {
+                self.shift_reordering_tab(engine_id);
+                self.dirty = true;
+            },
             // Forward group label events.
             TouchAction::GroupLabelTouch => {
                 let group_label_position = self.group_label_position();
                 self.group_label.touch_motion(position - group_label_position);
+
+                // Stop long-press timeout.
+                self.touch_state.clear_long_press_timeout();
             },
-            // Ignore drag when tap started on a UI element.
-            _ => (),
+            _ => {
+                // Stop long-press timeout.
+                self.touch_state.clear_long_press_timeout();
+            },
         }
     }
 
@@ -767,6 +964,8 @@ impl Popup for Tabs {
             return;
         }
         self.touch_state.slot = None;
+
+        self.touch_state.clear_long_press_timeout();
 
         match self.touch_state.action {
             // Cycle through tab groups.
@@ -834,18 +1033,15 @@ impl Popup for Tabs {
             // Forward group label events.
             TouchAction::GroupLabelTouch => self.group_label.touch_up(time),
             // Switch tabs for tap actions on a tab.
-            TouchAction::TabTap => {
-                if let Some((&RenderTab { engine, .. }, close)) =
-                    self.tab_at(self.touch_state.start)
-                {
-                    if close {
-                        self.queue.close_tab(engine);
-                    } else {
-                        self.queue.set_active_tab(engine);
-                    }
+            TouchAction::TabTap(engine_id, close) => {
+                if close {
+                    self.queue.close_tab(engine_id);
+                } else {
+                    self.queue.set_active_tab(engine_id);
                 }
             },
-            TouchAction::TabDrag => (),
+            TouchAction::TabReordering(_) => self.dirty = true,
+            TouchAction::TabDrag | TouchAction::None => (),
         }
     }
 
@@ -977,7 +1173,7 @@ impl TextureCache {
         tab_size: Size,
         scale: f64,
         group: GroupId,
-    ) -> impl Iterator<Item = (&Texture, Option<&Texture>)> {
+    ) -> impl Iterator<Item = TabTextures> {
         // Remove unused textures from cache.
         self.textures.retain(|cache_key, texture| {
             let retain = self.tabs.iter().any(|tab| &tab.key() == cache_key);
@@ -1080,12 +1276,40 @@ impl TextureCache {
         }
 
         // Get textures for all tabs in reverse order.
-        group_tabs(&self.tabs, group).rev().map(|tab| {
-            let favicon_texture =
-                tab.favicon.as_ref().and_then(|favicon| self.favicons.get(&*favicon.resource_uri));
-            let texture = self.textures.get(&tab.key()).unwrap();
-            (texture, favicon_texture)
-        })
+        group_tabs(&self.tabs, group)
+            .rev()
+            .map(|tab| TabTextures::new(&self.textures, &self.favicons, tab))
+    }
+
+    /// Get the texture for one specific tab.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn tab_textures(&mut self, engine_id: EngineId) -> Option<TabTextures> {
+        let tab = self.tabs.iter().find(|tab| tab.engine == engine_id)?;
+        Some(TabTextures::new(&self.textures, &self.favicons, tab))
+    }
+}
+
+/// Textures required for rendering a tab.
+struct TabTextures<'a> {
+    engine_id: EngineId,
+    tab: &'a Texture,
+    favicon: Option<&'a Texture>,
+}
+
+impl<'a> TabTextures<'a> {
+    /// Get the textures for the tab.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the tab's main texture doesn't exist.
+    fn new(
+        tabs: &'a HashMap<TabTextureCacheKey<'static>, Texture>,
+        favicons: &'a HashMap<glib::GString, Texture>,
+        render_tab: &'a RenderTab,
+    ) -> Self {
+        let favicon = render_tab.favicon.as_ref().and_then(|f| favicons.get(&*f.resource_uri));
+        let tab = tabs.get(&render_tab.key()).unwrap();
+        Self { engine_id: render_tab.engine, favicon, tab }
     }
 }
 
@@ -1418,13 +1642,44 @@ struct TouchState {
     action: TouchAction,
     start: Position<f64>,
     position: Position<f64>,
+    long_press_source: Option<Source>,
+}
+
+impl TouchState {
+    /// Set a new callback to be executed once the long-press timeout elapses.
+    fn stage_long_press_callback<F>(&mut self, mut callback: F)
+    where
+        F: FnMut() + Send + 'static,
+    {
+        // Clear old timout.
+        self.clear_long_press_timeout();
+
+        // Stage new timeout callback.
+        let delay = Duration::from_millis(LONG_PRESS_MILLIS as u64);
+        let source = source::timeout_source_new(delay, None, Priority::DEFAULT, move || {
+            callback();
+            ControlFlow::Break
+        });
+        source.attach(None);
+
+        self.long_press_source = Some(source);
+    }
+
+    /// Cancel active long-press timers.
+    fn clear_long_press_timeout(&mut self) {
+        if let Some(source) = self.long_press_source.take() {
+            source.destroy();
+        }
+    }
 }
 
 /// Intention of a touch sequence.
 #[derive(Default, Copy, Clone, PartialEq, Eq, Debug)]
 enum TouchAction {
     #[default]
-    TabTap,
+    None,
+    TabTap(EngineId, bool),
+    TabReordering(EngineId),
     TabDrag,
     MenuTap,
     NewTabTap,

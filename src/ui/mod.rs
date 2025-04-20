@@ -31,11 +31,11 @@ mod renderer;
 /// Square of the maximum distance before touch input is considered a drag.
 pub const MAX_TAP_DISTANCE: f64 = 400.;
 
+/// Minimum time before a tap is considered a long-press.
+pub const LONG_PRESS_MILLIS: u32 = 300;
+
 /// Maximum interval between taps to be considered a double/trible-tap.
 const MAX_MULTI_TAP_MILLIS: u32 = 300;
-
-/// Minimum time before a tap is considered a long-press.
-const LONG_PRESS_MILLIS: u32 = 300;
 
 /// Logical height of the non-browser UI.
 const TOOLBAR_HEIGHT: u32 = 50;
@@ -936,7 +936,6 @@ pub struct TextField {
 
     selection: Option<Range<i32>>,
 
-    long_press_source: Option<Source>,
     touch_state: TouchState,
 
     text_change_handler: Box<dyn FnMut(&mut Self)>,
@@ -967,7 +966,6 @@ impl TextField {
             submit_handler: Box::new(|_| {}),
             change_cause: ChangeCause::Other,
             purpose: ContentPurpose::Normal,
-            long_press_source: Default::default(),
             text_input_dirty: Default::default(),
             cursor_offset: Default::default(),
             scroll_offset: Default::default(),
@@ -1292,22 +1290,14 @@ impl TextField {
 
         // Stage timer for option menu popup.
         if self.touch_state.action == TouchAction::Tap {
-            // Ensure active timeouts are cleared.
-            self.clear_long_press_timeout();
-
-            // Create a new timeout.
-            let delay = Duration::from_millis(LONG_PRESS_MILLIS as u64);
-
             let position = absolute_logical_position.i32_round();
             let mut selection = self.selection_text();
             let mut queue = self.queue.clone();
             let window_id = self.window_id;
-            let source = source::timeout_source_new(delay, None, Priority::DEFAULT, move || {
+
+            self.touch_state.stage_long_press_callback(move || {
                 queue.open_text_menu(window_id, position, selection.take());
-                ControlFlow::Break
             });
-            source.attach(None);
-            self.long_press_source = Some(source);
         }
     }
 
@@ -1324,7 +1314,7 @@ impl TextField {
                 self.scroll_offset += delta.x;
                 self.clamp_scroll_offset();
 
-                self.clear_long_press_timeout();
+                self.touch_state.clear_long_press_timeout();
 
                 self.dirty = true;
             },
@@ -1360,7 +1350,7 @@ impl TextField {
                 // Ensure selection end stays visible.
                 self.update_scroll_offset();
 
-                self.clear_long_press_timeout();
+                self.touch_state.clear_long_press_timeout();
 
                 self.text_input_dirty = true;
                 self.dirty = true;
@@ -1373,7 +1363,7 @@ impl TextField {
     /// Handle touch release events.
     pub fn touch_up(&mut self, time: u32) {
         // Always reset long-press timers.
-        self.clear_long_press_timeout();
+        self.touch_state.clear_long_press_timeout();
 
         // Ignore release handling for drag actions.
         if matches!(
@@ -1687,13 +1677,6 @@ impl TextField {
         self.dirty |= clamped_offset != self.scroll_offset;
         self.scroll_offset = clamped_offset;
     }
-
-    /// Cancel active long-press popup timers.
-    fn clear_long_press_timeout(&mut self) {
-        if let Some(source) = self.long_press_source.take() {
-            source.destroy();
-        }
-    }
 }
 
 /// Touch event tracking.
@@ -1704,6 +1687,7 @@ struct TouchState {
     last_position: Position<f64>,
     last_motion_position: Position<f64>,
     start_byte_index: i32,
+    long_press_source: Option<Source>,
 }
 
 impl TouchState {
@@ -1763,6 +1747,32 @@ impl TouchState {
         };
 
         delta
+    }
+
+    /// Set a new callback to be executed once the long-press timeout elapses.
+    fn stage_long_press_callback<F>(&mut self, mut callback: F)
+    where
+        F: FnMut() + Send + 'static,
+    {
+        // Clear old timout.
+        self.clear_long_press_timeout();
+
+        // Stage new timeout callback.
+        let delay = Duration::from_millis(LONG_PRESS_MILLIS as u64);
+        let source = source::timeout_source_new(delay, None, Priority::DEFAULT, move || {
+            callback();
+            ControlFlow::Break
+        });
+        source.attach(None);
+
+        self.long_press_source = Some(source);
+    }
+
+    /// Cancel active long-press popup timers.
+    fn clear_long_press_timeout(&mut self) {
+        if let Some(source) = self.long_press_source.take() {
+            source.destroy();
+        }
     }
 }
 

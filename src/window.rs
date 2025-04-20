@@ -433,6 +433,25 @@ impl Window {
         self.unstall();
     }
 
+    /// Move an existing tab to a new position in the tabs list.
+    ///
+    /// No-op if `new_index` is out of bounds.
+    pub fn move_tab(&mut self, engine_id: EngineId, new_index: usize) {
+        let start_index = match self.tabs.get_index_of(&engine_id) {
+            Some(start_index) if new_index < self.tabs.len() => start_index,
+            _ => return,
+        };
+
+        // Move tab to its new position.
+        self.tabs.move_index(start_index, new_index);
+
+        // Update tabs view.
+        self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
+
+        // Force redraw.
+        self.unstall();
+    }
+
     /// Load a URI with the active tab.
     pub fn load_uri(&mut self, uri: String, allow_relative_paths: bool) {
         // Perform search if URI is not a recognized URI.
@@ -1372,6 +1391,12 @@ impl Window {
             // Persist new label to database.
             self.group_storage.persist(self.groups.values());
         }
+    }
+
+    /// Start tab drop & drag.
+    pub fn start_tab_reordering(&mut self, tab: EngineId) {
+        self.overlay.tabs_mut().start_tab_reordering(tab);
+        self.unstall();
     }
 }
 

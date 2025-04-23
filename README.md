@@ -3,7 +3,7 @@
 <p>
   <img src="./logo.svg" width="10%" align="left">
 
-  Kumo is a web browser with a UI focused on portrait-mode touchscreen mobile
+  Kumo is a web browser with a UI focused on portrait mode touchscreen mobile
   devices. It is optimized to run on low-end hardware with a limited battery life.
 
   <br clear="align"/>

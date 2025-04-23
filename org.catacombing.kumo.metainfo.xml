@@ -5,13 +5,13 @@
     <metadata_license>CC0-1.0</metadata_license>
     <project_license>GPL-3.0-only</project_license>
     <name>Kumo</name>
-    <summary>Wayland Mobile Web Browser</summary>
+    <summary>Mobile web browser</summary>
     <developer id="org.catacombing">
         <name>Christian Duerr</name>
     </developer>
     <description>
         <p>
-            Kumo is a web browser with a UI focused on portrait-mode touchscreen
+            Kumo is a web browser with a UI focused on portrait mode touchscreen
             mobile devices. It is optimized to run on low-end hardware with a
             limited battery life.
         </p>
@@ -31,7 +31,7 @@
     </provides>
     <branding>
         <color type="primary" scheme_preference="dark">#752a2a</color>
-        <color type="primary" scheme_preference="light">#752a2a</color>
+        <color type="primary" scheme_preference="light">#ac4242</color>
     </branding>
     <content_rating type="oars-1.1"/>
     <url type="homepage">https://github.com/catacombing/kumo</url>

@@ -885,7 +885,7 @@ dependencies = [
  "objc2-foundation",
  "once_cell",
  "raw-window-handle",
- "wayland-sys 0.31.5",
+ "wayland-sys",
 ]
 
 [[package]]
@@ -2425,15 +2425,15 @@ checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustix"
-version = "0.38.41"
+version = "0.38.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7f649912bc1495e167a6edee79151c84b1bad49748cb4f1f1167f459f6224f6"
+checksum = "fdb5bc1ae2baa591800df16c9ca78619bf65c0488b41b96ccec5d11220d8c154"
 dependencies = [
  "bitflags 2.6.0",
  "errno",
  "libc",
  "linux-raw-sys 0.4.14",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3197,15 +3197,16 @@ checksum = "6ee99da9c5ba11bd675621338ef6fa52296b76b83305e9b6e5c77d4c286d6d49"
 
 [[package]]
 name = "wayland-backend"
-version = "0.3.4"
-source = "git+https://github.com/Smithay/wayland-rs?rev=f0d51bbe5b778fb50721b107954b2b4d8495e2d9#f0d51bbe5b778fb50721b107954b2b4d8495e2d9"
+version = "0.3.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7208998eaa3870dad37ec8836979581506e0c5c64c20c9e79e9d2a10d6f47bf"
 dependencies = [
  "cc",
  "downcast-rs",
  "rustix",
  "scoped-tls",
  "smallvec",
- "wayland-sys 0.31.2",
+ "wayland-sys",
 ]
 
 [[package]]
@@ -3280,19 +3281,9 @@ dependencies = [
 
 [[package]]
 name = "wayland-sys"
-version = "0.31.2"
-source = "git+https://github.com/Smithay/wayland-rs?rev=f0d51bbe5b778fb50721b107954b2b4d8495e2d9#f0d51bbe5b778fb50721b107954b2b4d8495e2d9"
-dependencies = [
- "dlib",
- "log",
- "pkg-config",
-]
-
-[[package]]
-name = "wayland-sys"
-version = "0.31.5"
+version = "0.31.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efa8ac0d8e8ed3e3b5c9fc92c7881406a268e11555abe36493efabe649a29e09"
+checksum = "dbcebb399c77d5aa9fa5db874806ee7b4eba4e73650948e8f93963f128896615"
 dependencies = [
  "dlib",
  "log",

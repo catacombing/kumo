@@ -246,7 +246,7 @@ impl Tabs {
             persistent_button: SvgButton::new_toggle(Svg::PersistentOn, Svg::PersistentOff),
             cycle_group_button: SvgButton::new(Svg::ArrowLeft),
             close_group_button: SvgButton::new(Svg::Close),
-            menu_button: SvgButton::new(Svg::Menu),
+            menu_button: SvgButton::new(Svg::History),
             scale: 1.0,
             last_reordering_scroll: Default::default(),
             new_group_button: Default::default(),

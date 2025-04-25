@@ -700,7 +700,7 @@ impl TextLayout {
         let layout = pangocairo::functions::create_layout(&context);
 
         // Set font description.
-        let font_desc = format!("sans {}px", font_size);
+        let font_desc = format!("sans {font_size}px");
         let mut font = FontDescription::from_string(&font_desc);
         font.set_absolute_size(font.size() as f64 * scale);
         layout.set_font_description(Some(&font));
@@ -756,8 +756,8 @@ pub enum Svg {
     PersistentOff,
     PersistentOn,
     Checkmark,
+    History,
     Close,
-    Menu,
     Bin,
 }
 
@@ -769,8 +769,8 @@ impl Svg {
             Self::PersistentOff => include_bytes!("../../svgs/persistent_off.svg"),
             Self::PersistentOn => include_bytes!("../../svgs/persistent_on.svg"),
             Self::Checkmark => include_bytes!("../../svgs/checkmark.svg"),
+            Self::History => include_bytes!("../../svgs/history.svg"),
             Self::Close => include_bytes!("../../svgs/close.svg"),
-            Self::Menu => include_bytes!("../../svgs/menu.svg"),
             Self::Bin => include_bytes!("../../svgs/bin.svg"),
         }
     }

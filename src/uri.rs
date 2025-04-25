@@ -121,7 +121,6 @@ pub const TLDS: &[&str] = &[
     "BEATS",
     "BEAUTY",
     "BEER",
-    "BENTLEY",
     "BERLIN",
     "BEST",
     "BESTBUY",

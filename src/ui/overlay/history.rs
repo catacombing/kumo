@@ -131,6 +131,7 @@ impl History {
             confirm_button: SvgButton::new(Svg::Checkmark),
             close_button: SvgButton::new(Svg::Close),
             delete_button: SvgButton::new(Svg::Bin),
+            scale: 1.,
             pending_delete_confirmation: Default::default(),
             history_textures: Default::default(),
             keyboard_focus: Default::default(),
@@ -139,7 +140,6 @@ impl History {
             touch_state: Default::default(),
             visible: Default::default(),
             dirty: Default::default(),
-            scale: Default::default(),
             size: Default::default(),
         }
     }
@@ -387,7 +387,7 @@ impl Popup for History {
         }
 
         if !self.pending_delete_confirmation {
-            // Scissor crop top entry, to not overlap the buttons.
+            // Scissor crop bottom entry, to not overlap the buttons.
             unsafe {
                 gl::Enable(gl::SCISSOR_TEST);
                 gl::Scissor(0, button_height, i32::MAX, ui_height as i32);
@@ -777,7 +777,7 @@ impl HistoryTextures {
             // Configure text rendering options.
             let mut text_options = TextOptions::new();
 
-            // Calculate available area font font rendering.
+            // Calculate available area for font rendering.
             let close_position = History::close_entry_button_position(entry_size, scale);
             let text_width = (close_position.x - close_position.y * 2.).round() as i32;
             let title_size = Size::new(text_width, title_height);

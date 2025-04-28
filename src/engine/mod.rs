@@ -10,6 +10,7 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
 use uuid::Uuid;
 
+use crate::ui::overlay::downloads::{Download, DownloadId};
 use crate::ui::overlay::option_menu::OptionMenuId;
 use crate::window::TextInputChange;
 use crate::{KeyboardFocus, Position, Size, State, WindowId};
@@ -176,6 +177,9 @@ pub trait Engine {
         None
     }
 
+    /// Cancel a file download.
+    fn cancel_download(&mut self, _download_id: DownloadId) {}
+
     fn as_any(&mut self) -> &mut dyn Any;
 }
 
@@ -209,6 +213,15 @@ pub trait EngineHandler {
 
     /// Trigger a favicon update for an engine.
     fn update_favicon(&mut self, engine_id: EngineId);
+
+    /// Add a new download.
+    fn add_download(&mut self, window_id: WindowId, download: Download);
+
+    /// Update a download's progress.
+    ///
+    /// A progress value of `None` indicates that the download has failed and
+    /// will not make any further progress.
+    fn set_download_progress(&mut self, download_id: DownloadId, progress: Option<u8>);
 }
 
 impl EngineHandler for State {
@@ -272,6 +285,18 @@ impl EngineHandler for State {
     fn update_favicon(&mut self, engine_id: EngineId) {
         if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
             window.update_favicon(engine_id);
+        }
+    }
+
+    fn add_download(&mut self, window_id: WindowId, download: Download) {
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            window.add_download(download);
+        }
+    }
+
+    fn set_download_progress(&mut self, download_id: DownloadId, progress: Option<u8>) {
+        if let Some(window) = self.windows.get_mut(&download_id.window_id()) {
+            window.set_download_progress(download_id, progress);
         }
     }
 }

@@ -36,6 +36,7 @@ use crate::storage::session::{Session, SessionRecord};
 use crate::ui::Ui;
 use crate::ui::engine_backdrop::EngineBackdrop;
 use crate::ui::overlay::Overlay;
+use crate::ui::overlay::downloads::{Download, DownloadId};
 use crate::ui::overlay::option_menu::{
     Borders, OptionMenuId, OptionMenuItem, OptionMenuPosition, ScrollTarget,
 };
@@ -329,7 +330,6 @@ impl Window {
         // Create a new browser engine.
         let new_engine_id = EngineId::new(self.id, group.id());
         let engine = Box::new(self.engine_state.borrow_mut().create_engine(
-            group,
             new_engine_id,
             self.engine_size(),
             self.scale,
@@ -1119,6 +1119,54 @@ impl Window {
         }
 
         self.unstall();
+    }
+
+    /// Open or close the downloads UI.
+    pub fn set_downloads_ui_visibile(&mut self, visible: bool) {
+        self.overlay.set_downloads_visible(visible);
+
+        if visible {
+            self.set_keyboard_focus(KeyboardFocus::None);
+        }
+
+        self.unstall();
+    }
+
+    /// Add a new download.
+    pub fn add_download(&mut self, download: Download) {
+        self.overlay.add_download(download);
+
+        if self.overlay.dirty() {
+            self.unstall();
+        }
+    }
+
+    /// Update a download's progress.
+    ///
+    /// A progress value of `None` indicates that the download has failed and
+    /// will not make any further progress.
+    pub fn set_download_progress(&mut self, download_id: DownloadId, progress: Option<u8>) {
+        self.overlay.set_download_progress(download_id, progress);
+
+        if self.overlay.dirty() {
+            self.unstall();
+        }
+    }
+
+    /// Change tabs UI download button visibility.
+    pub fn set_downloads_button_visible(&mut self, visible: bool) {
+        self.overlay.set_downloads_button_visible(visible);
+
+        if self.overlay.dirty() {
+            self.unstall();
+        }
+    }
+
+    /// Cancel a file download.
+    pub fn cancel_download(&mut self, download_id: DownloadId) {
+        if let Some(tab) = self.tabs.get_mut(&download_id.engine_id()) {
+            tab.cancel_download(download_id);
+        }
     }
 
     /// Open or close the history UI.

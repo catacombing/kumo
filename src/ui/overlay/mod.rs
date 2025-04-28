@@ -9,6 +9,7 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::storage::history::History as HistoryDb;
 use crate::ui::Renderer;
+use crate::ui::overlay::downloads::{Download, DownloadId, Downloads};
 use crate::ui::overlay::history::History;
 use crate::ui::overlay::option_menu::{
     OptionMenu, OptionMenuId, OptionMenuItem, OptionMenuPosition,
@@ -17,6 +18,7 @@ use crate::ui::overlay::tabs::Tabs;
 use crate::window::TextInputChange;
 use crate::{Position, Size, State, WindowId, gl, rect_contains};
 
+pub mod downloads;
 pub mod history;
 pub mod option_menu;
 pub mod tabs;
@@ -246,7 +248,9 @@ impl Overlay {
         // NOTE: This is a simplification of actual popup opaque region combination
         // since it's currently not possible to make the overlay surface fully
         // opaque by combining multiple smaller popups.
-        self.popups.tabs.visible() || self.popups.history.visible()
+        self.popups.tabs.visible()
+            || self.popups.history.visible()
+            || self.popups.downloads.visible()
     }
 
     /// Handle new key press.
@@ -370,7 +374,7 @@ impl Overlay {
         }
     }
 
-    /// Check if any popup is dirty.
+    /// Check if any visible popup is dirty.
     pub fn dirty(&self) -> bool {
         self.popups.iter().any(|popup| popup.dirty())
     }
@@ -383,6 +387,30 @@ impl Overlay {
     /// Get mutable access to the tabs popup.
     pub fn tabs_mut(&mut self) -> &mut Tabs {
         &mut self.popups.tabs
+    }
+
+    /// Change the downloads UI visibility.
+    pub fn set_downloads_visible(&mut self, visible: bool) {
+        self.dirty |= visible != self.popups.downloads.visible();
+        self.popups.downloads.set_visible(visible);
+    }
+
+    /// Add a new download.
+    pub fn add_download(&mut self, download: Download) {
+        self.popups.downloads.add_download(download);
+    }
+
+    /// Update a download's progress.
+    ///
+    /// A progress value of `None` indicates that the download has failed and
+    /// will not make any further progress.
+    pub fn set_download_progress(&mut self, download_id: DownloadId, progress: Option<u8>) {
+        self.popups.downloads.set_download_progress(download_id, progress);
+    }
+
+    /// Change tabs UI download button visibility.
+    pub fn set_downloads_button_visible(&mut self, visible: bool) {
+        self.popups.tabs.set_downloads_button_visible(visible);
     }
 
     /// Change the history UI visibility.
@@ -430,6 +458,7 @@ impl Overlay {
 /// Overlay popup windows.
 struct Popups {
     option_menus: Vec<OptionMenu>,
+    downloads: Downloads,
     history: History,
     tabs: Tabs,
 }
@@ -437,8 +466,9 @@ struct Popups {
 impl Popups {
     fn new(window_id: WindowId, queue: MtQueueHandle<State>, history_db: HistoryDb) -> Self {
         let history = History::new(window_id, queue.clone(), history_db);
+        let downloads = Downloads::new(window_id, queue.clone());
         let tabs = Tabs::new(window_id, queue);
-        Self { history, tabs, option_menus: Default::default() }
+        Self { downloads, history, tabs, option_menus: Default::default() }
     }
 
     /// Update logical popup size.
@@ -446,6 +476,7 @@ impl Popups {
         for menu in &mut self.option_menus {
             menu.set_size(size);
         }
+        self.downloads.set_size(size);
         self.history.set_size(size);
         self.tabs.set_size(size);
     }
@@ -455,15 +486,18 @@ impl Popups {
         for menu in &mut self.option_menus {
             menu.set_scale(scale);
         }
+        self.downloads.set_scale(scale);
         self.history.set_scale(scale);
         self.tabs.set_scale(scale);
     }
 
-    /// Non-mutable popup iterator.
+    /// Non-mutable visible popup iterator.
     fn iter(&self) -> Box<dyn PopupIterator + '_> {
         let option_menus = self.option_menus.iter().filter(|m| m.visible()).map(|m| m as _);
         if self.history.visible() {
             Box::new(option_menus.chain([&self.history as _]))
+        } else if self.downloads.visible() {
+            Box::new(option_menus.chain([&self.downloads as _]))
         } else if self.tabs.visible() {
             Box::new(option_menus.chain([&self.tabs as _]))
         } else {
@@ -471,11 +505,13 @@ impl Popups {
         }
     }
 
-    /// Mutable popup iterator.
+    /// Mutable visible popup iterator.
     fn iter_mut(&mut self) -> Box<dyn PopupIteratorMut<'_> + '_> {
         let option_menus = self.option_menus.iter_mut().filter(|m| m.visible()).map(|m| m as _);
         if self.history.visible() {
             Box::new(option_menus.chain([&mut self.history as _]))
+        } else if self.downloads.visible() {
+            Box::new(option_menus.chain([&mut self.downloads as _]))
         } else if self.tabs.visible() {
             Box::new(option_menus.chain([&mut self.tabs as _]))
         } else {

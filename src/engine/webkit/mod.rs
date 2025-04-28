@@ -15,7 +15,7 @@ use funq::StQueueHandle;
 use gio::Cancellable;
 use glib::object::{Cast, ObjectExt};
 use glib::prelude::*;
-use glib::{Bytes, GString, TimeSpan, Uri, UriFlags};
+use glib::{Bytes, GString, TimeSpan, Uri, UriFlags, UserDirectory};
 use glutin::display::Display;
 use smithay_client_toolkit::compositor::Region;
 use smithay_client_toolkit::dmabuf::{DmabufFeedback, DmabufState};
@@ -31,16 +31,18 @@ use uuid::Uuid;
 use wpe_platform::ffi::WPERectangle;
 use wpe_platform::{Buffer, BufferDMABuf, BufferExt, BufferSHM, EventType};
 use wpe_webkit::{
-    Color, CookieAcceptPolicy, CookiePersistentStorage, HitTestResult, HitTestResultContext,
-    NetworkSession, OptionMenu, OptionMenuItem as WebKitOptionMenuItem, UserContentFilterStore,
-    WebView, WebViewExt, WebViewSessionState, WebsiteDataManagerExtManual, WebsiteDataTypes,
+    Color, CookieAcceptPolicy, CookiePersistentStorage, Download as WebKitDownload, HitTestResult,
+    HitTestResultContext, NetworkSession, OptionMenu, OptionMenuItem as WebKitOptionMenuItem,
+    UserContentFilterStore, WebView, WebViewExt, WebViewSessionState, WebsiteDataManagerExtManual,
+    WebsiteDataTypes,
 };
 
 use crate::engine::webkit::platform::WebKitDisplay;
-use crate::engine::{BG, Engine, EngineHandler, EngineId, Favicon, Group, GroupId};
+use crate::engine::{BG, Engine, EngineHandler, EngineId, Favicon, GroupId};
 use crate::storage::cookie_whitelist::CookieWhitelist;
+use crate::ui::overlay::downloads::{Download, DownloadId};
 use crate::ui::overlay::option_menu::{Anchor, OptionMenuId, OptionMenuItem, OptionMenuPosition};
-use crate::window::{TextInputChange, WindowHandler};
+use crate::window::{TextInputChange, Window, WindowHandler};
 use crate::{PasteTarget, Position, Size, State};
 
 mod input_method_context;
@@ -80,6 +82,12 @@ trait WebKitHandler {
 
     /// Close popup.
     fn close_menu(&mut self, menu_id: OptionMenuId);
+
+    /// Add new download for a WebKit engine.
+    fn add_webkit_download(&mut self, download_id: DownloadId, webkit_download: WebKitDownload);
+
+    /// Remove a download from WebKit's cache.
+    fn remove_webkit_download(&mut self, download_id: DownloadId);
 }
 
 impl WebKitHandler for State {
@@ -94,11 +102,7 @@ impl WebKitHandler for State {
             Some(window) => window,
             None => return,
         };
-        let engine = match window.tab_mut(engine_id) {
-            Some(engine) => engine,
-            None => return,
-        };
-        let webkit_engine = match engine.as_any().downcast_mut::<WebKitEngine>() {
+        let webkit_engine = match webkit_engine_by_id(window, engine_id) {
             Some(webkit_engine) => webkit_engine,
             None => return,
         };
@@ -129,15 +133,11 @@ impl WebKitHandler for State {
     }
 
     fn set_opaque_rectangles(&mut self, engine_id: EngineId, rects: Vec<WPERectangle>) {
-        let window = match self.windows.get_mut(&engine_id.window_id()) {
-            Some(window) => window,
-            None => return,
-        };
-        let engine = match window.tab_mut(engine_id) {
-            Some(engine) => engine,
-            None => return,
-        };
-        let webkit_engine = match engine.as_any().downcast_mut::<WebKitEngine>() {
+        let webkit_engine = match self
+            .windows
+            .get_mut(&engine_id.window_id())
+            .and_then(|window| webkit_engine_by_id(window, engine_id))
+        {
             Some(webkit_engine) => webkit_engine,
             None => return,
         };
@@ -169,11 +169,7 @@ impl WebKitHandler for State {
             Some(window) => window,
             None => return,
         };
-        let engine = match window.tab_mut(engine_id) {
-            Some(engine) => engine,
-            None => return,
-        };
-        let webkit_engine = match engine.as_any().downcast_mut::<WebKitEngine>() {
+        let webkit_engine = match webkit_engine_by_id(window, engine_id) {
             Some(webkit_engine) => webkit_engine,
             None => return,
         };
@@ -221,19 +217,15 @@ impl WebKitHandler for State {
     }
 
     fn close_menu(&mut self, menu_id: OptionMenuId) {
-        let window = match self.windows.get_mut(&menu_id.window_id()) {
-            Some(window) => window,
-            None => return,
-        };
         let engine_id = match menu_id.engine_id() {
             Some(engine_id) => engine_id,
             None => return,
         };
-        let engine = match window.tab_mut(engine_id) {
-            Some(engine) => engine,
+        let window = match self.windows.get_mut(&menu_id.window_id()) {
+            Some(window) => window,
             None => return,
         };
-        let webkit_engine = match engine.as_any().downcast_mut::<WebKitEngine>() {
+        let webkit_engine = match webkit_engine_by_id(window, engine_id) {
             Some(webkit_engine) => webkit_engine,
             None => return,
         };
@@ -244,6 +236,51 @@ impl WebKitHandler for State {
         }
 
         window.close_option_menu(menu_id);
+    }
+
+    fn add_webkit_download(&mut self, download_id: DownloadId, webkit_download: WebKitDownload) {
+        let webkit_engine = match self
+            .windows
+            .get_mut(&download_id.window_id())
+            .and_then(|window| webkit_engine_by_id(window, download_id.engine_id()))
+        {
+            Some(webkit_engine) => webkit_engine,
+            None => return,
+        };
+
+        // Transform WebKit into Kumo download.
+        let uri = webkit_download
+            .request()
+            .and_then(|request| request.uri())
+            .map_or_else(|| String::from("unkown"), |uri| uri.to_string());
+        let destination =
+            webkit_download.destination().map_or_else(|| "unkown".into(), |dst| dst.to_string());
+        let download = Download {
+            uri,
+            id: download_id,
+            destination,
+            progress: Default::default(),
+            failed: Default::default(),
+        };
+
+        // Add WebKit download to cache to allow cancellation.
+        webkit_engine.downloads.insert(download_id, webkit_download);
+
+        // Forward download for generic engine handling.
+        self.add_download(download_id.window_id(), download);
+    }
+
+    fn remove_webkit_download(&mut self, download_id: DownloadId) {
+        let webkit_engine = match self
+            .windows
+            .get_mut(&download_id.window_id())
+            .and_then(|window| webkit_engine_by_id(window, download_id.engine_id()))
+        {
+            Some(webkit_engine) => webkit_engine,
+            None => return,
+        };
+
+        webkit_engine.downloads.remove(&download_id);
     }
 }
 
@@ -299,18 +336,13 @@ impl WebKitState {
     }
 
     /// Create a new WebKit engine from this state.
-    pub fn create_engine(
-        &mut self,
-        group: &Group,
-        engine_id: EngineId,
-        size: Size,
-        scale: f64,
-    ) -> WebKitEngine {
+    pub fn create_engine(&mut self, engine_id: EngineId, size: Size, scale: f64) -> WebKitEngine {
         // Create a new network session for this group if necessary.
         let group_id = engine_id.group_id();
         let network_session = self.network_sessions.entry(group_id).or_insert_with(|| {
-            let network_session = xdg_network_session(&self.cookie_whitelist, group.id().uuid())
-                .unwrap_or_else(NetworkSession::new_ephemeral);
+            let network_session =
+                xdg_network_session(&self.cookie_whitelist, engine_id, self.queue.clone())
+                    .unwrap_or_else(NetworkSession::new_ephemeral);
             network_session.website_data_manager().unwrap().set_favicons_enabled(true);
             network_session
         });
@@ -403,6 +435,7 @@ impl WebKitState {
             opaque_region: Default::default(),
             buffer_damage: Default::default(),
             buffer_size: Default::default(),
+            downloads: Default::default(),
             buffer: Default::default(),
             dirty: Default::default(),
             menu: Default::default(),
@@ -427,6 +460,8 @@ pub struct WebKitEngine {
     scale: f64,
 
     last_input_position: Position<f64>,
+
+    downloads: HashMap<DownloadId, WebKitDownload>,
 
     dirty: bool,
 }
@@ -778,6 +813,12 @@ impl Engine for WebKitEngine {
         favicon_database.favicon_uri(&self.uri())
     }
 
+    fn cancel_download(&mut self, download_id: DownloadId) {
+        if let Some(download) = self.downloads.get(&download_id) {
+            download.cancel();
+        }
+    }
+
     fn as_any(&mut self) -> &mut dyn Any {
         self
     }
@@ -787,13 +828,79 @@ impl Engine for WebKitEngine {
 #[cfg_attr(feature = "profiling", profiling::function)]
 fn xdg_network_session(
     cookie_whitelist: &CookieWhitelist,
-    group_id: Uuid,
+    engine_id: EngineId,
+    queue: StQueueHandle<State>,
 ) -> Option<NetworkSession> {
     // Create the network session using kumo-suffixed XDG directories.
-    let group_id = group_id.to_string();
+    let group_id = engine_id.group_id().uuid().to_string();
     let cache_dir = cache_dir()?.join("groups").join(&group_id);
     let data_dir = data_dir()?.join("groups").join(&group_id);
     let network_session = NetworkSession::new(Some(cache_dir.to_str()?), Some(data_dir.to_str()?));
+
+    // Propagate download updates.
+    network_session.connect_download_started(move |_network_session, download| {
+        // Start download and find a non-conflicting download destination.
+        let id = DownloadId::new(engine_id);
+        let destination_queue = queue.clone();
+        download.connect_decide_destination(move |download, suggested_destination| {
+            // Get XDG download directory.
+            let download_dir = glib::user_special_dir(UserDirectory::Downloads)
+                .unwrap_or_else(|| PathBuf::from("/tmp"));
+
+            // Try adding suffixes to filename until unused path is found.
+            let mut suffix = 0;
+            let destination = loop {
+                let name = if suffix == 0 {
+                    suggested_destination.to_string()
+                } else {
+                    format!("{suggested_destination}_{suffix:x}")
+                };
+                suffix += 1;
+
+                let destination = download_dir.join(&name);
+                if !destination.exists() {
+                    break destination;
+                }
+            };
+
+            // Since the GIR bindings expect a `&str`, we only support utf8 paths.
+            match destination.to_str() {
+                Some(destination) => download.set_destination(destination),
+                None => download.cancel(),
+            }
+
+            // Officially start the download process.
+            destination_queue.clone().add_webkit_download(id, download.clone());
+
+            false
+        });
+
+        // Handle download progress updates.
+        let progress_queue = queue.clone();
+        download.connect_estimated_progress_notify(move |download| {
+            let progress = (download.estimated_progress() * 100.).ceil() as u8;
+            progress_queue.clone().set_download_progress(id, Some(progress));
+        });
+
+        // Handle completion and WebKit cache cleanup.
+        let finished_queue = queue.clone();
+        download.connect_finished(move |_| {
+            // Ensure download is always marked as completed.
+            let mut queue = finished_queue.clone();
+            queue.set_download_progress(id, Some(100));
+
+            // Avoid WebKit download cache memory leak.
+            queue.remove_webkit_download(id);
+        });
+
+        // Handle download failure updates.
+        let download_queue = queue.clone();
+        download.connect_failed(move |download, err| {
+            let uri = download.request().and_then(|request| request.uri());
+            error!(?uri, "Download failed: {err}");
+            download_queue.clone().set_download_progress(id, None);
+        });
+    });
 
     // Setup SQLite cookie storage in xdg data dir.
     let cookie_manager = network_session.cookie_manager()?;
@@ -1184,4 +1291,10 @@ fn data_dir() -> Option<PathBuf> {
 /// Get base cache directory.
 fn cache_dir() -> Option<PathBuf> {
     Some(dirs::cache_dir()?.join("kumo/default"))
+}
+
+/// Get and downcast a WebKit engine from a window.
+fn webkit_engine_by_id(window: &mut Window, engine_id: EngineId) -> Option<&mut WebKitEngine> {
+    let engine = window.tab_mut(engine_id)?;
+    engine.as_any().downcast_mut::<WebKitEngine>()
 }

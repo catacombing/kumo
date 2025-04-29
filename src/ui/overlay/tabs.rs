@@ -714,7 +714,7 @@ impl Popup for Tabs {
         //
         // This must happen with the renderer bound to ensure new textures are
         // associated with the correct program.
-        let tab_textures = self.texture_cache.textures(tab_size, self.scale, self.group);
+        unsafe { self.texture_cache.free_unused_textures() };
         let cycle_group_button = self.cycle_group_button.texture();
         let close_group_button = self.close_group_button.texture();
         let persistent_button = self.persistent_button.texture();
@@ -740,17 +740,21 @@ impl Popup for Tabs {
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
 
+        // Temporarily extract tabs list to simplify ownership semantics.
+        let tabs = mem::take(&mut self.texture_cache.tabs);
+
         // Draw individual tabs.
         let mut texture_pos = history_button_position;
         texture_pos.x += (TABS_X_PADDING * self.scale) as f32;
         texture_pos.y += self.scroll_offset as f32;
-        for tab_textures in tab_textures {
+        for (&engine_id, tab) in group_tabs(&tabs, self.group).rev() {
             // Render only tabs within the viewport.
-            texture_pos.y -= tab_textures.tab.height as f32;
+            texture_pos.y -= tab_size.height as f32;
             if texture_pos.y < new_tab_button_position.y
-                && texture_pos.y > tabs_start - tab_textures.tab.height as f32
-                && reordering_tab != Some(tab_textures.engine_id)
+                && texture_pos.y > tabs_start - tab_size.height as f32
+                && reordering_tab != Some(engine_id)
             {
+                let tab_textures = self.texture_cache.texture(tab, tab_size, self.scale);
                 renderer.draw_texture_at(tab_textures.tab, texture_pos, None);
 
                 if let Some(favicon_texture) = tab_textures.favicon {
@@ -760,7 +764,7 @@ impl Popup for Tabs {
 
                     renderer.draw_texture_at(favicon_texture, favicon_pos, favicon_size);
                 }
-            } else if reordering_tab == Some(tab_textures.engine_id) {
+            } else if reordering_tab == Some(engine_id) {
                 reordering_tab_position = texture_pos;
             }
 
@@ -768,9 +772,10 @@ impl Popup for Tabs {
             texture_pos.y -= (TABS_Y_PADDING * self.scale) as f32
         }
 
-        // Draw tab in the process of reordering.
-        if let Some(textures) = reordering_tab.and_then(|tab| self.texture_cache.tab_textures(tab))
-        {
+        // Draw tab in the process of being reordered.
+        if let Some(textures) = reordering_tab.and_then(|engine_id| {
+            tabs.get(&engine_id).map(|tab| self.texture_cache.texture(tab, tab_size, self.scale))
+        }) {
             // Add drag offset to tab position.
             let start: Position<f32> = self.touch_state.start.into();
             let end: Position<f32> = self.touch_state.position.into();
@@ -802,6 +807,9 @@ impl Popup for Tabs {
                 renderer.draw_texture_at(favicon_texture, favicon_position, favicon_size);
             }
         }
+
+        // Restore tabs list to texture cache.
+        self.texture_cache.tabs = tabs;
 
         // Draw tab group label.
         unsafe { gl::Disable(gl::BLEND) };
@@ -847,7 +855,7 @@ impl Popup for Tabs {
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
         self.history_button.set_geometry(self.history_button_size(), self.scale);
         self.group_label.set_geometry(self.group_label_size(), self.scale);
-        self.texture_cache.clear_textures();
+        self.texture_cache.resized = true;
     }
 
     fn size(&self) -> Size {
@@ -867,7 +875,7 @@ impl Popup for Tabs {
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
         self.history_button.set_geometry(self.history_button_size(), self.scale);
         self.group_label.set_geometry(self.group_label_size(), self.scale);
-        self.texture_cache.clear_textures();
+        self.texture_cache.resized = true;
     }
 
     fn opaque_region(&self) -> Size {
@@ -1168,6 +1176,7 @@ struct TextureCache {
     textures: HashMap<TabTextureCacheKey<'static>, Texture>,
     favicons: HashMap<glib::GString, Texture>,
     tabs: IndexMap<EngineId, RenderTab>,
+    resized: bool,
 }
 
 impl TextureCache {
@@ -1228,35 +1237,31 @@ impl TextureCache {
         changed
     }
 
-    /// Clear all cached textures.
-    fn clear_textures(&mut self) {
-        self.textures.clear();
-    }
-
-    /// Get all textures for the specified list of tabs.
+    /// Cleanup unused textures.
     ///
-    /// This will automatically maintain an internal cache to avoid re-drawing
-    /// textures for tabs that have not changed.
+    /// # Safety
+    ///
+    /// The correct OpenGL context **must** be current or this will attempt to
+    /// delete invalid OpenGL textures.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn textures(
-        &mut self,
-        tab_size: Size,
-        scale: f64,
-        group: GroupId,
-    ) -> impl Iterator<Item = TabTextures> {
-        // Remove unused textures from cache.
-        self.textures.retain(|cache_key, texture| {
-            let retain = self.tabs.values().any(|tab| &tab.key() == cache_key);
+    unsafe fn free_unused_textures(&mut self) {
+        // Clear cache on resize or prune unused textures.
+        if mem::take(&mut self.resized) {
+            self.textures.clear();
+        } else {
+            self.textures.retain(|cache_key, texture| {
+                let retain = self.tabs.values().any(|tab| &tab.key() == cache_key);
 
-            // Release OpenGL texture.
-            if !retain {
-                texture.delete();
-            }
+                // Release OpenGL texture.
+                if !retain {
+                    texture.delete();
+                }
 
-            retain
-        });
+                retain
+            });
+        }
 
-        // Remove unused favicons from cache.
+        // Remove unused favicons textures from cache.
         self.favicons.retain(|resource_uri, texture| {
             let retain = self.tabs.values().any(|tab| {
                 tab.favicon.as_ref().is_some_and(|favicon| &favicon.resource_uri == resource_uri)
@@ -1269,99 +1274,96 @@ impl TextureCache {
 
             retain
         });
-
-        // Create textures for missing tabs.
-        for (_, tab) in group_tabs(&self.tabs, group) {
-            // Create favicon texture.
-            if let Some(favicon) = tab.favicon.as_ref() {
-                if !self.favicons.contains_key(&favicon.resource_uri) {
-                    // Add favicon to texture cache.
-                    let texture = Texture::new_with_format(
-                        &favicon.bytes,
-                        favicon.width,
-                        favicon.height,
-                        gl::BGRA_EXT,
-                    );
-                    self.favicons.insert(favicon.resource_uri.clone(), texture);
-                }
-            }
-
-            // Ignore tabs we already rendered.
-            if self.textures.contains_key(&tab.key()) {
-                continue;
-            }
-
-            // Create pango layout.
-            let layout = TextLayout::new(FONT_SIZE, scale);
-
-            // Fallback to URI if title is empty.
-            layout.set_text(tab.label());
-
-            // Configure text rendering options.
-            let mut text_options = TextOptions::new();
-            if tab.active {
-                text_options.text_color(ACTIVE_TAB_FG);
-            } else {
-                text_options.text_color(INACTIVE_TAB_FG);
-            }
-
-            // Calculate spacing to the left of tab text.
-            let close_position = Tabs::close_button_position(tab_size, scale);
-            let x_offset =
-                if tab.favicon.is_some() { tab_size.height as f64 } else { close_position.y };
-
-            // Calculate available area font font rendering.
-            let text_width = close_position.x - close_position.y - x_offset;
-            let text_size = Size::new(text_width.round() as i32, tab_size.height as i32);
-            text_options.position(Position::new(x_offset, 0.));
-            text_options.size(text_size);
-
-            // Render background with load progress indication.
-            let builder = TextureBuilder::new(tab_size.into());
-            let context = builder.context();
-            builder.clear(NEW_TAB_BG);
-            if tab.load_progress < 100 {
-                let width = tab_size.width as f64 / 100. * tab.load_progress as f64;
-                let [r, g, b, a] = PROGRESS_TAB_BG;
-
-                context.rectangle(0., 0., width, tab_size.height as f64);
-                context.set_source_rgba(r, g, b, a);
-                context.fill().unwrap();
-            }
-
-            // Render text to the texture.
-            builder.rasterize(&layout, &text_options);
-
-            // Render close `X`.
-            let size = Tabs::close_button_size(tab_size, scale);
-            context.move_to(close_position.x, close_position.y);
-            context.line_to(close_position.x + size.width, close_position.y + size.height);
-            context.move_to(close_position.x + size.width, close_position.y);
-            context.line_to(close_position.x, close_position.y + size.height);
-            context.set_source_rgb(ACTIVE_TAB_FG[0], ACTIVE_TAB_FG[1], ACTIVE_TAB_FG[2]);
-            context.set_line_width(scale);
-            context.stroke().unwrap();
-
-            self.textures.insert(tab.owned_key(), builder.build());
-        }
-
-        // Get textures for all tabs in reverse order.
-        group_tabs(&self.tabs, group).rev().map(|(engine_id, tab)| {
-            TabTextures::new(&self.textures, &self.favicons, *engine_id, tab)
-        })
     }
 
-    /// Get the texture for one specific tab.
+    /// Render the texture for a tab entry.
+    ///
+    /// This will automatically take care of caching rendered textures.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn tab_textures(&mut self, engine_id: EngineId) -> Option<TabTextures> {
-        let tab = self.tabs.get(&engine_id)?;
-        Some(TabTextures::new(&self.textures, &self.favicons, engine_id, tab))
+    fn texture<'a>(
+        &'a mut self,
+        tab: &'a RenderTab,
+        tab_size: Size,
+        scale: f64,
+    ) -> TabTextures<'a> {
+        // Create favicon texture.
+        if let Some(favicon) = tab.favicon.as_ref() {
+            if !self.favicons.contains_key(&favicon.resource_uri) {
+                // Add favicon to texture cache.
+                let texture = Texture::new_with_format(
+                    &favicon.bytes,
+                    favicon.width,
+                    favicon.height,
+                    gl::BGRA_EXT,
+                );
+                self.favicons.insert(favicon.resource_uri.clone(), texture);
+            }
+        }
+
+        // Ignore tabs we already rendered.
+        if self.textures.contains_key(&tab.key()) {
+            let tab_texture = self.textures.get(&tab.key()).unwrap();
+            return TabTextures::new(tab_texture, &self.favicons, tab);
+        }
+
+        // Create pango layout.
+        let layout = TextLayout::new(FONT_SIZE, scale);
+
+        // Fallback to URI if title is empty.
+        layout.set_text(tab.label());
+
+        // Configure text rendering options.
+        let mut text_options = TextOptions::new();
+        if tab.active {
+            text_options.text_color(ACTIVE_TAB_FG);
+        } else {
+            text_options.text_color(INACTIVE_TAB_FG);
+        }
+
+        // Calculate spacing to the left of tab text.
+        let close_position = Tabs::close_button_position(tab_size, scale);
+        let x_offset =
+            if tab.favicon.is_some() { tab_size.height as f64 } else { close_position.y };
+
+        // Calculate available area font font rendering.
+        let text_width = close_position.x - close_position.y - x_offset;
+        let text_size = Size::new(text_width.round() as i32, tab_size.height as i32);
+        text_options.position(Position::new(x_offset, 0.));
+        text_options.size(text_size);
+
+        // Render background with load progress indication.
+        let builder = TextureBuilder::new(tab_size.into());
+        let context = builder.context();
+        builder.clear(NEW_TAB_BG);
+        if tab.load_progress < 100 {
+            let width = tab_size.width as f64 / 100. * tab.load_progress as f64;
+            let [r, g, b, a] = PROGRESS_TAB_BG;
+
+            context.rectangle(0., 0., width, tab_size.height as f64);
+            context.set_source_rgba(r, g, b, a);
+            context.fill().unwrap();
+        }
+
+        // Render text to the texture.
+        builder.rasterize(&layout, &text_options);
+
+        // Render close `X`.
+        let size = Tabs::close_button_size(tab_size, scale);
+        context.move_to(close_position.x, close_position.y);
+        context.line_to(close_position.x + size.width, close_position.y + size.height);
+        context.move_to(close_position.x + size.width, close_position.y);
+        context.line_to(close_position.x, close_position.y + size.height);
+        context.set_source_rgb(ACTIVE_TAB_FG[0], ACTIVE_TAB_FG[1], ACTIVE_TAB_FG[2]);
+        context.set_line_width(scale);
+        context.stroke().unwrap();
+
+        let tab_texture = self.textures.entry(tab.owned_key()).or_insert(builder.build());
+        TabTextures::new(tab_texture, &self.favicons, tab)
     }
 }
 
 /// Textures required for rendering a tab.
 struct TabTextures<'a> {
-    engine_id: EngineId,
     tab: &'a Texture,
     favicon: Option<&'a Texture>,
 }
@@ -1373,14 +1375,12 @@ impl<'a> TabTextures<'a> {
     ///
     /// Panics if the tab's main texture doesn't exist.
     fn new(
-        tabs: &'a HashMap<TabTextureCacheKey<'static>, Texture>,
+        tab: &'a Texture,
         favicons: &'a HashMap<glib::GString, Texture>,
-        engine_id: EngineId,
         render_tab: &'a RenderTab,
     ) -> Self {
         let favicon = render_tab.favicon.as_ref().and_then(|f| favicons.get(&*f.resource_uri));
-        let tab = tabs.get(&render_tab.key()).unwrap();
-        Self { engine_id, favicon, tab }
+        Self { favicon, tab }
     }
 }
 

@@ -324,7 +324,7 @@ impl Popup for Downloads {
         //
         // This must happen with the renderer bound to ensure new textures are
         // associated with the correct program.
-        self.texture_cache.free_unused_textures();
+        unsafe { self.texture_cache.free_unused_textures() };
         let delete_button = self.delete_button.texture();
         let close_button = self.close_button.texture();
 
@@ -527,8 +527,13 @@ struct TextureCache {
 
 impl TextureCache {
     /// Cleanup unused textures.
+    ///
+    /// # Safety
+    ///
+    /// The correct OpenGL context **must** be current or this will attempt to
+    /// delete invalid OpenGL textures.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn free_unused_textures(&mut self) {
+    unsafe fn free_unused_textures(&mut self) {
         self.textures.retain(|key, texture| {
             let retain =
                 self.entries.get(&key.id).is_some_and(|download| download.progress == key.progress);

@@ -367,7 +367,7 @@ impl Popup for History {
         //
         // This must happen with the renderer bound to ensure new textures are
         // associated with the correct program.
-        self.history_textures.free_unused_textures();
+        unsafe { self.history_textures.free_unused_textures() };
         let delete_button = if self.pending_delete_confirmation {
             self.confirm_button.texture()
         } else {
@@ -704,8 +704,13 @@ impl HistoryTextures {
     }
 
     /// Cleanup unused textures.
+    ///
+    /// # Safety
+    ///
+    /// The correct OpenGL context **must** be current or this will attempt to
+    /// delete invalid OpenGL textures.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn free_unused_textures(&mut self) {
+    unsafe fn free_unused_textures(&mut self) {
         // Remove unused URIs from cache.
         self.textures.retain(|uri, (entry, texture)| {
             // Only retain items with unchanged URI, Title, and Access Time.

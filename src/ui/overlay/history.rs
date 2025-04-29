@@ -8,6 +8,8 @@ use funq::MtQueueHandle;
 use pangocairo::pango::Alignment;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
+use crate::config::colors::{BG, FG, SECONDARY_BG, SECONDARY_FG};
+use crate::config::font::font_size;
 use crate::engine::NO_GROUP_ID;
 use crate::storage::history::{History as HistoryDb, HistoryEntry, HistoryUri};
 use crate::ui::overlay::Popup;
@@ -17,26 +19,11 @@ use crate::ui::{MAX_TAP_DISTANCE, SvgButton, TextField};
 use crate::window::{TextInputChange, WindowId};
 use crate::{Position, Size, State, gl, rect_contains};
 
-/// History view background color.
-const HISTORY_BG: [f64; 3] = [0.09, 0.09, 0.09];
-
 /// Logical height of the UI buttons.
 const BUTTON_HEIGHT: u32 = 60;
 
 /// Padding around buttons.
 const BUTTON_PADDING: f64 = 10.;
-
-/// Main history entry font size.
-const FONT_SIZE: u8 = 18;
-
-/// History entry subtitle font size.
-const SECONDARY_FONT_SIZE: u8 = 10;
-
-/// History list entry background color.
-const ENTRY_BG: [f64; 3] = [0.15, 0.15, 0.15];
-
-/// History entry subtitle foreground color.
-const SUBTITLE_FG: [f64; 3] = [0.75, 0.75, 0.75];
 
 /// Logical height of each history entry.
 const ENTRY_HEIGHT: u32 = 65;
@@ -380,7 +367,7 @@ impl Popup for History {
         //
         // NOTE: This clears the entire surface, but works fine since the history popup
         // always fills the entire surface.
-        let [r, g, b] = HISTORY_BG;
+        let [r, g, b] = BG;
         unsafe {
             gl::ClearColor(r as f32, g as f32, b as f32, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -743,11 +730,11 @@ impl HistoryTextures {
         // Create and cache texture if necessary.
         if !self.textures.contains_key(uri) {
             // Create title pango layout.
-            let layout = TextLayout::new(FONT_SIZE, scale);
+            let layout = TextLayout::new(font_size(1.13), scale);
             let title_height = layout.line_height();
 
             // Create timestamp layout.
-            let timestamp_layout = TextLayout::new(SECONDARY_FONT_SIZE, scale);
+            let timestamp_layout = TextLayout::new(font_size(0.63), scale);
             let timestamp_height = timestamp_layout.line_height();
             let timestamp = DateTime::from_timestamp(entry.last_access, 0)
                 .unwrap_or_default()
@@ -765,7 +752,7 @@ impl HistoryTextures {
                 layout.set_text(&entry.title);
 
                 // Create subtitle layout, to get its line height.
-                let subtitle_layout = TextLayout::new(SECONDARY_FONT_SIZE, scale);
+                let subtitle_layout = TextLayout::new(font_size(0.63), scale);
                 subtitle_layout.set_text(&uri.to_string(true));
 
                 // Calculate y padding from title and subtitle size.
@@ -791,7 +778,7 @@ impl HistoryTextures {
 
             // Render text to the texture.
             let builder = TextureBuilder::new(entry_size.into());
-            builder.clear(ENTRY_BG);
+            builder.clear(SECONDARY_BG);
             builder.rasterize(&layout, &text_options);
 
             // Also render URI if main label was title.
@@ -803,7 +790,7 @@ impl HistoryTextures {
                 text_options.size(subtitle_size);
 
                 // Render URI to texture.
-                text_options.text_color(SUBTITLE_FG);
+                text_options.text_color(SECONDARY_FG);
                 builder.rasterize(&subtitle_layout, &text_options);
             }
 
@@ -812,7 +799,7 @@ impl HistoryTextures {
             let timestamp_y = entry_size.height as f64 - y_padding - timestamp_height as f64;
             text_options.position(Position::new(close_position.y, timestamp_y));
             text_options.size(timestamp_size);
-            text_options.text_color(SUBTITLE_FG);
+            text_options.text_color(SECONDARY_FG);
             builder.rasterize(&timestamp_layout, &text_options);
 
             // Render close `X`.
@@ -822,7 +809,7 @@ impl HistoryTextures {
             context.line_to(close_position.x + size.width, close_position.y + size.height);
             context.move_to(close_position.x + size.width, close_position.y);
             context.line_to(close_position.x, close_position.y + size.height);
-            context.set_source_rgb(1., 1., 1.);
+            context.set_source_rgb(FG[0], FG[1], FG[2]);
             context.set_line_width(scale);
             context.stroke().unwrap();
 
@@ -875,10 +862,10 @@ impl ConfirmationPrompt {
     pub fn draw(&self, entry_count: usize) -> Texture {
         // Clear with background color.
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(HISTORY_BG);
+        builder.clear(BG);
 
         // Render confirmation prompt text.
-        let layout = TextLayout::new(FONT_SIZE, self.scale);
+        let layout = TextLayout::new(font_size(1.13), self.scale);
         layout.set_alignment(Alignment::Center);
         layout.set_text(&format!("Confirm deleting {entry_count} history entries?"));
         builder.rasterize(&layout, &TextOptions::new());
@@ -908,7 +895,7 @@ struct HistoryFilter {
 
 impl HistoryFilter {
     fn new(window_id: WindowId, mut queue: MtQueueHandle<State>) -> Self {
-        let mut input = TextField::new(window_id, queue.clone(), FONT_SIZE);
+        let mut input = TextField::new(window_id, queue.clone(), font_size(1.13));
         input.set_text_change_handler(Box::new(move |label| {
             queue.set_history_filter(window_id, label.text())
         }));
@@ -960,7 +947,7 @@ impl HistoryFilter {
         let layout = self.input.layout();
         layout.set_scale(self.scale);
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(ENTRY_BG);
+        builder.clear(SECONDARY_BG);
         builder.rasterize(layout, &text_options);
 
         builder.build()

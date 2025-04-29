@@ -8,6 +8,9 @@ use bitflags::bitflags;
 use funq::MtQueueHandle;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
+use crate::config::colors::{BG, DISABLED, FG, HL, SECONDARY_FG};
+use crate::config::font::font_size;
+use crate::config::input::MAX_TAP_DISTANCE;
 use crate::engine::EngineId;
 use crate::ui::Ui;
 use crate::ui::overlay::Popup;
@@ -15,30 +18,12 @@ use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBui
 use crate::window::WindowId;
 use crate::{Position, Size, State, gl};
 
-// Option menu colors.
-const FG: [f64; 3] = [1., 1., 1.];
-const BG: [f64; 3] = [0.09, 0.09, 0.09];
-const DISABLED_FG: [f64; 3] = [0.4, 0.4, 0.4];
-const DISABLED_BG: [f64; 3] = BG;
-const SELECTED_FG: [f64; 3] = [0.09, 0.09, 0.09];
-const SELECTED_BG: [f64; 3] = [0.46, 0.16, 0.16];
-const DESCRIPTION_FG: [f64; 3] = [0.75, 0.75, 0.75];
-const BORDER_COLOR: [u8; 4] = [117, 42, 42, 255];
-
 // Option menu item padding.
 const X_PADDING: f64 = 15.;
 const Y_PADDING: f64 = 10.;
 
 // Border size at scale 1.
 const BORDER_SIZE: u32 = 2;
-
-/// Option item label font size.
-const LABEL_FONT_SIZE: u8 = 16;
-/// Option item description font size.
-const DESCRIPTION_FONT_SIZE: u8 = 14;
-
-/// Square of the maximum distance before touch input is considered a drag.
-const MAX_TAP_DISTANCE: f64 = 400.;
 
 /// Next option menu ID.
 static NEXT_MENU_ID: AtomicUsize = AtomicUsize::new(0);
@@ -420,7 +405,13 @@ impl Popup for OptionMenu {
         let size = self.physical_size();
 
         // Draw menu border.
-        let border = self.border.get_or_insert_with(|| Texture::new(&BORDER_COLOR, 1, 1));
+        let border_color = [
+            (HL[0] * 255.).round() as u8,
+            (HL[1] * 255.).round() as u8,
+            (HL[2] * 255.).round() as u8,
+            255,
+        ];
+        let border = self.border.get_or_insert_with(|| Texture::new(&border_color, 1, 1));
         renderer.draw_texture_at(border, position, Some(size.into()));
 
         // Scissor crop last element when it should only be partially visible.
@@ -614,8 +605,8 @@ impl OptionMenuRenderItem {
         };
 
         let description_layout = (!item.description.is_empty())
-            .then(|| create_layout(&item.description, DESCRIPTION_FONT_SIZE));
-        let label_layout = create_layout(&item.label, LABEL_FONT_SIZE);
+            .then(|| create_layout(&item.description, font_size(0.88)));
+        let label_layout = create_layout(&item.label, font_size(1.));
 
         OptionMenuRenderItem {
             description_layout,
@@ -646,11 +637,11 @@ impl OptionMenuRenderItem {
     fn draw(&self, selected: bool) -> Texture {
         // Determine item colors.
         let (fg, description_fg, bg) = if self.disabled {
-            (DISABLED_FG, DISABLED_FG, DISABLED_BG)
+            (DISABLED, DISABLED, BG)
         } else if selected {
-            (SELECTED_FG, SELECTED_FG, SELECTED_BG)
+            (BG, BG, HL)
         } else {
-            (FG, DESCRIPTION_FG, BG)
+            (FG, SECONDARY_FG, BG)
         };
 
         // Calculate physical item size.

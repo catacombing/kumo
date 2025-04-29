@@ -25,16 +25,14 @@ use rsvg::{CairoRenderer, Loader};
 use smithay_client_toolkit::reexports::client::Proxy;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 
+use crate::config::colors::{BG, FG, HL, SECONDARY_FG};
+use crate::config::font::FONT;
 use crate::gl::types::{GLfloat, GLint, GLuint};
 use crate::{Position, Size, gl};
 
 // OpenGL shader programs.
 const VERTEX_SHADER: &str = include_str!("../../shaders/vertex.glsl");
 const FRAGMENT_SHADER: &str = include_str!("../../shaders/fragment.glsl");
-
-// Colors for text selection.
-const SELECTION_BG: [u16; 3] = [29952, 10752, 10752];
-const SELECTION_FG: [u16; 3] = [0; 3];
 
 // Selection caret height in pixels at scale 1.
 const CARET_SIZE: f64 = 5.;
@@ -421,14 +419,16 @@ impl TextureBuilder {
 
             let text_attributes = AttrList::new();
 
+            let selection_bg = pango_color(HL);
             let mut bg_attr =
-                AttrColor::new_background(SELECTION_BG[0], SELECTION_BG[1], SELECTION_BG[2]);
+                AttrColor::new_background(selection_bg[0], selection_bg[1], selection_bg[2]);
             bg_attr.set_start_index(selection.start as u32);
             bg_attr.set_end_index(selection.end as u32);
             text_attributes.insert(bg_attr);
 
+            let selection_fg = pango_color(BG);
             let mut fg_attr =
-                AttrColor::new_foreground(SELECTION_FG[0], SELECTION_FG[1], SELECTION_FG[2]);
+                AttrColor::new_foreground(selection_fg[0], selection_fg[1], selection_fg[2]);
             fg_attr.set_start_index(selection.start as u32);
             fg_attr.set_end_index(selection.end as u32);
             text_attributes.insert(fg_attr);
@@ -481,7 +481,7 @@ impl TextureBuilder {
 
                 // Set color for autocomplete text.
                 let attributes = layout.attributes().unwrap_or_default();
-                let [r, g, b] = text_options.autocomplete_color;
+                let [r, g, b] = pango_color(SECONDARY_FG);
                 let mut col_attr = AttrColor::new_foreground(r, g, b);
                 col_attr.set_start_index(autocomplete_start as u32);
                 col_attr.set_end_index(virtual_text.len() as u32);
@@ -590,7 +590,6 @@ pub struct TextOptions {
     selection: Option<Range<i32>>,
     preedit: (String, i32, i32),
     autocomplete: String,
-    autocomplete_color: [u16; 3],
     text_color: [f64; 3],
     position: Position<f64>,
     size: Option<Size<i32>>,
@@ -603,10 +602,9 @@ pub struct TextOptions {
 impl TextOptions {
     pub fn new() -> Self {
         Self {
-            autocomplete_color: [50_000; 3],
-            text_color: [1.; 3],
             ellipsize: true,
             cursor_pos: -1,
+            text_color: FG,
             autocomplete: Default::default(),
             placeholder: Default::default(),
             show_cursor: Default::default(),
@@ -700,7 +698,7 @@ impl TextLayout {
         let layout = pangocairo::functions::create_layout(&context);
 
         // Set font description.
-        let font_desc = format!("sans {font_size}px");
+        let font_desc = format!("{FONT} {font_size}px");
         let mut font = FontDescription::from_string(&font_desc);
         font.set_absolute_size(font.size() as f64 * scale);
         layout.set_font_description(Some(&font));
@@ -776,4 +774,9 @@ impl Svg {
             Self::Bin => include_bytes!("../../svgs/bin.svg"),
         }
     }
+}
+
+/// Convert floating point colors to pango's expected format.
+const fn pango_color(color: [f64; 3]) -> [u16; 3] {
+    [(color[0] * 65535.) as u16, (color[1] * 65535.) as u16, (color[2] * 65535.) as u16]
 }

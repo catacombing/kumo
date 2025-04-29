@@ -3,7 +3,6 @@
 use std::borrow::Cow;
 use std::mem;
 use std::ops::{Bound, Range, RangeBounds};
-use std::time::Duration;
 
 use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose};
 use funq::MtQueueHandle;
@@ -19,6 +18,9 @@ use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
+use crate::config::colors::{BG, FG, HL, SECONDARY_BG};
+use crate::config::font::font_size;
+use crate::config::input::{LONG_PRESS, MAX_TAP_DISTANCE};
 use crate::storage::history::{HistoryMatch, MAX_MATCHES};
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
 use crate::window::{PasteTarget, TextInputChange, TextInputState, WindowHandler};
@@ -27,12 +29,6 @@ use crate::{History, Position, Size, State, WindowId, gl, rect_contains};
 pub mod engine_backdrop;
 pub mod overlay;
 mod renderer;
-
-/// Square of the maximum distance before touch input is considered a drag.
-pub const MAX_TAP_DISTANCE: f64 = 400.;
-
-/// Minimum time before a tap is considered a long-press.
-pub const LONG_PRESS_MILLIS: u32 = 300;
 
 /// Maximum interval between taps to be considered a double/trible-tap.
 const MAX_MULTI_TAP_MILLIS: u32 = 300;
@@ -43,28 +39,14 @@ const TOOLBAR_HEIGHT: u32 = 50;
 /// Logical height of the UI/content separator.
 const SEPARATOR_HEIGHT: u32 = 2;
 
-/// Font size at scale 1.
-const FONT_SIZE: u8 = 16;
-
 /// Logical width and height of the tabs button.
 const TABS_BUTTON_SIZE: u32 = 28;
 
 /// Logical width and height of the "previous page" button.
 const PREV_BUTTON_SIZE: u32 = 14;
 
-/// Color of the UI/content separator.
-const SEPARATOR_COLOR: [u8; 4] = [117, 42, 42, 255];
-
 /// URI bar height percentage from UI.
 const URIBAR_HEIGHT_PERCENTAGE: f64 = 0.6;
-
-/// UI background color.
-const UI_BG: [f64; 3] = [0.1, 0.1, 0.1];
-
-/// URI bar text color.
-const URIBAR_FG: [f64; 3] = [1., 1., 1.];
-/// URI bar background color.
-const URIBAR_BG: [f64; 3] = [0.15, 0.15, 0.15];
 
 /// Horizontal padding between elements and screen border.
 const X_PADDING: f64 = 10.;
@@ -312,7 +294,7 @@ impl Ui {
 
             unsafe {
                 // Draw background.
-                let [r, g, b] = UI_BG;
+                let [r, g, b] = BG;
                 gl::ClearColor(r as f32, g as f32, b as f32, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
 
@@ -581,7 +563,7 @@ struct Uribar {
 impl Uribar {
     fn new(window_id: WindowId, history: History, queue: MtQueueHandle<State>) -> Self {
         // Setup text input with submission handling.
-        let mut text_field = TextField::new(window_id, queue.clone(), FONT_SIZE);
+        let mut text_field = TextField::new(window_id, queue.clone(), font_size(1.));
         let mut submit_queue = queue.clone();
         text_field.set_submit_handler(Box::new(move |uri| submit_queue.load_uri(window_id, uri)));
         text_field.set_purpose(ContentPurpose::Url);
@@ -677,7 +659,7 @@ impl Uribar {
         // Draw background color.
         let size = self.size.into();
         let builder = TextureBuilder::new(size);
-        builder.clear(URIBAR_BG);
+        builder.clear(SECONDARY_BG);
 
         // Set text rendering options.
         let position: Position<f64> = self.text_position().into();
@@ -687,7 +669,7 @@ impl Uribar {
         text_options.preedit(self.text_field.preedit.clone());
         text_options.position(position);
         text_options.size(size);
-        text_options.text_color(URIBAR_FG);
+        text_options.text_color(FG);
         text_options.set_ellipsize(false);
 
         // Show cursor or selection when focused.
@@ -705,11 +687,12 @@ impl Uribar {
         builder.rasterize(layout, &text_options);
 
         // Draw start gradient to indicate available scroll content.
+        let [r, g, b] = SECONDARY_BG;
         let size: Size<f64> = self.size.into();
         let x_padding = (X_PADDING * self.scale).round();
         let gradient = LinearGradient::new(0., 0., x_padding, 0.);
-        gradient.add_color_stop_rgba(0., URIBAR_BG[0], URIBAR_BG[1], URIBAR_BG[2], 255.);
-        gradient.add_color_stop_rgba(x_padding, URIBAR_BG[0], URIBAR_BG[1], URIBAR_BG[2], 0.);
+        gradient.add_color_stop_rgba(0., r, g, b, 255.);
+        gradient.add_color_stop_rgba(x_padding, r, g, b, 0.);
         builder.context().rectangle(0., 0., x_padding, size.height);
         builder.context().set_source(gradient).unwrap();
         builder.context().fill().unwrap();
@@ -717,8 +700,8 @@ impl Uribar {
         // Draw end gradient to indicate available scroll content.
         let x = size.width - x_padding;
         let gradient = LinearGradient::new(x, 0., size.width, 0.);
-        gradient.add_color_stop_rgba(0., URIBAR_BG[0], URIBAR_BG[1], URIBAR_BG[2], 0.);
-        gradient.add_color_stop_rgba(x_padding, URIBAR_BG[0], URIBAR_BG[1], URIBAR_BG[2], 255.);
+        gradient.add_color_stop_rgba(0., r, g, b, 0.);
+        gradient.add_color_stop_rgba(x_padding, r, g, b, 255.);
         builder.context().rectangle(x, 0., size.width, size.height);
         builder.context().set_source(gradient).unwrap();
         builder.context().fill().unwrap();
@@ -771,7 +754,13 @@ impl Separator {
     fn texture(&mut self) -> &Texture {
         // Ensure texture is initialized.
         if self.texture.is_none() {
-            self.texture = Some(Texture::new(&SEPARATOR_COLOR, 1, 1));
+            let separator_color = [
+                (HL[0] * 255.).round() as u8,
+                (HL[1] * 255.).round() as u8,
+                (HL[2] * 255.).round() as u8,
+                255,
+            ];
+            self.texture = Some(Texture::new(&separator_color, 1, 1));
         }
 
         self.texture.as_ref().unwrap()
@@ -822,18 +811,18 @@ impl TabsButton {
         // Render button outline.
         let size = self.size();
         let builder = TextureBuilder::new(size.into());
-        builder.clear(UI_BG);
-        builder.context().set_source_rgb(URIBAR_FG[0], URIBAR_FG[1], URIBAR_FG[2]);
+        builder.clear(BG);
+        builder.context().set_source_rgb(FG[0], FG[1], FG[2]);
         builder.context().rectangle(0., 0., size.width as f64, size.height as f64);
         builder.context().set_line_width(self.scale * 2.);
         builder.context().stroke().unwrap();
 
         // Render tab count text.
-        let layout = TextLayout::new(FONT_SIZE, self.scale);
+        let layout = TextLayout::new(font_size(1.), self.scale);
         layout.set_alignment(Alignment::Center);
         layout.set_text(tab_count_label);
         let mut text_options = TextOptions::new();
-        text_options.text_color(URIBAR_FG);
+        text_options.text_color(FG);
         builder.rasterize(&layout, &text_options);
 
         builder.build()
@@ -883,11 +872,11 @@ impl PrevButton {
     fn draw(&mut self) -> Texture {
         let int_size = self.size();
         let builder = TextureBuilder::new(int_size.into());
-        builder.clear(UI_BG);
+        builder.clear(BG);
 
         // Draw button arrow.
         let size: Size<f64> = int_size.into();
-        builder.context().set_source_rgb(URIBAR_FG[0], URIBAR_FG[1], URIBAR_FG[2]);
+        builder.context().set_source_rgb(FG[0], FG[1], FG[2]);
         builder.context().move_to(size.width * 0.75, 0.);
         builder.context().line_to(size.width * 0.25, size.height / 2.);
         builder.context().line_to(size.width * 0.75, size.height);
@@ -1384,10 +1373,10 @@ impl TextField {
         let byte_index = self.cursor_byte_index(index, offset);
 
         // Handle single/double/triple-taps.
-        let ms_since_down = time - self.touch_state.last_time;
+        let ms_since_down = (time - self.touch_state.last_time) as u128;
         match self.touch_state.action {
             // Long pressed is handled by a timer, so we just ignore the release.
-            TouchAction::Tap if ms_since_down >= LONG_PRESS_MILLIS => (),
+            TouchAction::Tap if ms_since_down >= LONG_PRESS.as_millis() => (),
             // Move cursor to tap location.
             TouchAction::Tap => {
                 // Update cursor index.
@@ -1758,8 +1747,7 @@ impl TouchState {
         self.clear_long_press_timeout();
 
         // Stage new timeout callback.
-        let delay = Duration::from_millis(LONG_PRESS_MILLIS as u64);
-        let source = source::timeout_source_new(delay, None, Priority::DEFAULT, move || {
+        let source = source::timeout_source_new(LONG_PRESS, None, Priority::DEFAULT, move || {
             callback();
             ControlFlow::Break
         });
@@ -1809,9 +1797,9 @@ pub struct SvgButton {
 impl SvgButton {
     pub fn new(svg: Svg) -> Self {
         Self {
-            padding_color: [0.09, 0.09, 0.09],
-            bg: [0.15, 0.15, 0.15],
             padding_size: 10.,
+            padding_color: BG,
+            bg: SECONDARY_BG,
             enabled: true,
             on_svg: svg,
             dirty: true,

@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::mem;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use funq::MtQueueHandle;
 use glib::{ControlFlow, Priority, Source, source};
@@ -11,26 +11,15 @@ use indexmap::IndexMap;
 use pangocairo::pango::Alignment;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
+use crate::config::colors::{BG, FG, HL, SECONDARY_BG, SECONDARY_FG};
+use crate::config::font::font_size;
+use crate::config::input::{LONG_PRESS, MAX_TAP_DISTANCE};
 use crate::engine::{Engine, EngineId, Favicon, Group, GroupId, NO_GROUP, NO_GROUP_ID};
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::{LONG_PRESS_MILLIS, MAX_TAP_DISTANCE, SvgButton, TextField};
+use crate::ui::{SvgButton, TextField};
 use crate::window::TextInputChange;
 use crate::{Position, Size, State, WindowId, gl, rect_contains};
-
-/// Tab text color of active tab.
-const ACTIVE_TAB_FG: [f64; 3] = [1., 1., 1.];
-/// Tab text color of inactive tabs.
-const INACTIVE_TAB_FG: [f64; 3] = [0.8, 0.8, 0.8];
-/// Tab view background color.
-const TABS_BG: [f64; 3] = [0.09, 0.09, 0.09];
-/// New tab button background color.
-const NEW_TAB_BG: [f64; 3] = [0.15, 0.15, 0.15];
-/// Tab load progress highlight color.
-const PROGRESS_TAB_BG: [f64; 4] = [0.46, 0.16, 0.16, 0.5];
-
-/// Tab font size.
-const FONT_SIZE: u8 = 20;
 
 /// Horizontal tabbing around tabs.
 const TABS_X_PADDING: f64 = 10.;
@@ -728,7 +717,7 @@ impl Popup for Tabs {
         //
         // NOTE: This clears the entire surface, but works fine since the tabs popup
         // always fills the entire surface.
-        let [r, g, b] = TABS_BG;
+        let [r, g, b] = BG;
         unsafe {
             gl::ClearColor(r as f32, g as f32, b as f32, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -1307,7 +1296,7 @@ impl TextureCache {
         }
 
         // Create pango layout.
-        let layout = TextLayout::new(FONT_SIZE, scale);
+        let layout = TextLayout::new(font_size(1.25), scale);
 
         // Fallback to URI if title is empty.
         layout.set_text(tab.label());
@@ -1315,9 +1304,9 @@ impl TextureCache {
         // Configure text rendering options.
         let mut text_options = TextOptions::new();
         if tab.active {
-            text_options.text_color(ACTIVE_TAB_FG);
+            text_options.text_color(FG);
         } else {
-            text_options.text_color(INACTIVE_TAB_FG);
+            text_options.text_color(SECONDARY_FG);
         }
 
         // Calculate spacing to the left of tab text.
@@ -1334,13 +1323,12 @@ impl TextureCache {
         // Render background with load progress indication.
         let builder = TextureBuilder::new(tab_size.into());
         let context = builder.context();
-        builder.clear(NEW_TAB_BG);
+        builder.clear(SECONDARY_BG);
         if tab.load_progress < 100 {
             let width = tab_size.width as f64 / 100. * tab.load_progress as f64;
-            let [r, g, b, a] = PROGRESS_TAB_BG;
 
             context.rectangle(0., 0., width, tab_size.height as f64);
-            context.set_source_rgba(r, g, b, a);
+            context.set_source_rgba(HL[0], HL[1], HL[2], 0.5);
             context.fill().unwrap();
         }
 
@@ -1353,7 +1341,7 @@ impl TextureCache {
         context.line_to(close_position.x + size.width, close_position.y + size.height);
         context.move_to(close_position.x + size.width, close_position.y);
         context.line_to(close_position.x, close_position.y + size.height);
-        context.set_source_rgb(ACTIVE_TAB_FG[0], ACTIVE_TAB_FG[1], ACTIVE_TAB_FG[2]);
+        context.set_source_rgb(FG[0], FG[1], FG[2]);
         context.set_line_width(scale);
         context.stroke().unwrap();
 
@@ -1473,7 +1461,7 @@ impl PlusButton {
     fn draw(&self) -> Texture {
         // Clear with background color.
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(TABS_BG);
+        builder.clear(BG);
 
         // Draw button background.
         let x_padding = BUTTON_X_PADDING * self.scale;
@@ -1481,7 +1469,7 @@ impl PlusButton {
         let width = self.size.width as f64 - 2. * x_padding;
         let height = self.size.height as f64 - 2. * y_padding;
         builder.context().rectangle(x_padding, y_padding, width.round(), height.round());
-        builder.context().set_source_rgb(NEW_TAB_BG[0], NEW_TAB_BG[1], NEW_TAB_BG[2]);
+        builder.context().set_source_rgb(SECONDARY_BG[0], SECONDARY_BG[1], SECONDARY_BG[2]);
         builder.context().fill().unwrap();
 
         // Set general stroke properties.
@@ -1489,7 +1477,7 @@ impl PlusButton {
         let line_width = self.scale;
         let center_x = self.size.width as f64 / 2.;
         let center_y = self.size.height as f64 / 2.;
-        builder.context().set_source_rgb(ACTIVE_TAB_FG[0], ACTIVE_TAB_FG[1], ACTIVE_TAB_FG[2]);
+        builder.context().set_source_rgb(FG[0], FG[1], FG[2]);
         builder.context().set_line_width(line_width);
 
         // Draw vertical line of `+`.
@@ -1535,7 +1523,7 @@ struct GroupLabel {
 
 impl GroupLabel {
     fn new(window_id: WindowId, mut queue: MtQueueHandle<State>) -> Self {
-        let mut input = TextField::new(window_id, queue.clone(), FONT_SIZE);
+        let mut input = TextField::new(window_id, queue.clone(), font_size(1.25));
         input.set_submit_handler(Box::new(move |label| queue.update_group_label(window_id, label)));
 
         Self {
@@ -1570,7 +1558,7 @@ impl GroupLabel {
     fn draw(&mut self) -> Texture {
         // Clear with background color.
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(TABS_BG);
+        builder.clear(BG);
 
         // Render group label text.
         if self.editing {
@@ -1601,7 +1589,7 @@ impl GroupLabel {
             layout.set_scale(self.scale);
             builder.rasterize(layout, &text_options);
         } else if !self.text.is_empty() {
-            let layout = TextLayout::new(FONT_SIZE, self.scale);
+            let layout = TextLayout::new(font_size(1.25), self.scale);
             layout.set_alignment(Alignment::Center);
             layout.set_text(&self.text);
 
@@ -1723,8 +1711,7 @@ impl TouchState {
         self.clear_long_press_timeout();
 
         // Stage new timeout callback.
-        let delay = Duration::from_millis(LONG_PRESS_MILLIS as u64);
-        let source = source::timeout_source_new(delay, None, Priority::DEFAULT, move || {
+        let source = source::timeout_source_new(LONG_PRESS, None, Priority::DEFAULT, move || {
             callback();
             ControlFlow::Break
         });

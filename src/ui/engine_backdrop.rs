@@ -11,14 +11,11 @@ use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::single_pixel_buffer::v1::client as _spb;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 
+use crate::config::colors::BG;
 use crate::ui::Ui;
 use crate::ui::renderer::Renderer;
 use crate::wayland::protocols::ProtocolStates;
 use crate::{Size, State, gl};
-
-// Fallback color when waiting for engine frame.
-const SPB_COLOR: u32 = u32::MAX / 10;
-const GL_COLOR: [f64; 3] = [0.1, 0.1, 0.1];
 
 /// Single-color engine backdrop surface.
 pub struct EngineBackdrop {
@@ -106,15 +103,18 @@ impl EngineBackdrop {
             Backend::Gl(renderer) => {
                 let physical_size = self.size * self.scale;
                 renderer.draw(physical_size, |_renderer| unsafe {
-                    let [r, g, b] = GL_COLOR;
-                    gl::ClearColor(r as f32, g as f32, b as f32, 1.0);
+                    gl::ClearColor(BG[0] as f32, BG[1] as f32, BG[2] as f32, 1.0);
                     gl::Clear(gl::COLOR_BUFFER_BIT);
                 });
             },
             Backend::Spb(spb) => {
                 let queue = &self.wayland_queue;
-                let col = SPB_COLOR;
-                let buffer = spb.create_u32_rgba_buffer(col, col, col, u32::MAX, queue, ());
+                let [r, g, b] = [
+                    (BG[0] * u32::MAX as f64).round() as u32,
+                    (BG[1] * u32::MAX as f64).round() as u32,
+                    (BG[2] * u32::MAX as f64).round() as u32,
+                ];
+                let buffer = spb.create_u32_rgba_buffer(r, g, b, u32::MAX, queue, ());
                 self.surface.attach(Some(&buffer), 0, 0);
             },
         }

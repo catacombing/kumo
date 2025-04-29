@@ -10,15 +10,13 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
 use uuid::Uuid;
 
+use crate::config::colors::BG;
 use crate::ui::overlay::downloads::{Download, DownloadId};
 use crate::ui::overlay::option_menu::OptionMenuId;
 use crate::window::TextInputChange;
 use crate::{KeyboardFocus, Position, Size, State, WindowId};
 
 pub mod webkit;
-
-/// Default engine background color.
-pub const BG: [f64; 3] = [0.1, 0.1, 0.1];
 
 // Constants for the default tab group.
 pub const NO_GROUP_ID: GroupId = GroupId(Uuid::nil());

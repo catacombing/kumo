@@ -38,6 +38,7 @@ use crate::wayland::WaylandDispatch;
 use crate::wayland::protocols::{KeyRepeat, ProtocolStates, TextInput};
 use crate::window::{KeyboardFocus, PasteTarget, Window, WindowHandler, WindowId};
 
+mod config;
 mod engine;
 mod storage;
 mod ui;

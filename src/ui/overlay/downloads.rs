@@ -9,39 +9,21 @@ use funq::MtQueueHandle;
 use indexmap::IndexMap;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
+use crate::config::colors::{BG, ERROR, FG, HL, SECONDARY_BG, SECONDARY_FG};
+use crate::config::font::font_size;
+use crate::config::input::MAX_TAP_DISTANCE;
 use crate::engine::EngineId;
+use crate::ui::SvgButton;
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::{MAX_TAP_DISTANCE, SvgButton};
 use crate::window::WindowId;
 use crate::{Position, Size, State, gl, rect_contains};
-
-/// Downloads view background color.
-const BG: [f64; 3] = [0.09, 0.09, 0.09];
-
-/// Load progress highlight color.
-const PROGRESS_BG: [f64; 4] = [0.46, 0.16, 0.16, 0.5];
 
 /// Logical height of the UI buttons.
 const BUTTON_HEIGHT: u32 = 60;
 
 /// Padding around buttons.
 const BUTTON_PADDING: f64 = 10.;
-
-/// Main download entry font size.
-const FONT_SIZE: u8 = 18;
-
-/// Download entry subtitle font size.
-const SECONDARY_FONT_SIZE: u8 = 10;
-
-/// Download entry background color.
-const ENTRY_BG: [f64; 3] = [0.15, 0.15, 0.15];
-
-/// Text color for failed downloads.
-const FAILED_FG: [f64; 3] = [0.67, 0.26, 0.26];
-
-/// Download entry subtitle foreground color.
-const SUBTITLE_FG: [f64; 3] = [0.75, 0.75, 0.75];
 
 /// Logical height of each download entry.
 const ENTRY_HEIGHT: u32 = 65;
@@ -579,17 +561,17 @@ impl TextureCache {
             };
 
             // Create filename text layout.
-            let filename_layout = TextLayout::new(FONT_SIZE, scale);
+            let filename_layout = TextLayout::new(font_size(1.13), scale);
             let filename_height = filename_layout.line_height();
             filename_layout.set_text(filename);
 
             // Create path text layout.
-            let path_layout = TextLayout::new(SECONDARY_FONT_SIZE, scale);
+            let path_layout = TextLayout::new(font_size(0.63), scale);
             let path_height = path_layout.line_height();
             path_layout.set_text(homed_destination);
 
             // Create uri text layout.
-            let uri_layout = TextLayout::new(SECONDARY_FONT_SIZE, scale);
+            let uri_layout = TextLayout::new(font_size(0.63), scale);
             let uri_height = uri_layout.line_height();
             uri_layout.set_text(&download.uri);
 
@@ -610,22 +592,21 @@ impl TextureCache {
 
             // Create texture with uniform background.
             let builder = TextureBuilder::new(entry_size.into());
-            builder.clear(ENTRY_BG);
+            builder.clear(SECONDARY_BG);
 
             // Render load progress indication.
             if download.progress < 100 {
                 let width = entry_size.width as f64 / 100. * download.progress.max(5) as f64;
-                let [r, g, b, a] = PROGRESS_BG;
 
                 let context = builder.context();
                 context.rectangle(0., 0., width, entry_size.height as f64);
-                context.set_source_rgba(r, g, b, a);
+                context.set_source_rgba(HL[0], HL[2], HL[2], 0.5);
                 context.fill().unwrap();
             }
 
             // Render filename text to the texture.
             if download.failed {
-                text_options.text_color(FAILED_FG);
+                text_options.text_color(ERROR);
             }
             builder.rasterize(&filename_layout, &text_options);
 
@@ -634,7 +615,7 @@ impl TextureCache {
             let path_y = y_padding + filename_height as f64;
             text_options.position(Position::new(close_position.y, path_y));
             text_options.size(path_size);
-            text_options.text_color(SUBTITLE_FG);
+            text_options.text_color(SECONDARY_FG);
             builder.rasterize(&path_layout, &text_options);
 
             // Render uri text to the texture.
@@ -642,7 +623,7 @@ impl TextureCache {
             let uri_y = path_y + path_height as f64;
             text_options.position(Position::new(close_position.y, uri_y));
             text_options.size(uri_size);
-            text_options.text_color(SUBTITLE_FG);
+            text_options.text_color(SECONDARY_FG);
             builder.rasterize(&uri_layout, &text_options);
 
             // Render close `X`.
@@ -652,7 +633,7 @@ impl TextureCache {
             context.line_to(close_position.x + size.width, close_position.y + size.height);
             context.move_to(close_position.x + size.width, close_position.y);
             context.line_to(close_position.x, close_position.y + size.height);
-            context.set_source_rgb(1., 1., 1.);
+            context.set_source_rgb(FG[0], FG[1], FG[2]);
             context.set_line_width(scale);
             context.stroke().unwrap();
 

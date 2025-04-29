@@ -8,7 +8,7 @@ use bitflags::bitflags;
 use funq::MtQueueHandle;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
-use crate::config::colors::{BG, DISABLED, FG, HL, SECONDARY_FG};
+use crate::config::colors::{self, BG, DISABLED, FG, HL, SECONDARY_FG};
 use crate::config::font::font_size;
 use crate::config::input::MAX_TAP_DISTANCE;
 use crate::engine::EngineId;
@@ -405,12 +405,7 @@ impl Popup for OptionMenu {
         let size = self.physical_size();
 
         // Draw menu border.
-        let border_color = [
-            (HL[0] * 255.).round() as u8,
-            (HL[1] * 255.).round() as u8,
-            (HL[2] * 255.).round() as u8,
-            255,
-        ];
+        let border_color = colors::to_u8::<4>(HL);
         let border = self.border.get_or_insert_with(|| Texture::new(&border_color, 1, 1));
         renderer.draw_texture_at(border, position, Some(size.into()));
 

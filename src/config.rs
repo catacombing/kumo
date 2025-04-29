@@ -29,6 +29,18 @@ pub mod colors {
     pub const ERROR: [f64; 3] = [0.67, 0.26, 0.26];
     /// Disabled foreground color.
     pub const DISABLED: [f64; 3] = [0.4, 0.4, 0.4];
+
+    /// Convert [`f64`] color to [`u8`] color.
+    ///
+    /// If the output array is longer than 3 elements, the remaining elements
+    /// will be filled with `255`.
+    pub fn to_u8<const N: usize>(color: [f64; 3]) -> [u8; N] {
+        let mut u8_color = [255; N];
+        u8_color[0] = (color[0] * 255.).round() as u8;
+        u8_color[1] = (color[1] * 255.).round() as u8;
+        u8_color[2] = (color[2] * 255.).round() as u8;
+        u8_color
+    }
 }
 
 /// Input configuration.

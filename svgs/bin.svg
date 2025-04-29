@@ -1,53 +1,13 @@
-<svg
-   width="32"
-   height="32"
-   viewBox="0 0 32 32"
-   version="1.1"
-   id="svg1"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:svg="http://www.w3.org/2000/svg">
-  <defs
-     id="defs1">
-    <mask
-       maskUnits="userSpaceOnUse"
-       id="mask-powermask-path-effect20">
-      <path
-         id="mask-powermask-path-effect20_box"
-         style="fill:#ffffff;fill-opacity:1"
-         d="M 7,11 H 25 V 31 H 7 Z" />
-      <g
-         id="g20"
-         style="">
-        <path
-           style="fill:none;fill-opacity:1;stroke:#000000;stroke-linecap:butt;stroke-linejoin:round;stroke-opacity:1"
-           d="M 16,14 V 28 Z"
-           id="path18" />
-        <path
-           style="fill:none;fill-opacity:1;stroke:#000000;stroke-linecap:butt;stroke-linejoin:round;stroke-opacity:1"
-           d="M 20.701189,14.045956 19.099241,27.954002 Z"
-           id="path19" />
-        <path
-           style="fill:none;fill-opacity:1;stroke:#000000;stroke-linecap:butt;stroke-linejoin:round;stroke-opacity:1"
-           d="m 11.299241,14.046025 1.601948,13.908046 z"
-           id="path20" />
-      </g>
-    </mask>
-  </defs>
-  <g
-     id="layer1"
-     transform="translate(0,-2.75)">
-    <path
-       style="fill:#ffffff;fill-opacity:1;stroke:none"
-       d="M 8,12 H 24 L 22,30 H 10 Z"
-       id="path1"
-       mask="url(#mask-powermask-path-effect20)" />
-    <path
-       style="fill:#ffffff;fill-opacity:1;stroke:none"
-       d="m 8,11.5 h 16 l -1,-2 H 9 Z"
-       id="path2" />
-    <path
-       style="fill:none;fill-opacity:1;stroke:#ffffff;stroke-opacity:1"
-       d="M 14,10.35188 V 8 h 4 v 2.384485 z"
-       id="path3" />
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+    <defs>
+        <mask maskUnits="userSpaceOnUse" id="a">
+            <path fill="#ffffff" d="M7 11h18v20H7Z"/>
+            <g>
+                <path stroke="#000000" stroke-linejoin="round" d="M16 14v14ZM20.701 14.046 19.1 27.954ZM11.3 14.046 12.9 27.954z"/>
+            </g>
+        </mask>
+    </defs>
+    <path fill="#ffffff" stroke-opacity="0" d="M8 12h16l-2 18H10Z" mask="url(#a)" transform="translate(0 -2.75)"/>
+    <path fill="#ffffff" stroke-opacity="0" d="M8 11.5h16l-1-2H9Z" transform="translate(0 -2.75)"/>
+    <path stroke="#ffffff" fill-opacity="0" d="M14 10.352V8h4v2.384z" transform="translate(0 -2.75)"/>
 </svg>

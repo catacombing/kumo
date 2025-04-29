@@ -18,7 +18,7 @@ use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
-use crate::config::colors::{BG, FG, HL, SECONDARY_BG};
+use crate::config::colors::{self, BG, FG, HL, SECONDARY_BG};
 use crate::config::font::font_size;
 use crate::config::input::{LONG_PRESS, MAX_TAP_DISTANCE};
 use crate::storage::history::{HistoryMatch, MAX_MATCHES};
@@ -754,12 +754,7 @@ impl Separator {
     fn texture(&mut self) -> &Texture {
         // Ensure texture is initialized.
         if self.texture.is_none() {
-            let separator_color = [
-                (HL[0] * 255.).round() as u8,
-                (HL[1] * 255.).round() as u8,
-                (HL[2] * 255.).round() as u8,
-                255,
-            ];
+            let separator_color = colors::to_u8::<4>(HL);
             self.texture = Some(Texture::new(&separator_color, 1, 1));
         }
 

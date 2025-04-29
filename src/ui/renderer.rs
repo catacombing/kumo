@@ -25,7 +25,7 @@ use rsvg::{CairoRenderer, Loader};
 use smithay_client_toolkit::reexports::client::Proxy;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 
-use crate::config::colors::{BG, FG, HL, SECONDARY_FG};
+use crate::config::colors::{self, BG, FG, HL, SECONDARY_FG};
 use crate::config::font::FONT;
 use crate::gl::types::{GLfloat, GLint, GLuint};
 use crate::{Position, Size, gl};
@@ -557,8 +557,18 @@ impl TextureBuilder {
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn rasterize_svg(&self, svg: Svg, x: f64, y: f64, width: f64, height: f64) {
         let stream = MemoryInputStream::from_bytes(&Bytes::from_static(svg.content()));
-        let handle =
+        let mut handle =
             Loader::new().read_stream(&stream, None::<&File>, None::<&Cancellable>).unwrap();
+
+        // Override SVG colors with configured foreground color.
+        let [r, g, b] = colors::to_u8(FG);
+        #[rustfmt::skip]
+        let stylesheet = format!("svg > :not(defs), marker > * {{
+            stroke: #{r:0>2x}{g:0>2x}{b:0>2x};
+            fill: #{r:0>2x}{g:0>2x}{b:0>2x};
+        }}");
+        handle.set_stylesheet(&stylesheet).unwrap();
+
         let renderer = CairoRenderer::new(&handle);
         renderer.render_document(&self.context, &Rectangle::new(x, y, width, height)).unwrap();
     }

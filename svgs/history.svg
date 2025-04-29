@@ -1,47 +1,9 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- Created with Inkscape (http://www.inkscape.org/) -->
-
-<svg
-   width="32"
-   height="32"
-   viewBox="0 0 32 32"
-   version="1.1"
-   id="svg1"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:svg="http://www.w3.org/2000/svg">
-  <defs
-     id="defs1">
-    <marker
-       style="overflow:visible"
-       id="Triangle"
-       refX="0"
-       refY="0"
-       orient="auto-start-reverse"
-       markerWidth="0.64999998"
-       markerHeight="0.64999998"
-       viewBox="0 0 1 1"
-       preserveAspectRatio="xMidYMid">
-      <path
-         transform="scale(0.5)"
-         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
-         d="M 5.77,0 -2.88,5 V -5 Z"
-         id="path135" />
-    </marker>
-  </defs>
-  <path
-     style="fill:none;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker-start:url(#Triangle)"
-     id="path1"
-     d="M 4,16.000429 A 12,12 0 0 1 12.894172,4.4093191 12,12 0 0 1 26.392305,10.000429 12,12 0 0 1 24.485281,24.485711 12,12 0 0 1 10,26.392734" />
-  <rect
-     style="fill:#ff00ff;fill-opacity:1;stroke:none;stroke-width:1.76537;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
-     id="rect5"
-     width="5.2346334"
-     height="0.73463219"
-     x="23.511002"
-     y="-0.36514255"
-     transform="rotate(45)" />
-  <path
-     style="fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
-     d="M 16,9.5 V 16 l 5.303,5.303"
-     id="path80" />
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+    <defs>
+        <marker id="a" orient="auto-start-reverse" markerWidth=".65" markerHeight=".65" viewBox="0 0 1 1" overflow="visible">
+            <path stroke="#ffffff" fill="#ffffff" transform="scale(.5)" d="m5.77 0-8.65 5V-5Z"/>
+        </marker>
+    </defs>
+    <path stroke="#ffffff" stroke-width="1.5" fill-opacity="0" marker-start="url(#a)" d="M4 16a12 12 0 0 1 8.894-11.59A12 12 0 0 1 26.392 10a12 12 0 0 1-1.907 14.486A12 12 0 0 1 10 26.393"/>
+    <path stroke="#ffffff" stroke-width="1.5" fill-opacity="0" d="M16 9.5V16l5.303 5.303"/>
 </svg>

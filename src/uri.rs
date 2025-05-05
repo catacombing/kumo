@@ -660,7 +660,6 @@ pub const TLDS: &[&str] = &[
     "LACAIXA",
     "LAMBORGHINI",
     "LAMER",
-    "LANCASTER",
     "LAND",
     "LANDROVER",
     "LANXESS",

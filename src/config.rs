@@ -14,32 +14,51 @@ pub mod font {
 /// Color configuration.
 pub mod colors {
     /// Primary background color.
-    pub const FG: [f64; 3] = [1., 1., 1.];
+    pub const FG: Color = Color { r: 255, g: 255, b: 255 };
     /// Primary background color.
-    pub const BG: [f64; 3] = [0.1, 0.1, 0.1];
+    pub const BG: Color = Color { r: 24, g: 24, b: 24 };
     /// Primary accent color.
-    pub const HL: [f64; 3] = [0.46, 0.16, 0.16];
+    pub const HL: Color = Color { r: 117, g: 42, b: 42 };
 
     /// Secondary foreground color.
-    pub const SECONDARY_FG: [f64; 3] = [0.75, 0.75, 0.75];
+    pub const SECONDARY_FG: Color = Color { r: 191, g: 191, b: 191 };
     /// Secondary background color.
-    pub const SECONDARY_BG: [f64; 3] = [0.15, 0.15, 0.15];
+    pub const SECONDARY_BG: Color = Color { r: 40, g: 40, b: 40 };
 
     /// Error foreground color.
-    pub const ERROR: [f64; 3] = [0.67, 0.26, 0.26];
+    pub const ERROR: Color = Color { r: 172, g: 66, b: 66 };
     /// Disabled foreground color.
-    pub const DISABLED: [f64; 3] = [0.4, 0.4, 0.4];
+    pub const DISABLED: Color = Color { r: 102, g: 102, b: 102 };
 
-    /// Convert [`f64`] color to [`u8`] color.
-    ///
-    /// If the output array is longer than 3 elements, the remaining elements
-    /// will be filled with `255`.
-    pub fn to_u8<const N: usize>(color: [f64; 3]) -> [u8; N] {
-        let mut u8_color = [255; N];
-        u8_color[0] = (color[0] * 255.).round() as u8;
-        u8_color[1] = (color[1] * 255.).round() as u8;
-        u8_color[2] = (color[2] * 255.).round() as u8;
-        u8_color
+    /// RGB color.
+    pub struct Color {
+        pub r: u8,
+        pub g: u8,
+        pub b: u8,
+    }
+
+    impl Color {
+        pub const fn as_u8(&self) -> [u8; 4] {
+            [self.r, self.g, self.b, 255]
+        }
+
+        pub const fn as_u16(&self) -> [u16; 3] {
+            let factor = u16::MAX / u8::MAX as u16;
+            [self.r as u16 * factor, self.g as u16 * factor, self.b as u16 * factor]
+        }
+
+        pub const fn as_u32(&self) -> [u32; 3] {
+            let factor = u32::MAX / u8::MAX as u32;
+            [self.r as u32 * factor, self.g as u32 * factor, self.b as u32 * factor]
+        }
+
+        pub const fn as_f32(&self) -> [f32; 3] {
+            [self.r as f32 / 255., self.g as f32 / 255., self.b as f32 / 255.]
+        }
+
+        pub const fn as_f64(&self) -> [f64; 3] {
+            [self.r as f64 / 255., self.g as f64 / 255., self.b as f64 / 255.]
+        }
     }
 }
 

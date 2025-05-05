@@ -314,9 +314,9 @@ impl Popup for Downloads {
         //
         // NOTE: This clears the entire surface, but works fine since the downloads
         // popup always fills the entire surface.
-        let [r, g, b] = BG;
+        let [r, g, b] = BG.as_f32();
         unsafe {
-            gl::ClearColor(r as f32, g as f32, b as f32, 1.0);
+            gl::ClearColor(r, g, b, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
@@ -592,21 +592,22 @@ impl TextureCache {
 
             // Create texture with uniform background.
             let builder = TextureBuilder::new(entry_size.into());
-            builder.clear(SECONDARY_BG);
+            builder.clear(SECONDARY_BG.as_f64());
 
             // Render load progress indication.
             if download.progress < 100 {
                 let width = entry_size.width as f64 / 100. * download.progress.max(5) as f64;
+                let hl = HL.as_f64();
 
                 let context = builder.context();
                 context.rectangle(0., 0., width, entry_size.height as f64);
-                context.set_source_rgba(HL[0], HL[2], HL[2], 0.5);
+                context.set_source_rgba(hl[0], hl[2], hl[2], 0.5);
                 context.fill().unwrap();
             }
 
             // Render filename text to the texture.
             if download.failed {
-                text_options.text_color(ERROR);
+                text_options.text_color(ERROR.as_f64());
             }
             builder.rasterize(&filename_layout, &text_options);
 
@@ -615,7 +616,7 @@ impl TextureCache {
             let path_y = y_padding + filename_height as f64;
             text_options.position(Position::new(close_position.y, path_y));
             text_options.size(path_size);
-            text_options.text_color(SECONDARY_FG);
+            text_options.text_color(SECONDARY_FG.as_f64());
             builder.rasterize(&path_layout, &text_options);
 
             // Render uri text to the texture.
@@ -623,17 +624,18 @@ impl TextureCache {
             let uri_y = path_y + path_height as f64;
             text_options.position(Position::new(close_position.y, uri_y));
             text_options.size(uri_size);
-            text_options.text_color(SECONDARY_FG);
+            text_options.text_color(SECONDARY_FG.as_f64());
             builder.rasterize(&uri_layout, &text_options);
 
             // Render close `X`.
+            let fg = FG.as_f64();
             let size = Downloads::close_entry_button_size(entry_size, scale);
             let context = builder.context();
             context.move_to(close_position.x, close_position.y);
             context.line_to(close_position.x + size.width, close_position.y + size.height);
             context.move_to(close_position.x + size.width, close_position.y);
             context.line_to(close_position.x, close_position.y + size.height);
-            context.set_source_rgb(FG[0], FG[1], FG[2]);
+            context.set_source_rgb(fg[0], fg[1], fg[2]);
             context.set_line_width(scale);
             context.stroke().unwrap();
 

@@ -103,17 +103,14 @@ impl EngineBackdrop {
             Backend::Gl(renderer) => {
                 let physical_size = self.size * self.scale;
                 renderer.draw(physical_size, |_renderer| unsafe {
-                    gl::ClearColor(BG[0] as f32, BG[1] as f32, BG[2] as f32, 1.0);
+                    let [r, g, b] = BG.as_f32();
+                    gl::ClearColor(r, g, b, 1.0);
                     gl::Clear(gl::COLOR_BUFFER_BIT);
                 });
             },
             Backend::Spb(spb) => {
                 let queue = &self.wayland_queue;
-                let [r, g, b] = [
-                    (BG[0] * u32::MAX as f64).round() as u32,
-                    (BG[1] * u32::MAX as f64).round() as u32,
-                    (BG[2] * u32::MAX as f64).round() as u32,
-                ];
+                let [r, g, b] = BG.as_u32();
                 let buffer = spb.create_u32_rgba_buffer(r, g, b, u32::MAX, queue, ());
                 self.surface.attach(Some(&buffer), 0, 0);
             },

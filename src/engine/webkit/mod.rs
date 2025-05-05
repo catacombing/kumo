@@ -370,7 +370,8 @@ impl WebKitState {
             WebView::builder().network_session(network_session).display(&webkit_display).build();
 
         // Set browser background color.
-        let mut color = Color::new(BG[0], BG[1], BG[2], 1.);
+        let [r, g, b] = BG.as_f64();
+        let mut color = Color::new(r, g, b, 1.);
         web_view.set_background_color(&mut color);
 
         // Notify UI about URI and title changes.

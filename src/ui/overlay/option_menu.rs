@@ -8,7 +8,7 @@ use bitflags::bitflags;
 use funq::MtQueueHandle;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
-use crate::config::colors::{self, BG, DISABLED, FG, HL, SECONDARY_FG};
+use crate::config::colors::{BG, DISABLED, FG, HL, SECONDARY_FG};
 use crate::config::font::font_size;
 use crate::config::input::MAX_TAP_DISTANCE;
 use crate::engine::EngineId;
@@ -405,8 +405,7 @@ impl Popup for OptionMenu {
         let size = self.physical_size();
 
         // Draw menu border.
-        let border_color = colors::to_u8::<4>(HL);
-        let border = self.border.get_or_insert_with(|| Texture::new(&border_color, 1, 1));
+        let border = self.border.get_or_insert_with(|| Texture::new(&HL.as_u8(), 1, 1));
         renderer.draw_texture_at(border, position, Some(size.into()));
 
         // Scissor crop last element when it should only be partially visible.
@@ -632,11 +631,11 @@ impl OptionMenuRenderItem {
     fn draw(&self, selected: bool) -> Texture {
         // Determine item colors.
         let (fg, description_fg, bg) = if self.disabled {
-            (DISABLED, DISABLED, BG)
+            (DISABLED.as_f64(), DISABLED.as_f64(), BG.as_f64())
         } else if selected {
-            (BG, BG, HL)
+            (BG.as_f64(), BG.as_f64(), HL.as_f64())
         } else {
-            (FG, SECONDARY_FG, BG)
+            (FG.as_f64(), SECONDARY_FG.as_f64(), BG.as_f64())
         };
 
         // Calculate physical item size.

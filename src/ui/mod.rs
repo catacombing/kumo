@@ -18,7 +18,7 @@ use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
-use crate::config::colors::{self, BG, FG, HL, SECONDARY_BG};
+use crate::config::colors::{BG, FG, HL, SECONDARY_BG};
 use crate::config::font::font_size;
 use crate::config::input::{LONG_PRESS, MAX_TAP_DISTANCE};
 use crate::storage::history::{HistoryMatch, MAX_MATCHES};
@@ -294,8 +294,8 @@ impl Ui {
 
             unsafe {
                 // Draw background.
-                let [r, g, b] = BG;
-                gl::ClearColor(r as f32, g as f32, b as f32, 1.0);
+                let [r, g, b] = BG.as_f32();
+                gl::ClearColor(r, g, b, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
 
                 // Draw UI elements.
@@ -659,7 +659,7 @@ impl Uribar {
         // Draw background color.
         let size = self.size.into();
         let builder = TextureBuilder::new(size);
-        builder.clear(SECONDARY_BG);
+        builder.clear(SECONDARY_BG.as_f64());
 
         // Set text rendering options.
         let position: Position<f64> = self.text_position().into();
@@ -669,7 +669,7 @@ impl Uribar {
         text_options.preedit(self.text_field.preedit.clone());
         text_options.position(position);
         text_options.size(size);
-        text_options.text_color(FG);
+        text_options.text_color(FG.as_f64());
         text_options.set_ellipsize(false);
 
         // Show cursor or selection when focused.
@@ -687,24 +687,25 @@ impl Uribar {
         builder.rasterize(layout, &text_options);
 
         // Draw start gradient to indicate available scroll content.
-        let [r, g, b] = SECONDARY_BG;
+        let context = builder.context();
+        let [r, g, b] = SECONDARY_BG.as_f64();
         let size: Size<f64> = self.size.into();
         let x_padding = (X_PADDING * self.scale).round();
         let gradient = LinearGradient::new(0., 0., x_padding, 0.);
         gradient.add_color_stop_rgba(0., r, g, b, 255.);
         gradient.add_color_stop_rgba(x_padding, r, g, b, 0.);
-        builder.context().rectangle(0., 0., x_padding, size.height);
-        builder.context().set_source(gradient).unwrap();
-        builder.context().fill().unwrap();
+        context.rectangle(0., 0., x_padding, size.height);
+        context.set_source(gradient).unwrap();
+        context.fill().unwrap();
 
         // Draw end gradient to indicate available scroll content.
         let x = size.width - x_padding;
         let gradient = LinearGradient::new(x, 0., size.width, 0.);
         gradient.add_color_stop_rgba(0., r, g, b, 0.);
         gradient.add_color_stop_rgba(x_padding, r, g, b, 255.);
-        builder.context().rectangle(x, 0., size.width, size.height);
-        builder.context().set_source(gradient).unwrap();
-        builder.context().fill().unwrap();
+        context.rectangle(x, 0., size.width, size.height);
+        context.set_source(gradient).unwrap();
+        context.fill().unwrap();
 
         // Convert cairo buffer to texture.
         builder.build()
@@ -754,8 +755,7 @@ impl Separator {
     fn texture(&mut self) -> &Texture {
         // Ensure texture is initialized.
         if self.texture.is_none() {
-            let separator_color = colors::to_u8::<4>(HL);
-            self.texture = Some(Texture::new(&separator_color, 1, 1));
+            self.texture = Some(Texture::new(&HL.as_u8(), 1, 1));
         }
 
         self.texture.as_ref().unwrap()
@@ -804,20 +804,22 @@ impl TabsButton {
     /// Draw the tabs button into an OpenGL texture.
     fn draw(&mut self, tab_count_label: &str) -> Texture {
         // Render button outline.
+        let fg = FG.as_f64();
         let size = self.size();
         let builder = TextureBuilder::new(size.into());
-        builder.clear(BG);
-        builder.context().set_source_rgb(FG[0], FG[1], FG[2]);
-        builder.context().rectangle(0., 0., size.width as f64, size.height as f64);
-        builder.context().set_line_width(self.scale * 2.);
-        builder.context().stroke().unwrap();
+        let context = builder.context();
+        builder.clear(BG.as_f64());
+        context.set_source_rgb(fg[0], fg[1], fg[2]);
+        context.rectangle(0., 0., size.width as f64, size.height as f64);
+        context.set_line_width(self.scale * 2.);
+        context.stroke().unwrap();
 
         // Render tab count text.
         let layout = TextLayout::new(font_size(1.), self.scale);
         layout.set_alignment(Alignment::Center);
         layout.set_text(tab_count_label);
         let mut text_options = TextOptions::new();
-        text_options.text_color(FG);
+        text_options.text_color(fg);
         builder.rasterize(&layout, &text_options);
 
         builder.build()
@@ -867,16 +869,18 @@ impl PrevButton {
     fn draw(&mut self) -> Texture {
         let int_size = self.size();
         let builder = TextureBuilder::new(int_size.into());
-        builder.clear(BG);
+        builder.clear(BG.as_f64());
 
         // Draw button arrow.
+        let fg = FG.as_f64();
         let size: Size<f64> = int_size.into();
-        builder.context().set_source_rgb(FG[0], FG[1], FG[2]);
-        builder.context().move_to(size.width * 0.75, 0.);
-        builder.context().line_to(size.width * 0.25, size.height / 2.);
-        builder.context().line_to(size.width * 0.75, size.height);
-        builder.context().set_line_width(self.scale);
-        builder.context().stroke().unwrap();
+        let context = builder.context();
+        context.set_source_rgb(fg[0], fg[1], fg[2]);
+        context.move_to(size.width * 0.75, 0.);
+        context.line_to(size.width * 0.25, size.height / 2.);
+        context.line_to(size.width * 0.75, size.height);
+        context.set_line_width(self.scale);
+        context.stroke().unwrap();
 
         builder.build()
     }
@@ -1793,8 +1797,8 @@ impl SvgButton {
     pub fn new(svg: Svg) -> Self {
         Self {
             padding_size: 10.,
-            padding_color: BG,
-            bg: SECONDARY_BG,
+            padding_color: BG.as_f64(),
+            bg: SECONDARY_BG.as_f64(),
             enabled: true,
             on_svg: svg,
             dirty: true,
@@ -1846,9 +1850,10 @@ impl SvgButton {
         let padding = self.padding_size * self.scale;
         let width = self.size.width as f64 - 2. * padding;
         let height = self.size.height as f64 - 2. * padding;
-        builder.context().rectangle(padding, padding, width.round(), height.round());
-        builder.context().set_source_rgb(self.bg[0], self.bg[1], self.bg[2]);
-        builder.context().fill().unwrap();
+        let context = builder.context();
+        context.rectangle(padding, padding, width.round(), height.round());
+        context.set_source_rgb(self.bg[0], self.bg[1], self.bg[2]);
+        context.fill().unwrap();
 
         // Draw button's icon.
         let svg = self.off_svg.filter(|_| !self.enabled).unwrap_or(self.on_svg);

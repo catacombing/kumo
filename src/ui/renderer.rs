@@ -25,7 +25,7 @@ use rsvg::{CairoRenderer, Loader};
 use smithay_client_toolkit::reexports::client::Proxy;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 
-use crate::config::colors::{self, BG, FG, HL, SECONDARY_FG};
+use crate::config::colors::{BG, FG, HL, SECONDARY_FG};
 use crate::config::font::FONT;
 use crate::gl::types::{GLfloat, GLint, GLuint};
 use crate::{Position, Size, gl};
@@ -351,7 +351,7 @@ impl Texture {
 
     /// Delete this texture.
     ///
-    /// Since texture ID are context-specific, the context must be bound when
+    /// Since texture IDs are context-specific, the context must be bound when
     /// calling this function.
     pub fn delete(&self) {
         unsafe {
@@ -419,14 +419,14 @@ impl TextureBuilder {
 
             let text_attributes = AttrList::new();
 
-            let selection_bg = pango_color(HL);
+            let selection_bg = HL.as_u16();
             let mut bg_attr =
                 AttrColor::new_background(selection_bg[0], selection_bg[1], selection_bg[2]);
             bg_attr.set_start_index(selection.start as u32);
             bg_attr.set_end_index(selection.end as u32);
             text_attributes.insert(bg_attr);
 
-            let selection_fg = pango_color(BG);
+            let selection_fg = BG.as_u16();
             let mut fg_attr =
                 AttrColor::new_foreground(selection_fg[0], selection_fg[1], selection_fg[2]);
             fg_attr.set_start_index(selection.start as u32);
@@ -481,7 +481,7 @@ impl TextureBuilder {
 
                 // Set color for autocomplete text.
                 let attributes = layout.attributes().unwrap_or_default();
-                let [r, g, b] = pango_color(SECONDARY_FG);
+                let [r, g, b] = SECONDARY_FG.as_u16();
                 let mut col_attr = AttrColor::new_foreground(r, g, b);
                 col_attr.set_start_index(autocomplete_start as u32);
                 col_attr.set_end_index(virtual_text.len() as u32);
@@ -561,7 +561,7 @@ impl TextureBuilder {
             Loader::new().read_stream(&stream, None::<&File>, None::<&Cancellable>).unwrap();
 
         // Override SVG colors with configured foreground color.
-        let [r, g, b] = colors::to_u8(FG);
+        let [r, g, b, _] = FG.as_u8();
         #[rustfmt::skip]
         let stylesheet = format!("svg > :not(defs), marker > * {{
             stroke: #{r:0>2x}{g:0>2x}{b:0>2x};
@@ -614,7 +614,7 @@ impl TextOptions {
         Self {
             ellipsize: true,
             cursor_pos: -1,
-            text_color: FG,
+            text_color: FG.as_f64(),
             autocomplete: Default::default(),
             placeholder: Default::default(),
             show_cursor: Default::default(),
@@ -784,9 +784,4 @@ impl Svg {
             Self::Bin => include_bytes!("../../svgs/bin.svg"),
         }
     }
-}
-
-/// Convert floating point colors to pango's expected format.
-const fn pango_color(color: [f64; 3]) -> [u16; 3] {
-    [(color[0] * 65535.) as u16, (color[1] * 65535.) as u16, (color[2] * 65535.) as u16]
 }

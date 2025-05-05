@@ -717,9 +717,9 @@ impl Popup for Tabs {
         //
         // NOTE: This clears the entire surface, but works fine since the tabs popup
         // always fills the entire surface.
-        let [r, g, b] = BG;
+        let [r, g, b] = BG.as_f32();
         unsafe {
-            gl::ClearColor(r as f32, g as f32, b as f32, 1.0);
+            gl::ClearColor(r, g, b, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
@@ -1304,9 +1304,9 @@ impl TextureCache {
         // Configure text rendering options.
         let mut text_options = TextOptions::new();
         if tab.active {
-            text_options.text_color(FG);
+            text_options.text_color(FG.as_f64());
         } else {
-            text_options.text_color(SECONDARY_FG);
+            text_options.text_color(SECONDARY_FG.as_f64());
         }
 
         // Calculate spacing to the left of tab text.
@@ -1323,12 +1323,13 @@ impl TextureCache {
         // Render background with load progress indication.
         let builder = TextureBuilder::new(tab_size.into());
         let context = builder.context();
-        builder.clear(SECONDARY_BG);
+        builder.clear(SECONDARY_BG.as_f64());
         if tab.load_progress < 100 {
             let width = tab_size.width as f64 / 100. * tab.load_progress as f64;
+            let hl = HL.as_f64();
 
             context.rectangle(0., 0., width, tab_size.height as f64);
-            context.set_source_rgba(HL[0], HL[1], HL[2], 0.5);
+            context.set_source_rgba(hl[0], hl[1], hl[2], 0.5);
             context.fill().unwrap();
         }
 
@@ -1336,12 +1337,13 @@ impl TextureCache {
         builder.rasterize(&layout, &text_options);
 
         // Render close `X`.
+        let fg = FG.as_f64();
         let size = Tabs::close_button_size(tab_size, scale);
         context.move_to(close_position.x, close_position.y);
         context.line_to(close_position.x + size.width, close_position.y + size.height);
         context.move_to(close_position.x + size.width, close_position.y);
         context.line_to(close_position.x, close_position.y + size.height);
-        context.set_source_rgb(FG[0], FG[1], FG[2]);
+        context.set_source_rgb(fg[0], fg[1], fg[2]);
         context.set_line_width(scale);
         context.stroke().unwrap();
 
@@ -1461,38 +1463,41 @@ impl PlusButton {
     fn draw(&self) -> Texture {
         // Clear with background color.
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(BG);
+        let context = builder.context();
+        builder.clear(BG.as_f64());
 
         // Draw button background.
+        let secondary_bg = SECONDARY_BG.as_f64();
         let x_padding = BUTTON_X_PADDING * self.scale;
         let y_padding = BUTTON_Y_PADDING * self.scale;
         let width = self.size.width as f64 - 2. * x_padding;
         let height = self.size.height as f64 - 2. * y_padding;
-        builder.context().rectangle(x_padding, y_padding, width.round(), height.round());
-        builder.context().set_source_rgb(SECONDARY_BG[0], SECONDARY_BG[1], SECONDARY_BG[2]);
-        builder.context().fill().unwrap();
+        context.rectangle(x_padding, y_padding, width.round(), height.round());
+        context.set_source_rgb(secondary_bg[0], secondary_bg[1], secondary_bg[2]);
+        context.fill().unwrap();
 
         // Set general stroke properties.
+        let fg = FG.as_f64();
         let icon_size = height * 0.5;
         let line_width = self.scale;
         let center_x = self.size.width as f64 / 2.;
         let center_y = self.size.height as f64 / 2.;
-        builder.context().set_source_rgb(FG[0], FG[1], FG[2]);
-        builder.context().set_line_width(line_width);
+        context.set_source_rgb(fg[0], fg[1], fg[2]);
+        context.set_line_width(line_width);
 
         // Draw vertical line of `+`.
         let start_y = center_y - icon_size / 2.;
         let end_y = center_y + icon_size / 2.;
-        builder.context().move_to(center_x, start_y);
-        builder.context().line_to(center_x, end_y);
-        builder.context().stroke().unwrap();
+        context.move_to(center_x, start_y);
+        context.line_to(center_x, end_y);
+        context.stroke().unwrap();
 
         // Draw horizontal line of `+`.
         let start_x = center_x - icon_size / 2.;
         let end_x = center_x + icon_size / 2.;
-        builder.context().move_to(start_x, center_y);
-        builder.context().line_to(end_x, center_y);
-        builder.context().stroke().unwrap();
+        context.move_to(start_x, center_y);
+        context.line_to(end_x, center_y);
+        context.stroke().unwrap();
 
         builder.build()
     }
@@ -1558,7 +1563,7 @@ impl GroupLabel {
     fn draw(&mut self) -> Texture {
         // Clear with background color.
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(BG);
+        builder.clear(BG.as_f64());
 
         // Render group label text.
         if self.editing {

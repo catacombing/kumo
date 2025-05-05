@@ -367,9 +367,9 @@ impl Popup for History {
         //
         // NOTE: This clears the entire surface, but works fine since the history popup
         // always fills the entire surface.
-        let [r, g, b] = BG;
+        let [r, g, b] = BG.as_f32();
         unsafe {
-            gl::ClearColor(r as f32, g as f32, b as f32, 1.0);
+            gl::ClearColor(r, g, b, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
@@ -778,7 +778,7 @@ impl HistoryTextures {
 
             // Render text to the texture.
             let builder = TextureBuilder::new(entry_size.into());
-            builder.clear(SECONDARY_BG);
+            builder.clear(SECONDARY_BG.as_f64());
             builder.rasterize(&layout, &text_options);
 
             // Also render URI if main label was title.
@@ -790,7 +790,7 @@ impl HistoryTextures {
                 text_options.size(subtitle_size);
 
                 // Render URI to texture.
-                text_options.text_color(SECONDARY_FG);
+                text_options.text_color(SECONDARY_FG.as_f64());
                 builder.rasterize(&subtitle_layout, &text_options);
             }
 
@@ -799,17 +799,18 @@ impl HistoryTextures {
             let timestamp_y = entry_size.height as f64 - y_padding - timestamp_height as f64;
             text_options.position(Position::new(close_position.y, timestamp_y));
             text_options.size(timestamp_size);
-            text_options.text_color(SECONDARY_FG);
+            text_options.text_color(SECONDARY_FG.as_f64());
             builder.rasterize(&timestamp_layout, &text_options);
 
             // Render close `X`.
+            let fg = FG.as_f64();
             let size = History::close_entry_button_size(entry_size, scale);
             let context = builder.context();
             context.move_to(close_position.x, close_position.y);
             context.line_to(close_position.x + size.width, close_position.y + size.height);
             context.move_to(close_position.x + size.width, close_position.y);
             context.line_to(close_position.x, close_position.y + size.height);
-            context.set_source_rgb(FG[0], FG[1], FG[2]);
+            context.set_source_rgb(fg[0], fg[1], fg[2]);
             context.set_line_width(scale);
             context.stroke().unwrap();
 
@@ -862,7 +863,7 @@ impl ConfirmationPrompt {
     pub fn draw(&self, entry_count: usize) -> Texture {
         // Clear with background color.
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(BG);
+        builder.clear(BG.as_f64());
 
         // Render confirmation prompt text.
         let layout = TextLayout::new(font_size(1.13), self.scale);
@@ -947,7 +948,7 @@ impl HistoryFilter {
         let layout = self.input.layout();
         layout.set_scale(self.scale);
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(SECONDARY_BG);
+        builder.clear(SECONDARY_BG.as_f64());
         builder.rasterize(layout, &text_options);
 
         builder.build()

@@ -48,6 +48,17 @@
         </screenshot>
     </screenshots>
     <releases>
+        <release version="1.1.0" date="2025-05-07">
+            <description>
+                <p>Kumo Version 1.1.0</p>
+                <ul>
+                    <li>Updated history SVG</li>
+                    <li>Fixed history crash with scale factor 1</li>
+                    <li>Added file download support</li>
+                    <li>Fixed color rounding issues</li>
+                </ul>
+            </description>
+        </release>
         <release version="1.0.0" date="2025-04-20">
             <description>
                 <p>Kumo Version 1.0.0</p>

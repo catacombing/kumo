@@ -31,6 +31,7 @@ pub mod colors {
     pub const DISABLED: Color = Color { r: 102, g: 102, b: 102 };
 
     /// RGB color.
+    #[derive(Copy, Clone)]
     pub struct Color {
         pub r: u8,
         pub g: u8,

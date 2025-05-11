@@ -820,6 +820,14 @@ impl Engine for WebKitEngine {
         }
     }
 
+    fn set_zoom_level(&mut self, zoom_level: f64) {
+        self.web_view.set_zoom_level(zoom_level);
+    }
+
+    fn zoom_level(&self) -> f64 {
+        self.web_view.zoom_level()
+    }
+
     fn as_any(&mut self) -> &mut dyn Any {
         self
     }

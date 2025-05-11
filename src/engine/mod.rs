@@ -178,6 +178,14 @@ pub trait Engine {
     /// Cancel a file download.
     fn cancel_download(&mut self, _download_id: DownloadId) {}
 
+    /// Set the engine's page scale.
+    fn set_zoom_level(&mut self, _scale: f64) {}
+
+    /// Web page scale.
+    fn zoom_level(&self) -> f64 {
+        1.
+    }
+
     fn as_any(&mut self) -> &mut dyn Any;
 }
 

@@ -585,6 +585,9 @@ impl Window {
             return;
         }
 
+        // Update the current page scale.
+        self.ui.set_zoom_level(engine.zoom_level());
+
         // Update viewporter buffer transform.
 
         let buffer_size: Size<f64> = engine.buffer_size().into();
@@ -1457,6 +1460,13 @@ impl Window {
     pub fn start_tab_reordering(&mut self, tab: EngineId) {
         self.overlay.tabs_mut().start_tab_reordering(tab);
         self.unstall();
+    }
+
+    /// Set the active engine's zoom level.
+    pub fn set_zoom_level(&mut self, zoom_level: f64) {
+        if let Some(engine) = self.active_tab_mut() {
+            engine.set_zoom_level(zoom_level);
+        }
     }
 }
 

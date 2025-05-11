@@ -645,10 +645,7 @@ impl Popup for History {
     fn text_input_state(&mut self) -> TextInputChange {
         match self.keyboard_focus {
             Some(KeyboardInputElement::Filter) => {
-                let filter_position = self.filter_position();
-                let x = filter_position.x.round() as i32;
-                let y = filter_position.y.round() as i32;
-                self.filter.input.text_input_state(Position::new(x, y))
+                self.filter.input.text_input_state(self.filter_position())
             },
             _ => TextInputChange::Disabled,
         }

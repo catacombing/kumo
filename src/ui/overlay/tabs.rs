@@ -1130,10 +1130,7 @@ impl Popup for Tabs {
     fn text_input_state(&mut self) -> TextInputChange {
         match self.keyboard_focus {
             Some(KeyboardInputElement::GroupLabel) => {
-                let group_label_position = self.group_label_position();
-                let x = group_label_position.x.round() as i32;
-                let y = group_label_position.y.round() as i32;
-                self.group_label.input.text_input_state(Position::new(x, y))
+                self.group_label.input.text_input_state(self.group_label_position())
             },
             _ => TextInputChange::Disabled,
         }

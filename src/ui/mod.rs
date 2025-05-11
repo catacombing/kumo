@@ -45,6 +45,9 @@ const TABS_BUTTON_SIZE: u32 = 28;
 /// Logical width and height of the "previous page" button.
 const PREV_BUTTON_SIZE: u32 = 14;
 
+/// Width of the web view zoom level indicator;
+const ZOOM_LABEL_WIDTH: u32 = 35;
+
 /// URI bar height percentage from UI.
 const URIBAR_HEIGHT_PERCENTAGE: f64 = 0.6;
 
@@ -82,6 +85,9 @@ pub trait UiHandler {
         position: Position,
         selection: Option<String>,
     );
+
+    /// Set the active engine's zoom level.
+    fn set_zoom_level(&mut self, window_id: WindowId, zoom_level: f64);
 }
 
 impl UiHandler for State {
@@ -133,6 +139,12 @@ impl UiHandler for State {
             window.open_text_menu(position, selection);
         }
     }
+
+    fn set_zoom_level(&mut self, window_id: WindowId, zoom_level: f64) {
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            window.set_zoom_level(zoom_level);
+        }
+    }
 }
 
 pub struct Ui {
@@ -149,18 +161,19 @@ pub struct Ui {
 
     tabs_button: TabsButton,
     prev_button: PrevButton,
+    zoom_label: ZoomLabel,
     separator: Separator,
     uribar: Uribar,
+    load_progress: f64,
 
     keyboard_focus: Option<KeyboardInputElement>,
     touch_focus: TouchFocusElement,
+    touch_position: Position<f64>,
     touch_point: Option<i32>,
 
     queue: MtQueueHandle<State>,
     window_id: WindowId,
 
-    last_load_progress: f64,
-    load_progress: f64,
     last_has_history: bool,
     last_tab_count: usize,
     dirty: bool,
@@ -190,16 +203,17 @@ impl Ui {
             surface,
             uribar,
             queue,
-            touch_focus: TouchFocusElement::UriBar,
-            last_load_progress: 1.0,
             load_progress: 1.0,
             scale: 1.0,
             last_has_history: Default::default(),
             last_tab_count: Default::default(),
             keyboard_focus: Default::default(),
+            touch_position: Default::default(),
+            touch_focus: Default::default(),
             touch_point: Default::default(),
             tabs_button: Default::default(),
             prev_button: Default::default(),
+            zoom_label: Default::default(),
             separator: Default::default(),
             origin: Default::default(),
             dirty: Default::default(),
@@ -228,6 +242,7 @@ impl Ui {
         }
 
         // Update UI elements.
+        self.zoom_label.set_geometry(self.zoom_label_size(), self.scale);
         self.uribar.set_geometry(self.uribar_size(), self.scale);
     }
 
@@ -241,12 +256,28 @@ impl Ui {
         self.prev_button.set_scale(scale);
 
         // Update uribar last, to ensure all element scales are updated.
+        self.zoom_label.set_geometry(self.zoom_label_size(), self.scale);
         self.uribar.set_geometry(self.uribar_size(), scale);
     }
 
     /// Update the engine's load progress.
     pub fn set_load_progress(&mut self, load_progress: f64) {
+        self.dirty |= self.load_progress != load_progress;
         self.load_progress = load_progress;
+    }
+
+    /// Update the engine's zoom level.
+    pub fn set_zoom_level(&mut self, zoom_level: f64) {
+        let label_was_visible = self.zoom_label.level != 1.;
+        let label_is_visible = zoom_level != 1.;
+
+        self.zoom_label.set_level(zoom_level);
+
+        // Update URI input size if label appeared or disappeared.
+        if label_was_visible != label_is_visible {
+            self.zoom_label.set_geometry(self.zoom_label_size(), self.scale);
+            self.uribar.set_geometry(self.uribar_size(), self.scale);
+        }
     }
 
     /// Render current UI state.
@@ -259,7 +290,6 @@ impl Ui {
         if !dirty && self.last_tab_count == tab_count && self.last_has_history == has_history {
             return false;
         }
-        self.last_load_progress = self.load_progress;
         self.last_has_history = has_history;
         self.last_tab_count = tab_count;
         self.dirty = false;
@@ -276,6 +306,7 @@ impl Ui {
         // Calculate target positions/sizes before partial mutable borrows.
         let prev_button_pos = self.prev_button_position();
         let tabs_button_pos = self.tabs_button_position();
+        let zoom_label_pos = self.zoom_label_position();
         let separator_pos = self.separator_position();
         let uribar_pos = self.uribar_position();
         let separator_size = self.separator_size();
@@ -289,6 +320,7 @@ impl Ui {
             // associated with the correct program.
             let prev_button_texture = has_history.then(|| self.prev_button.texture());
             let tabs_button_texture = self.tabs_button.texture(tab_count);
+            let zoom_label_texture = self.zoom_label.texture();
             let separator_texture = self.separator.texture();
             let uribar_texture = self.uribar.texture();
 
@@ -308,6 +340,9 @@ impl Ui {
                 }
                 if let Some(prev_button_texture) = prev_button_texture {
                     renderer.draw_texture_at(prev_button_texture, prev_button_pos.into(), None);
+                }
+                if let Some(zoom_label_texture) = zoom_label_texture {
+                    renderer.draw_texture_at(zoom_label_texture, zoom_label_pos.into(), None);
                 }
                 renderer.draw_texture_at(tabs_button_texture, tabs_button_pos.into(), None);
                 renderer.draw_texture_at(uribar_texture, uribar_pos.into(), None);
@@ -344,31 +379,36 @@ impl Ui {
         self.touch_point = Some(id);
 
         // Convert position to physical space.
-        let position = logical_position * self.scale;
+        self.touch_position = logical_position * self.scale;
 
-        // Get uribar constraints.
-        let uribar_position = self.uribar_position().into();
+        // Get UI element geometries.
+        let tabs_button_position = self.tabs_button_position();
+        let tabs_button_size = self.tabs_button.size().into();
+        let prev_button_position = self.prev_button_position();
+        let prev_button_size = self.prev_button.size().into();
+        let zoom_label_position = self.zoom_label_position();
+        let zoom_label_size = self.zoom_label_size().into();
+        let uribar_position = self.uribar_position();
         let uribar_size = self.uribar.size.into();
 
-        if rect_contains(uribar_position, uribar_size, position) {
+        if rect_contains(uribar_position, uribar_size, self.touch_position) {
             // Forward touch event.
             let absolute_logical_position = logical_position + self.origin.into();
-            self.uribar.touch_down(time, absolute_logical_position, position - uribar_position);
+            let relative_position = self.touch_position - uribar_position;
+            self.uribar.touch_down(time, absolute_logical_position, relative_position);
 
             self.touch_focus = TouchFocusElement::UriBar;
             self.keyboard_focus_uribar();
-
-            return;
-        } else if position.x > uribar_position.x + uribar_size.width {
-            self.touch_focus = TouchFocusElement::TabsButton(position);
-            return;
-        } else if position.x < uribar_position.x {
-            self.touch_focus = TouchFocusElement::PrevButton(position);
-            return;
+        } else if rect_contains(tabs_button_position, tabs_button_size, self.touch_position) {
+            self.touch_focus = TouchFocusElement::TabsButton;
+        } else if rect_contains(prev_button_position, prev_button_size, self.touch_position) {
+            self.touch_focus = TouchFocusElement::PrevButton;
+        } else if rect_contains(zoom_label_position, zoom_label_size, self.touch_position) {
+            self.touch_focus = TouchFocusElement::ZoomLabel;
+        } else {
+            self.touch_focus = TouchFocusElement::None;
+            self.clear_keyboard_focus();
         }
-
-        self.touch_focus = TouchFocusElement::None;
-        self.clear_keyboard_focus();
     }
 
     /// Handle touch motion events.
@@ -385,19 +425,12 @@ impl Ui {
         }
 
         // Convert position to physical space.
-        let position = position * self.scale;
+        self.touch_position = position * self.scale;
 
-        match &mut self.touch_focus {
-            TouchFocusElement::UriBar => {
-                // Forward touch event.
-                let uribar_position = position - self.uribar_position().into();
-                self.uribar.touch_motion(uribar_position);
-            },
-            TouchFocusElement::TabsButton(touch_position)
-            | TouchFocusElement::PrevButton(touch_position) => {
-                *touch_position = position;
-            },
-            TouchFocusElement::None => (),
+        if let TouchFocusElement::UriBar = &self.touch_focus {
+            // Forward touch event.
+            let uribar_position = position - self.uribar_position();
+            self.uribar.touch_motion(uribar_position);
         }
     }
 
@@ -412,17 +445,28 @@ impl Ui {
         match self.touch_focus {
             // Forward touch event.
             TouchFocusElement::UriBar => self.uribar.touch_up(time),
-            TouchFocusElement::TabsButton(position) => {
-                let uribar_x = self.uribar_position().x as f64;
-                let uribar_width = self.uribar_size().width as f64;
-                if position.x > uribar_x + uribar_width {
+            TouchFocusElement::TabsButton => {
+                let tabs_button_position = self.tabs_button_position();
+                let tabs_button_size = self.tabs_button.size().into();
+
+                if rect_contains(tabs_button_position, tabs_button_size, self.touch_position) {
                     self.queue.show_tabs_ui(self.window_id);
                 }
             },
-            TouchFocusElement::PrevButton(position) => {
-                let uribar_x = self.uribar_position().x as f64;
-                if position.x < uribar_x {
+            TouchFocusElement::PrevButton => {
+                let prev_button_position = self.prev_button_position();
+                let prev_button_size = self.prev_button.size().into();
+
+                if rect_contains(prev_button_position, prev_button_size, self.touch_position) {
                     self.queue.load_prev(self.window_id);
+                }
+            },
+            TouchFocusElement::ZoomLabel => {
+                let zoom_label_position = self.zoom_label_position();
+                let zoom_label_size = self.zoom_label_size().into();
+
+                if rect_contains(zoom_label_position, zoom_label_size, self.touch_position) {
+                    self.queue.set_zoom_level(self.window_id, 1.);
                 }
             },
             TouchFocusElement::None => (),
@@ -487,7 +531,7 @@ impl Ui {
 
     /// Check whether UI needs redraw.
     pub fn dirty(&self) -> bool {
-        self.dirty || self.uribar.dirty() || self.last_load_progress != self.load_progress
+        self.dirty || self.zoom_label.dirty || self.uribar.dirty()
     }
 
     /// Logical height of the URI toolbar without separator.
@@ -496,46 +540,47 @@ impl Ui {
     }
 
     /// Physical position of the URI bar.
-    fn uribar_position(&self) -> Position {
+    fn uribar_position(&self) -> Position<f64> {
         let horizontal_padding = X_PADDING * self.scale;
-        let prev_button_x = self.prev_button_position().x as f64;
+        let prev_button_x = self.prev_button_position().x;
         let prev_button_width = self.prev_button.size().width as f64;
         let x = prev_button_x + prev_button_width + horizontal_padding.round();
 
         let y = self.size.height as f64 * self.scale * (1. - URIBAR_HEIGHT_PERCENTAGE) / 2.;
 
-        Position::new(x, y).i32_round()
+        Position::new(x, y.round())
     }
 
     /// Physical size of the URI bar.
     fn uribar_size(&self) -> Size {
-        let tabs_button_start = self.tabs_button_position().x as f64;
-        let prev_button_x = self.prev_button_position().x as f64;
+        let zoom_label_size = self.zoom_label_size();
+
+        let tabs_button_start = self.tabs_button_position().x;
+        let prev_button_x = self.prev_button_position().x;
         let prev_button_end = prev_button_x + self.prev_button.size().width as f64;
-        let width = tabs_button_start - prev_button_end - X_PADDING * self.scale * 2.;
+        let x_padding = (X_PADDING * self.scale).round() * 2.;
+        let width = tabs_button_start - prev_button_end - x_padding - zoom_label_size.width as f64;
 
-        let height = self.size.height as f64 * self.scale * URIBAR_HEIGHT_PERCENTAGE;
-
-        Size::new(width.round() as u32, height.round() as u32)
+        Size::new(width.round() as u32, zoom_label_size.height)
     }
 
     /// Physical position of the tabs button.
-    fn tabs_button_position(&self) -> Position {
+    fn tabs_button_position(&self) -> Position<f64> {
         let x = ((self.size.width - TABS_BUTTON_SIZE) as f64 - X_PADDING) * self.scale;
         let y = (self.size.height - TABS_BUTTON_SIZE) as f64 * self.scale / 2.;
-        Position::new(x, y).i32_round()
+        Position::new(x.round(), y.round())
     }
 
     /// Physical position of the previous page button.
-    fn prev_button_position(&self) -> Position {
-        let x = X_PADDING * self.scale;
+    fn prev_button_position(&self) -> Position<f64> {
+        let x = (X_PADDING * self.scale).round();
         let y = (self.size.height - PREV_BUTTON_SIZE) as f64 * self.scale / 2.;
-        Position::new(x, y).i32_round()
+        Position::new(x, y.round())
     }
 
     /// Physical position of the toolbar separator.
-    fn separator_position(&self) -> Position {
-        Position::new(0, 0)
+    fn separator_position(&self) -> Position<f64> {
+        Position::new(0., 0.)
     }
 
     /// Physical size of the toolbar separator.
@@ -544,6 +589,21 @@ impl Ui {
         physical_size.width = (physical_size.width as f64 * self.load_progress).round() as u32;
         physical_size.height = (SEPARATOR_HEIGHT as f64 * self.scale).round() as u32;
         physical_size.into()
+    }
+
+    /// Physical position of the zoom level label
+    fn zoom_label_position(&self) -> Position<f64> {
+        let mut position = self.uribar_position();
+        position.x += self.uribar_size().width as f64;
+        position
+    }
+
+    /// Physical size of the zoom level label.
+    fn zoom_label_size(&self) -> Size {
+        let height = self.size.height as f64 * self.scale * URIBAR_HEIGHT_PERCENTAGE;
+        let width =
+            if self.zoom_label.level != 1. { ZOOM_LABEL_WIDTH as f64 * self.scale } else { 0. };
+        Size::new(width.round() as u32, height.round() as u32)
     }
 }
 
@@ -906,11 +966,14 @@ enum KeyboardInputElement {
 }
 
 /// Elements accepting touch input.
+#[derive(Default)]
 enum TouchFocusElement {
     None,
+    TabsButton,
+    PrevButton,
+    ZoomLabel,
+    #[default]
     UriBar,
-    TabsButton(Position<f64>),
-    PrevButton(Position<f64>),
 }
 
 /// Text input field.
@@ -1511,7 +1574,7 @@ impl TextField {
     }
 
     /// Get current IME text_input state.
-    fn text_input_state(&mut self, position: Position) -> TextInputChange {
+    fn text_input_state(&mut self, position: Position<f64>) -> TextInputChange {
         // Send disabled if input is not focused.
         if !self.focused {
             return TextInputChange::Disabled;
@@ -1526,6 +1589,7 @@ impl TextField {
         let change_cause = mem::replace(&mut self.change_cause, ChangeCause::Other);
 
         // Calculate cursor rectangle.
+        let position = position.i32_round();
         let cursor_index = self.cursor_index();
         let (cursor_rect, _) = self.layout.cursor_pos(self.cursor_index());
         let cursor_x = position.x + cursor_rect.x() / PANGO_SCALE;
@@ -1878,5 +1942,80 @@ impl SvgButton {
     fn set_enabled(&mut self, enabled: bool) {
         self.dirty |= self.enabled != enabled;
         self.enabled = enabled;
+    }
+}
+
+/// Zoom level label.
+pub struct ZoomLabel {
+    texture: Option<Texture>,
+    level: f64,
+
+    dirty: bool,
+    size: Size,
+    scale: f64,
+}
+
+impl Default for ZoomLabel {
+    fn default() -> Self {
+        Self {
+            level: 1.,
+            scale: 1.,
+            texture: Default::default(),
+            dirty: Default::default(),
+            size: Default::default(),
+        }
+    }
+}
+
+impl ZoomLabel {
+    /// Get this label's OpenGL texture.
+    pub fn texture(&mut self) -> Option<&Texture> {
+        // Skip rendering label at 100% scale.
+        if self.level == 1. {
+            return None;
+        }
+
+        // Ensure texture is up to date.
+        if mem::take(&mut self.dirty) {
+            // Ensure texture is cleared while program is bound.
+            if let Some(texture) = self.texture.take() {
+                texture.delete();
+            }
+            self.texture = Some(self.draw());
+        }
+
+        self.texture.as_ref()
+    }
+
+    /// Draw the label into an OpenGL texture.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn draw(&self) -> Texture {
+        // Clear with background color.
+        let builder = TextureBuilder::new(self.size.into());
+        builder.clear(SECONDARY_BG.as_f64());
+
+        // Render current zoom level percentage.
+        let text = format!("{}%", (self.level * 100.).round());
+        let layout = TextLayout::new(font_size(0.6), self.scale);
+        layout.set_alignment(Alignment::Center);
+        layout.set_text(&text);
+        builder.rasterize(&layout, &TextOptions::new());
+
+        builder.build()
+    }
+
+    /// Set the physical size and scale of the label.
+    fn set_geometry(&mut self, size: Size, scale: f64) {
+        self.size = size;
+        self.scale = scale;
+
+        // Force redraw.
+        self.dirty = true;
+    }
+
+    /// Update zoom label's level.
+    fn set_level(&mut self, level: f64) {
+        self.dirty |= self.level != level;
+        self.level = level;
     }
 }

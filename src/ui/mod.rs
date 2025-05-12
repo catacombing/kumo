@@ -382,16 +382,14 @@ impl Ui {
         self.touch_position = logical_position * self.scale;
 
         // Get UI element geometries.
-        let tabs_button_position = self.tabs_button_position();
-        let tabs_button_size = self.tabs_button.size().into();
-        let prev_button_position = self.prev_button_position();
-        let prev_button_size = self.prev_button.size().into();
         let zoom_label_position = self.zoom_label_position();
         let zoom_label_size = self.zoom_label_size().into();
         let uribar_position = self.uribar_position();
         let uribar_size = self.uribar.size.into();
 
-        if rect_contains(uribar_position, uribar_size, self.touch_position) {
+        if self.touch_position.x < uribar_position.x {
+            self.touch_focus = TouchFocusElement::PrevButton;
+        } else if rect_contains(uribar_position, uribar_size, self.touch_position) {
             // Forward touch event.
             let absolute_logical_position = logical_position + self.origin.into();
             let relative_position = self.touch_position - uribar_position;
@@ -399,12 +397,10 @@ impl Ui {
 
             self.touch_focus = TouchFocusElement::UriBar;
             self.keyboard_focus_uribar();
-        } else if rect_contains(tabs_button_position, tabs_button_size, self.touch_position) {
-            self.touch_focus = TouchFocusElement::TabsButton;
-        } else if rect_contains(prev_button_position, prev_button_size, self.touch_position) {
-            self.touch_focus = TouchFocusElement::PrevButton;
         } else if rect_contains(zoom_label_position, zoom_label_size, self.touch_position) {
             self.touch_focus = TouchFocusElement::ZoomLabel;
+        } else if self.touch_position.x >= zoom_label_position.x + zoom_label_size.width {
+            self.touch_focus = TouchFocusElement::TabsButton;
         } else {
             self.touch_focus = TouchFocusElement::None;
             self.clear_keyboard_focus();
@@ -446,18 +442,17 @@ impl Ui {
             // Forward touch event.
             TouchFocusElement::UriBar => self.uribar.touch_up(time),
             TouchFocusElement::TabsButton => {
-                let tabs_button_position = self.tabs_button_position();
-                let tabs_button_size = self.tabs_button.size().into();
+                let zoom_label_position = self.zoom_label_position();
+                let zoom_label_size: Size<f64> = self.zoom_label_size().into();
 
-                if rect_contains(tabs_button_position, tabs_button_size, self.touch_position) {
+                if self.touch_position.x >= zoom_label_position.x + zoom_label_size.width {
                     self.queue.show_tabs_ui(self.window_id);
                 }
             },
             TouchFocusElement::PrevButton => {
-                let prev_button_position = self.prev_button_position();
-                let prev_button_size = self.prev_button.size().into();
+                let uribar_position = self.uribar_position();
 
-                if rect_contains(prev_button_position, prev_button_size, self.touch_position) {
+                if self.touch_position.x < uribar_position.x {
                     self.queue.load_prev(self.window_id);
                 }
             },

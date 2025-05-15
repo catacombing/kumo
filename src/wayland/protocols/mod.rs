@@ -59,8 +59,8 @@ pub mod viewporter;
 #[derive(Debug)]
 pub struct ProtocolStates {
     pub single_pixel_buffer: Option<WpSinglePixelBufferManagerV1>,
+    pub fractional_scale: Option<FractionalScaleManager>,
     pub data_device_manager: DataDeviceManagerState,
-    pub fractional_scale: FractionalScaleManager,
     pub subcompositor: SubcompositorState,
     pub compositor: CompositorState,
     pub data_device: DataDevice,
@@ -83,8 +83,7 @@ impl ProtocolStates {
         let compositor = CompositorState::bind(globals, queue)
             .map_err(|err| Error::WaylandProtocol("wl_compositor", err))?;
         let wl_compositor = compositor.wl_compositor().clone();
-        let fractional_scale = FractionalScaleManager::new(globals, queue)
-            .map_err(|err| Error::WaylandProtocol("wp_fractional_scale", err))?;
+        let fractional_scale = FractionalScaleManager::new(globals, queue).ok();
         let subcompositor = SubcompositorState::bind(wl_compositor, globals, queue)
             .map_err(|err| Error::WaylandProtocol("wl_subcompositor", err))?;
         let viewporter = Viewporter::new(globals, queue)
@@ -141,10 +140,17 @@ impl CompositorHandler for State {
         &mut self,
         _: &Connection,
         _: &QueueHandle<Self>,
-        _: &WlSurface,
-        _: i32,
+        surface: &WlSurface,
+        scale: i32,
     ) {
-        // NOTE: We exclusively use fractional scaling.
+        if self.protocol_states.fractional_scale.is_some() {
+            return;
+        }
+
+        let window = self.windows.values_mut().find(|w| w.owns_surface(surface));
+        if let Some(window) = window {
+            window.set_scale(scale as f64);
+        }
     }
 
     fn transform_changed(

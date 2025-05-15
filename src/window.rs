@@ -233,7 +233,9 @@ impl Window {
         );
 
         // Enable fractional scaling.
-        protocol_states.fractional_scale.fractional_scaling(&wayland_queue, &surface);
+        if let Some(fractional_scale) = &protocol_states.fractional_scale {
+            fractional_scale.fractional_scaling(&wayland_queue, &surface);
+        }
 
         // Create XDG window.
         let decorations = WindowDecorations::RequestServer;

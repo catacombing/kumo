@@ -48,6 +48,15 @@
         </screenshot>
     </screenshots>
     <releases>
+        <release version="1.2.0" date="2025-05-16">
+            <description>
+                <p>Kumo Version 1.2.0</p>
+                <ul>
+                    <li>Added page zoom using pinch gesture</li>
+                    <li>Added support for compositors without fractional scaling support</li>
+                </ul>
+            </description>
+        </release>
         <release version="1.1.0" date="2025-05-07">
             <description>
                 <p>Kumo Version 1.1.0</p>

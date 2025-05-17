@@ -502,10 +502,7 @@ impl Window {
 
         // Draw UI.
         if !overlay_opaque && !self.fullscreened {
-            let has_history = self
-                .active_tab
-                .and_then(|id| self.tabs.get(&id))
-                .is_some_and(|engine| engine.has_prev());
+            let has_history = self.active_tab().is_some_and(|engine| engine.has_prev());
             let tab_group = self.overlay.tabs_mut().active_tab_group();
             let tab_count = self.tabs.values().filter(|t| t.id().group_id() == tab_group).count();
             let ui_rendered = self.ui.draw(tab_count, has_history);
@@ -1424,6 +1421,11 @@ impl Window {
         let group_id = group.id();
         if !self.groups.contains_key(&group_id) {
             self.groups.insert(group_id, group);
+
+            // Show group cycling button if more than the default group exists.
+            if !self.groups.is_empty() {
+                self.overlay.tabs_mut().set_allow_cycling(true);
+            }
         }
 
         self.unstall();
@@ -1440,6 +1442,11 @@ impl Window {
         self.cycle_tab_group(group_id);
 
         self.groups.shift_remove(&group_id);
+
+        // Hide group cycling button if only the default group exists.
+        if self.groups.is_empty() {
+            self.overlay.tabs_mut().set_allow_cycling(false);
+        }
 
         // Remove deleted tabs from the session storage.
         self.persist_session();

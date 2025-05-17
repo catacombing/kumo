@@ -232,6 +232,7 @@ pub struct Tabs {
     touch_state: TouchState,
 
     group_label: GroupLabel,
+    allow_cycling: bool,
     group: GroupId,
 
     visible: bool,
@@ -258,6 +259,7 @@ impl Tabs {
             new_tab_button: Default::default(),
             texture_cache: Default::default(),
             scroll_offset: Default::default(),
+            allow_cycling: Default::default(),
             touch_state: Default::default(),
             visible: Default::default(),
             group: Default::default(),
@@ -332,6 +334,12 @@ impl Tabs {
     /// Get the current tab group.
     pub fn active_tab_group(&self) -> GroupId {
         self.group
+    }
+
+    /// Toggle visibility of the group cycling button.
+    pub fn set_allow_cycling(&mut self, allowed: bool) {
+        self.dirty |= self.allow_cycling != allowed;
+        self.allow_cycling = allowed;
     }
 
     /// Show or hide the download UI button.
@@ -807,7 +815,9 @@ impl Popup for Tabs {
 
         // Draw buttons last, to render over scrolled tabs and label.
         renderer.draw_texture_at(new_tab_button, new_tab_button_position, None);
-        renderer.draw_texture_at(cycle_group_button, cycle_group_button_position, None);
+        if self.allow_cycling {
+            renderer.draw_texture_at(cycle_group_button, cycle_group_button_position, None);
+        }
         if self.downloads_visible {
             renderer.draw_texture_at(downloads_button, downloads_button_position, None);
         }

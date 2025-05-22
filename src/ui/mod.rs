@@ -3,6 +3,7 @@
 use std::borrow::Cow;
 use std::mem;
 use std::ops::{Bound, Range, RangeBounds};
+use std::rc::Rc;
 
 use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose};
 use funq::MtQueueHandle;
@@ -30,20 +31,14 @@ pub mod engine_backdrop;
 pub mod overlay;
 mod renderer;
 
-/// Maximum interval between taps to be considered a double/trible-tap.
-const MAX_MULTI_TAP_MILLIS: u32 = 300;
-
 /// Logical height of the non-browser UI.
-const TOOLBAR_HEIGHT: u32 = 50;
+pub const TOOLBAR_HEIGHT: u32 = 50;
 
 /// Logical height of the UI/content separator.
-const SEPARATOR_HEIGHT: u32 = 2;
+pub const SEPARATOR_HEIGHT: u32 = 2;
 
-/// Logical width and height of the tabs button.
-const TABS_BUTTON_SIZE: u32 = 28;
-
-/// Logical width and height of the "previous page" button.
-const PREV_BUTTON_SIZE: u32 = 14;
+/// Maximum interval between taps to be considered a double/trible-tap.
+const MAX_MULTI_TAP_MILLIS: u32 = 300;
 
 /// Width of the web view zoom level indicator;
 const ZOOM_LABEL_WIDTH: u32 = 35;
@@ -51,8 +46,11 @@ const ZOOM_LABEL_WIDTH: u32 = 35;
 /// URI bar height percentage from UI.
 const URIBAR_HEIGHT_PERCENTAGE: f64 = 0.6;
 
-/// Horizontal padding between elements and screen border.
-const X_PADDING: f64 = 10.;
+/// Icon button height percentage from UI.
+const ICON_BUTTON_HEIGHT_PERCENTAGE: f64 = 0.8;
+
+/// Padding around items in the URI bar.
+const PADDING: f64 = 10.;
 
 /// Separator characters for tab completion.
 const AUTOCOMPLETE_SEPARATORS: &[u8] = b"/: ?&";
@@ -88,6 +86,18 @@ pub trait UiHandler {
 
     /// Set the active engine's zoom level.
     fn set_zoom_level(&mut self, window_id: WindowId, zoom_level: f64);
+
+    /// Update the active engine's page search text.
+    fn update_search_text(&mut self, window_id: WindowId, text: String);
+
+    /// Notify engine about search termination.
+    fn stop_search(&mut self, window_id: WindowId);
+
+    /// Go to the next text search match.
+    fn search_next(&mut self, window_id: WindowId);
+
+    /// Go to the previous text search match.
+    fn search_prev(&mut self, window_id: WindowId);
 }
 
 impl UiHandler for State {
@@ -145,6 +155,31 @@ impl UiHandler for State {
             window.set_zoom_level(zoom_level);
         }
     }
+
+    fn update_search_text(&mut self, window_id: WindowId, text: String) {
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            window.update_search_text(&text);
+        }
+    }
+
+    fn stop_search(&mut self, window_id: WindowId) {
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            window.stop_search();
+        }
+    }
+
+    fn search_next(&mut self, window_id: WindowId) {
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            window.search_next();
+        }
+    }
+
+    /// Go to the previous text search match.
+    fn search_prev(&mut self, window_id: WindowId) {
+        if let Some(window) = self.windows.get_mut(&window_id) {
+            window.search_prev();
+        }
+    }
 }
 
 pub struct Ui {
@@ -159,8 +194,11 @@ pub struct Ui {
     size: Size,
     scale: f64,
 
+    search_stop_button: IconButton,
+    search_next_button: IconButton,
+    search_prev_button: IconButton,
+    prev_button: IconButton,
     tabs_button: TabsButton,
-    prev_button: PrevButton,
     zoom_label: ZoomLabel,
     separator: Separator,
     uribar: Uribar,
@@ -203,6 +241,10 @@ impl Ui {
             surface,
             uribar,
             queue,
+            search_next_button: IconButton::new(Icon::ArrowRight),
+            search_prev_button: IconButton::new(Icon::ArrowLeft),
+            search_stop_button: IconButton::new(Icon::X),
+            prev_button: IconButton::new(Icon::ArrowLeft),
             load_progress: 1.0,
             scale: 1.0,
             last_has_history: Default::default(),
@@ -212,7 +254,6 @@ impl Ui {
             touch_focus: Default::default(),
             touch_point: Default::default(),
             tabs_button: Default::default(),
-            prev_button: Default::default(),
             zoom_label: Default::default(),
             separator: Default::default(),
             origin: Default::default(),
@@ -228,11 +269,10 @@ impl Ui {
 
     /// Update the logical UI size.
     pub fn set_size(&mut self, size: Size) {
-        let toolbar_height = Self::toolbar_height();
-        self.origin = Position::new(0, (size.height - toolbar_height) as i32);
+        self.origin = Position::new(0, (size.height - TOOLBAR_HEIGHT) as i32);
         self.subsurface.set_position(self.origin.x, self.origin.y);
 
-        self.size = Size::new(size.width, toolbar_height);
+        self.size = Size::new(size.width, TOOLBAR_HEIGHT);
         self.dirty = true;
 
         // Update opaque region.
@@ -242,7 +282,12 @@ impl Ui {
         }
 
         // Update UI elements.
+        self.search_stop_button.set_geometry(self.icon_button_size(), self.scale);
+        self.search_next_button.set_geometry(self.icon_button_size(), self.scale);
+        self.search_prev_button.set_geometry(self.icon_button_size(), self.scale);
+        self.tabs_button.set_geometry(self.tabs_button_size(), self.scale);
         self.zoom_label.set_geometry(self.zoom_label_size(), self.scale);
+        self.prev_button.set_geometry(self.icon_button_size(), self.scale);
         self.uribar.set_geometry(self.uribar_size(), self.scale);
     }
 
@@ -252,11 +297,14 @@ impl Ui {
         self.dirty = true;
 
         // Update UI elements.
-        self.tabs_button.set_scale(scale);
-        self.prev_button.set_scale(scale);
 
         // Update uribar last, to ensure all element scales are updated.
+        self.search_stop_button.set_geometry(self.icon_button_size(), self.scale);
+        self.search_next_button.set_geometry(self.icon_button_size(), self.scale);
+        self.search_prev_button.set_geometry(self.icon_button_size(), self.scale);
+        self.tabs_button.set_geometry(self.tabs_button_size(), self.scale);
         self.zoom_label.set_geometry(self.zoom_label_size(), self.scale);
+        self.prev_button.set_geometry(self.icon_button_size(), self.scale);
         self.uribar.set_geometry(self.uribar_size(), scale);
     }
 
@@ -304,26 +352,19 @@ impl Ui {
         self.surface.damage(0, 0, self.size.width as i32, self.size.height as i32);
 
         // Calculate target positions/sizes before partial mutable borrows.
-        let prev_button_pos = self.prev_button_position();
-        let tabs_button_pos = self.tabs_button_position();
-        let zoom_label_pos = self.zoom_label_position();
-        let separator_pos = self.separator_position();
-        let uribar_pos = self.uribar_position();
+        let search_stop_button_pos = self.search_stop_button_position().into();
+        let search_next_button_pos = self.search_next_button_position().into();
+        let search_prev_button_pos = self.search_prev_button_position().into();
+        let prev_button_pos = self.prev_button_position().into();
+        let tabs_button_pos = self.tabs_button_position().into();
+        let zoom_label_pos = self.zoom_label_position().into();
+        let separator_pos = self.separator_position().into();
+        let uribar_pos = self.uribar_position().into();
         let separator_size = self.separator_size();
 
         // Render the UI.
         let physical_size = self.size * self.scale;
         self.renderer.draw(physical_size, |renderer| {
-            // Get UI element textures.
-            //
-            // This must happen with the renderer bound to ensure new textures are
-            // associated with the correct program.
-            let prev_button_texture = has_history.then(|| self.prev_button.texture());
-            let tabs_button_texture = self.tabs_button.texture(tab_count);
-            let zoom_label_texture = self.zoom_label.texture();
-            let separator_texture = self.separator.texture();
-            let uribar_texture = self.uribar.texture();
-
             unsafe {
                 // Draw background.
                 let [r, g, b] = BG.as_f32();
@@ -331,21 +372,35 @@ impl Ui {
                 gl::Clear(gl::COLOR_BUFFER_BIT);
 
                 // Draw UI elements.
+
                 if separator_size.width > 0. {
-                    renderer.draw_texture_at(
-                        separator_texture,
-                        separator_pos.into(),
-                        separator_size,
-                    );
+                    let texture = self.separator.texture();
+                    renderer.draw_texture_at(texture, separator_pos, separator_size);
                 }
-                if let Some(prev_button_texture) = prev_button_texture {
-                    renderer.draw_texture_at(prev_button_texture, prev_button_pos.into(), None);
+
+                if !self.uribar.searching {
+                    if has_history {
+                        let texture = self.prev_button.texture();
+                        renderer.draw_texture_at(texture, prev_button_pos, None);
+                    }
+                    if let Some(zoom_label_texture) = self.zoom_label.texture() {
+                        renderer.draw_texture_at(zoom_label_texture, zoom_label_pos, None);
+                    }
+
+                    let tabs_button_texture = self.tabs_button.texture(tab_count);
+                    renderer.draw_texture_at(tabs_button_texture, tabs_button_pos, None);
+                } else {
+                    let stop_button_texture = self.search_stop_button.texture();
+                    renderer.draw_texture_at(stop_button_texture, search_stop_button_pos, None);
+
+                    let next_button_texture = self.search_next_button.texture();
+                    renderer.draw_texture_at(next_button_texture, search_next_button_pos, None);
+
+                    let prev_button_texture = self.search_prev_button.texture();
+                    renderer.draw_texture_at(prev_button_texture, search_prev_button_pos, None);
                 }
-                if let Some(zoom_label_texture) = zoom_label_texture {
-                    renderer.draw_texture_at(zoom_label_texture, zoom_label_pos.into(), None);
-                }
-                renderer.draw_texture_at(tabs_button_texture, tabs_button_pos.into(), None);
-                renderer.draw_texture_at(uribar_texture, uribar_pos.into(), None);
+
+                renderer.draw_texture_at(self.uribar.texture(), uribar_pos, None);
             }
         });
 
@@ -381,15 +436,28 @@ impl Ui {
         // Convert position to physical space.
         self.touch_position = logical_position * self.scale;
 
-        // Get UI element geometries.
-        let zoom_label_position = self.zoom_label_position();
-        let zoom_label_size = self.zoom_label_size().into();
+        // Get uribar geometry.
         let uribar_position = self.uribar_position();
         let uribar_size = self.uribar.size.into();
 
-        if self.touch_position.x < uribar_position.x {
-            self.touch_focus = TouchFocusElement::PrevButton;
-        } else if rect_contains(uribar_position, uribar_size, self.touch_position) {
+        // Get geometry of currently visible UI buttons and labels.
+        type Element = TouchFocusElement;
+        let button_size = self.icon_button_size();
+        let ui_elements = if !self.uribar.searching {
+            [
+                (self.prev_button_position(), button_size, Element::PrevButton),
+                (self.tabs_button_position(), self.tabs_button_size(), Element::TabsButton),
+                (self.zoom_label_position(), self.zoom_label_size(), Element::ZoomLabel),
+            ]
+        } else {
+            [
+                (self.search_stop_button_position(), button_size, Element::SearchStopButton),
+                (self.search_next_button_position(), button_size, Element::SearchNextButton),
+                (self.search_prev_button_position(), button_size, Element::SearchPrevButton),
+            ]
+        };
+
+        if rect_contains(uribar_position, uribar_size, self.touch_position) {
             // Forward touch event.
             let absolute_logical_position = logical_position + self.origin.into();
             let relative_position = self.touch_position - uribar_position;
@@ -397,11 +465,14 @@ impl Ui {
 
             self.touch_focus = TouchFocusElement::UriBar;
             self.keyboard_focus_uribar();
-        } else if rect_contains(zoom_label_position, zoom_label_size, self.touch_position) {
-            self.touch_focus = TouchFocusElement::ZoomLabel;
-        } else if self.touch_position.x >= zoom_label_position.x + zoom_label_size.width {
-            self.touch_focus = TouchFocusElement::TabsButton;
         } else {
+            for (position, size, focus) in ui_elements {
+                if rect_contains(position, size.into(), self.touch_position) {
+                    self.touch_focus = focus;
+                    return;
+                }
+            }
+
             self.touch_focus = TouchFocusElement::None;
             self.clear_keyboard_focus();
         }
@@ -464,6 +535,31 @@ impl Ui {
                     self.queue.set_zoom_level(self.window_id, 1.);
                 }
             },
+            TouchFocusElement::SearchStopButton => {
+                let button_position = self.search_stop_button_position();
+                let button_size = self.icon_button_size().into();
+
+                if rect_contains(button_position, button_size, self.touch_position) {
+                    self.queue.stop_search(self.window_id);
+                    self.set_searching(false);
+                }
+            },
+            TouchFocusElement::SearchNextButton => {
+                let button_position = self.search_next_button_position();
+                let button_size = self.icon_button_size().into();
+
+                if rect_contains(button_position, button_size, self.touch_position) {
+                    self.queue.search_next(self.window_id);
+                }
+            },
+            TouchFocusElement::SearchPrevButton => {
+                let button_position = self.search_prev_button_position();
+                let button_size = self.icon_button_size().into();
+
+                if rect_contains(button_position, button_size, self.touch_position) {
+                    self.queue.search_prev(self.window_id);
+                }
+            },
             TouchFocusElement::None => (),
         }
     }
@@ -508,7 +604,7 @@ impl Ui {
     }
 
     /// Update the URI bar's content.
-    pub fn set_uri(&mut self, uri: &str) {
+    pub fn set_uri(&mut self, uri: Cow<'_, str>) {
         self.uribar.set_uri(uri);
     }
 
@@ -529,48 +625,41 @@ impl Ui {
         self.dirty || self.zoom_label.dirty || self.uribar.dirty()
     }
 
-    /// Logical height of the URI toolbar without separator.
-    pub fn toolbar_height() -> u32 {
-        TOOLBAR_HEIGHT - SEPARATOR_HEIGHT
+    /// Start/Stop text search.
+    pub fn set_searching(&mut self, searching: bool) {
+        if self.uribar.searching == searching {
+            return;
+        }
+        self.uribar.set_searching(searching);
+
+        self.uribar.set_geometry(self.uribar_size(), self.scale);
+
+        if searching {
+            self.keyboard_focus_uribar();
+        } else {
+            self.clear_keyboard_focus();
+        }
+
+        self.dirty = true;
     }
 
-    /// Physical position of the URI bar.
-    fn uribar_position(&self) -> Position<f64> {
-        let horizontal_padding = X_PADDING * self.scale;
-        let prev_button_x = self.prev_button_position().x;
-        let prev_button_width = self.prev_button.size().width as f64;
-        let x = prev_button_x + prev_button_width + horizontal_padding.round();
+    /// Update the current number of search matches.
+    pub fn set_search_match_count(&mut self, count: usize) {
+        let has_matches = count != 0 || self.uribar.text_field.is_empty();
+        self.dirty |= self.uribar.search_has_matches != has_matches;
 
-        let y = self.size.height as f64 * self.scale * (1. - URIBAR_HEIGHT_PERCENTAGE) / 2.;
-
-        Position::new(x, y.round())
+        self.uribar.search_has_matches = has_matches;
     }
 
-    /// Physical size of the URI bar.
-    fn uribar_size(&self) -> Size {
-        let zoom_label_size = self.zoom_label_size();
-
-        let tabs_button_start = self.tabs_button_position().x;
-        let prev_button_x = self.prev_button_position().x;
-        let prev_button_end = prev_button_x + self.prev_button.size().width as f64;
-        let x_padding = (X_PADDING * self.scale).round() * 2.;
-        let width = tabs_button_start - prev_button_end - x_padding - zoom_label_size.width as f64;
-
-        Size::new(width.round() as u32, zoom_label_size.height)
+    /// Physical height of the toolbar without the separator.
+    pub fn content_height(scale: f64) -> f64 {
+        let separator_height = Self::separator_height(scale);
+        (TOOLBAR_HEIGHT as f64 * scale).round() - separator_height
     }
 
-    /// Physical position of the tabs button.
-    fn tabs_button_position(&self) -> Position<f64> {
-        let x = ((self.size.width - TABS_BUTTON_SIZE) as f64 - X_PADDING) * self.scale;
-        let y = (self.size.height - TABS_BUTTON_SIZE) as f64 * self.scale / 2.;
-        Position::new(x.round(), y.round())
-    }
-
-    /// Physical position of the previous page button.
-    fn prev_button_position(&self) -> Position<f64> {
-        let x = (X_PADDING * self.scale).round();
-        let y = (self.size.height - PREV_BUTTON_SIZE) as f64 * self.scale / 2.;
-        Position::new(x, y.round())
+    /// Physical height of the separator.
+    fn separator_height(scale: f64) -> f64 {
+        (SEPARATOR_HEIGHT as f64 * scale).round()
     }
 
     /// Physical position of the toolbar separator.
@@ -582,8 +671,34 @@ impl Ui {
     fn separator_size(&self) -> Size<f32> {
         let mut physical_size = self.size * self.scale;
         physical_size.width = (physical_size.width as f64 * self.load_progress).round() as u32;
-        physical_size.height = (SEPARATOR_HEIGHT as f64 * self.scale).round() as u32;
+        physical_size.height = Self::separator_height(self.scale) as u32;
         physical_size.into()
+    }
+
+    /// Physical position of the URI bar.
+    fn uribar_position(&self) -> Position<f64> {
+        let separator_height = self.separator_size().height as f64;
+        let content_height = Self::content_height(self.scale);
+        let button_width = self.icon_button_size().width as f64;
+        let prev_button_x = self.prev_button_position().x;
+
+        let x = prev_button_x + button_width;
+        let y = content_height * (1. - URIBAR_HEIGHT_PERCENTAGE) / 2. + separator_height;
+
+        Position::new(x, y.round())
+    }
+
+    /// Physical size of the URI bar.
+    fn uribar_size(&self) -> Size {
+        let uribar_end = if self.uribar.searching {
+            self.search_prev_button_position().x
+        } else {
+            self.tabs_button_position().x
+        };
+        let zoom_label_height = self.zoom_label_size().height;
+        let uribar_start = self.uribar_position().x;
+
+        Size::new((uribar_end - uribar_start) as u32, zoom_label_height)
     }
 
     /// Physical position of the zoom level label
@@ -595,10 +710,67 @@ impl Ui {
 
     /// Physical size of the zoom level label.
     fn zoom_label_size(&self) -> Size {
-        let height = self.size.height as f64 * self.scale * URIBAR_HEIGHT_PERCENTAGE;
+        let height = Self::content_height(self.scale) * URIBAR_HEIGHT_PERCENTAGE;
         let width =
             if self.zoom_label.level != 1. { ZOOM_LABEL_WIDTH as f64 * self.scale } else { 0. };
         Size::new(width.round() as u32, height.round() as u32)
+    }
+
+    /// Physical position of the tabs button.
+    fn tabs_button_position(&self) -> Position<f64> {
+        let separator_height = self.separator_size().height;
+        let button_width = self.tabs_button_size().width;
+
+        let x = (self.size.width as f64 * self.scale).round() - button_width as f64;
+        let y = separator_height as f64;
+
+        Position::new(x, y)
+    }
+
+    /// Physical size of the tabs button including its padding.
+    fn tabs_button_size(&self) -> Size {
+        let size = Self::content_height(self.scale) as u32;
+        Size::new(size, size)
+    }
+
+    /// Y offset for the icon buttons.
+    fn icon_button_y(&self) -> f64 {
+        let separator_height = self.separator_size().height as f64;
+        let button_height = self.icon_button_size().height as f64;
+        let content_height = Self::content_height(self.scale);
+
+        (content_height - button_height) / 2. + separator_height
+    }
+
+    /// Physical size of the icon buttons including their padding.
+    fn icon_button_size(&self) -> Size {
+        let content_height = Self::content_height(self.scale);
+        let size = (content_height * ICON_BUTTON_HEIGHT_PERCENTAGE).round() as u32;
+        Size::new(size, size)
+    }
+
+    /// Physical position of the previous page button.
+    fn prev_button_position(&self) -> Position<f64> {
+        Position::new(0., self.icon_button_y())
+    }
+
+    /// Physical position of the search stop button.
+    fn search_stop_button_position(&self) -> Position<f64> {
+        Position::new(0., self.icon_button_y())
+    }
+
+    /// Physical position of the search next button.
+    fn search_next_button_position(&self) -> Position<f64> {
+        let button_width = self.icon_button_size().width;
+        let x = (self.size.width as f64 * self.scale).round() - button_width as f64;
+        Position::new(x, self.icon_button_y())
+    }
+
+    /// Physical position of the search previous button.
+    fn search_prev_button_position(&self) -> Position<f64> {
+        let mut position = self.search_next_button_position();
+        position.x -= self.icon_button_size().width as f64;
+        position
     }
 }
 
@@ -611,6 +783,13 @@ struct Uribar {
     window_id: WindowId,
 
     text_field: TextField,
+    uri: String,
+
+    search_has_matches: bool,
+    searching: bool,
+
+    autocomplete_handler: Rc<dyn Fn(&mut TextField)>,
+
     size: Size,
     scale: f64,
 }
@@ -624,14 +803,14 @@ impl Uribar {
         text_field.set_purpose(ContentPurpose::Url);
 
         // Setup autocomplete suggestion on text change.
-        let mut matches_queue = queue.clone();
-        text_field.set_text_change_handler(Box::new(move |text_field| {
+        let matches_queue = queue.clone();
+        let autocomplete_handler = Rc::new(move |text_field: &mut TextField| {
             let text = text_field.text();
 
             // Get matches for history popup.
             if text_field.focused {
                 let matches = history.matches(&text);
-                matches_queue.open_history_menu(window_id, matches);
+                matches_queue.clone().open_history_menu(window_id, matches);
             }
 
             // Get suggestion for autocomplete.
@@ -642,16 +821,22 @@ impl Uribar {
                 _ => String::new(),
             };
             text_field.set_autocomplete(suggestion);
-        }));
+        });
+        let handler = autocomplete_handler.clone();
+        text_field.set_text_change_handler(Box::new(move |text_field| handler(text_field)));
 
         Self {
+            autocomplete_handler,
             text_field,
             window_id,
             queue,
             dirty: true,
             scale: 1.,
+            search_has_matches: Default::default(),
+            searching: Default::default(),
             texture: Default::default(),
             size: Default::default(),
+            uri: Default::default(),
         }
     }
 
@@ -661,7 +846,7 @@ impl Uribar {
         self.size = size;
 
         // Update text field dimensions.
-        let field_width = self.size.width as f64 - (2. * X_PADDING * scale).round();
+        let field_width = self.size.width as f64 - (2. * PADDING * scale).round();
         self.text_field.set_width(field_width);
 
         // Force redraw.
@@ -669,14 +854,18 @@ impl Uribar {
     }
 
     /// Update the URI bar's content.
-    fn set_uri(&mut self, uri: &str) {
-        if uri == self.text_field.text() {
+    fn set_uri(&mut self, uri: Cow<'_, str>) {
+        if uri == self.uri {
             return;
         }
-        self.text_field.set_text(uri);
+        self.uri = uri.to_string();
 
-        // Force redraw.
-        self.dirty = true;
+        if !self.searching {
+            self.text_field.set_text(&self.uri);
+
+            // Force redraw.
+            self.dirty = true;
+        }
     }
 
     /// Set URI bar input focus.
@@ -686,6 +875,36 @@ impl Uribar {
         }
 
         self.text_field.set_focus(focused);
+    }
+
+    /// Switch input between URI and Search mode.
+    fn set_searching(&mut self, searching: bool) {
+        self.searching = searching;
+
+        if self.searching {
+            // Switch text field to search mode.
+            let mut queue = self.queue.clone();
+            let window_id = self.window_id;
+            self.text_field.set_text_change_handler(Box::new(move |text| {
+                queue.update_search_text(window_id, text.text())
+            }));
+            self.text_field.set_submit_handler(Box::new(|_| {}));
+            self.text_field.set_purpose(ContentPurpose::Normal);
+            self.text_field.set_autocomplete("");
+            self.text_field.set_text("");
+
+            // Ensure we don't show errors on search start.
+            self.search_has_matches = true;
+        } else {
+            // Switch text field to URI mode.
+            let handler = self.autocomplete_handler.clone();
+            let mut queue = self.queue.clone();
+            let window_id = self.window_id;
+            self.text_field.set_submit_handler(Box::new(move |uri| queue.load_uri(window_id, uri)));
+            self.text_field.set_text_change_handler(Box::new(move |field| handler(field)));
+            self.text_field.set_purpose(ContentPurpose::Url);
+            self.text_field.set_text(&self.uri);
+        }
     }
 
     /// Check if URI bar needs redraw.
@@ -714,7 +933,12 @@ impl Uribar {
         // Draw background color.
         let size = self.size.into();
         let builder = TextureBuilder::new(size);
-        builder.clear(SECONDARY_BG.as_f64());
+        let bg = if self.searching && !self.search_has_matches {
+            HL.as_f64()
+        } else {
+            SECONDARY_BG.as_f64()
+        };
+        builder.clear(bg);
 
         // Set text rendering options.
         let position: Position<f64> = self.text_position().into();
@@ -743,12 +967,11 @@ impl Uribar {
 
         // Draw start gradient to indicate available scroll content.
         let context = builder.context();
-        let [r, g, b] = SECONDARY_BG.as_f64();
         let size: Size<f64> = self.size.into();
-        let x_padding = (X_PADDING * self.scale).round();
+        let x_padding = (PADDING * self.scale).round();
         let gradient = LinearGradient::new(0., 0., x_padding, 0.);
-        gradient.add_color_stop_rgba(0., r, g, b, 255.);
-        gradient.add_color_stop_rgba(x_padding, r, g, b, 0.);
+        gradient.add_color_stop_rgba(0., bg[0], bg[1], bg[2], 255.);
+        gradient.add_color_stop_rgba(x_padding, bg[0], bg[1], bg[2], 0.);
         context.rectangle(0., 0., x_padding, size.height);
         context.set_source(gradient).unwrap();
         context.fill().unwrap();
@@ -756,8 +979,8 @@ impl Uribar {
         // Draw end gradient to indicate available scroll content.
         let x = size.width - x_padding;
         let gradient = LinearGradient::new(x, 0., size.width, 0.);
-        gradient.add_color_stop_rgba(0., r, g, b, 0.);
-        gradient.add_color_stop_rgba(x_padding, r, g, b, 255.);
+        gradient.add_color_stop_rgba(0., bg[0], bg[1], bg[2], 0.);
+        gradient.add_color_stop_rgba(x_padding, bg[0], bg[1], bg[2], 255.);
         context.rectangle(x, 0., size.width, size.height);
         context.set_source(gradient).unwrap();
         context.fill().unwrap();
@@ -768,7 +991,7 @@ impl Uribar {
 
     /// Get relative position of the text.
     fn text_position(&self) -> Position {
-        let x = (X_PADDING * self.scale + self.text_field.scroll_offset).round() as i32;
+        let x = (PADDING * self.scale + self.text_field.scroll_offset).round() as i32;
         Position::new(x, 0)
     }
 
@@ -781,7 +1004,7 @@ impl Uribar {
     ) {
         // Forward event to text field.
         let mut relative_position = position;
-        relative_position.x -= X_PADDING * self.scale;
+        relative_position.x -= PADDING * self.scale;
         self.text_field.touch_down(time, absolute_logical_position, relative_position);
     }
 
@@ -789,7 +1012,7 @@ impl Uribar {
     pub fn touch_motion(&mut self, position: Position<f64>) {
         // Forward event to text field.
         let mut relative_position = position;
-        relative_position.x -= X_PADDING * self.scale;
+        relative_position.x -= PADDING * self.scale;
         self.text_field.touch_motion(relative_position);
     }
 
@@ -822,12 +1045,19 @@ struct TabsButton {
     texture: Option<Texture>,
     dirty: bool,
     tab_count: usize,
+    size: Size,
     scale: f64,
 }
 
 impl Default for TabsButton {
     fn default() -> Self {
-        Self { scale: 1., dirty: true, tab_count: Default::default(), texture: Default::default() }
+        Self {
+            dirty: true,
+            scale: 1.,
+            tab_count: Default::default(),
+            texture: Default::default(),
+            size: Default::default(),
+        }
     }
 }
 
@@ -858,15 +1088,21 @@ impl TabsButton {
 
     /// Draw the tabs button into an OpenGL texture.
     fn draw(&mut self, tab_count_label: &str) -> Texture {
+        let padding = (PADDING * self.scale).round();
+
         // Render button outline.
         let fg = FG.as_f64();
-        let size = self.size();
-        let builder = TextureBuilder::new(size.into());
+        let builder = TextureBuilder::new(self.size.into());
         let context = builder.context();
         builder.clear(BG.as_f64());
         context.set_source_rgb(fg[0], fg[1], fg[2]);
-        context.rectangle(0., 0., size.width as f64, size.height as f64);
-        context.set_line_width(self.scale * 2.);
+        context.rectangle(
+            padding,
+            padding,
+            self.size.width as f64 - 2. * padding,
+            self.size.height as f64 - 2. * padding,
+        );
+        context.set_line_width(self.scale);
         context.stroke().unwrap();
 
         // Render tab count text.
@@ -880,34 +1116,30 @@ impl TabsButton {
         builder.build()
     }
 
-    /// Get the physical size of the button.
-    fn size(&self) -> Size {
-        Size::new(TABS_BUTTON_SIZE, TABS_BUTTON_SIZE) * self.scale
-    }
-
     /// Update the output texture scale.
-    fn set_scale(&mut self, scale: f64) {
+    fn set_geometry(&mut self, size: Size, scale: f64) {
         self.scale = scale;
+        self.size = size;
 
         // Force redraw.
         self.dirty = true;
     }
 }
 
-/// Previous tab button.
-struct PrevButton {
+/// Button with a simple icon label.
+struct IconButton {
     texture: Option<Texture>,
     dirty: bool,
+    size: Size,
     scale: f64,
+    icon: Icon,
 }
 
-impl Default for PrevButton {
-    fn default() -> Self {
-        Self { scale: 1., dirty: true, texture: Default::default() }
+impl IconButton {
+    fn new(icon: Icon) -> Self {
+        Self { icon, dirty: true, scale: 1., texture: Default::default(), size: Default::default() }
     }
-}
 
-impl PrevButton {
     fn texture(&mut self) -> &Texture {
         // Ensure texture is up to date.
         if mem::take(&mut self.dirty) {
@@ -921,37 +1153,63 @@ impl PrevButton {
     }
 
     /// Draw the button into an OpenGL texture.
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn draw(&mut self) -> Texture {
-        let int_size = self.size();
-        let builder = TextureBuilder::new(int_size.into());
+        let builder = TextureBuilder::new(self.size.into());
         builder.clear(BG.as_f64());
 
-        // Draw button arrow.
+        // Set line drawing properties.
         let fg = FG.as_f64();
-        let size: Size<f64> = int_size.into();
         let context = builder.context();
         context.set_source_rgb(fg[0], fg[1], fg[2]);
-        context.move_to(size.width * 0.75, 0.);
-        context.line_to(size.width * 0.25, size.height / 2.);
-        context.line_to(size.width * 0.75, size.height);
         context.set_line_width(self.scale);
-        context.stroke().unwrap();
+
+        // Draw button symbol.
+        let padding = (PADDING * self.scale).round();
+        let icon_width = self.size.width as f64 - 2. * padding;
+        let icon_height = self.size.height as f64 - 2. * padding;
+        match self.icon {
+            Icon::ArrowLeft => {
+                context.move_to(padding + icon_width * 0.75, padding);
+                context.line_to(padding + icon_width * 0.25, padding + icon_height / 2.);
+                context.line_to(padding + icon_width * 0.75, padding + icon_height);
+                context.stroke().unwrap();
+            },
+            Icon::ArrowRight => {
+                context.move_to(padding + icon_width * 0.25, padding);
+                context.line_to(padding + icon_width * 0.75, padding + icon_height / 2.);
+                context.line_to(padding + icon_width * 0.25, padding + icon_height);
+                context.stroke().unwrap();
+            },
+            Icon::X => {
+                context.move_to(padding, padding);
+                context.line_to(padding + icon_width, padding + icon_height);
+                context.stroke().unwrap();
+
+                context.move_to(padding + icon_width, padding);
+                context.line_to(padding, padding + icon_height);
+                context.stroke().unwrap();
+            },
+        }
 
         builder.build()
     }
 
-    /// Get the physical size of the button.
-    fn size(&self) -> Size {
-        Size::new(PREV_BUTTON_SIZE, PREV_BUTTON_SIZE) * self.scale
-    }
-
     /// Update the output texture scale.
-    fn set_scale(&mut self, scale: f64) {
+    fn set_geometry(&mut self, size: Size, scale: f64) {
         self.scale = scale;
+        self.size = size;
 
         // Force redraw.
         self.dirty = true;
     }
+}
+
+/// Icon for an icon button.
+enum Icon {
+    ArrowLeft,
+    ArrowRight,
+    X,
 }
 
 /// Elements accepting keyboard focus.
@@ -964,6 +1222,9 @@ enum KeyboardInputElement {
 #[derive(Default)]
 enum TouchFocusElement {
     None,
+    SearchStopButton,
+    SearchNextButton,
+    SearchPrevButton,
     TabsButton,
     PrevButton,
     ZoomLabel,
@@ -1073,6 +1334,12 @@ impl TextField {
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn text(&self) -> String {
         self.layout.text().to_string()
+    }
+
+    /// Check if the input's text is empty.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn is_empty(&self) -> bool {
+        self.layout.text().is_empty()
     }
 
     /// Get underlying pango layout.
@@ -1556,8 +1823,8 @@ impl TextField {
     /// Set autocomplete text.
     ///
     /// This is expected to have the common prefix removed already.
-    fn set_autocomplete(&mut self, autocomplete: String) {
-        self.autocomplete = autocomplete;
+    fn set_autocomplete(&mut self, autocomplete: impl Into<String>) {
+        self.autocomplete = autocomplete.into();
     }
 
     /// Get autocomplete text.

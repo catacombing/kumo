@@ -186,6 +186,18 @@ pub trait Engine {
         1.
     }
 
+    /// Start or update a text search.
+    fn update_search(&mut self, _text: &str) {}
+
+    /// Stop all active text searches.
+    fn stop_search(&mut self) {}
+
+    /// Go to the next search match.
+    fn search_next(&mut self) {}
+
+    /// Go to the previous search match.
+    fn search_prev(&mut self) {}
+
     fn as_any(&mut self) -> &mut dyn Any;
 }
 
@@ -228,6 +240,12 @@ pub trait EngineHandler {
     /// A progress value of `None` indicates that the download has failed and
     /// will not make any further progress.
     fn set_download_progress(&mut self, download_id: DownloadId, progress: Option<u8>);
+
+    /// Start page text search.
+    fn start_search(&mut self, engine_id: EngineId);
+
+    /// Update number of text search matches.
+    fn set_search_match_count(&mut self, engine_id: EngineId, count: usize);
 }
 
 impl EngineHandler for State {
@@ -303,6 +321,18 @@ impl EngineHandler for State {
     fn set_download_progress(&mut self, download_id: DownloadId, progress: Option<u8>) {
         if let Some(window) = self.windows.get_mut(&download_id.window_id()) {
             window.set_download_progress(download_id, progress);
+        }
+    }
+
+    fn start_search(&mut self, engine_id: EngineId) {
+        if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
+            window.start_search(engine_id);
+        }
+    }
+
+    fn set_search_match_count(&mut self, engine_id: EngineId, count: usize) {
+        if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
+            window.set_search_match_count(engine_id, count);
         }
     }
 }

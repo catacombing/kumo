@@ -33,13 +33,13 @@ use crate::storage::Storage;
 use crate::storage::groups::Groups;
 use crate::storage::history::{History, HistoryMatch, MAX_MATCHES};
 use crate::storage::session::{Session, SessionRecord};
-use crate::ui::Ui;
 use crate::ui::engine_backdrop::EngineBackdrop;
 use crate::ui::overlay::Overlay;
 use crate::ui::overlay::downloads::{Download, DownloadId};
 use crate::ui::overlay::option_menu::{
     Borders, OptionMenuId, OptionMenuItem, OptionMenuPosition, ScrollTarget,
 };
+use crate::ui::{TOOLBAR_HEIGHT, Ui};
 use crate::uri::{SCHEMES, TLDS};
 use crate::wayland::protocols::ProtocolStates;
 use crate::{Position, Size, State, WebKitState};
@@ -363,7 +363,7 @@ impl Window {
 
         if switch_focus {
             self.ui.set_load_progress(1.);
-            self.ui.set_uri("");
+            self.ui.set_uri(String::new().into());
         }
 
         self.unstall();
@@ -422,7 +422,7 @@ impl Window {
 
         // Update URI and load progress.
         if let Some(engine) = self.active_tab.and_then(|id| self.tabs.get(&id)) {
-            self.ui.set_uri(&engine.uri());
+            self.ui.set_uri(engine.uri());
             self.ui.set_load_progress(1.);
         }
 
@@ -1036,7 +1036,7 @@ impl Window {
         // changed the URI or the navigation could be between different normalization
         // forms (e.g. example.org -> https://example.org)
         if Some(engine_id) == self.active_tab {
-            self.ui.set_uri(&uri);
+            self.ui.set_uri(Cow::Borrowed(&uri));
         }
 
         // Short-circuit if the engine's URI has not changed.
@@ -1213,7 +1213,7 @@ impl Window {
         if self.history_menu == Some(menu_id) {
             // Load the selected URI.
             let uri = self.history_menu_matches.swap_remove(index).uri;
-            self.ui.set_uri(&uri);
+            self.ui.set_uri(Cow::Borrowed(&uri));
             self.load_uri(uri, false);
         } else if self.text_menu.as_ref().is_some_and(|(id, _)| *id == menu_id) {
             let (_, selection) = self.text_menu.take().unwrap();
@@ -1330,7 +1330,7 @@ impl Window {
         if self.fullscreened {
             Size::new(self.size.width, self.size.height)
         } else {
-            Size::new(self.size.width, self.size.height - Ui::toolbar_height())
+            Size::new(self.size.width, self.size.height - TOOLBAR_HEIGHT)
         }
     }
 
@@ -1475,6 +1475,55 @@ impl Window {
     pub fn set_zoom_level(&mut self, zoom_level: f64) {
         if let Some(engine) = self.active_tab_mut() {
             engine.set_zoom_level(zoom_level);
+        }
+    }
+
+    /// Open search UI for an engine.
+    pub fn start_search(&mut self, engine_id: EngineId) {
+        // Ignore request for background engines.
+        if Some(engine_id) != self.active_tab {
+            return;
+        }
+
+        self.set_keyboard_focus(KeyboardFocus::Ui);
+        self.ui.set_searching(true);
+    }
+
+    /// Stop the active engine's search.
+    pub fn stop_search(&mut self) {
+        if let Some(engine) = self.active_tab_mut() {
+            engine.stop_search();
+        }
+    }
+
+    /// Update the active engine's search text.
+    pub fn update_search_text(&mut self, text: &str) {
+        if let Some(engine) = self.active_tab_mut() {
+            engine.update_search(text);
+        }
+    }
+
+    /// Update the number of search matches.
+    pub fn set_search_match_count(&mut self, engine_id: EngineId, count: usize) {
+        // Ignore match count updates for inactive engines.
+        if Some(engine_id) != self.active_tab {
+            return;
+        }
+
+        self.ui.set_search_match_count(count);
+    }
+
+    /// Jump to the active engine's next search match.
+    pub fn search_next(&mut self) {
+        if let Some(engine) = self.active_tab_mut() {
+            engine.search_next();
+        }
+    }
+
+    /// Jump to the active engine's previous search match.
+    pub fn search_prev(&mut self) {
+        if let Some(engine) = self.active_tab_mut() {
+            engine.search_prev();
         }
     }
 }

@@ -31,10 +31,10 @@ use uuid::Uuid;
 use wpe_platform::ffi::WPERectangle;
 use wpe_platform::{Buffer, BufferDMABuf, BufferExt, BufferSHM, EventType};
 use wpe_webkit::{
-    Color, CookieAcceptPolicy, CookiePersistentStorage, Download as WebKitDownload, HitTestResult,
-    HitTestResultContext, NetworkSession, OptionMenu, OptionMenuItem as WebKitOptionMenuItem,
-    UserContentFilterStore, WebView, WebViewExt, WebViewSessionState, WebsiteDataManagerExtManual,
-    WebsiteDataTypes,
+    Color, CookieAcceptPolicy, CookiePersistentStorage, Download as WebKitDownload, FindOptions,
+    HitTestResult, HitTestResultContext, NetworkSession, OptionMenu,
+    OptionMenuItem as WebKitOptionMenuItem, UserContentFilterStore, WebView, WebViewExt,
+    WebViewSessionState, WebsiteDataManagerExtManual, WebsiteDataTypes,
 };
 
 use crate::engine::webkit::platform::WebKitDisplay;
@@ -59,6 +59,9 @@ const MAX_PENDING_BUFFERS: usize = 3;
 
 /// Maximum number of days before website content disk caches will be cleared.
 const MAX_DISK_CACHE_DAYS: i64 = 30;
+
+/// Maximum matches for text search.
+const MAX_MATCH_COUNT: u32 = 100;
 
 /// WebKit-specific errors.
 #[derive(thiserror::Error, Debug)]
@@ -421,6 +424,18 @@ impl WebKitState {
         web_view.connect_favicon_notify(move |_web_view| {
             favicon_queue.clone().update_favicon(engine_id);
         });
+
+        // Update search input on failed/successful search.
+        if let Some(find_controller) = web_view.find_controller() {
+            let failed_queue = self.queue.clone();
+            find_controller.connect_failed_to_find_text(move |_| {
+                failed_queue.clone().set_search_match_count(engine_id, 0)
+            });
+            let success_queue = self.queue.clone();
+            find_controller.connect_found_text(move |_, match_count| {
+                success_queue.clone().set_search_match_count(engine_id, match_count as usize)
+            });
+        }
 
         // Load adblock content filter.
         load_adblock(web_view.clone());
@@ -828,6 +843,44 @@ impl Engine for WebKitEngine {
         self.web_view.zoom_level()
     }
 
+    /// Start or update a text search.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn update_search(&mut self, text: &str) {
+        if let Some(find_controller) = self.web_view.find_controller() {
+            // Setup search options to use smart case and wrapping.
+            let mut options = FindOptions::WRAP_AROUND;
+            if text.chars().all(|c| c.is_lowercase()) {
+                options |= FindOptions::CASE_INSENSITIVE;
+            }
+
+            find_controller.search(text, options.bits(), MAX_MATCH_COUNT);
+        }
+    }
+
+    /// Stop all active text searches.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn stop_search(&mut self) {
+        if let Some(find_controller) = self.web_view.find_controller() {
+            find_controller.search_finish();
+        }
+    }
+
+    /// Go to the next search match.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn search_next(&mut self) {
+        if let Some(find_controller) = self.web_view.find_controller() {
+            find_controller.search_next();
+        }
+    }
+
+    /// Go to the previous search match.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn search_prev(&mut self) {
+        if let Some(find_controller) = self.web_view.find_controller() {
+            find_controller.search_previous();
+        }
+    }
+
     fn as_any(&mut self) -> &mut dyn Any {
         self
     }
@@ -1150,7 +1203,7 @@ impl ContextMenu {
 
         // Only show these entries without any targeted element.
         if self.context == HitTestResultContext::DOCUMENT {
-            n_items += 1;
+            n_items += 2;
         }
 
         if self.context.contains(HitTestResultContext::DOCUMENT) {
@@ -1180,9 +1233,10 @@ impl ContextMenu {
                     return Some(ContextMenuItem::RemoveCookieException);
                 },
                 0 => return Some(ContextMenuItem::AddCookieException),
+                1 => return Some(ContextMenuItem::Search),
                 _ => (),
             }
-            index -= 1;
+            index -= 2;
         }
 
         if self.context.contains(HitTestResultContext::DOCUMENT) {
@@ -1229,6 +1283,7 @@ impl ContextMenu {
                     engine.queue.remove_cookie_exception(host.to_string());
                 }
             },
+            Some(ContextMenuItem::Search) => engine.queue.start_search(engine.id),
             Some(ContextMenuItem::Reload) => engine.web_view.reload(),
             Some(ContextMenuItem::OpenInNewTab) => {
                 if let Some(uri) = self.uri() {
@@ -1276,6 +1331,7 @@ enum ContextMenuItem {
     OpenInNewWindow,
     CopyLink,
     Paste,
+    Search,
 }
 
 impl ContextMenuItem {
@@ -1288,6 +1344,7 @@ impl ContextMenuItem {
             Self::OpenInNewWindow => "Open in New Window",
             Self::CopyLink => "Copy Link",
             Self::Paste => "Paste",
+            Self::Search => "Search Page",
         }
     }
 }

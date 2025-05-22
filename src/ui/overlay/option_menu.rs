@@ -12,9 +12,9 @@ use crate::config::colors::{BG, DISABLED, FG, HL, SECONDARY_FG};
 use crate::config::font::font_size;
 use crate::config::input::MAX_TAP_DISTANCE;
 use crate::engine::EngineId;
-use crate::ui::Ui;
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBuilder};
+use crate::ui::{SEPARATOR_HEIGHT, TOOLBAR_HEIGHT};
 use crate::window::WindowId;
 use crate::{Position, Size, State, gl};
 
@@ -24,6 +24,9 @@ const Y_PADDING: f64 = 10.;
 
 // Border size at scale 1.
 const BORDER_SIZE: u32 = 2;
+
+// Minimum padding between URI bar and menu.
+const TOOLBAR_PADDING: u32 = 5;
 
 /// Next option menu ID.
 static NEXT_MENU_ID: AtomicUsize = AtomicUsize::new(0);
@@ -76,6 +79,7 @@ pub struct OptionMenu {
     max_height: u32,
     max_width: u32,
     width: u32,
+    size: Size,
     scale: f64,
 
     borders: Borders,
@@ -123,6 +127,7 @@ impl OptionMenu {
             border: Default::default(),
             items: Default::default(),
             dirty: Default::default(),
+            size: Default::default(),
         };
 
         let item_width = width.map_or(0, |_| menu.item_width());
@@ -256,7 +261,14 @@ impl OptionMenu {
     /// Update popup borders.
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn set_borders(&mut self, borders: Borders) {
+        if borders == self.borders {
+            return;
+        }
         self.borders = borders;
+        self.dirty = true;
+
+        // Ensure max_height is updated on bottom border change.
+        self.set_size(self.size);
 
         // Resize option menu items.
         let item_width = self.item_width();
@@ -410,8 +422,8 @@ impl Popup for OptionMenu {
 
         // Scissor crop last element when it should only be partially visible.
         let borders = self.border_widths() * self.scale;
-        let toolbar_height = (Ui::toolbar_height() as f64 * self.scale).round();
-        let y = toolbar_height as i32 + borders.bottom as i32;
+        let bottom_distance = ((self.size.height - self.max_height) as f64 * self.scale).round();
+        let y = bottom_distance as i32 + borders.bottom as i32;
         let height = (self.max_height as f64 * self.scale).round() as i32 - borders.bottom as i32;
         unsafe {
             gl::Enable(gl::SCISSOR_TEST);
@@ -451,8 +463,14 @@ impl Popup for OptionMenu {
     }
 
     fn set_size(&mut self, size: Size) {
-        self.max_height = size.height - Ui::toolbar_height();
+        // Add padding to the bottom if there is a bottom border.
+        self.max_height = if self.borders.contains(Borders::BOTTOM) {
+            size.height - TOOLBAR_HEIGHT - TOOLBAR_PADDING
+        } else {
+            size.height - TOOLBAR_HEIGHT + SEPARATOR_HEIGHT
+        };
         self.max_width = size.width;
+        self.size = size;
         self.dirty = true;
     }
 

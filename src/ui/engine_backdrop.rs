@@ -12,7 +12,7 @@ use smithay_client_toolkit::reexports::protocols::wp::single_pixel_buffer::v1::c
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 
 use crate::config::colors::BG;
-use crate::ui::Ui;
+use crate::ui::TOOLBAR_HEIGHT;
 use crate::ui::renderer::Renderer;
 use crate::wayland::protocols::ProtocolStates;
 use crate::{Size, State, gl};
@@ -61,8 +61,7 @@ impl EngineBackdrop {
 
     /// Update the logical UI size.
     pub fn set_size(&mut self, size: Size) {
-        let toolbar_height = Ui::toolbar_height();
-        self.size = Size::new(size.width, size.height - toolbar_height);
+        self.size = Size::new(size.width, size.height - TOOLBAR_HEIGHT);
         self.dirty = true;
 
         // Update opaque region.

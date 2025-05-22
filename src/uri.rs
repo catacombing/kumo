@@ -915,7 +915,6 @@ pub const TLDS: &[&str] = &[
     "PORN",
     "POST",
     "PR",
-    "PRAMERICA",
     "PRAXI",
     "PRESS",
     "PRIME",

@@ -72,4 +72,10 @@ pub mod input {
 
     /// Minimum time before a tap is considered a long-press.
     pub const LONG_PRESS: Duration = Duration::from_millis(300);
+
+    /// Microseconds per velocity tick.
+    pub const VELOCITY_INTERVAL: f64 = 30_000.;
+
+    /// Percentage of velocity retained each tick.
+    pub const VELOCITY_FRICTION: f64 = 0.85;
 }

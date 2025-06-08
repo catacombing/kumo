@@ -19,9 +19,7 @@ use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
-use crate::config::colors::{BG, FG, HL, SECONDARY_BG};
-use crate::config::font::font_size;
-use crate::config::input::{LONG_PRESS, MAX_TAP_DISTANCE};
+use crate::config::CONFIG;
 use crate::storage::history::{HistoryMatch, MAX_MATCHES};
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
 use crate::window::{PasteTarget, TextInputChange, TextInputState, WindowHandler};
@@ -36,9 +34,6 @@ pub const TOOLBAR_HEIGHT: u32 = 50;
 
 /// Logical height of the UI/content separator.
 pub const SEPARATOR_HEIGHT: u32 = 2;
-
-/// Maximum interval between taps to be considered a double/trible-tap.
-const MAX_MULTI_TAP_MILLIS: u32 = 300;
 
 /// Width of the web view zoom level indicator;
 const ZOOM_LABEL_WIDTH: u32 = 35;
@@ -214,6 +209,7 @@ pub struct Ui {
 
     last_has_history: bool,
     last_tab_count: usize,
+    last_config: u32,
     dirty: bool,
 }
 
@@ -253,6 +249,7 @@ impl Ui {
             touch_position: Default::default(),
             touch_focus: Default::default(),
             touch_point: Default::default(),
+            last_config: Default::default(),
             tabs_button: Default::default(),
             zoom_label: Default::default(),
             separator: Default::default(),
@@ -342,6 +339,20 @@ impl Ui {
         self.last_tab_count = tab_count;
         self.dirty = false;
 
+        // Force UI element redraw on config change.
+        let config = CONFIG.read().unwrap();
+        if self.last_config != config.generation {
+            self.last_config = config.generation;
+
+            self.search_stop_button.dirty = true;
+            self.search_next_button.dirty = true;
+            self.search_prev_button.dirty = true;
+            self.prev_button.dirty = true;
+            self.tabs_button.dirty = true;
+            self.zoom_label.dirty = true;
+            self.uribar.dirty = true;
+        }
+
         // Update viewporter logical render size.
         //
         // NOTE: This must be done every time we draw with Sway; it is not correctly
@@ -367,7 +378,7 @@ impl Ui {
         self.renderer.draw(physical_size, |renderer| {
             unsafe {
                 // Draw background.
-                let [r, g, b] = BG.as_f32();
+                let [r, g, b] = config.colors.bg.as_f32();
                 gl::ClearColor(r, g, b, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
 
@@ -622,7 +633,10 @@ impl Ui {
 
     /// Check whether UI needs redraw.
     pub fn dirty(&self) -> bool {
-        self.dirty || self.zoom_label.dirty || self.uribar.dirty()
+        self.dirty
+            || self.zoom_label.dirty
+            || self.uribar.dirty()
+            || self.last_config != CONFIG.read().unwrap().generation
     }
 
     /// Start/Stop text search.
@@ -797,7 +811,8 @@ struct Uribar {
 impl Uribar {
     fn new(window_id: WindowId, history: History, queue: MtQueueHandle<State>) -> Self {
         // Setup text input with submission handling.
-        let mut text_field = TextField::new(window_id, queue.clone(), font_size(1.));
+        let font_size = CONFIG.read().unwrap().font.size(1.);
+        let mut text_field = TextField::new(window_id, queue.clone(), font_size);
         let mut submit_queue = queue.clone();
         text_field.set_submit_handler(Box::new(move |uri| submit_queue.load_uri(window_id, uri)));
         text_field.set_purpose(ContentPurpose::Url);
@@ -931,12 +946,13 @@ impl Uribar {
     /// Draw the URI bar into an OpenGL texture.
     fn draw(&mut self) -> Texture {
         // Draw background color.
+        let config = CONFIG.read().unwrap();
         let size = self.size.into();
         let builder = TextureBuilder::new(size);
         let bg = if self.searching && !self.search_has_matches {
-            HL.as_f64()
+            config.colors.hl.as_f64()
         } else {
-            SECONDARY_BG.as_f64()
+            config.colors.secondary_bg.as_f64()
         };
         builder.clear(bg);
 
@@ -948,7 +964,7 @@ impl Uribar {
         text_options.preedit(self.text_field.preedit.clone());
         text_options.position(position);
         text_options.size(size);
-        text_options.text_color(FG.as_f64());
+        text_options.text_color(config.colors.fg.as_f64());
         text_options.set_ellipsize(false);
 
         // Show cursor or selection when focused.
@@ -1027,13 +1043,23 @@ impl Uribar {
 #[derive(Default)]
 struct Separator {
     texture: Option<Texture>,
+    color: [u8; 4],
 }
 
 impl Separator {
     fn texture(&mut self) -> &Texture {
-        // Ensure texture is initialized.
+        // Invalidate texture if highlight color changed.
+        let hl = CONFIG.read().unwrap().colors.hl.as_u8();
+        if self.color != hl {
+            if let Some(texture) = self.texture.take() {
+                texture.delete();
+            }
+        }
+
+        // Ensure texture is up to date.
         if self.texture.is_none() {
-            self.texture = Some(Texture::new(&HL.as_u8(), 1, 1));
+            self.texture = Some(Texture::new(&hl, 1, 1));
+            self.color = hl;
         }
 
         self.texture.as_ref().unwrap()
@@ -1088,13 +1114,14 @@ impl TabsButton {
 
     /// Draw the tabs button into an OpenGL texture.
     fn draw(&mut self, tab_count_label: &str) -> Texture {
+        let config = CONFIG.read().unwrap();
         let padding = (PADDING * self.scale).round();
 
         // Render button outline.
-        let fg = FG.as_f64();
+        let fg = config.colors.fg.as_f64();
         let builder = TextureBuilder::new(self.size.into());
         let context = builder.context();
-        builder.clear(BG.as_f64());
+        builder.clear(config.colors.bg.as_f64());
         context.set_source_rgb(fg[0], fg[1], fg[2]);
         context.rectangle(
             padding,
@@ -1106,7 +1133,7 @@ impl TabsButton {
         context.stroke().unwrap();
 
         // Render tab count text.
-        let layout = TextLayout::new(font_size(1.), self.scale);
+        let layout = TextLayout::new(config.font.size(1.), self.scale);
         layout.set_alignment(Alignment::Center);
         layout.set_text(tab_count_label);
         let mut text_options = TextOptions::new();
@@ -1155,11 +1182,12 @@ impl IconButton {
     /// Draw the button into an OpenGL texture.
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn draw(&mut self) -> Texture {
+        let colors = &CONFIG.read().unwrap().colors;
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(BG.as_f64());
+        builder.clear(colors.bg.as_f64());
 
         // Set line drawing properties.
-        let fg = FG.as_f64();
+        let fg = colors.fg.as_f64();
         let context = builder.context();
         context.set_source_rgb(fg[0], fg[1], fg[2]);
         context.set_line_width(self.scale);
@@ -1699,18 +1727,19 @@ impl TextField {
         // Handle single/double/triple-taps.
         let ms_since_down = (time - self.touch_state.last_time) as u128;
         match self.touch_state.action {
-            // Long pressed is handled by a timer, so we just ignore the release.
-            TouchAction::Tap if ms_since_down >= LONG_PRESS.as_millis() => (),
-            // Move cursor to tap location.
             TouchAction::Tap => {
-                // Update cursor index.
-                self.cursor_index = index;
-                self.cursor_offset = offset;
+                // Move cursor to tap location, ignoring long presses.
+                let long_press = CONFIG.read().unwrap().input.long_press.as_millis();
+                if ms_since_down < long_press {
+                    // Update cursor index.
+                    self.cursor_index = index;
+                    self.cursor_offset = offset;
 
-                self.clear_selection();
+                    self.clear_selection();
 
-                self.text_input_dirty = true;
-                self.dirty = true;
+                    self.text_input_dirty = true;
+                    self.dirty = true;
+                }
             },
             // Select entire word at touch location.
             TouchAction::DoubleTap => {
@@ -2008,11 +2037,12 @@ impl TouchState {
     /// Update state from touch down event.
     fn down(&mut self, time: u32, position: Position<f64>, byte_index: i32, focused: bool) {
         // Update touch action.
+        let input = &CONFIG.read().unwrap().input;
         let delta = position - self.last_position;
         self.action = if !focused {
             TouchAction::Focus
-        } else if self.last_time + MAX_MULTI_TAP_MILLIS >= time
-            && delta.x.powi(2) + delta.y.powi(2) <= MAX_TAP_DISTANCE
+        } else if self.last_time + input.max_multi_tap.as_millis() as u32 >= time
+            && delta.x.powi(2) + delta.y.powi(2) <= input.max_tap_distance
         {
             match self.action {
                 TouchAction::Tap => TouchAction::DoubleTap,
@@ -2044,8 +2074,9 @@ impl TouchState {
         }
 
         // Ignore drags below the tap deadzone.
+        let max_tap_distance = CONFIG.read().unwrap().input.max_tap_distance;
         let delta = position - self.last_position;
-        if delta.x.powi(2) + delta.y.powi(2) <= MAX_TAP_DISTANCE {
+        if delta.x.powi(2) + delta.y.powi(2) <= max_tap_distance {
             return delta;
         }
 
@@ -2072,7 +2103,8 @@ impl TouchState {
         self.clear_long_press_timeout();
 
         // Stage new timeout callback.
-        let source = source::timeout_source_new(LONG_PRESS, None, Priority::DEFAULT, move || {
+        let long_press = CONFIG.read().unwrap().input.long_press;
+        let source = source::timeout_source_new(long_press, None, Priority::DEFAULT, move || {
             callback();
             ControlFlow::Break
         });
@@ -2110,9 +2142,7 @@ pub struct SvgButton {
     off_svg: Option<Svg>,
     enabled: bool,
 
-    padding_color: [f64; 3],
     padding_size: f64,
-    bg: [f64; 3],
 
     dirty: bool,
     size: Size,
@@ -2123,8 +2153,6 @@ impl SvgButton {
     pub fn new(svg: Svg) -> Self {
         Self {
             padding_size: 10.,
-            padding_color: BG.as_f64(),
-            bg: SECONDARY_BG.as_f64(),
             enabled: true,
             on_svg: svg,
             dirty: true,
@@ -2139,8 +2167,6 @@ impl SvgButton {
     pub fn new_toggle(on_svg: Svg, off_svg: Svg) -> Self {
         Self {
             on_svg,
-            padding_color: [0.09, 0.09, 0.09],
-            bg: [0.15, 0.15, 0.15],
             off_svg: Some(off_svg),
             padding_size: 10.,
             enabled: true,
@@ -2169,16 +2195,18 @@ impl SvgButton {
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn draw(&self) -> Texture {
         // Clear with background color.
+        let colors = &CONFIG.read().unwrap().colors;
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(self.padding_color);
+        builder.clear(colors.bg.as_f64());
 
         // Draw button background.
+        let bg = colors.secondary_bg.as_f64();
         let padding = self.padding_size * self.scale;
         let width = self.size.width as f64 - 2. * padding;
         let height = self.size.height as f64 - 2. * padding;
         let context = builder.context();
         context.rectangle(padding, padding, width.round(), height.round());
-        context.set_source_rgb(self.bg[0], self.bg[1], self.bg[2]);
+        context.set_source_rgb(bg[0], bg[1], bg[2]);
         context.fill().unwrap();
 
         // Draw button's icon.
@@ -2253,12 +2281,14 @@ impl ZoomLabel {
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn draw(&self) -> Texture {
         // Clear with background color.
+        let config = CONFIG.read().unwrap();
+        let secondary_bg = config.colors.secondary_bg.as_f64();
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(SECONDARY_BG.as_f64());
+        builder.clear(secondary_bg);
 
         // Render current zoom level percentage.
         let text = format!("{}%", (self.level * 100.).round());
-        let layout = TextLayout::new(font_size(0.6), self.scale);
+        let layout = TextLayout::new(config.font.size(0.6), self.scale);
         layout.set_alignment(Alignment::Center);
         layout.set_text(&text);
         builder.rasterize(&layout, &TextOptions::new());

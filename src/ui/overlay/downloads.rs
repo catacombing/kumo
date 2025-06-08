@@ -9,9 +9,7 @@ use funq::MtQueueHandle;
 use indexmap::IndexMap;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
-use crate::config::colors::{BG, ERROR, FG, HL, SECONDARY_BG, SECONDARY_FG};
-use crate::config::font::font_size;
-use crate::config::input::MAX_TAP_DISTANCE;
+use crate::config::{CONFIG, Colors};
 use crate::engine::EngineId;
 use crate::ui::SvgButton;
 use crate::ui::overlay::Popup;
@@ -90,6 +88,7 @@ pub struct Downloads {
     queue: MtQueueHandle<State>,
     window_id: WindowId,
 
+    colors: Colors,
     visible: bool,
     dirty: bool,
 }
@@ -106,6 +105,7 @@ impl Downloads {
             scroll_offset: Default::default(),
             touch_state: Default::default(),
             visible: Default::default(),
+            colors: Default::default(),
             dirty: Default::default(),
             size: Default::default(),
         }
@@ -279,11 +279,12 @@ impl Downloads {
 
 impl Popup for Downloads {
     fn dirty(&self) -> bool {
-        self.dirty
+        self.dirty || CONFIG.read().unwrap().colors != self.colors
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn draw(&mut self, renderer: &Renderer) {
+        self.colors = CONFIG.read().unwrap().colors;
         self.dirty = false;
 
         // Don't render anything when hidden.
@@ -314,7 +315,7 @@ impl Popup for Downloads {
         //
         // NOTE: This clears the entire surface, but works fine since the downloads
         // popup always fills the entire surface.
-        let [r, g, b] = BG.as_f32();
+        let [r, g, b] = CONFIG.read().unwrap().colors.bg.as_f32();
         unsafe {
             gl::ClearColor(r, g, b, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -435,8 +436,9 @@ impl Popup for Downloads {
             // Handle transition from tap to drag.
             TouchAction::EntryTap | TouchAction::EntryDrag => {
                 // Ignore dragging until tap distance limit is exceeded.
+                let max_tap_distance = CONFIG.read().unwrap().input.max_tap_distance;
                 let delta = self.touch_state.position - self.touch_state.start;
-                if delta.x.powi(2) + delta.y.powi(2) <= MAX_TAP_DISTANCE {
+                if delta.x.powi(2) + delta.y.powi(2) <= max_tap_distance {
                     return;
                 }
                 self.touch_state.action = TouchAction::EntryDrag;
@@ -538,10 +540,14 @@ impl TextureCache {
     /// Panics if `index >= self.len()`.
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn texture(&mut self, index: usize, entry_size: Size, scale: f64) -> &Texture {
+        // Get colors from config.
+        let config = CONFIG.read().unwrap();
+
         let (_, download) = &self.entries.get_index(index).unwrap();
         let key = TextureCacheKey {
             progress: download.progress,
             failed: download.failed,
+            colors: config.colors,
             id: download.id,
         };
 
@@ -561,17 +567,17 @@ impl TextureCache {
             };
 
             // Create filename text layout.
-            let filename_layout = TextLayout::new(font_size(1.13), scale);
+            let filename_layout = TextLayout::new(config.font.size(1.13), scale);
             let filename_height = filename_layout.line_height();
             filename_layout.set_text(filename);
 
             // Create path text layout.
-            let path_layout = TextLayout::new(font_size(0.63), scale);
+            let path_layout = TextLayout::new(config.font.size(0.63), scale);
             let path_height = path_layout.line_height();
             path_layout.set_text(homed_destination);
 
             // Create uri text layout.
-            let uri_layout = TextLayout::new(font_size(0.63), scale);
+            let uri_layout = TextLayout::new(config.font.size(0.63), scale);
             let uri_height = uri_layout.line_height();
             uri_layout.set_text(&download.uri);
 
@@ -592,22 +598,22 @@ impl TextureCache {
 
             // Create texture with uniform background.
             let builder = TextureBuilder::new(entry_size.into());
-            builder.clear(SECONDARY_BG.as_f64());
+            builder.clear(config.colors.secondary_bg.as_f64());
 
             // Render load progress indication.
             if download.progress < 100 {
                 let width = entry_size.width as f64 / 100. * download.progress.max(5) as f64;
-                let hl = HL.as_f64();
+                let hl = config.colors.hl.as_f64();
 
                 let context = builder.context();
                 context.rectangle(0., 0., width, entry_size.height as f64);
-                context.set_source_rgba(hl[0], hl[2], hl[2], 0.5);
+                context.set_source_rgba(hl[0], hl[1], hl[2], 0.5);
                 context.fill().unwrap();
             }
 
             // Render filename text to the texture.
             if download.failed {
-                text_options.text_color(ERROR.as_f64());
+                text_options.text_color(config.colors.error.as_f64());
             }
             builder.rasterize(&filename_layout, &text_options);
 
@@ -616,7 +622,7 @@ impl TextureCache {
             let path_y = y_padding + filename_height as f64;
             text_options.position(Position::new(close_position.y, path_y));
             text_options.size(path_size);
-            text_options.text_color(SECONDARY_FG.as_f64());
+            text_options.text_color(config.colors.secondary_fg.as_f64());
             builder.rasterize(&path_layout, &text_options);
 
             // Render uri text to the texture.
@@ -624,11 +630,11 @@ impl TextureCache {
             let uri_y = path_y + path_height as f64;
             text_options.position(Position::new(close_position.y, uri_y));
             text_options.size(uri_size);
-            text_options.text_color(SECONDARY_FG.as_f64());
+            text_options.text_color(config.colors.secondary_fg.as_f64());
             builder.rasterize(&uri_layout, &text_options);
 
             // Render close `X`.
-            let fg = FG.as_f64();
+            let fg = config.colors.fg.as_f64();
             let size = Downloads::close_entry_button_size(entry_size, scale);
             let context = builder.context();
             context.move_to(close_position.x, close_position.y);
@@ -652,6 +658,7 @@ impl TextureCache {
 /// Hash key for the downloads texture cache.
 #[derive(Hash, PartialEq, Eq, Copy, Clone)]
 struct TextureCacheKey {
+    colors: Colors,
     id: DownloadId,
     progress: u8,
     failed: bool,

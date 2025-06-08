@@ -9,15 +9,13 @@ use funq::MtQueueHandle;
 use pangocairo::pango::Alignment;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
-use crate::config::colors::{BG, FG, SECONDARY_BG, SECONDARY_FG};
-use crate::config::font::font_size;
-use crate::config::input::{VELOCITY_FRICTION, VELOCITY_INTERVAL};
+use crate::config::CONFIG;
 use crate::engine::NO_GROUP_ID;
 use crate::storage::history::{History as HistoryDb, HistoryEntry, HistoryUri};
 use crate::ui::overlay::Popup;
 use crate::ui::overlay::tabs::TabsHandler;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::{MAX_TAP_DISTANCE, SvgButton, TextField};
+use crate::ui::{SvgButton, TextField};
 use crate::window::{TextInputChange, WindowId};
 use crate::{Position, Size, State, gl, rect_contains};
 
@@ -107,6 +105,7 @@ pub struct History {
 
     pending_delete_confirmation: bool,
 
+    last_config: u32,
     visible: bool,
     dirty: bool,
 }
@@ -131,6 +130,7 @@ impl History {
             keyboard_focus: Default::default(),
             delete_prompt: Default::default(),
             scroll_offset: Default::default(),
+            last_config: Default::default(),
             touch_state: Default::default(),
             visible: Default::default(),
             dirty: Default::default(),
@@ -353,13 +353,15 @@ impl History {
         };
 
         // Calculate velocity steps since last tick.
+        let input = &CONFIG.read().unwrap().input;
         let now = Instant::now();
-        let interval = (now - last_tick).as_micros() as f64 / VELOCITY_INTERVAL;
+        let interval = (now - last_tick).as_micros() as f64 / input.velocity_interval;
 
         // Apply and update velocity.
-        self.scroll_offset += self.scroll_velocity * (1. - VELOCITY_FRICTION.powf(interval + 1.))
-            / (1. - VELOCITY_FRICTION);
-        self.scroll_velocity *= VELOCITY_FRICTION.powf(interval);
+        self.scroll_offset += self.scroll_velocity
+            * (1. - input.velocity_friction.powf(interval + 1.))
+            / (1. - input.velocity_friction);
+        self.scroll_velocity *= input.velocity_friction.powf(interval);
 
         // Request next tick if velocity is significant.
         if self.scroll_velocity.abs() > 1. {
@@ -390,6 +392,19 @@ impl Popup for History {
         // Ensure offset is correct in case entries or window size changed.
         self.clamp_scroll_offset();
 
+        // Force UI element redraw on config change.
+        let config = CONFIG.read().unwrap();
+        if self.last_config != config.generation {
+            self.last_config = config.generation;
+
+            unsafe { self.history_textures.clear() };
+            self.confirm_button.dirty = true;
+            self.delete_prompt.dirty = true;
+            self.delete_button.dirty = true;
+            self.close_button.dirty = true;
+            self.filter.input.dirty = true;
+        }
+
         // Get geometry required for rendering.
         let x_padding = (ENTRY_X_PADDING * self.scale) as f32;
         let delete_prompt_position: Position<f32> = self.delete_prompt_position().into();
@@ -417,7 +432,7 @@ impl Popup for History {
         //
         // NOTE: This clears the entire surface, but works fine since the history popup
         // always fills the entire surface.
-        let [r, g, b] = BG.as_f32();
+        let [r, g, b] = config.colors.bg.as_f32();
         unsafe {
             gl::ClearColor(r, g, b, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -572,8 +587,9 @@ impl Popup for History {
             // Handle transition from tap to drag.
             TouchAction::EntryTap | TouchAction::EntryDrag => {
                 // Ignore dragging until tap distance limit is exceeded.
+                let max_tap_distance = CONFIG.read().unwrap().input.max_tap_distance;
                 let delta = self.touch_state.position - self.touch_state.start;
-                if delta.x.powi(2) + delta.y.powi(2) <= MAX_TAP_DISTANCE {
+                if delta.x.powi(2) + delta.y.powi(2) <= max_tap_distance {
                     return;
                 }
                 self.touch_state.action = TouchAction::EntryDrag;
@@ -767,6 +783,19 @@ impl HistoryTextures {
         });
     }
 
+    /// Remove all cached textures.
+    ///
+    /// # Safety
+    ///
+    /// The correct OpenGL context **must** be current or this will attempt to
+    /// delete invalid OpenGL textures.
+    unsafe fn clear(&mut self) {
+        for (_, texture) in self.textures.values() {
+            texture.delete();
+        }
+        self.textures.clear();
+    }
+
     /// Get the texture for a history entry.
     ///
     /// This will automatically take care of caching rendered textures.
@@ -781,11 +810,12 @@ impl HistoryTextures {
         // Create and cache texture if necessary.
         if !self.textures.contains_key(uri) {
             // Create title pango layout.
-            let layout = TextLayout::new(font_size(1.13), scale);
+            let config = CONFIG.read().unwrap();
+            let layout = TextLayout::new(config.font.size(1.13), scale);
             let title_height = layout.line_height();
 
             // Create timestamp layout.
-            let timestamp_layout = TextLayout::new(font_size(0.63), scale);
+            let timestamp_layout = TextLayout::new(config.font.size(0.63), scale);
             let timestamp_height = timestamp_layout.line_height();
             let timestamp = DateTime::from_timestamp(entry.last_access, 0)
                 .unwrap_or_default()
@@ -803,7 +833,7 @@ impl HistoryTextures {
                 layout.set_text(&entry.title);
 
                 // Create subtitle layout, to get its line height.
-                let subtitle_layout = TextLayout::new(font_size(0.63), scale);
+                let subtitle_layout = TextLayout::new(config.font.size(0.63), scale);
                 subtitle_layout.set_text(&uri.to_string(true));
 
                 // Calculate y padding from title and subtitle size.
@@ -829,7 +859,7 @@ impl HistoryTextures {
 
             // Render text to the texture.
             let builder = TextureBuilder::new(entry_size.into());
-            builder.clear(SECONDARY_BG.as_f64());
+            builder.clear(config.colors.secondary_bg.as_f64());
             builder.rasterize(&layout, &text_options);
 
             // Also render URI if main label was title.
@@ -841,7 +871,7 @@ impl HistoryTextures {
                 text_options.size(subtitle_size);
 
                 // Render URI to texture.
-                text_options.text_color(SECONDARY_FG.as_f64());
+                text_options.text_color(config.colors.secondary_fg.as_f64());
                 builder.rasterize(&subtitle_layout, &text_options);
             }
 
@@ -850,11 +880,11 @@ impl HistoryTextures {
             let timestamp_y = entry_size.height as f64 - y_padding - timestamp_height as f64;
             text_options.position(Position::new(close_position.y, timestamp_y));
             text_options.size(timestamp_size);
-            text_options.text_color(SECONDARY_FG.as_f64());
+            text_options.text_color(config.colors.secondary_fg.as_f64());
             builder.rasterize(&timestamp_layout, &text_options);
 
             // Render close `X`.
-            let fg = FG.as_f64();
+            let fg = config.colors.fg.as_f64();
             let size = History::close_entry_button_size(entry_size, scale);
             let context = builder.context();
             context.move_to(close_position.x, close_position.y);
@@ -913,11 +943,12 @@ impl ConfirmationPrompt {
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn draw(&self, entry_count: usize) -> Texture {
         // Clear with background color.
+        let config = CONFIG.read().unwrap();
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(BG.as_f64());
+        builder.clear(config.colors.bg.as_f64());
 
         // Render confirmation prompt text.
-        let layout = TextLayout::new(font_size(1.13), self.scale);
+        let layout = TextLayout::new(config.font.size(1.13), self.scale);
         layout.set_alignment(Alignment::Center);
         layout.set_text(&format!("Confirm deleting {entry_count} history entries?"));
         builder.rasterize(&layout, &TextOptions::new());
@@ -947,7 +978,8 @@ struct HistoryFilter {
 
 impl HistoryFilter {
     fn new(window_id: WindowId, mut queue: MtQueueHandle<State>) -> Self {
-        let mut input = TextField::new(window_id, queue.clone(), font_size(1.13));
+        let font_size = CONFIG.read().unwrap().font.size(1.13);
+        let mut input = TextField::new(window_id, queue.clone(), font_size);
         input.set_text_change_handler(Box::new(move |label| {
             queue.set_history_filter(window_id, label.text())
         }));
@@ -996,10 +1028,11 @@ impl HistoryFilter {
         }
 
         // Rasterize the text field.
+        let secondary_bg = CONFIG.read().unwrap().colors.secondary_bg.as_f64();
         let layout = self.input.layout();
         layout.set_scale(self.scale);
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(SECONDARY_BG.as_f64());
+        builder.clear(secondary_bg);
         builder.rasterize(layout, &text_options);
 
         builder.build()

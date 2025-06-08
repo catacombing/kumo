@@ -34,6 +34,59 @@ The following noteworthy features are implemented:
  - Tab groups
  - History management
 
+## Configuration
+
+The configuration file is located at `${XDG_CONFIG_HOME:-$HOME/.config}/kumo/kumo.toml`
+and has the following default options:
+
+```toml
+[font]
+family = "sans"
+size = 16.0
+
+[colors]
+fg = "#ffffff"
+bg = "#181818"
+hl = "#752a2a"
+
+secondary_fg = "#bfbfbf"
+secondary_bg = "#282828"
+
+error = "#ac4242"
+disabled = "#666666"
+
+[input]
+max_tap_distance = 400.0
+max_multi_tap = 300
+long_press = 300
+
+velocity_interval = 30_000.0
+velocity_friction = 0.85
+```
+
+Configuration options can also be changed through IPC with the `kumo config`
+subcommand:
+
+```text
+# Updates are applied to every running Kumo instance.
+$ kumo set colors.bg "#ff00ff"
+[0]
+
+# Only the active value will be returned, surrounded by quotes.
+# The first Kumo instance which accepts the socket connection will be used.
+$ kumo get colors.bg
+[0] "#ff00ff"
+
+# Resets only affect runtime overrides, the file value is used as fallback.
+# Resets are applied to every running Kumo instance.
+$ kumo reset colors.bg
+[0]
+
+# With nothing specified in file or IPC, STDOUT will be empty.
+$ kumo get colors.bg
+[0]
+```
+
 ## Demo
 
 https://github.com/user-attachments/assets/db0bee78-9db2-439b-beb4-1020ff889008

@@ -37,8 +37,9 @@ use wpe_webkit::{
     WebViewSessionState, WebsiteDataManagerExtManual, WebsiteDataTypes,
 };
 
+use crate::config::CONFIG;
 use crate::engine::webkit::platform::WebKitDisplay;
-use crate::engine::{BG, Engine, EngineHandler, EngineId, Favicon, GroupId};
+use crate::engine::{Engine, EngineHandler, EngineId, Favicon, GroupId};
 use crate::storage::cookie_whitelist::CookieWhitelist;
 use crate::ui::overlay::downloads::{Download, DownloadId};
 use crate::ui::overlay::option_menu::{Anchor, OptionMenuId, OptionMenuItem, OptionMenuPosition};
@@ -373,8 +374,8 @@ impl WebKitState {
             WebView::builder().network_session(network_session).display(&webkit_display).build();
 
         // Set browser background color.
-        let [r, g, b] = BG.as_f64();
-        let mut color = Color::new(r, g, b, 1.);
+        let bg = CONFIG.read().unwrap().colors.bg.as_f64();
+        let mut color = Color::new(bg[0], bg[1], bg[2], 1.);
         web_view.set_background_color(&mut color);
 
         // Notify UI about URI and title changes.
@@ -444,6 +445,7 @@ impl WebKitState {
             webkit_display,
             web_view,
             scale,
+            bg,
             queue: self.queue.clone(),
             id: engine_id,
             buffers_pending_release: Default::default(),
@@ -479,6 +481,7 @@ pub struct WebKitEngine {
 
     downloads: HashMap<DownloadId, WebKitDownload>,
 
+    bg: [f64; 3],
     dirty: bool,
 }
 
@@ -574,6 +577,14 @@ impl Engine for WebKitEngine {
 
     fn attach_buffer(&mut self, surface: &WlSurface) -> bool {
         self.dirty = false;
+
+        // Regularly check for background color config changes.
+        let bg = CONFIG.read().unwrap().colors.bg.as_f64();
+        if self.bg != bg {
+            let mut color = Color::new(bg[0], bg[1], bg[2], 1.);
+            self.web_view.set_background_color(&mut color);
+            self.bg = bg;
+        }
 
         match &self.buffer {
             Some((buffer, _)) => {

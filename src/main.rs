@@ -6,9 +6,14 @@ use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use std::os::fd::{AsFd, AsRawFd};
 use std::ptr::NonNull;
 use std::rc::Rc;
+use std::sync::mpsc::Sender;
 use std::time::Duration;
 use std::{env, io, mem, process};
 
+use clap::Parser;
+use cli::{ConfigOptions, Options, Subcommands};
+use configory::ipc::Ipc;
+use configory::{Config as ConfigManager, Event as ConfigEvent};
 use funq::{MtQueueHandle, Queue, StQueueHandle};
 use glib::{ControlFlow, IOCondition, MainLoop, Priority, Source, source};
 use glutin::display::{Display, DisplayApiPreference};
@@ -30,6 +35,7 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers, RepeatInfo};
 use tracing::{error, info, warn};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
+use crate::config::{CONFIG, Config};
 use crate::engine::webkit::{WebKitError, WebKitState};
 use crate::engine::{Group, GroupId, NO_GROUP_ID};
 use crate::storage::Storage;
@@ -38,9 +44,11 @@ use crate::wayland::WaylandDispatch;
 use crate::wayland::protocols::{KeyRepeat, ProtocolStates, TextInput};
 use crate::window::{KeyboardFocus, PasteTarget, Window, WindowHandler, WindowId};
 
+mod cli;
 mod config;
 mod engine;
 mod storage;
+mod thread;
 mod ui;
 mod uri;
 mod wayland;
@@ -58,9 +66,13 @@ enum Error {
     #[error("Wayland protocol error for {0}: {1}")]
     WaylandProtocol(&'static str, #[source] BindError),
     #[error("{0}")]
+    Deserialize(#[from] toml::de::Error),
+    #[error("{0}")]
     Glutin(#[from] glutin::error::Error),
     #[error("{0}")]
     WaylandGlobal(#[from] GlobalError),
+    #[error("{0}")]
+    Config(#[from] configory::Error),
     #[error("{0}")]
     WebKit(#[from] WebKitError),
     #[error("{0}")]
@@ -69,6 +81,8 @@ enum Error {
     Io(#[from] io::Error),
     #[error("local database version ({0}) is higher than latest supported version ({1})")]
     UnknownDbVersion(u8, u8),
+    #[error("No available IPC socket files found")]
+    NoSocketFound,
 }
 
 fn main() {
@@ -80,11 +94,9 @@ fn main() {
 
 fn run() -> Result<(), Error> {
     // Setup logging.
-    let directives = env::var("RUST_LOG").unwrap_or("warn,kumo=info".into());
+    let directives = env::var("RUST_LOG").unwrap_or("warn,kumo=info,configory=info".into());
     let env_filter = EnvFilter::builder().parse_lossy(directives);
     FmtSubscriber::builder().with_env_filter(env_filter).with_line_number(true).init();
-
-    info!("Started Kumo");
 
     // Start profiling server.
     #[cfg(feature = "profiling")]
@@ -93,6 +105,17 @@ fn run() -> Result<(), Error> {
         Server::new(&format!("0.0.0.0:{}", puffin_http::DEFAULT_PORT)).unwrap()
     };
 
+    // Parse CLI options.
+    let options = Options::parse();
+
+    // Handle subcommands like config IPC.
+    if let Some(subcommands) = options.subcommands {
+        handle_subcommands(subcommands)?;
+        return Ok(());
+    }
+
+    info!("Started Kumo");
+
     // Set GLib application name.
     //
     // This is necessary to match the flatpak ID when run inside flatpak due to
@@ -100,7 +123,10 @@ fn run() -> Result<(), Error> {
     // domain name notation is used.
     glib::set_prgname(Some("org.catacombing.kumo"));
 
+    // Initialize configuration state.
     let queue = Queue::new()?;
+    let config_shutdown = init_config(queue.handle())?;
+
     let main_loop = MainLoop::new(None, true);
     let mut state = State::new(queue.local_handle(), main_loop.clone())?;
 
@@ -175,7 +201,7 @@ fn run() -> Result<(), Error> {
 
     // Spawn a new tab for every CLI argument.
     let window = state.windows.get_mut(&window_id).unwrap();
-    for arg in env::args().skip(1) {
+    for arg in options.links {
         get_empty_tab(window, &mut is_first_tab, NO_GROUP_ID, true);
         window.load_uri(arg, true);
     }
@@ -196,6 +222,84 @@ fn run() -> Result<(), Error> {
 
     // Run main event loop.
     main_loop.run();
+
+    // Terminate config thread.
+    let _ = config_shutdown.send(ConfigEvent::User(()));
+
+    Ok(())
+}
+
+/// Handle CLI subcommands.
+fn handle_subcommands(subcommands: Subcommands) -> Result<(), Error> {
+    match subcommands {
+        Subcommands::Config(ConfigOptions::Get(options)) => {
+            // Abort if there are no sockets available.
+            let ipcs = Ipc::all("kumo");
+            if ipcs.is_empty() {
+                return Err(Error::NoSocketFound);
+            }
+
+            // Try to get value from first available socket.
+            let path = options.path.as_ref().map_or(Vec::new(), |p| p.split('.').collect());
+            let result = Ipc::all("kumo").into_iter().find_map(|ipc| {
+                // Get value as generic toml.
+                let value = ipc.get::<_, toml::Value>(&path);
+
+                match value {
+                    // Stop once we got any socket response.
+                    Ok(value) => Some(value),
+                    // Log socket errors.
+                    Err(err) => {
+                        error!("Failed on {:?}: {err}", ipc.socket_path());
+                        None
+                    },
+                }
+            });
+
+            match result {
+                // Print value to STDOUT if it is set.
+                Some(Some(value)) => println!("{value}"),
+                Some(None) => (),
+                // Print error if all sockets failed.
+                None => return Err(Error::NoSocketFound),
+            }
+        },
+        Subcommands::Config(ConfigOptions::Set(options)) => {
+            let value = cli::parse_toml_value(&options.path, options.value)?;
+            let path: Vec<_> = options.path.split('.').collect();
+
+            // Update option for every available socket.
+            let mut failed = false;
+            for ipc in Ipc::all("kumo") {
+                if let Err(err) = ipc.set(&path, value.clone()) {
+                    error!("Failed on {:?}: {err}", ipc.socket_path());
+                    failed = true;
+                }
+            }
+
+            // Set failing exit code if any socket failed update.
+            if failed {
+                process::exit(1);
+            }
+        },
+        Subcommands::Config(ConfigOptions::Reset(options)) => {
+            let path: Vec<_> = options.path.split('.').collect();
+
+            // Update option for every available socket.
+            let mut failed = false;
+            for ipc in Ipc::all("kumo") {
+                if let Err(err) = ipc.reset(&path) {
+                    error!("Failed on {:?}: {err}", ipc.socket_path());
+                    failed = true;
+                }
+            }
+
+            // Set failing exit code if any socket failed update.
+            if failed {
+                process::exit(1);
+            }
+        },
+    }
 
     Ok(())
 }
@@ -447,6 +551,58 @@ impl ClipboardState {
         self.serial += 1;
         self.serial
     }
+}
+
+/// Initialize configuration state.
+fn init_config(mut queue: MtQueueHandle<State>) -> Result<Sender<ConfigEvent<()>>, Error> {
+    // Load initial configuration.
+    let config_manager = ConfigManager::<()>::new("kumo")?;
+    let config = config_manager
+        .get::<&str, Config>(&[])
+        .inspect_err(|err| error!("Config error: {err}"))
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    *CONFIG.write().unwrap() = config;
+
+    // Monitor channel for configuration updates.
+    let update_tx = config_manager.update_tx().clone();
+    thread::spawn_named("config channel watcher", move || {
+        let update_rx = config_manager.update_rx();
+        while let Ok(event) = update_rx.recv() {
+            match event {
+                // Update configuration on change.
+                ConfigEvent::FileChanged | ConfigEvent::IpcChanged => {
+                    info!("Reloading configuration file");
+
+                    // Parse config or fall back to the default.
+                    let parsed = config_manager
+                        .get::<&str, Config>(&[])
+                        .inspect_err(|err| error!("Config error: {err}"))
+                        .ok()
+                        .flatten()
+                        .unwrap_or_default();
+
+                    // Calculate generation based on current config.
+                    let mut config = CONFIG.write().unwrap();
+                    let next_generation = config.generation + 1;
+
+                    // Update the config.
+                    *config = parsed;
+                    config.generation = next_generation;
+
+                    // Request redraw.
+                    queue.unstall();
+                },
+                ConfigEvent::FileError(err) => error!("Configuration file error: {err}"),
+                // User events are only used to shut down the thread.
+                ConfigEvent::User(()) => break,
+                ConfigEvent::Ipc(_) => unreachable!(),
+            }
+        }
+    });
+
+    Ok(update_tx)
 }
 
 /// 2D object position.

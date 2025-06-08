@@ -10,7 +10,6 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
 use uuid::Uuid;
 
-use crate::config::colors::BG;
 use crate::ui::overlay::downloads::{Download, DownloadId};
 use crate::ui::overlay::option_menu::OptionMenuId;
 use crate::window::TextInputChange;

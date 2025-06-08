@@ -492,7 +492,7 @@ impl Popups {
     }
 
     /// Non-mutable visible popup iterator.
-    fn iter(&self) -> Box<dyn PopupIterator + '_> {
+    fn iter(&self) -> Box<dyn PopupIterator<'_> + '_> {
         let option_menus = self.option_menus.iter().filter(|m| m.visible()).map(|m| m as _);
         if self.history.visible() {
             Box::new(option_menus.chain([&self.history as _]))

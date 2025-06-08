@@ -8,9 +8,7 @@ use bitflags::bitflags;
 use funq::MtQueueHandle;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
-use crate::config::colors::{BG, DISABLED, FG, HL, SECONDARY_FG};
-use crate::config::font::font_size;
-use crate::config::input::MAX_TAP_DISTANCE;
+use crate::config::{CONFIG, Colors};
 use crate::engine::EngineId;
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, TextLayout, TextOptions, Texture, TextureBuilder};
@@ -85,6 +83,7 @@ pub struct OptionMenu {
     borders: Borders,
     border: Option<Texture>,
 
+    colors: Colors,
     visible: bool,
     dirty: bool,
 }
@@ -125,6 +124,7 @@ impl OptionMenu {
             max_height: Default::default(),
             max_width: Default::default(),
             border: Default::default(),
+            colors: Default::default(),
             items: Default::default(),
             dirty: Default::default(),
             size: Default::default(),
@@ -382,7 +382,7 @@ impl OptionMenu {
 
 impl Popup for OptionMenu {
     fn dirty(&self) -> bool {
-        if self.dirty {
+        if self.dirty || CONFIG.read().unwrap().colors != self.colors {
             return true;
         }
 
@@ -407,6 +407,8 @@ impl Popup for OptionMenu {
 
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn draw(&mut self, renderer: &Renderer) {
+        let old_colors = mem::replace(&mut self.colors, CONFIG.read().unwrap().colors);
+        let colors_changed = old_colors != self.colors;
         self.dirty = false;
 
         // Ensure offset is correct in case size changed.
@@ -417,7 +419,15 @@ impl Popup for OptionMenu {
         let size = self.physical_size();
 
         // Draw menu border.
-        let border = self.border.get_or_insert_with(|| Texture::new(&HL.as_u8(), 1, 1));
+        let border = match &mut self.border {
+            // Redraw border if HL color changed.
+            Some(border) if old_colors.hl != self.colors.hl => {
+                border.delete();
+                self.border.insert(Texture::new(&self.colors.hl.as_u8(), 1, 1))
+            },
+            Some(border) => border,
+            None => self.border.insert(Texture::new(&self.colors.hl.as_u8(), 1, 1)),
+        };
         renderer.draw_texture_at(border, position, Some(size.into()));
 
         // Scissor crop last element when it should only be partially visible.
@@ -447,8 +457,9 @@ impl Popup for OptionMenu {
             }
 
             // Create and draw the texture.
+            item.dirty |= colors_changed;
             let selected = self.selection_index == Some(i);
-            let texture = item.texture(selected);
+            let texture = item.texture(&self.colors, selected);
             renderer.draw_texture_at(texture, position, None);
 
             position.y += height;
@@ -542,8 +553,9 @@ impl Popup for OptionMenu {
         let old_position = mem::replace(&mut self.touch_state.position, position);
 
         // Switch to dragging once tap distance limit is exceeded.
+        let max_tap_distance = CONFIG.read().unwrap().input.max_tap_distance;
         let delta = self.touch_state.position - self.touch_state.start;
-        if delta.x.powi(2) + delta.y.powi(2) > MAX_TAP_DISTANCE {
+        if delta.x.powi(2) + delta.y.powi(2) > max_tap_distance {
             self.touch_state.action = TouchAction::Drag;
 
             // Immediately start scrolling the menu.
@@ -609,6 +621,7 @@ struct OptionMenuRenderItem {
 impl OptionMenuRenderItem {
     fn new(item: OptionMenuItem, item_width: u32, scale: f64) -> Self {
         // Create a new pango layout.
+        let font = &CONFIG.read().unwrap().font;
         let create_layout = |text: &str, font_size: u8| {
             let layout = TextLayout::new(font_size, scale);
             layout.set_text(text);
@@ -617,8 +630,8 @@ impl OptionMenuRenderItem {
         };
 
         let description_layout = (!item.description.is_empty())
-            .then(|| create_layout(&item.description, font_size(0.88)));
-        let label_layout = create_layout(&item.label, font_size(1.));
+            .then(|| create_layout(&item.description, font.size(0.88)));
+        let label_layout = create_layout(&item.label, font.size(1.));
 
         OptionMenuRenderItem {
             description_layout,
@@ -633,27 +646,27 @@ impl OptionMenuRenderItem {
         }
     }
 
-    fn texture(&mut self, selected: bool) -> &Texture {
+    fn texture(&mut self, colors: &Colors, selected: bool) -> &Texture {
         // Ensure texture is up to date.
         if mem::take(&mut self.dirty) {
             if let Some(texture) = self.texture.take() {
                 texture.delete();
             }
-            self.texture = Some(self.draw(selected));
+            self.texture = Some(self.draw(colors, selected));
         }
 
         self.texture.as_ref().unwrap()
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn draw(&self, selected: bool) -> Texture {
+    fn draw(&self, colors: &Colors, selected: bool) -> Texture {
         // Determine item colors.
         let (fg, description_fg, bg) = if self.disabled {
-            (DISABLED.as_f64(), DISABLED.as_f64(), BG.as_f64())
+            (colors.disabled.as_f64(), colors.disabled.as_f64(), colors.bg.as_f64())
         } else if selected {
-            (BG.as_f64(), BG.as_f64(), HL.as_f64())
+            (colors.bg.as_f64(), colors.bg.as_f64(), colors.hl.as_f64())
         } else {
-            (FG.as_f64(), SECONDARY_FG.as_f64(), BG.as_f64())
+            (colors.fg.as_f64(), colors.secondary_fg.as_f64(), colors.bg.as_f64())
         };
 
         // Calculate physical item size.

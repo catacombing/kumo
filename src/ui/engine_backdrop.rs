@@ -11,7 +11,7 @@ use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::single_pixel_buffer::v1::client as _spb;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 
-use crate::config::colors::BG;
+use crate::config::{CONFIG, Color};
 use crate::ui::TOOLBAR_HEIGHT;
 use crate::ui::renderer::Renderer;
 use crate::wayland::protocols::ProtocolStates;
@@ -30,6 +30,7 @@ pub struct EngineBackdrop {
     size: Size,
     scale: f64,
 
+    color: Option<Color>,
     dirty: bool,
 }
 
@@ -54,6 +55,7 @@ impl EngineBackdrop {
             backend,
             surface,
             scale: 1.,
+            color: Default::default(),
             dirty: Default::default(),
             size: Default::default(),
         }
@@ -83,9 +85,11 @@ impl EngineBackdrop {
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn draw(&mut self) -> bool {
         // Abort early if backdrop is up to date.
-        if !self.dirty {
+        let bg = CONFIG.read().unwrap().colors.bg;
+        if !self.dirty && self.color == Some(bg) {
             return false;
         }
+        self.color = Some(bg);
         self.dirty = false;
 
         // Update viewporter logical render size.
@@ -102,14 +106,14 @@ impl EngineBackdrop {
             Backend::Gl(renderer) => {
                 let physical_size = self.size * self.scale;
                 renderer.draw(physical_size, |_renderer| unsafe {
-                    let [r, g, b] = BG.as_f32();
+                    let [r, g, b] = bg.as_f32();
                     gl::ClearColor(r, g, b, 1.0);
                     gl::Clear(gl::COLOR_BUFFER_BIT);
                 });
             },
             Backend::Spb(spb) => {
                 let queue = &self.wayland_queue;
-                let [r, g, b] = BG.as_u32();
+                let [r, g, b] = bg.as_u32();
                 let buffer = spb.create_u32_rgba_buffer(r, g, b, u32::MAX, queue, ());
                 self.surface.attach(Some(&buffer), 0, 0);
             },

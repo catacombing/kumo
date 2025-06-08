@@ -64,6 +64,9 @@ pub trait WindowHandler {
 
     /// Paste text into the window.
     fn paste(&mut self, target: PasteTarget, text: String);
+
+    /// Unstall rendering for all windows.
+    fn unstall(&mut self);
 }
 
 impl WindowHandler for State {
@@ -119,6 +122,12 @@ impl WindowHandler for State {
             },
             // Ignore paste requests if input focus has changed.
             _ => (),
+        }
+    }
+
+    fn unstall(&mut self) {
+        for window in self.windows.values_mut() {
+            window.unstall();
         }
     }
 }

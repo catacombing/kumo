@@ -11,9 +11,7 @@ use indexmap::IndexMap;
 use pangocairo::pango::Alignment;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
-use crate::config::colors::{BG, FG, HL, SECONDARY_BG, SECONDARY_FG};
-use crate::config::font::font_size;
-use crate::config::input::{LONG_PRESS, MAX_TAP_DISTANCE, VELOCITY_FRICTION, VELOCITY_INTERVAL};
+use crate::config::CONFIG;
 use crate::engine::{Engine, EngineId, Favicon, Group, GroupId, NO_GROUP, NO_GROUP_ID};
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
@@ -238,6 +236,7 @@ pub struct Tabs {
     allow_cycling: bool,
     group: GroupId,
 
+    last_config: u32,
     visible: bool,
     dirty: bool,
 }
@@ -265,6 +264,7 @@ impl Tabs {
             texture_cache: Default::default(),
             scroll_offset: Default::default(),
             allow_cycling: Default::default(),
+            last_config: Default::default(),
             touch_state: Default::default(),
             visible: Default::default(),
             group: Default::default(),
@@ -693,13 +693,15 @@ impl Tabs {
         };
 
         // Calculate velocity steps since last tick.
+        let input = &CONFIG.read().unwrap().input;
         let now = Instant::now();
-        let interval = (now - last_tick).as_micros() as f64 / VELOCITY_INTERVAL;
+        let interval = (now - last_tick).as_micros() as f64 / input.velocity_interval;
 
         // Apply and update velocity.
-        self.scroll_offset += self.scroll_velocity * (1. - VELOCITY_FRICTION.powf(interval + 1.))
-            / (1. - VELOCITY_FRICTION);
-        self.scroll_velocity *= VELOCITY_FRICTION.powf(interval);
+        self.scroll_offset += self.scroll_velocity
+            * (1. - input.velocity_friction.powf(interval + 1.))
+            / (1. - input.velocity_friction);
+        self.scroll_velocity *= input.velocity_friction.powf(interval);
 
         // Request next tick if velocity is significant.
         if self.scroll_velocity.abs() > 1. {
@@ -712,7 +714,10 @@ impl Tabs {
 
 impl Popup for Tabs {
     fn dirty(&self) -> bool {
-        self.dirty || self.group_label.dirty() || self.scroll_velocity != 0.
+        self.dirty
+            || self.group_label.dirty()
+            || self.scroll_velocity != 0.
+            || CONFIG.read().unwrap().generation != self.last_config
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
@@ -729,6 +734,22 @@ impl Popup for Tabs {
 
         // Ensure offset is correct in case tabs were closed or window size changed.
         self.clamp_scroll_offset();
+
+        // Force UI element redraw on config change.
+        let config = CONFIG.read().unwrap();
+        if self.last_config != config.generation {
+            self.last_config = config.generation;
+
+            unsafe { self.texture_cache.clear() };
+            self.cycle_group_button.dirty = true;
+            self.close_group_button.dirty = true;
+            self.persistent_button.dirty = true;
+            self.new_group_button.dirty = true;
+            self.downloads_button.dirty = true;
+            self.new_tab_button.dirty = true;
+            self.history_button.dirty = true;
+            self.group_label.dirty = true;
+        }
 
         // Get geometry required for rendering.
         let cycle_group_button_position: Position<f32> = self.cycle_group_button_position().into();
@@ -773,7 +794,7 @@ impl Popup for Tabs {
         //
         // NOTE: This clears the entire surface, but works fine since the tabs popup
         // always fills the entire surface.
-        let [r, g, b] = BG.as_f32();
+        let [r, g, b] = config.colors.bg.as_f32();
         unsafe {
             gl::ClearColor(r, g, b, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -1035,8 +1056,9 @@ impl Popup for Tabs {
         match self.touch_state.action {
             TouchAction::TabTap(..) | TouchAction::TabDrag => {
                 // Ignore dragging until tap distance limit is exceeded.
+                let max_tap_distance = CONFIG.read().unwrap().input.max_tap_distance;
                 let delta = self.touch_state.position - self.touch_state.start;
-                if delta.x.powi(2) + delta.y.powi(2) <= MAX_TAP_DISTANCE {
+                if delta.x.powi(2) + delta.y.powi(2) <= max_tap_distance {
                     return;
                 }
                 self.touch_state.action = TouchAction::TabDrag;
@@ -1295,7 +1317,7 @@ impl TextureCache {
     unsafe fn free_unused_textures(&mut self) {
         // Clear cache on resize or prune unused textures.
         if mem::take(&mut self.resized) {
-            self.textures.clear();
+            unsafe { self.clear() };
         } else {
             self.textures.retain(|cache_key, texture| {
                 let retain = self.tabs.values().any(|tab| &tab.key() == cache_key);
@@ -1322,6 +1344,19 @@ impl TextureCache {
 
             retain
         });
+    }
+
+    /// Remove all cached textures.
+    ///
+    /// # Safety
+    ///
+    /// The correct OpenGL context **must** be current or this will attempt to
+    /// delete invalid OpenGL textures.
+    unsafe fn clear(&mut self) {
+        for texture in self.textures.values() {
+            texture.delete();
+        }
+        self.textures.clear();
     }
 
     /// Render the texture for a tab entry.
@@ -1355,7 +1390,8 @@ impl TextureCache {
         }
 
         // Create pango layout.
-        let layout = TextLayout::new(font_size(1.25), scale);
+        let config = CONFIG.read().unwrap();
+        let layout = TextLayout::new(config.font.size(1.25), scale);
 
         // Fallback to URI if title is empty.
         layout.set_text(tab.label());
@@ -1363,9 +1399,9 @@ impl TextureCache {
         // Configure text rendering options.
         let mut text_options = TextOptions::new();
         if tab.active {
-            text_options.text_color(FG.as_f64());
+            text_options.text_color(config.colors.fg.as_f64());
         } else {
-            text_options.text_color(SECONDARY_FG.as_f64());
+            text_options.text_color(config.colors.secondary_fg.as_f64());
         }
 
         // Calculate spacing to the left of tab text.
@@ -1382,10 +1418,10 @@ impl TextureCache {
         // Render background with load progress indication.
         let builder = TextureBuilder::new(tab_size.into());
         let context = builder.context();
-        builder.clear(SECONDARY_BG.as_f64());
+        builder.clear(config.colors.secondary_bg.as_f64());
         if tab.load_progress < 100 {
             let width = tab_size.width as f64 / 100. * tab.load_progress as f64;
-            let hl = HL.as_f64();
+            let hl = config.colors.hl.as_f64();
 
             context.rectangle(0., 0., width, tab_size.height as f64);
             context.set_source_rgba(hl[0], hl[1], hl[2], 0.5);
@@ -1396,7 +1432,7 @@ impl TextureCache {
         builder.rasterize(&layout, &text_options);
 
         // Render close `X`.
-        let fg = FG.as_f64();
+        let fg = config.colors.fg.as_f64();
         let size = Tabs::close_button_size(tab_size, scale);
         context.move_to(close_position.x, close_position.y);
         context.line_to(close_position.x + size.width, close_position.y + size.height);
@@ -1521,12 +1557,13 @@ impl PlusButton {
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn draw(&self) -> Texture {
         // Clear with background color.
+        let colors = &CONFIG.read().unwrap().colors;
         let builder = TextureBuilder::new(self.size.into());
         let context = builder.context();
-        builder.clear(BG.as_f64());
+        builder.clear(colors.bg.as_f64());
 
         // Draw button background.
-        let secondary_bg = SECONDARY_BG.as_f64();
+        let secondary_bg = colors.secondary_bg.as_f64();
         let x_padding = BUTTON_X_PADDING * self.scale;
         let y_padding = BUTTON_Y_PADDING * self.scale;
         let width = self.size.width as f64 - 2. * x_padding;
@@ -1536,7 +1573,7 @@ impl PlusButton {
         context.fill().unwrap();
 
         // Set general stroke properties.
-        let fg = FG.as_f64();
+        let fg = colors.fg.as_f64();
         let icon_size = height * 0.5;
         let line_width = self.scale;
         let center_x = self.size.width as f64 / 2.;
@@ -1587,7 +1624,8 @@ struct GroupLabel {
 
 impl GroupLabel {
     fn new(window_id: WindowId, mut queue: MtQueueHandle<State>) -> Self {
-        let mut input = TextField::new(window_id, queue.clone(), font_size(1.25));
+        let font_size = CONFIG.read().unwrap().font.size(1.25);
+        let mut input = TextField::new(window_id, queue.clone(), font_size);
         input.set_submit_handler(Box::new(move |label| queue.update_group_label(window_id, label)));
 
         Self {
@@ -1621,8 +1659,10 @@ impl GroupLabel {
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn draw(&mut self) -> Texture {
         // Clear with background color.
+        let config = CONFIG.read().unwrap();
+        let bg = config.colors.bg.as_f64();
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(BG.as_f64());
+        builder.clear(bg);
 
         // Render group label text.
         if self.editing {
@@ -1653,7 +1693,7 @@ impl GroupLabel {
             layout.set_scale(self.scale);
             builder.rasterize(layout, &text_options);
         } else if !self.text.is_empty() {
-            let layout = TextLayout::new(font_size(1.25), self.scale);
+            let layout = TextLayout::new(config.font.size(1.25), self.scale);
             layout.set_alignment(Alignment::Center);
             layout.set_text(&self.text);
 
@@ -1775,7 +1815,8 @@ impl TouchState {
         self.clear_long_press_timeout();
 
         // Stage new timeout callback.
-        let source = source::timeout_source_new(LONG_PRESS, None, Priority::DEFAULT, move || {
+        let long_press = CONFIG.read().unwrap().input.long_press;
+        let source = source::timeout_source_new(long_press, None, Priority::DEFAULT, move || {
             callback();
             ControlFlow::Break
         });

@@ -25,8 +25,7 @@ use rsvg::{CairoRenderer, Loader};
 use smithay_client_toolkit::reexports::client::Proxy;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 
-use crate::config::colors::{BG, FG, HL, SECONDARY_FG};
-use crate::config::font::FONT;
+use crate::config::CONFIG;
 use crate::gl::types::{GLfloat, GLint, GLuint};
 use crate::{Position, Size, gl};
 
@@ -413,20 +412,21 @@ impl TextureBuilder {
         let text_y = position.y + size.height as f64 / 2. - text_height as f64 / 2.;
 
         // Handle text selection.
+        let colors = CONFIG.read().unwrap().colors;
         let color = text_options.text_color;
         if let Some(selection) = &text_options.selection {
             // Set fg/bg colors of selected text.
 
             let text_attributes = AttrList::new();
 
-            let selection_bg = HL.as_u16();
+            let selection_bg = colors.hl.as_u16();
             let mut bg_attr =
                 AttrColor::new_background(selection_bg[0], selection_bg[1], selection_bg[2]);
             bg_attr.set_start_index(selection.start as u32);
             bg_attr.set_end_index(selection.end as u32);
             text_attributes.insert(bg_attr);
 
-            let selection_fg = BG.as_u16();
+            let selection_fg = colors.bg.as_u16();
             let mut fg_attr =
                 AttrColor::new_foreground(selection_fg[0], selection_fg[1], selection_fg[2]);
             fg_attr.set_start_index(selection.start as u32);
@@ -481,7 +481,7 @@ impl TextureBuilder {
 
                 // Set color for autocomplete text.
                 let attributes = layout.attributes().unwrap_or_default();
-                let [r, g, b] = SECONDARY_FG.as_u16();
+                let [r, g, b] = colors.secondary_fg.as_u16();
                 let mut col_attr = AttrColor::new_foreground(r, g, b);
                 col_attr.set_start_index(autocomplete_start as u32);
                 col_attr.set_end_index(virtual_text.len() as u32);
@@ -561,7 +561,7 @@ impl TextureBuilder {
             Loader::new().read_stream(&stream, None::<&File>, None::<&Cancellable>).unwrap();
 
         // Override SVG colors with configured foreground color.
-        let [r, g, b, _] = FG.as_u8();
+        let [r, g, b, _] = CONFIG.read().unwrap().colors.fg.as_u8();
         #[rustfmt::skip]
         let stylesheet = format!("svg > :not(defs), marker > * {{
             stroke: #{r:0>2x}{g:0>2x}{b:0>2x};
@@ -611,10 +611,11 @@ pub struct TextOptions {
 
 impl TextOptions {
     pub fn new() -> Self {
+        let text_color = CONFIG.read().unwrap().colors.fg.as_f64();
         Self {
+            text_color,
             ellipsize: true,
             cursor_pos: -1,
-            text_color: FG.as_f64(),
             autocomplete: Default::default(),
             placeholder: Default::default(),
             show_cursor: Default::default(),
@@ -708,7 +709,8 @@ impl TextLayout {
         let layout = pangocairo::functions::create_layout(&context);
 
         // Set font description.
-        let font_desc = format!("{FONT} {font_size}px");
+        let family = &CONFIG.read().unwrap().font.family;
+        let font_desc = format!("{family} {font_size}px");
         let mut font = FontDescription::from_string(&font_desc);
         font.set_absolute_size(font.size() as f64 * scale);
         layout.set_font_description(Some(&font));

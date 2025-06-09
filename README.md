@@ -9,6 +9,10 @@
   <br clear="align"/>
 </p>
 
+## Demo
+
+https://github.com/user-attachments/assets/db0bee78-9db2-439b-beb4-1020ff889008
+
 ## Installation
 
 Archlinux ARM users can use the [custom repository] to install Kumo. For
@@ -86,10 +90,6 @@ $ kumo reset colors.bg
 $ kumo get colors.bg
 [0]
 ```
-
-## Demo
-
-https://github.com/user-attachments/assets/db0bee78-9db2-439b-beb4-1020ff889008
 
 ## Building from Source
 

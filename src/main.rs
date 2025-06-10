@@ -6,14 +6,12 @@ use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use std::os::fd::{AsFd, AsRawFd};
 use std::ptr::NonNull;
 use std::rc::Rc;
-use std::sync::mpsc::Sender;
 use std::time::Duration;
 use std::{env, io, mem, process};
 
 use clap::Parser;
 use cli::{ConfigOptions, Options, Subcommands};
 use configory::ipc::Ipc;
-use configory::{Config as ConfigManager, Event as ConfigEvent};
 use funq::{MtQueueHandle, Queue, StQueueHandle};
 use glib::{ControlFlow, IOCondition, MainLoop, Priority, Source, source};
 use glutin::display::{Display, DisplayApiPreference};
@@ -35,7 +33,6 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers, RepeatInfo};
 use tracing::{error, info, warn};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
-use crate::config::{CONFIG, Config};
 use crate::engine::webkit::{WebKitError, WebKitState};
 use crate::engine::{Group, GroupId, NO_GROUP_ID};
 use crate::storage::Storage;
@@ -48,7 +45,6 @@ mod cli;
 mod config;
 mod engine;
 mod storage;
-mod thread;
 mod ui;
 mod uri;
 mod wayland;
@@ -125,7 +121,7 @@ fn run() -> Result<(), Error> {
 
     // Initialize configuration state.
     let queue = Queue::new()?;
-    let config_shutdown = init_config(queue.handle())?;
+    let _config_manager = config::init_config(queue.handle())?;
 
     let main_loop = MainLoop::new(None, true);
     let mut state = State::new(queue.local_handle(), main_loop.clone())?;
@@ -222,9 +218,6 @@ fn run() -> Result<(), Error> {
 
     // Run main event loop.
     main_loop.run();
-
-    // Terminate config thread.
-    let _ = config_shutdown.send(ConfigEvent::User(()));
 
     Ok(())
 }
@@ -551,58 +544,6 @@ impl ClipboardState {
         self.serial += 1;
         self.serial
     }
-}
-
-/// Initialize configuration state.
-fn init_config(mut queue: MtQueueHandle<State>) -> Result<Sender<ConfigEvent<()>>, Error> {
-    // Load initial configuration.
-    let config_manager = ConfigManager::<()>::new("kumo")?;
-    let config = config_manager
-        .get::<&str, Config>(&[])
-        .inspect_err(|err| error!("Config error: {err}"))
-        .ok()
-        .flatten()
-        .unwrap_or_default();
-    *CONFIG.write().unwrap() = config;
-
-    // Monitor channel for configuration updates.
-    let update_tx = config_manager.update_tx().clone();
-    thread::spawn_named("config channel watcher", move || {
-        let update_rx = config_manager.update_rx();
-        while let Ok(event) = update_rx.recv() {
-            match event {
-                // Update configuration on change.
-                ConfigEvent::FileChanged | ConfigEvent::IpcChanged => {
-                    info!("Reloading configuration file");
-
-                    // Parse config or fall back to the default.
-                    let parsed = config_manager
-                        .get::<&str, Config>(&[])
-                        .inspect_err(|err| error!("Config error: {err}"))
-                        .ok()
-                        .flatten()
-                        .unwrap_or_default();
-
-                    // Calculate generation based on current config.
-                    let mut config = CONFIG.write().unwrap();
-                    let next_generation = config.generation + 1;
-
-                    // Update the config.
-                    *config = parsed;
-                    config.generation = next_generation;
-
-                    // Request redraw.
-                    queue.unstall();
-                },
-                ConfigEvent::FileError(err) => error!("Configuration file error: {err}"),
-                // User events are only used to shut down the thread.
-                ConfigEvent::User(()) => break,
-                ConfigEvent::Ipc(_) => unreachable!(),
-            }
-        }
-    });
-
-    Ok(update_tx)
 }
 
 /// 2D object position.

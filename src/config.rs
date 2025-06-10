@@ -4,12 +4,34 @@ use std::fmt::{self, Formatter};
 use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Duration;
 
+use configory::{EventHandler, Manager};
+use funq::MtQueueHandle;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer};
+use tracing::{error, info};
+
+use crate::window::WindowHandler;
+use crate::{Error, State};
 
 /// Shared configuration state.
 pub static CONFIG: LazyLock<Arc<RwLock<Config>>> =
     LazyLock::new(|| Arc::new(RwLock::new(Config::default())));
+
+/// Initialize configuration state.
+pub fn init_config(queue: MtQueueHandle<State>) -> Result<Manager, Error> {
+    let config_manager = Manager::new("kumo", ConfigEventHandler::new(queue))?;
+
+    // Load initial configuration.
+    let config = config_manager
+        .get::<&str, Config>(&[])
+        .inspect_err(|err| error!("Config error: {err}"))
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    *CONFIG.write().unwrap() = config;
+
+    Ok(config_manager)
+}
 
 #[derive(Deserialize, Default, Debug)]
 #[serde(default, deny_unknown_fields)]
@@ -208,4 +230,53 @@ where
 {
     let ms = u64::deserialize(deserializer)?;
     Ok(Duration::from_millis(ms))
+}
+
+/// Event handler for configuration manager updates.
+struct ConfigEventHandler {
+    queue: MtQueueHandle<State>,
+}
+
+impl ConfigEventHandler {
+    fn new(queue: MtQueueHandle<State>) -> Self {
+        Self { queue }
+    }
+
+    /// Reload config and unstall renderer.
+    fn reload_config(&self, config: &configory::Config) {
+        info!("Reloading configuration file");
+
+        // Parse config or fall back to the default.
+        let parsed = config
+            .get::<&str, Config>(&[])
+            .inspect_err(|err| error!("Config error: {err}"))
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+
+        // Calculate generation based on current config.
+        let mut config = CONFIG.write().unwrap();
+        let next_generation = config.generation + 1;
+
+        // Update the config.
+        *config = parsed;
+        config.generation = next_generation;
+
+        // Request redraw.
+        self.queue.clone().unstall();
+    }
+}
+
+impl EventHandler<()> for ConfigEventHandler {
+    fn file_changed(&self, config: &configory::Config) {
+        self.reload_config(config);
+    }
+
+    fn ipc_changed(&self, config: &configory::Config) {
+        self.reload_config(config);
+    }
+
+    fn file_error(&self, _config: &configory::Config, err: configory::Error) {
+        error!("Configuration file error: {err}");
+    }
 }

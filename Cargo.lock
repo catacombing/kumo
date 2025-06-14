@@ -404,10 +404,11 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
 name = "configory"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cce821e6cc56ad6268fb70a673357c9b1ebf6d18083ff465caa539a086ea866a"
+checksum = "32f901c1155cc9c70228720fe57187beafb7b9c87572d533c10ffaff5da4ec8f"
 dependencies = [
+ "configory_derive",
  "dirs 6.0.0",
  "log",
  "notify",
@@ -415,6 +416,17 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.12",
  "toml",
+]
+
+[[package]]
+name = "configory_derive"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3957257b839ddcc8439cbf5789b21368d30327ef1d01a9bb95a77fb240e3821b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
 ]
 
 [[package]]

@@ -4,6 +4,7 @@ use std::fmt::{self, Formatter};
 use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Duration;
 
+use configory::docgen::{DocType, Docgen, Leaf};
 use configory::{EventHandler, Manager};
 use funq::MtQueueHandle;
 use serde::de::Visitor;
@@ -33,24 +34,42 @@ pub fn init_config(queue: MtQueueHandle<State>) -> Result<Manager, Error> {
     Ok(config_manager)
 }
 
-#[derive(Deserialize, Default, Debug)]
+/// # Kumo
+///
+/// ## Syntax
+///
+/// Kumo's configuration file uses the TOML format. The format's specification
+/// can be found at _https://toml.io/en/v1.0.0_.
+///
+/// ## Location
+///
+/// Kumo doesn't create the configuration file for you, but it looks for one at
+/// <br> `${XDG_CONFIG_HOME:-$HOME/.config}/kumo/kumo.toml`.
+///
+/// ## Fields
+#[derive(Docgen, Deserialize, Default, Debug)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
+    /// This section documents the `[font]` table.
     pub font: Font,
+    /// This section documents the `[color]` table.
     pub colors: Colors,
+    /// This section documents the `[input]` table.
     pub input: Input,
 
     /// Incremental config ID, to track changes.
     #[serde(skip)]
+    #[docgen(skip)]
     pub generation: u32,
 }
 
 /// Font configuration.
-#[derive(Deserialize, Debug)]
+#[derive(Docgen, Deserialize, Debug)]
 #[serde(default, deny_unknown_fields)]
 pub struct Font {
     /// Font family.
     pub family: String,
+    /// Font size.
     size: f64,
 }
 
@@ -68,10 +87,10 @@ impl Font {
 }
 
 /// Color configuration.
-#[derive(Deserialize, Copy, Clone, Hash, PartialEq, Eq, Debug)]
+#[derive(Docgen, Deserialize, Copy, Clone, Hash, PartialEq, Eq, Debug)]
 #[serde(default, deny_unknown_fields)]
 pub struct Colors {
-    /// Primary background color.
+    /// Primary foreground color.
     pub fg: Color,
     /// Primary background color.
     pub bg: Color,
@@ -106,16 +125,18 @@ impl Default for Colors {
 }
 
 /// Input configuration.
-#[derive(Deserialize, Debug)]
+#[derive(Docgen, Deserialize, Debug)]
 #[serde(default, deny_unknown_fields)]
 pub struct Input {
     /// Square of the maximum distance before touch input is considered a drag.
     pub max_tap_distance: f64,
     /// Maximum interval between taps to be considered a double/trible-tap.
     #[serde(deserialize_with = "duration_ms")]
+    #[docgen(doc_type = "integer (milliseconds)", default = "300")]
     pub max_multi_tap: Duration,
     /// Minimum time before a tap is considered a long-press.
     #[serde(deserialize_with = "duration_ms")]
+    #[docgen(doc_type = "integer (milliseconds)", default = "300")]
     pub long_press: Duration,
 
     /// Microseconds per velocity tick.
@@ -169,6 +190,16 @@ impl Color {
 
     pub const fn as_f64(&self) -> [f64; 3] {
         [self.r as f64 / 255., self.g as f64 / 255., self.b as f64 / 255.]
+    }
+}
+
+impl Docgen for Color {
+    fn doc_type() -> DocType {
+        DocType::Leaf(Leaf::new("color"))
+    }
+
+    fn format(&self) -> String {
+        format!("\"#{:0>2x}{:0>2x}{:0>2x}\"", self.r, self.g, self.b)
     }
 }
 
@@ -278,5 +309,28 @@ impl EventHandler<()> for ConfigEventHandler {
 
     fn file_error(&self, _config: &configory::Config, err: configory::Error) {
         error!("Configuration file error: {err}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use configory::docgen::markdown::Markdown;
+
+    use super::*;
+
+    #[test]
+    fn config_docs() {
+        let mut formatter = Markdown::new();
+        formatter.set_heading_size(3);
+        let expected = formatter.format::<Config>();
+
+        // Uncomment to update config documentation.
+        // fs::write("./docs/config.md", &expected).unwrap();
+
+        // Ensure documentation is up to date.
+        let docs = fs::read_to_string("./docs/config.md").unwrap();
+        assert_eq!(docs, expected);
     }
 }

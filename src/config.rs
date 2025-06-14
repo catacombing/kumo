@@ -55,6 +55,8 @@ pub struct Config {
     /// This section documents the `[color]` table.
     pub colors: Colors,
     /// This section documents the `[input]` table.
+    pub search: Search,
+    /// This section documents the `[input]` table.
     pub input: Input,
 
     /// Incremental config ID, to track changes.
@@ -121,6 +123,21 @@ impl Default for Colors {
             error: Color::new(172, 66, 66),
             disabled: Color::new(102, 102, 102),
         }
+    }
+}
+
+#[derive(Docgen, Deserialize, Debug)]
+#[serde(default, deny_unknown_fields)]
+pub struct Search {
+    /// Search engine URI.
+    ///
+    /// The search query will be appended to the end of this URI.
+    pub uri: String,
+}
+
+impl Default for Search {
+    fn default() -> Self {
+        Self { uri: "https://duckduckgo.com/?q=".into() }
     }
 }
 

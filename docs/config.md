@@ -35,6 +35,14 @@ This section documents the `[color]` table.
 |error|Error foreground color|color|`"#ac4242"`|
 |disabled|Disabled foreground color|color|`"#666666"`|
 
+### search
+
+This section documents the `[input]` table.
+
+|Name|Description|Type|Default|
+|-|-|-|-|
+|uri|Search engine URI.<br><br>The search query will be appended to the end of this URI.|text|`"https://duckduckgo.com/?q="`|
+
 ### input
 
 This section documents the `[input]` table.

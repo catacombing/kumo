@@ -28,6 +28,7 @@ use smithay_client_toolkit::shell::xdg::window::{
     Window as XdgWindow, WindowConfigure, WindowDecorations,
 };
 
+use crate::config::CONFIG;
 use crate::engine::{Engine, EngineId, Group, GroupId, NO_GROUP_ID, NO_GROUP_REF};
 use crate::storage::Storage;
 use crate::storage::groups::Groups;
@@ -43,9 +44,6 @@ use crate::ui::{TOOLBAR_HEIGHT, Ui};
 use crate::uri::{SCHEMES, TLDS};
 use crate::wayland::protocols::ProtocolStates;
 use crate::{Position, Size, State, WebKitState};
-
-/// Search engine base URI.
-const SEARCH_URI: &str = "https://duckduckgo.com/?q=";
 
 // Default window size.
 const DEFAULT_WIDTH: u32 = 360;
@@ -468,7 +466,10 @@ impl Window {
         // Perform search if URI is not a recognized URI.
         let uri = match build_uri(uri.trim(), allow_relative_paths) {
             Some(uri) => uri,
-            None => Cow::Owned(format!("{SEARCH_URI}{uri}")),
+            None => {
+                let config = CONFIG.read().unwrap();
+                Cow::Owned(format!("{}{uri}", &config.search.uri))
+            },
         };
 
         if let Some(engine) = self.active_tab_mut() {

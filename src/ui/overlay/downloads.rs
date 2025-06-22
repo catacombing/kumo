@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Instant;
 
 use funq::MtQueueHandle;
 use indexmap::IndexMap;
@@ -82,6 +83,9 @@ pub struct Downloads {
 
     touch_state: TouchState,
 
+    last_velocity_tick: Option<Instant>,
+    scroll_velocity: f64,
+
     size: Size,
     scale: f64,
 
@@ -101,6 +105,8 @@ impl Downloads {
             close_button: SvgButton::new(Svg::Close),
             delete_button: SvgButton::new(Svg::Bin),
             scale: 1.,
+            last_velocity_tick: Default::default(),
+            scroll_velocity: Default::default(),
             texture_cache: Default::default(),
             scroll_offset: Default::default(),
             touch_state: Default::default(),
@@ -250,7 +256,12 @@ impl Downloads {
         let old_offset = self.scroll_offset;
         let max_offset = self.max_scroll_offset() as f64;
         self.scroll_offset = self.scroll_offset.clamp(0., max_offset);
-        self.dirty |= old_offset != self.scroll_offset;
+
+        // Cancel velocity after reaching the scroll limit.
+        if old_offset != self.scroll_offset {
+            self.scroll_velocity = 0.;
+            self.dirty = true;
+        }
     }
 
     /// Get maximum downloads list scroll offset.
@@ -275,11 +286,48 @@ impl Downloads {
         // Calculate downloads content outside the viewport.
         entries_height.saturating_sub(available_height)
     }
+
+    /// Apply and update the current scroll velocity.
+    fn apply_scroll_velocity(&mut self) {
+        // No-op without velocity.
+        if self.scroll_velocity == 0. {
+            return;
+        }
+
+        // Initialize velocity on the first tick.
+        //
+        // This avoids applying velocity while the user is still actively scrolling.
+        let last_tick = match self.last_velocity_tick.take() {
+            Some(last_tick) => last_tick,
+            None => {
+                self.last_velocity_tick = Some(Instant::now());
+                return;
+            },
+        };
+
+        // Calculate velocity steps since last tick.
+        let input = &CONFIG.read().unwrap().input;
+        let now = Instant::now();
+        let interval = (now - last_tick).as_micros() as f64 / input.velocity_interval;
+
+        // Apply and update velocity.
+        self.scroll_offset += self.scroll_velocity
+            * (1. - input.velocity_friction.powf(interval + 1.))
+            / (1. - input.velocity_friction);
+        self.scroll_velocity *= input.velocity_friction.powf(interval);
+
+        // Request next tick if velocity is significant.
+        if self.scroll_velocity.abs() > 1. {
+            self.last_velocity_tick = Some(now);
+        } else {
+            self.scroll_velocity = 0.;
+        }
+    }
 }
 
 impl Popup for Downloads {
     fn dirty(&self) -> bool {
-        self.dirty || CONFIG.read().unwrap().colors != self.colors
+        self.dirty || CONFIG.read().unwrap().colors != self.colors || self.scroll_velocity != 0.
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
@@ -291,6 +339,9 @@ impl Popup for Downloads {
         if !self.visible {
             return;
         }
+
+        // Animate scroll velocity.
+        self.apply_scroll_velocity();
 
         // Ensure offset is correct in case entries or window size changed.
         self.clamp_scroll_offset();
@@ -443,9 +494,13 @@ impl Popup for Downloads {
                 }
                 self.touch_state.action = TouchAction::EntryDrag;
 
+                // Calculate current scroll velocity.
+                self.scroll_velocity = self.touch_state.position.y - old_position.y;
+                self.last_velocity_tick = None;
+
                 // Immediately start moving the downloads list.
                 let old_offset = self.scroll_offset;
-                self.scroll_offset += self.touch_state.position.y - old_position.y;
+                self.scroll_offset += self.scroll_velocity;
                 self.clamp_scroll_offset();
                 self.dirty |= self.scroll_offset != old_offset;
             },

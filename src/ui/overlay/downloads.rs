@@ -349,7 +349,13 @@ impl Popup for Downloads {
 
         // Update config version ID.
         let config = CONFIG.read().unwrap();
-        self.last_config = config.generation;
+        if self.last_config != config.generation {
+            self.last_config = config.generation;
+
+            // Force SVG button redraw.
+            self.delete_button.dirty = true;
+            self.close_button.dirty = true;
+        }
 
         // Get geometry required for rendering.
         let x_padding = (ENTRY_X_PADDING * self.scale) as f32;

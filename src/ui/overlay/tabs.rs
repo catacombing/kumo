@@ -75,11 +75,8 @@ pub trait TabsHandler {
     /// Update a tab group's label.
     fn update_group_label(&mut self, window_id: WindowId, label: String);
 
-    /// Open history UI.
-    fn show_history_ui(&mut self, window_id: WindowId);
-
-    /// Open downloads UI.
-    fn show_downloads_ui(&mut self, window_id: WindowId);
+    /// Open menu UI.
+    fn show_menu_ui(&mut self, window_id: WindowId);
 
     /// Close the tabs UI.
     fn close_tabs_ui(&mut self, window_id: WindowId);
@@ -172,20 +169,12 @@ impl TabsHandler for State {
         window.update_group_label(label);
     }
 
-    fn show_history_ui(&mut self, window_id: WindowId) {
+    fn show_menu_ui(&mut self, window_id: WindowId) {
         let window = match self.windows.get_mut(&window_id) {
             Some(window) => window,
             None => return,
         };
-        window.set_history_ui_visibile(true);
-    }
-
-    fn show_downloads_ui(&mut self, window_id: WindowId) {
-        let window = match self.windows.get_mut(&window_id) {
-            Some(window) => window,
-            None => return,
-        };
-        window.set_downloads_ui_visibile(true);
+        window.set_menu_ui_visible(true);
     }
 
     fn close_tabs_ui(&mut self, window_id: WindowId) {
@@ -222,9 +211,7 @@ pub struct Tabs {
     persistent_button: SvgButton,
     new_group_button: PlusButton,
     new_tab_button: PlusButton,
-    downloads_button: SvgButton,
-    history_button: SvgButton,
-    downloads_visible: bool,
+    menu_button: SvgButton,
 
     keyboard_focus: Option<KeyboardInputElement>,
     touch_state: TouchState,
@@ -250,13 +237,11 @@ impl Tabs {
             queue,
             persistent_button: SvgButton::new_toggle(Svg::PersistentOn, Svg::PersistentOff),
             cycle_group_button: SvgButton::new(Svg::ArrowLeft),
-            downloads_button: SvgButton::new(Svg::Download),
             close_group_button: SvgButton::new(Svg::Close),
-            history_button: SvgButton::new(Svg::History),
+            menu_button: SvgButton::new(Svg::Menu),
             scale: 1.0,
             last_reordering_scroll: Default::default(),
             last_velocity_tick: Default::default(),
-            downloads_visible: Default::default(),
             new_group_button: Default::default(),
             scroll_velocity: Default::default(),
             keyboard_focus: Default::default(),
@@ -347,19 +332,6 @@ impl Tabs {
         self.allow_cycling = allowed;
     }
 
-    /// Show or hide the download UI button.
-    pub fn set_downloads_button_visible(&mut self, visible: bool) {
-        if self.downloads_visible == visible {
-            return;
-        }
-
-        self.downloads_visible = visible;
-        self.dirty = true;
-
-        // Update new tab button width.
-        self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
-    }
-
     /// Check whether the popup is active.
     pub fn visible(&self) -> bool {
         self.visible
@@ -386,9 +358,8 @@ impl Tabs {
     ///
     /// This includes all padding since that is included in the texture.
     fn new_tab_button_size(&self) -> Size {
-        let visible_buttons = if self.downloads_visible { 2 } else { 1 };
         let height = BUTTON_HEIGHT + (2. * BUTTON_Y_PADDING).round() as u32;
-        let width = self.size.width - BUTTON_HEIGHT * visible_buttons - BUTTON_X_PADDING as u32;
+        let width = self.size.width - BUTTON_HEIGHT - BUTTON_X_PADDING as u32;
         Size::new(width, height) * self.scale
     }
 
@@ -396,9 +367,8 @@ impl Tabs {
     ///
     /// This includes all padding since that is included in the texture.
     fn new_tab_button_position(&self) -> Position<f64> {
-        let visible_buttons = if self.downloads_visible { 2. } else { 1. };
         let y = (self.size.height - BUTTON_HEIGHT) as f64 - 2. * BUTTON_Y_PADDING;
-        let x = BUTTON_HEIGHT as f64 * visible_buttons + BUTTON_X_PADDING;
+        let x = BUTTON_HEIGHT as f64 + BUTTON_X_PADDING;
         Position::new(x, y) * self.scale
     }
 
@@ -423,17 +393,17 @@ impl Tabs {
         Position::new(0., 0.)
     }
 
-    /// Physical size of the browser history button.
+    /// Physical size of the menu button.
     ///
     /// This includes all padding since that is included in the texture.
-    fn history_button_size(&self) -> Size {
+    fn menu_button_size(&self) -> Size {
         Self::button_size(self.scale)
     }
 
-    /// Physical position of the browser history button.
+    /// Physical position of the menu button.
     ///
     /// This includes all padding since that is included in the texture.
-    fn history_button_position(&self) -> Position<f64> {
+    fn menu_button_position(&self) -> Position<f64> {
         Position::new(0., self.new_tab_button_position().y)
     }
 
@@ -441,29 +411,14 @@ impl Tabs {
     ///
     /// This includes all padding since that is included in the texture.
     fn persistent_button_size(&self) -> Size {
-        self.history_button_size()
+        self.menu_button_size()
     }
 
     /// Physical position of the persistent mode button.
     ///
     /// This includes all padding since that is included in the texture.
     fn persistent_button_position(&self) -> Position<f64> {
-        self.history_button_position()
-    }
-
-    /// Physical size of the downloads button.
-    ///
-    /// This includes all padding since that is included in the texture.
-    fn downloads_button_size(&self) -> Size {
-        Self::button_size(self.scale)
-    }
-
-    /// Physical position of the downloads button.
-    ///
-    /// This includes all padding since that is included in the texture.
-    fn downloads_button_position(&self) -> Position<f64> {
-        let x = (BUTTON_HEIGHT as f64 + BUTTON_X_PADDING) * self.scale;
-        Position::new(x, self.new_tab_button_position().y)
+        self.menu_button_position()
     }
 
     /// Physical size of the tab group creation button.
@@ -745,9 +700,8 @@ impl Popup for Tabs {
             self.close_group_button.dirty = true;
             self.persistent_button.dirty = true;
             self.new_group_button.dirty = true;
-            self.downloads_button.dirty = true;
             self.new_tab_button.dirty = true;
-            self.history_button.dirty = true;
+            self.menu_button.dirty = true;
             self.group_label.dirty = true;
         }
 
@@ -755,10 +709,9 @@ impl Popup for Tabs {
         let cycle_group_button_position: Position<f32> = self.cycle_group_button_position().into();
         let persistent_button_position: Position<f32> = self.persistent_button_position().into();
         let new_group_button_position: Position<f32> = self.new_group_button_position().into();
-        let downloads_button_position: Position<f32> = self.downloads_button_position().into();
         let new_tab_button_position: Position<f32> = self.new_tab_button_position().into();
-        let history_button_position: Position<f32> = self.history_button_position().into();
         let group_label_position: Position<f32> = self.group_label_position().into();
+        let menu_button_position: Position<f32> = self.menu_button_position().into();
         let tabs_start = group_label_position.y + self.group_label_size().height as f32;
         let favicon_size: Size<f32> = self.favicon_size().into();
         let tab_size = self.tab_size();
@@ -785,10 +738,9 @@ impl Popup for Tabs {
         let close_group_button = self.close_group_button.texture();
         let persistent_button = self.persistent_button.texture();
         let new_group_button = self.new_group_button.texture();
-        let downloads_button = self.downloads_button.texture();
         let new_tab_button = self.new_tab_button.texture();
-        let history_button = self.history_button.texture();
         let group_label = self.group_label.texture();
+        let menu_button = self.menu_button.texture();
 
         // Draw background.
         //
@@ -810,7 +762,7 @@ impl Popup for Tabs {
         let tabs = mem::take(&mut self.texture_cache.tabs);
 
         // Draw individual tabs.
-        let mut texture_pos = history_button_position;
+        let mut texture_pos = menu_button_position;
         texture_pos.x += (TABS_X_PADDING * self.scale) as f32;
         texture_pos.y += self.scroll_offset as f32;
         for (&engine_id, tab) in group_tabs(&tabs, self.group).rev() {
@@ -887,9 +839,6 @@ impl Popup for Tabs {
         if self.allow_cycling {
             renderer.draw_texture_at(cycle_group_button, cycle_group_button_position, None);
         }
-        if self.downloads_visible {
-            renderer.draw_texture_at(downloads_button, downloads_button_position, None);
-        }
 
         // Change new group to close group while editing the group label.
         if self.group_label.editing {
@@ -898,9 +847,9 @@ impl Popup for Tabs {
             renderer.draw_texture_at(new_group_button, new_group_button_position, None);
         }
 
-        // Show history button for default group, and persistency button for all others.
+        // Show menu button for default group, and persistency button for all others.
         if self.group == NO_GROUP_ID {
-            renderer.draw_texture_at(history_button, history_button_position, None);
+            renderer.draw_texture_at(menu_button, menu_button_position, None);
         } else {
             renderer.draw_texture_at(persistent_button, persistent_button_position, None);
         }
@@ -919,10 +868,9 @@ impl Popup for Tabs {
         self.persistent_button.set_geometry(self.persistent_button_size(), self.scale);
         self.close_group_button.set_geometry(self.new_group_button_size(), self.scale);
         self.new_group_button.set_geometry(self.new_group_button_size(), self.scale);
-        self.downloads_button.set_geometry(self.downloads_button_size(), self.scale);
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
-        self.history_button.set_geometry(self.history_button_size(), self.scale);
         self.group_label.set_geometry(self.group_label_size(), self.scale);
+        self.menu_button.set_geometry(self.menu_button_size(), self.scale);
         self.texture_cache.resized = true;
     }
 
@@ -939,10 +887,9 @@ impl Popup for Tabs {
         self.persistent_button.set_geometry(self.persistent_button_size(), self.scale);
         self.close_group_button.set_geometry(self.new_group_button_size(), self.scale);
         self.new_group_button.set_geometry(self.new_group_button_size(), self.scale);
-        self.downloads_button.set_geometry(self.downloads_button_size(), self.scale);
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
-        self.history_button.set_geometry(self.history_button_size(), self.scale);
         self.group_label.set_geometry(self.group_label_size(), self.scale);
+        self.menu_button.set_geometry(self.menu_button_size(), self.scale);
         self.texture_cache.resized = true;
     }
 
@@ -979,29 +926,24 @@ impl Popup for Tabs {
         let cycle_group_button_size = self.cycle_group_button_size().into();
         let new_group_button_position = self.new_group_button_position();
         let new_group_button_size = self.new_group_button_size().into();
-        let downloads_button_position = self.downloads_button_position();
-        let downloads_button_size = self.downloads_button_size().into();
         let new_tab_button_position = self.new_tab_button_position();
         let new_tab_button_size = self.new_tab_button_size().into();
-        let history_button_position = self.history_button_position();
-        let history_button_size = self.history_button_size().into();
         let group_label_position = self.group_label_position();
         let group_label_size = self.group_label_size().into();
+        let menu_button_position = self.menu_button_position();
+        let menu_button_size = self.menu_button_size().into();
 
         if rect_contains(cycle_group_button_position, cycle_group_button_size, position) {
             self.touch_state.action = TouchAction::CycleGroupTap;
             self.clear_keyboard_focus();
-        } else if rect_contains(history_button_position, history_button_size, position) {
+        } else if rect_contains(menu_button_position, menu_button_size, position) {
             if self.group == NO_GROUP_ID {
-                self.touch_state.action = TouchAction::HistoryTap;
+                self.touch_state.action = TouchAction::MenuTap;
                 self.clear_keyboard_focus();
             } else {
                 self.touch_state.action = TouchAction::PersistentTap;
                 self.clear_keyboard_focus();
             }
-        } else if rect_contains(downloads_button_position, downloads_button_size, position) {
-            self.touch_state.action = TouchAction::DownloadsTap;
-            self.clear_keyboard_focus();
         } else if rect_contains(new_group_button_position, new_group_button_size, position) {
             // Close on new group button tap while editing the group label.
             //
@@ -1116,24 +1058,14 @@ impl Popup for Tabs {
                     self.queue.cycle_tab_group(self.window_id, self.group);
                 }
             },
-            // Open browser history.
-            TouchAction::HistoryTap => {
-                let history_button_position = self.history_button_position();
-                let history_button_size = self.history_button_size().into();
+            // Open browser menu.
+            TouchAction::MenuTap => {
+                let menu_button_position = self.menu_button_position();
+                let menu_button_size = self.menu_button_size().into();
                 let position = self.touch_state.position;
 
-                if rect_contains(history_button_position, history_button_size, position) {
-                    self.queue.show_history_ui(self.window_id);
-                }
-            },
-            // Open downloads UI.
-            TouchAction::DownloadsTap => {
-                let downloads_button_position = self.downloads_button_position();
-                let downloads_button_size = self.downloads_button_size().into();
-                let position = self.touch_state.position;
-
-                if rect_contains(downloads_button_position, downloads_button_size, position) {
-                    self.queue.show_downloads_ui(self.window_id);
+                if rect_contains(menu_button_position, menu_button_size, position) {
+                    self.queue.show_menu_ui(self.window_id);
                 }
             },
             // Toggle group's persistent mode.
@@ -1841,14 +1773,13 @@ enum TouchAction {
     TabTap(EngineId, bool),
     TabReordering(EngineId),
     TabDrag,
-    HistoryTap,
+    MenuTap,
     NewTabTap,
     NewGroupTap,
     CloseGroupTap,
     PersistentTap,
     CycleGroupTap,
     GroupLabelTouch,
-    DownloadsTap,
 }
 
 /// Elements accepting keyboard focus.

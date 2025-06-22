@@ -769,6 +769,7 @@ pub enum Svg {
     Download,
     History,
     Close,
+    Menu,
     Bin,
 }
 
@@ -783,6 +784,7 @@ impl Svg {
             Self::Download => include_bytes!("../../svgs/download.svg"),
             Self::History => include_bytes!("../../svgs/history.svg"),
             Self::Close => include_bytes!("../../svgs/close.svg"),
+            Self::Menu => include_bytes!("../../svgs/menu.svg"),
             Self::Bin => include_bytes!("../../svgs/bin.svg"),
         }
     }

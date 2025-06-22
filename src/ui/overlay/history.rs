@@ -55,7 +55,7 @@ impl HistoryHandler for State {
             Some(window) => window,
             None => return,
         };
-        window.set_history_ui_visibile(false);
+        window.set_history_ui_visible(false);
     }
 
     fn set_history_filter(&mut self, window_id: WindowId, filter: String) {

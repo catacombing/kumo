@@ -43,9 +43,6 @@ trait DownloadsHandler {
 
     /// Cancel a file download.
     fn cancel_download(&mut self, download_id: DownloadId);
-
-    /// Change tabs UI download button visibility.
-    fn set_downloads_button_visible(&mut self, window_id: WindowId, visible: bool);
 }
 
 impl DownloadsHandler for State {
@@ -54,7 +51,7 @@ impl DownloadsHandler for State {
             Some(window) => window,
             None => return,
         };
-        window.set_downloads_ui_visibile(false);
+        window.set_downloads_ui_visible(false);
     }
 
     fn cancel_download(&mut self, download_id: DownloadId) {
@@ -63,14 +60,6 @@ impl DownloadsHandler for State {
             None => return,
         };
         window.cancel_download(download_id);
-    }
-
-    fn set_downloads_button_visible(&mut self, window_id: WindowId, visible: bool) {
-        let window = match self.windows.get_mut(&window_id) {
-            Some(window) => window,
-            None => return,
-        };
-        window.set_downloads_button_visible(visible);
     }
 }
 
@@ -119,9 +108,6 @@ impl Downloads {
 
     /// Add a new download.
     pub fn add_download(&mut self, download: Download) {
-        // Ensure download button is visible in tabs UI.
-        self.queue.set_downloads_button_visible(self.window_id, true);
-
         self.texture_cache.entries.insert(download.id, download);
         self.dirty = true;
     }
@@ -543,11 +529,6 @@ impl Popup for Downloads {
                     } else {
                         self.texture_cache.entries.shift_remove(&download_id);
                         self.dirty = true;
-
-                        // Hide download button from tabs UI if this was the last download.
-                        if self.texture_cache.entries.is_empty() {
-                            self.queue.set_downloads_button_visible(self.window_id, false);
-                        }
                     }
                 }
             },
@@ -557,11 +538,6 @@ impl Popup for Downloads {
             TouchAction::DeleteTap => {
                 self.dirty |= !self.texture_cache.entries.is_empty();
                 self.texture_cache.entries.retain(|_, download| download.progress < 100);
-
-                // Hide download button from tabs UI if this cleared all downloads.
-                if self.texture_cache.entries.is_empty() {
-                    self.queue.set_downloads_button_visible(self.window_id, false);
-                }
             },
             TouchAction::EntryDrag => (),
         }

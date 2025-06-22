@@ -11,6 +11,7 @@ use crate::storage::history::History as HistoryDb;
 use crate::ui::Renderer;
 use crate::ui::overlay::downloads::{Download, DownloadId, Downloads};
 use crate::ui::overlay::history::History;
+use crate::ui::overlay::menu::Menu;
 use crate::ui::overlay::option_menu::{
     OptionMenu, OptionMenuId, OptionMenuItem, OptionMenuPosition,
 };
@@ -20,6 +21,7 @@ use crate::{Position, Size, State, WindowId, gl, rect_contains};
 
 pub mod downloads;
 pub mod history;
+pub mod menu;
 pub mod option_menu;
 pub mod tabs;
 
@@ -408,11 +410,6 @@ impl Overlay {
         self.popups.downloads.set_download_progress(download_id, progress);
     }
 
-    /// Change tabs UI download button visibility.
-    pub fn set_downloads_button_visible(&mut self, visible: bool) {
-        self.popups.tabs.set_downloads_button_visible(visible);
-    }
-
     /// Change the history UI visibility.
     pub fn set_history_visible(&mut self, visible: bool) {
         self.dirty |= visible != self.popups.history.visible();
@@ -422,6 +419,12 @@ impl Overlay {
     /// Change the history filter.
     pub fn set_history_filter(&mut self, filter: String) {
         self.popups.history.set_filter(filter);
+    }
+
+    /// Set visibility of the menu overlay.
+    pub fn set_menu_visible(&mut self, visible: bool) {
+        self.dirty |= visible != self.popups.menu.visible();
+        self.popups.menu.set_visible(visible);
     }
 
     /// Show an option menu.
@@ -460,6 +463,7 @@ struct Popups {
     option_menus: Vec<OptionMenu>,
     downloads: Downloads,
     history: History,
+    menu: Menu,
     tabs: Tabs,
 }
 
@@ -467,8 +471,9 @@ impl Popups {
     fn new(window_id: WindowId, queue: MtQueueHandle<State>, history_db: HistoryDb) -> Self {
         let history = History::new(window_id, queue.clone(), history_db);
         let downloads = Downloads::new(window_id, queue.clone());
+        let menu = Menu::new(window_id, queue.clone());
         let tabs = Tabs::new(window_id, queue);
-        Self { downloads, history, tabs, option_menus: Default::default() }
+        Self { downloads, history, tabs, menu, option_menus: Default::default() }
     }
 
     /// Update logical popup size.
@@ -479,6 +484,7 @@ impl Popups {
         self.downloads.set_size(size);
         self.history.set_size(size);
         self.tabs.set_size(size);
+        self.menu.set_size(size);
     }
 
     /// Update popup scale.
@@ -489,6 +495,7 @@ impl Popups {
         self.downloads.set_scale(scale);
         self.history.set_scale(scale);
         self.tabs.set_scale(scale);
+        self.menu.set_scale(scale);
     }
 
     /// Non-mutable visible popup iterator.
@@ -498,6 +505,8 @@ impl Popups {
             Box::new(option_menus.chain([&self.history as _]))
         } else if self.downloads.visible() {
             Box::new(option_menus.chain([&self.downloads as _]))
+        } else if self.menu.visible() {
+            Box::new(option_menus.chain([&self.menu as _]))
         } else if self.tabs.visible() {
             Box::new(option_menus.chain([&self.tabs as _]))
         } else {
@@ -512,6 +521,8 @@ impl Popups {
             Box::new(option_menus.chain([&mut self.history as _]))
         } else if self.downloads.visible() {
             Box::new(option_menus.chain([&mut self.downloads as _]))
+        } else if self.menu.visible() {
+            Box::new(option_menus.chain([&mut self.menu as _]))
         } else if self.tabs.visible() {
             Box::new(option_menus.chain([&mut self.tabs as _]))
         } else {

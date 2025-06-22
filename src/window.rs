@@ -1134,7 +1134,10 @@ impl Window {
     }
 
     /// Open or close the downloads UI.
-    pub fn set_downloads_ui_visibile(&mut self, visible: bool) {
+    pub fn set_downloads_ui_visible(&mut self, visible: bool) {
+        // Close menu overlay if it is open.
+        self.overlay.set_menu_visible(false);
+
         self.overlay.set_downloads_visible(visible);
 
         if visible {
@@ -1165,15 +1168,6 @@ impl Window {
         }
     }
 
-    /// Change tabs UI download button visibility.
-    pub fn set_downloads_button_visible(&mut self, visible: bool) {
-        self.overlay.set_downloads_button_visible(visible);
-
-        if self.overlay.dirty() {
-            self.unstall();
-        }
-    }
-
     /// Cancel a file download.
     pub fn cancel_download(&mut self, download_id: DownloadId) {
         if let Some(tab) = self.tabs.get_mut(&download_id.engine_id()) {
@@ -1182,7 +1176,10 @@ impl Window {
     }
 
     /// Open or close the history UI.
-    pub fn set_history_ui_visibile(&mut self, visible: bool) {
+    pub fn set_history_ui_visible(&mut self, visible: bool) {
+        // Close menu overlay if it is open.
+        self.overlay.set_menu_visible(false);
+
         self.overlay.set_history_visible(visible);
 
         if visible {
@@ -1195,6 +1192,17 @@ impl Window {
     /// Set the history UI filter.
     pub fn set_history_filter(&mut self, filter: String) {
         self.overlay.set_history_filter(filter);
+        self.unstall();
+    }
+
+    /// Set visibility of the menu overlay.
+    pub fn set_menu_ui_visible(&mut self, visible: bool) {
+        self.overlay.set_menu_visible(visible);
+
+        if visible {
+            self.set_keyboard_focus(KeyboardFocus::None);
+        }
+
         self.unstall();
     }
 

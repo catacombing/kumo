@@ -10,7 +10,7 @@ use funq::MtQueueHandle;
 use indexmap::IndexMap;
 use smithay_client_toolkit::seat::keyboard::Modifiers;
 
-use crate::config::{CONFIG, Colors};
+use crate::config::{CONFIG, Colors, Config};
 use crate::engine::EngineId;
 use crate::ui::SvgButton;
 use crate::ui::overlay::Popup;
@@ -92,7 +92,7 @@ pub struct Downloads {
     queue: MtQueueHandle<State>,
     window_id: WindowId,
 
-    colors: Colors,
+    last_config: u32,
     visible: bool,
     dirty: bool,
 }
@@ -110,8 +110,8 @@ impl Downloads {
             texture_cache: Default::default(),
             scroll_offset: Default::default(),
             touch_state: Default::default(),
+            last_config: Default::default(),
             visible: Default::default(),
-            colors: Default::default(),
             dirty: Default::default(),
             size: Default::default(),
         }
@@ -327,12 +327,13 @@ impl Downloads {
 
 impl Popup for Downloads {
     fn dirty(&self) -> bool {
-        self.dirty || CONFIG.read().unwrap().colors != self.colors || self.scroll_velocity != 0.
+        self.dirty
+            || self.scroll_velocity != 0.
+            || CONFIG.read().unwrap().generation != self.last_config
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn draw(&mut self, renderer: &Renderer) {
-        self.colors = CONFIG.read().unwrap().colors;
         self.dirty = false;
 
         // Don't render anything when hidden.
@@ -345,6 +346,10 @@ impl Popup for Downloads {
 
         // Ensure offset is correct in case entries or window size changed.
         self.clamp_scroll_offset();
+
+        // Update config version ID.
+        let config = CONFIG.read().unwrap();
+        self.last_config = config.generation;
 
         // Get geometry required for rendering.
         let x_padding = (ENTRY_X_PADDING * self.scale) as f32;
@@ -366,7 +371,7 @@ impl Popup for Downloads {
         //
         // NOTE: This clears the entire surface, but works fine since the downloads
         // popup always fills the entire surface.
-        let [r, g, b] = CONFIG.read().unwrap().colors.bg.as_f32();
+        let [r, g, b] = config.colors.bg.as_f32();
         unsafe {
             gl::ClearColor(r, g, b, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -387,7 +392,7 @@ impl Popup for Downloads {
             if texture_pos.y <= -(entry_size.height as f32) {
                 break;
             } else if texture_pos.y < close_button_position.y {
-                let texture = self.texture_cache.texture(i, entry_size, self.scale);
+                let texture = self.texture_cache.texture(&config, i, entry_size, self.scale);
                 renderer.draw_texture_at(texture, texture_pos, None);
             }
 
@@ -594,10 +599,7 @@ impl TextureCache {
     ///
     /// Panics if `index >= self.len()`.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn texture(&mut self, index: usize, entry_size: Size, scale: f64) -> &Texture {
-        // Get colors from config.
-        let config = CONFIG.read().unwrap();
-
+    fn texture(&mut self, config: &Config, index: usize, entry_size: Size, scale: f64) -> &Texture {
         let (_, download) = &self.entries.get_index(index).unwrap();
         let key = TextureCacheKey {
             progress: download.progress,

@@ -374,7 +374,10 @@ impl History {
 
 impl Popup for History {
     fn dirty(&self) -> bool {
-        self.dirty || self.filter.input.dirty || self.scroll_velocity != 0.
+        self.dirty
+            || self.filter.input.dirty
+            || self.scroll_velocity != 0.
+            || CONFIG.read().unwrap().generation != self.last_config
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]

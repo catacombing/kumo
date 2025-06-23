@@ -356,10 +356,8 @@ impl Popup for Menu {
 
         if rect_contains(close_button_position, button_size, position) {
             self.touch_state.action = TouchAction::CloseTap;
-            self.clear_keyboard_focus();
         } else {
             self.touch_state.action = TouchAction::EntryTap;
-            self.clear_keyboard_focus();
         }
     }
 
@@ -412,7 +410,6 @@ impl Popup for Menu {
         }
         self.touch_state.slot = None;
 
-        // Close the overlay.
         match self.touch_state.action {
             TouchAction::EntryTap => match self.entry_at(self.touch_state.start) {
                 Some(MenuItem::Downloads) => self.queue.show_downloads_ui(self.window_id),

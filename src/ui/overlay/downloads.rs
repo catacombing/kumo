@@ -413,13 +413,10 @@ impl Popup for Downloads {
 
         if rect_contains(delete_button_position, button_size, position) {
             self.touch_state.action = TouchAction::DeleteTap;
-            self.clear_keyboard_focus();
         } else if rect_contains(close_button_position, button_size, position) {
             self.touch_state.action = TouchAction::CloseTap;
-            self.clear_keyboard_focus();
         } else {
             self.touch_state.action = TouchAction::EntryTap;
-            self.clear_keyboard_focus();
         }
     }
 

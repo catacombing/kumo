@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 use std::mem;
-use std::time::Instant;
 
 use chrono::{DateTime, Local};
 use funq::MtQueueHandle;
@@ -15,7 +14,7 @@ use crate::storage::history::{History as HistoryDb, HistoryEntry, HistoryUri};
 use crate::ui::overlay::Popup;
 use crate::ui::overlay::tabs::TabsHandler;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::{SvgButton, TextField};
+use crate::ui::{ScrollVelocity, SvgButton, TextField};
 use crate::window::{TextInputChange, WindowId};
 use crate::{Position, Size, State, gl, rect_contains};
 
@@ -91,9 +90,7 @@ pub struct History {
 
     keyboard_focus: Option<KeyboardInputElement>,
     touch_state: TouchState,
-
-    last_velocity_tick: Option<Instant>,
-    scroll_velocity: f64,
+    velocity: ScrollVelocity,
 
     size: Size,
     scale: f64,
@@ -125,13 +122,12 @@ impl History {
             scale: 1.,
             pending_delete_confirmation: Default::default(),
             history_textures: Default::default(),
-            last_velocity_tick: Default::default(),
-            scroll_velocity: Default::default(),
             keyboard_focus: Default::default(),
             delete_prompt: Default::default(),
             scroll_offset: Default::default(),
             last_config: Default::default(),
             touch_state: Default::default(),
+            velocity: Default::default(),
             visible: Default::default(),
             dirty: Default::default(),
             size: Default::default(),
@@ -306,7 +302,7 @@ impl History {
 
         // Cancel velocity after reaching the scroll limit.
         if old_offset != self.scroll_offset {
-            self.scroll_velocity = 0.;
+            self.velocity.set(0.);
             self.dirty = true;
         }
     }
@@ -333,50 +329,13 @@ impl History {
         // Calculate history content outside the viewport.
         entries_height.saturating_sub(available_height)
     }
-
-    /// Apply and update the current scroll velocity.
-    fn apply_scroll_velocity(&mut self) {
-        // No-op without velocity.
-        if self.scroll_velocity == 0. {
-            return;
-        }
-
-        // Initialize velocity on the first tick.
-        //
-        // This avoids applying velocity while the user is still actively scrolling.
-        let last_tick = match self.last_velocity_tick.take() {
-            Some(last_tick) => last_tick,
-            None => {
-                self.last_velocity_tick = Some(Instant::now());
-                return;
-            },
-        };
-
-        // Calculate velocity steps since last tick.
-        let input = &CONFIG.read().unwrap().input;
-        let now = Instant::now();
-        let interval = (now - last_tick).as_micros() as f64 / input.velocity_interval;
-
-        // Apply and update velocity.
-        self.scroll_offset += self.scroll_velocity
-            * (1. - input.velocity_friction.powf(interval + 1.))
-            / (1. - input.velocity_friction);
-        self.scroll_velocity *= input.velocity_friction.powf(interval);
-
-        // Request next tick if velocity is significant.
-        if self.scroll_velocity.abs() > 1. {
-            self.last_velocity_tick = Some(now);
-        } else {
-            self.scroll_velocity = 0.;
-        }
-    }
 }
 
 impl Popup for History {
     fn dirty(&self) -> bool {
         self.dirty
             || self.filter.input.dirty
-            || self.scroll_velocity != 0.
+            || self.velocity.is_moving()
             || CONFIG.read().unwrap().generation != self.last_config
     }
 
@@ -390,7 +349,7 @@ impl Popup for History {
         }
 
         // Animate scroll velocity.
-        self.apply_scroll_velocity();
+        self.velocity.apply(&mut self.scroll_offset);
 
         // Ensure offset is correct in case entries or window size changed.
         self.clamp_scroll_offset();
@@ -598,12 +557,12 @@ impl Popup for History {
                 self.touch_state.action = TouchAction::EntryDrag;
 
                 // Calculate current scroll velocity.
-                self.scroll_velocity = self.touch_state.position.y - old_position.y;
-                self.last_velocity_tick = None;
+                let delta = self.touch_state.position.y - old_position.y;
+                self.velocity.set(delta);
 
                 // Immediately start moving the history list.
                 let old_offset = self.scroll_offset;
-                self.scroll_offset += self.scroll_velocity;
+                self.scroll_offset += delta;
                 self.clamp_scroll_offset();
                 self.dirty |= self.scroll_offset != old_offset;
             },

@@ -15,7 +15,7 @@ use crate::config::CONFIG;
 use crate::engine::{Engine, EngineId, Favicon, Group, GroupId, NO_GROUP, NO_GROUP_ID};
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
-use crate::ui::{SvgButton, TextField};
+use crate::ui::{ScrollVelocity, SvgButton, TextField};
 use crate::window::TextInputChange;
 use crate::{Position, Size, State, WindowId, gl, rect_contains};
 
@@ -215,9 +215,7 @@ pub struct Tabs {
 
     keyboard_focus: Option<KeyboardInputElement>,
     touch_state: TouchState,
-
-    last_velocity_tick: Option<Instant>,
-    scroll_velocity: f64,
+    velocity: ScrollVelocity,
 
     group_label: GroupLabel,
     allow_cycling: bool,
@@ -241,9 +239,7 @@ impl Tabs {
             menu_button: SvgButton::new(Svg::Menu),
             scale: 1.0,
             last_reordering_scroll: Default::default(),
-            last_velocity_tick: Default::default(),
             new_group_button: Default::default(),
-            scroll_velocity: Default::default(),
             keyboard_focus: Default::default(),
             new_tab_button: Default::default(),
             texture_cache: Default::default(),
@@ -251,6 +247,7 @@ impl Tabs {
             allow_cycling: Default::default(),
             last_config: Default::default(),
             touch_state: Default::default(),
+            velocity: Default::default(),
             visible: Default::default(),
             group: Default::default(),
             dirty: Default::default(),
@@ -535,7 +532,7 @@ impl Tabs {
 
         // Cancel velocity after reaching the scroll limit.
         if old_offset != self.scroll_offset {
-            self.scroll_velocity = 0.;
+            self.velocity.set(0.);
             self.dirty = true;
         }
     }
@@ -628,50 +625,13 @@ impl Tabs {
             self.queue.move_tab(engine_id, new_index as usize);
         }
     }
-
-    /// Apply and update the current scroll velocity.
-    fn apply_scroll_velocity(&mut self) {
-        // No-op without velocity.
-        if self.scroll_velocity == 0. {
-            return;
-        }
-
-        // Initialize velocity on the first tick.
-        //
-        // This avoids applying velocity while the user is still actively scrolling.
-        let last_tick = match self.last_velocity_tick.take() {
-            Some(last_tick) => last_tick,
-            None => {
-                self.last_velocity_tick = Some(Instant::now());
-                return;
-            },
-        };
-
-        // Calculate velocity steps since last tick.
-        let input = &CONFIG.read().unwrap().input;
-        let now = Instant::now();
-        let interval = (now - last_tick).as_micros() as f64 / input.velocity_interval;
-
-        // Apply and update velocity.
-        self.scroll_offset += self.scroll_velocity
-            * (1. - input.velocity_friction.powf(interval + 1.))
-            / (1. - input.velocity_friction);
-        self.scroll_velocity *= input.velocity_friction.powf(interval);
-
-        // Request next tick if velocity is significant.
-        if self.scroll_velocity.abs() > 1. {
-            self.last_velocity_tick = Some(now);
-        } else {
-            self.scroll_velocity = 0.;
-        }
-    }
 }
 
 impl Popup for Tabs {
     fn dirty(&self) -> bool {
         self.dirty
             || self.group_label.dirty()
-            || self.scroll_velocity != 0.
+            || self.velocity.is_moving()
             || CONFIG.read().unwrap().generation != self.last_config
     }
 
@@ -685,7 +645,7 @@ impl Popup for Tabs {
         }
 
         // Animate scroll velocity.
-        self.apply_scroll_velocity();
+        self.velocity.apply(&mut self.scroll_offset);
 
         // Ensure offset is correct in case tabs were closed or window size changed.
         self.clamp_scroll_offset();
@@ -1009,12 +969,12 @@ impl Popup for Tabs {
                 self.touch_state.clear_long_press_timeout();
 
                 // Calculate current scroll velocity.
-                self.scroll_velocity = self.touch_state.position.y - old_position.y;
-                self.last_velocity_tick = None;
+                let delta = self.touch_state.position.y - old_position.y;
+                self.velocity.set(delta);
 
                 // Immediately start moving the tabs list.
                 let old_offset = self.scroll_offset;
-                self.scroll_offset += self.scroll_velocity;
+                self.scroll_offset += delta;
                 self.clamp_scroll_offset();
                 self.dirty |= self.scroll_offset != old_offset;
             },

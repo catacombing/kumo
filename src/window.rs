@@ -1142,6 +1142,8 @@ impl Window {
     pub fn add_download(&mut self, download: Download) {
         self.overlay.add_download(download);
 
+        self.overlay.update_download_count();
+
         if self.overlay.dirty() {
             self.unstall();
         }
@@ -1192,6 +1194,7 @@ impl Window {
 
         if visible {
             self.set_keyboard_focus(KeyboardFocus::None);
+            self.overlay.update_download_count();
         }
 
         self.unstall();

@@ -95,6 +95,8 @@ pub struct Menu {
     queue: MtQueueHandle<State>,
     window_id: WindowId,
 
+    download_count: usize,
+
     last_config: u32,
     visible: bool,
     dirty: bool,
@@ -107,6 +109,7 @@ impl Menu {
             queue,
             close_button: SvgButton::new(Svg::Close),
             scale: 1.,
+            download_count: Default::default(),
             texture_cache: Default::default(),
             scroll_offset: Default::default(),
             last_config: Default::default(),
@@ -127,6 +130,12 @@ impl Menu {
     pub fn set_visible(&mut self, visible: bool) {
         self.dirty |= self.visible != visible;
         self.visible = visible;
+    }
+
+    /// Update the number of tracked downloads.
+    pub fn set_download_count(&mut self, download_count: usize) {
+        self.dirty |= self.download_count != download_count;
+        self.download_count = download_count;
     }
 
     /// Get default physical UI button size.
@@ -301,7 +310,13 @@ impl Popup for Menu {
             if texture_pos.y <= -(entry_size.height as f32) {
                 break;
             } else if texture_pos.y < close_button_position.y {
-                let texture = self.texture_cache.texture(&config, item, entry_size, self.scale);
+                let texture = self.texture_cache.texture(
+                    &config,
+                    item,
+                    entry_size,
+                    self.scale,
+                    self.download_count,
+                );
                 renderer.draw_texture_at(texture, texture_pos, None);
             }
 
@@ -438,6 +453,7 @@ impl Popup for Menu {
 #[derive(Default)]
 struct TextureCache {
     textures: HashMap<MenuItem, Texture>,
+    download_count: usize,
     entry_size: Size,
     scale: f64,
 }
@@ -457,6 +473,7 @@ impl TextureCache {
         item: MenuItem,
         entry_size: Size,
         scale: f64,
+        download_count: usize,
     ) -> &Texture {
         // Clear cache if redraw is required.
         if entry_size != self.entry_size || scale != self.scale {
@@ -465,6 +482,12 @@ impl TextureCache {
             }
             self.entry_size = entry_size;
             self.scale = scale;
+        }
+
+        // Clear downloads texture on count change.
+        if self.download_count != download_count {
+            self.textures.remove(&MenuItem::Downloads);
+            self.download_count = download_count;
         }
 
         // Create and cache texture if necessary.
@@ -487,7 +510,13 @@ impl TextureCache {
 
             // Render menu item label.
             let layout = TextLayout::new(config.font.size(1.25), scale);
-            layout.set_text(item.label());
+            match item {
+                MenuItem::Downloads => {
+                    let label = format!("{} ({})", item.label(), download_count);
+                    layout.set_text(&label);
+                },
+                _ => layout.set_text(item.label()),
+            }
             builder.rasterize(&layout, &text_options);
 
             builder.build()

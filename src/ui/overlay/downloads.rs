@@ -125,6 +125,11 @@ impl Downloads {
         }
     }
 
+    /// Get number of tracked downloads.
+    pub fn download_count(&mut self) -> usize {
+        self.texture_cache.entries.len()
+    }
+
     /// Check whether the popup is active.
     pub fn visible(&self) -> bool {
         self.visible

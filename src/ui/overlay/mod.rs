@@ -412,6 +412,12 @@ impl Overlay {
         self.popups.downloads.set_download_progress(download_id, progress);
     }
 
+    /// Update menu UI's download count.
+    pub fn update_download_count(&mut self) {
+        let count = self.popups.downloads.download_count();
+        self.popups.menu.set_download_count(count);
+    }
+
     /// Change the history UI visibility.
     pub fn set_history_visible(&mut self, visible: bool) {
         self.dirty |= visible != self.popups.history.visible();

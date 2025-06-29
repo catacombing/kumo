@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io::Read;
+use std::num::{ParseFloatError, ParseIntError};
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use std::os::fd::{AsFd, AsRawFd};
 use std::ptr::NonNull;
@@ -11,6 +12,7 @@ use std::{env, io, mem, process};
 
 use clap::Parser;
 use cli::{ConfigOptions, Options, Subcommands};
+use configory::Manager as ConfigManager;
 use configory::ipc::Ipc;
 use funq::{MtQueueHandle, Queue, StQueueHandle};
 use glib::{ControlFlow, IOCondition, MainLoop, Priority, Source, source};
@@ -61,6 +63,10 @@ enum Error {
     WaylandConnect(#[from] ConnectError),
     #[error("Wayland protocol error for {0}: {1}")]
     WaylandProtocol(&'static str, #[source] BindError),
+    #[error("{0}")]
+    ParseFloatError(#[from] ParseFloatError),
+    #[error("{0}")]
+    ParseIntError(#[from] ParseIntError),
     #[error("{0}")]
     Deserialize(#[from] toml::de::Error),
     #[error("{0}")]
@@ -121,7 +127,6 @@ fn run() -> Result<(), Error> {
 
     // Initialize configuration state.
     let queue = Queue::new()?;
-    let _config_manager = config::init_config(queue.handle())?;
 
     let main_loop = MainLoop::new(None, true);
     let mut state = State::new(queue.local_handle(), main_loop.clone())?;
@@ -318,6 +323,7 @@ pub struct State {
 
     engine_state: Rc<RefCell<WebKitState>>,
 
+    config_manager: ConfigManager,
     storage: Storage,
 
     queue: StQueueHandle<State>,
@@ -325,6 +331,9 @@ pub struct State {
 
 impl State {
     fn new(queue: StQueueHandle<Self>, main_loop: MainLoop) -> Result<Self, Error> {
+        // Initialize configuration management.
+        let config_manager = config::init_config(queue.handle())?;
+
         // Initialize Wayland connection.
         let connection = Connection::connect_to_env()?;
         let (globals, wayland_queue) = globals::registry_queue_init(&connection)?;
@@ -347,6 +356,7 @@ impl State {
 
         Ok(Self {
             protocol_states,
+            config_manager,
             engine_state,
             egl_display,
             connection,

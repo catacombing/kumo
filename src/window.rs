@@ -62,9 +62,6 @@ pub trait WindowHandler {
 
     /// Paste text into the window.
     fn paste(&mut self, target: PasteTarget, text: String);
-
-    /// Unstall rendering for all windows.
-    fn unstall(&mut self);
 }
 
 impl WindowHandler for State {
@@ -120,12 +117,6 @@ impl WindowHandler for State {
             },
             // Ignore paste requests if input focus has changed.
             _ => (),
-        }
-    }
-
-    fn unstall(&mut self) {
-        for window in self.windows.values_mut() {
-            window.unstall();
         }
     }
 }
@@ -1206,6 +1197,20 @@ impl Window {
         self.unstall();
     }
 
+    /// Set visibility of the settings overlay.
+    pub fn set_settings_ui_visible(&mut self, visible: bool) {
+        // Close menu overlay if it is open.
+        self.overlay.set_menu_visible(false);
+
+        self.overlay.set_settings_visible(visible);
+
+        if visible {
+            self.set_keyboard_focus(KeyboardFocus::None);
+        }
+
+        self.unstall();
+    }
+
     /// Create a new dropdown popup.
     pub fn open_option_menu<I>(
         &mut self,
@@ -1543,6 +1548,11 @@ impl Window {
         if let Some(engine) = self.active_tab_mut() {
             engine.search_prev();
         }
+    }
+
+    /// Reload settings UI's values from current config.
+    pub fn reload_settings(&mut self) {
+        self.overlay.reload_settings();
     }
 }
 

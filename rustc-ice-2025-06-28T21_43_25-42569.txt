@@ -1,0 +1,24 @@
+thread 'rustc' panicked at /rustc-dev/b03b3a7ec92682be2917540b679478d41c95a30c/compiler/rustc_query_system/src/dep_graph/serialized.rs:245:13:
+assertion failed: node_header.node().kind != D::DEP_KIND_NULL && node.kind == D::DEP_KIND_NULL
+stack backtrace:
+   0:     0x7fd9ee6e6a55 - std::backtrace::Backtrace::create::h267041eb8d5165d3
+   1:     0x7fd9ee6e69a5 - std::backtrace::Backtrace::force_capture::h55fa901677eb81c0
+   2:     0x7fd9ed7dd752 - std[3ede2c724c6803ef]::panicking::update_hook::<alloc[a028c4a4fb292b09]::boxed::Box<rustc_driver_impl[33c383709b19a787]::install_ice_hook::{closure#1}>>::{closure#0}
+   3:     0x7fd9ee700bab - std::panicking::rust_panic_with_hook::hdf456b43e6535023
+   4:     0x7fd9ee700876 - std::panicking::begin_panic_handler::{{closure}}::he1c1ab0b84006a97
+   5:     0x7fd9ee6fcec9 - std::sys::backtrace::__rust_end_short_backtrace::h2a71da996e10b8a0
+   6:     0x7fd9ee70058d - __rustc[92197b79f0fe8095]::rust_begin_unwind
+   7:     0x7fd9eae96ac0 - core::panicking::panic_fmt::h723bf1d52f6dad29
+   8:     0x7fd9eb1fec0c - core::panicking::panic::h6f6a0a30e4445702
+   9:     0x7fd9f0216f4b - rustc_incremental[a2b1d3ef90985e39]::persist::load::setup_dep_graph
+  10:     0x7fd9f0097652 - rustc_interface[e34b5536b56f482a]::interface::run_compiler::<(), rustc_driver_impl[33c383709b19a787]::run_compiler::{closure#0}>::{closure#1}
+  11:     0x7fd9f004b578 - std[3ede2c724c6803ef]::sys::backtrace::__rust_begin_short_backtrace::<rustc_interface[e34b5536b56f482a]::util::run_in_thread_with_globals<rustc_interface[e34b5536b56f482a]::util::run_in_thread_pool_with_globals<rustc_interface[e34b5536b56f482a]::interface::run_compiler<(), rustc_driver_impl[33c383709b19a787]::run_compiler::{closure#0}>::{closure#1}, ()>::{closure#0}, ()>::{closure#0}::{closure#0}, ()>
+  12:     0x7fd9f004b256 - <<std[3ede2c724c6803ef]::thread::Builder>::spawn_unchecked_<rustc_interface[e34b5536b56f482a]::util::run_in_thread_with_globals<rustc_interface[e34b5536b56f482a]::util::run_in_thread_pool_with_globals<rustc_interface[e34b5536b56f482a]::interface::run_compiler<(), rustc_driver_impl[33c383709b19a787]::run_compiler::{closure#0}>::{closure#1}, ()>::{closure#0}, ()>::{closure#0}::{closure#0}, ()>::{closure#1} as core[d78518ff874eaa0b]::ops::function::FnOnce<()>>::call_once::{shim:vtable#0}
+  13:     0x7fd9f004983d - std::sys::pal::unix::thread::Thread::new::thread_start::hc05bf0eaa2386caa
+  14:     0x7fd9e9aa57eb - <unknown>
+  15:     0x7fd9e9b2918c - <unknown>
+  16:                0x0 - <unknown>
+
+
+rustc version: 1.90.0-nightly (b03b3a7ec 2025-06-26)
+platform: x86_64-unknown-linux-gnu

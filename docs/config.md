@@ -19,6 +19,7 @@ This section documents the `[font]` table.
 |Name|Description|Type|Default|
 |-|-|-|-|
 |family|Font family|text|`"sans"`|
+|monospace_family|Monospace font family|text|`"mono"`|
 |size|Font size|float|`16.0`|
 
 ### colors
@@ -27,11 +28,11 @@ This section documents the `[color]` table.
 
 |Name|Description|Type|Default|
 |-|-|-|-|
-|fg|Primary foreground color|color|`"#ffffff"`|
-|bg|Primary background color|color|`"#181818"`|
-|hl|Primary accent color|color|`"#752a2a"`|
-|secondary_fg|Secondary foreground color|color|`"#bfbfbf"`|
-|secondary_bg|Secondary background color|color|`"#282828"`|
+|foreground|Primary foreground color|color|`"#ffffff"`|
+|background|Primary background color|color|`"#181818"`|
+|highlight|Primary accent color|color|`"#752a2a"`|
+|alt_foreground|Alternative foreground color|color|`"#bfbfbf"`|
+|alt_background|Alternative background color|color|`"#282828"`|
 |error|Error foreground color|color|`"#ac4242"`|
 |disabled|Disabled foreground color|color|`"#666666"`|
 
@@ -52,5 +53,5 @@ This section documents the `[input]` table.
 |max_tap_distance|Square of the maximum distance before touch input is considered a drag|float|`400.0`|
 |max_multi_tap|Maximum interval between taps to be considered a double/trible-tap|integer (milliseconds)|`300`|
 |long_press|Minimum time before a tap is considered a long-press|integer (milliseconds)|`300`|
-|velocity_interval|Microseconds per velocity tick|float|`30000.0`|
+|velocity_interval|Milliseconds per velocity tick|integer|`30`|
 |velocity_friction|Percentage of velocity retained each tick|float|`0.85`|

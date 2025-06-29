@@ -706,7 +706,7 @@ impl Popup for Tabs {
         //
         // NOTE: This clears the entire surface, but works fine since the tabs popup
         // always fills the entire surface.
-        let [r, g, b] = config.colors.bg.as_f32();
+        let [r, g, b] = config.colors.background.as_f32();
         unsafe {
             gl::ClearColor(r, g, b, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -1291,9 +1291,9 @@ impl TextureCache {
         // Configure text rendering options.
         let mut text_options = TextOptions::new();
         if tab.active {
-            text_options.text_color(config.colors.fg.as_f64());
+            text_options.text_color(config.colors.foreground.as_f64());
         } else {
-            text_options.text_color(config.colors.secondary_fg.as_f64());
+            text_options.text_color(config.colors.alt_foreground.as_f64());
         }
 
         // Calculate spacing to the left of tab text.
@@ -1310,10 +1310,10 @@ impl TextureCache {
         // Render background with load progress indication.
         let builder = TextureBuilder::new(tab_size.into());
         let context = builder.context();
-        builder.clear(config.colors.secondary_bg.as_f64());
+        builder.clear(config.colors.alt_background.as_f64());
         if tab.load_progress < 100 {
             let width = tab_size.width as f64 / 100. * tab.load_progress as f64;
-            let hl = config.colors.hl.as_f64();
+            let hl = config.colors.highlight.as_f64();
 
             context.rectangle(0., 0., width, tab_size.height as f64);
             context.set_source_rgba(hl[0], hl[1], hl[2], 0.5);
@@ -1324,7 +1324,7 @@ impl TextureCache {
         builder.rasterize(&layout, &text_options);
 
         // Render close `X`.
-        let fg = config.colors.fg.as_f64();
+        let fg = config.colors.foreground.as_f64();
         let size = Tabs::close_button_size(tab_size, scale);
         context.move_to(close_position.x, close_position.y);
         context.line_to(close_position.x + size.width, close_position.y + size.height);
@@ -1452,10 +1452,10 @@ impl PlusButton {
         let colors = &CONFIG.read().unwrap().colors;
         let builder = TextureBuilder::new(self.size.into());
         let context = builder.context();
-        builder.clear(colors.bg.as_f64());
+        builder.clear(colors.background.as_f64());
 
         // Draw button background.
-        let secondary_bg = colors.secondary_bg.as_f64();
+        let secondary_bg = colors.alt_background.as_f64();
         let x_padding = BUTTON_X_PADDING * self.scale;
         let y_padding = BUTTON_Y_PADDING * self.scale;
         let width = self.size.width as f64 - 2. * x_padding;
@@ -1465,7 +1465,7 @@ impl PlusButton {
         context.fill().unwrap();
 
         // Set general stroke properties.
-        let fg = colors.fg.as_f64();
+        let fg = colors.foreground.as_f64();
         let icon_size = height * 0.5;
         let line_width = self.scale;
         let center_x = self.size.width as f64 / 2.;
@@ -1518,7 +1518,8 @@ impl GroupLabel {
     fn new(window_id: WindowId, mut queue: MtQueueHandle<State>) -> Self {
         let font_size = CONFIG.read().unwrap().font.size(1.25);
         let mut input = TextField::new(window_id, queue.clone(), font_size);
-        input.set_submit_handler(Box::new(move |label| queue.update_group_label(window_id, label)));
+        let _ = input
+            .set_submit_handler(Box::new(move |label| queue.update_group_label(window_id, label)));
 
         Self {
             input,
@@ -1552,7 +1553,7 @@ impl GroupLabel {
     fn draw(&mut self) -> Texture {
         // Clear with background color.
         let config = CONFIG.read().unwrap();
-        let bg = config.colors.bg.as_f64();
+        let bg = config.colors.background.as_f64();
         let builder = TextureBuilder::new(self.size.into());
         builder.clear(bg);
 
@@ -1708,7 +1709,7 @@ impl TouchState {
 
         // Stage new timeout callback.
         let long_press = CONFIG.read().unwrap().input.long_press;
-        let source = source::timeout_source_new(long_press, None, Priority::DEFAULT, move || {
+        let source = source::timeout_source_new(*long_press, None, Priority::DEFAULT, move || {
             callback();
             ControlFlow::Break
         });

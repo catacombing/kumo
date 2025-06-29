@@ -41,6 +41,9 @@ trait MenuHandler {
 
     /// Open downloads UI.
     fn show_downloads_ui(&mut self, window_id: WindowId);
+
+    /// Open settings UI.
+    fn show_settings_ui(&mut self, window_id: WindowId);
 }
 
 impl MenuHandler for State {
@@ -66,6 +69,14 @@ impl MenuHandler for State {
             None => return,
         };
         window.set_downloads_ui_visible(true);
+    }
+
+    fn show_settings_ui(&mut self, window_id: WindowId) {
+        let window = match self.windows.get_mut(&window_id) {
+            Some(window) => window,
+            None => return,
+        };
+        window.set_settings_ui_visible(true);
     }
 }
 
@@ -269,7 +280,7 @@ impl Popup for Menu {
         //
         // NOTE: This clears the entire surface, but works fine since the popup always
         // fills the entire surface.
-        let [r, g, b] = config.colors.bg.as_f32();
+        let [r, g, b] = config.colors.background.as_f32();
         unsafe {
             gl::ClearColor(r, g, b, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -413,6 +424,7 @@ impl Popup for Menu {
         match self.touch_state.action {
             TouchAction::EntryTap => match self.entry_at(self.touch_state.start) {
                 Some(MenuItem::Downloads) => self.queue.show_downloads_ui(self.window_id),
+                Some(MenuItem::Settings) => self.queue.show_settings_ui(self.window_id),
                 Some(MenuItem::History) => self.queue.show_history_ui(self.window_id),
                 None => (),
             },
@@ -459,7 +471,7 @@ impl TextureCache {
         self.textures.entry(item).or_insert_with(|| {
             // Create cleared canvas.
             let builder = TextureBuilder::new(entry_size.into());
-            builder.clear(config.colors.secondary_bg.as_f64());
+            builder.clear(config.colors.alt_background.as_f64());
 
             // Draw menu item icon.
             let icon_size = (ICON_SIZE * scale).round();
@@ -487,19 +499,21 @@ impl TextureCache {
 #[derive(Copy, Clone, Hash, PartialEq, Eq)]
 enum MenuItem {
     Downloads,
+    Settings,
     History,
 }
 
 impl MenuItem {
     /// Get all available menu items.
-    const fn items() -> [Self; 2] {
-        [Self::Downloads, Self::History]
+    const fn items() -> [Self; 3] {
+        [Self::Downloads, Self::Settings, Self::History]
     }
 
     /// Get the menu item's entry text.
     const fn label(&self) -> &'static str {
         match self {
             Self::Downloads => "Downloads",
+            Self::Settings => "Settings",
             Self::History => "History",
         }
     }
@@ -508,6 +522,7 @@ impl MenuItem {
     const fn svg(&self) -> Svg {
         match self {
             Self::Downloads => Svg::Download,
+            Self::Settings => Svg::Settings,
             Self::History => Svg::History,
         }
     }

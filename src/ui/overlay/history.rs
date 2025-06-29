@@ -394,7 +394,7 @@ impl Popup for History {
         //
         // NOTE: This clears the entire surface, but works fine since the history popup
         // always fills the entire surface.
-        let [r, g, b] = config.colors.bg.as_f32();
+        let [r, g, b] = config.colors.background.as_f32();
         unsafe {
             gl::ClearColor(r, g, b, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -821,7 +821,7 @@ impl HistoryTextures {
 
             // Render text to the texture.
             let builder = TextureBuilder::new(entry_size.into());
-            builder.clear(config.colors.secondary_bg.as_f64());
+            builder.clear(config.colors.alt_background.as_f64());
             builder.rasterize(&layout, &text_options);
 
             // Also render URI if main label was title.
@@ -833,7 +833,7 @@ impl HistoryTextures {
                 text_options.size(subtitle_size);
 
                 // Render URI to texture.
-                text_options.text_color(config.colors.secondary_fg.as_f64());
+                text_options.text_color(config.colors.alt_foreground.as_f64());
                 builder.rasterize(&subtitle_layout, &text_options);
             }
 
@@ -842,11 +842,11 @@ impl HistoryTextures {
             let timestamp_y = entry_size.height as f64 - y_padding - timestamp_height as f64;
             text_options.position(Position::new(close_position.y, timestamp_y));
             text_options.size(timestamp_size);
-            text_options.text_color(config.colors.secondary_fg.as_f64());
+            text_options.text_color(config.colors.alt_foreground.as_f64());
             builder.rasterize(&timestamp_layout, &text_options);
 
             // Render close `X`.
-            let fg = config.colors.fg.as_f64();
+            let fg = config.colors.foreground.as_f64();
             let size = History::close_entry_button_size(entry_size, scale);
             let context = builder.context();
             context.move_to(close_position.x, close_position.y);
@@ -907,7 +907,7 @@ impl ConfirmationPrompt {
         // Clear with background color.
         let config = CONFIG.read().unwrap();
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(config.colors.bg.as_f64());
+        builder.clear(config.colors.background.as_f64());
 
         // Render confirmation prompt text.
         let layout = TextLayout::new(config.font.size(1.13), self.scale);
@@ -942,7 +942,7 @@ impl HistoryFilter {
     fn new(window_id: WindowId, mut queue: MtQueueHandle<State>) -> Self {
         let font_size = CONFIG.read().unwrap().font.size(1.13);
         let mut input = TextField::new(window_id, queue.clone(), font_size);
-        input.set_text_change_handler(Box::new(move |label| {
+        let _ = input.set_text_change_handler(Box::new(move |label| {
             queue.set_history_filter(window_id, label.text())
         }));
         Self { input, scale: 1., texture: Default::default(), size: Default::default() }
@@ -990,7 +990,7 @@ impl HistoryFilter {
         }
 
         // Rasterize the text field.
-        let secondary_bg = CONFIG.read().unwrap().colors.secondary_bg.as_f64();
+        let secondary_bg = CONFIG.read().unwrap().colors.alt_background.as_f64();
         let layout = self.input.layout();
         layout.set_scale(self.scale);
         let builder = TextureBuilder::new(self.size.into());

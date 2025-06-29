@@ -421,12 +421,12 @@ impl Popup for OptionMenu {
         // Draw menu border.
         let border = match &mut self.border {
             // Redraw border if HL color changed.
-            Some(border) if old_colors.hl != self.colors.hl => {
+            Some(border) if old_colors.highlight != self.colors.highlight => {
                 border.delete();
-                self.border.insert(Texture::new(&self.colors.hl.as_u8(), 1, 1))
+                self.border.insert(Texture::new(&self.colors.highlight.as_u8(), 1, 1))
             },
             Some(border) => border,
-            None => self.border.insert(Texture::new(&self.colors.hl.as_u8(), 1, 1)),
+            None => self.border.insert(Texture::new(&self.colors.highlight.as_u8(), 1, 1)),
         };
         renderer.draw_texture_at(border, position, Some(size.into()));
 
@@ -662,11 +662,11 @@ impl OptionMenuRenderItem {
     fn draw(&self, colors: &Colors, selected: bool) -> Texture {
         // Determine item colors.
         let (fg, description_fg, bg) = if self.disabled {
-            (colors.disabled.as_f64(), colors.disabled.as_f64(), colors.bg.as_f64())
+            (colors.disabled.as_f64(), colors.disabled.as_f64(), colors.background.as_f64())
         } else if selected {
-            (colors.bg.as_f64(), colors.bg.as_f64(), colors.hl.as_f64())
+            (colors.background.as_f64(), colors.background.as_f64(), colors.highlight.as_f64())
         } else {
-            (colors.fg.as_f64(), colors.secondary_fg.as_f64(), colors.bg.as_f64())
+            (colors.foreground.as_f64(), colors.alt_foreground.as_f64(), colors.background.as_f64())
         };
 
         // Calculate physical item size.

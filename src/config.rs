@@ -1,6 +1,7 @@
 //! Configuration options.
 
-use std::fmt::{self, Formatter};
+use std::fmt::{self, Display, Formatter};
+use std::ops::Deref;
 use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Duration;
 
@@ -11,8 +12,25 @@ use serde::de::Visitor;
 use serde::{Deserialize, Deserializer};
 use tracing::{error, info};
 
-use crate::window::WindowHandler;
 use crate::{Error, State};
+
+#[funq::callbacks(State)]
+trait ConfigHandler {
+    /// Config reload handler.
+    fn config_reloaded(&mut self);
+}
+
+impl ConfigHandler for State {
+    fn config_reloaded(&mut self) {
+        for window in self.windows.values_mut() {
+            // Update settings UI.
+            window.reload_settings();
+
+            // Trigger redraw if rendering is stalled.
+            window.unstall();
+        }
+    }
+}
 
 /// Shared configuration state.
 pub static CONFIG: LazyLock<Arc<RwLock<Config>>> =
@@ -71,13 +89,15 @@ pub struct Config {
 pub struct Font {
     /// Font family.
     pub family: String,
+    /// Monospace font family.
+    pub monospace_family: String,
     /// Font size.
-    size: f64,
+    pub size: f64,
 }
 
 impl Default for Font {
     fn default() -> Self {
-        Self { family: String::from("sans"), size: 16. }
+        Self { monospace_family: String::from("mono"), family: String::from("sans"), size: 16. }
     }
 }
 
@@ -93,16 +113,21 @@ impl Font {
 #[serde(default, deny_unknown_fields)]
 pub struct Colors {
     /// Primary foreground color.
-    pub fg: Color,
+    #[serde(alias = "fg")]
+    pub foreground: Color,
     /// Primary background color.
-    pub bg: Color,
+    #[serde(alias = "bg")]
+    pub background: Color,
     /// Primary accent color.
-    pub hl: Color,
+    #[serde(alias = "hl")]
+    pub highlight: Color,
 
-    /// Secondary foreground color.
-    pub secondary_fg: Color,
-    /// Secondary background color.
-    pub secondary_bg: Color,
+    /// Alternative foreground color.
+    #[serde(alias = "alt_fg")]
+    pub alt_foreground: Color,
+    /// Alternative background color.
+    #[serde(alias = "alt_bg")]
+    pub alt_background: Color,
 
     /// Error foreground color.
     pub error: Color,
@@ -113,12 +138,12 @@ pub struct Colors {
 impl Default for Colors {
     fn default() -> Self {
         Self {
-            fg: Color::new(255, 255, 255),
-            bg: Color::new(24, 24, 24),
-            hl: Color::new(117, 42, 42),
+            foreground: Color::new(255, 255, 255),
+            background: Color::new(24, 24, 24),
+            highlight: Color::new(117, 42, 42),
 
-            secondary_fg: Color::new(191, 191, 191),
-            secondary_bg: Color::new(40, 40, 40),
+            alt_foreground: Color::new(191, 191, 191),
+            alt_background: Color::new(40, 40, 40),
 
             error: Color::new(172, 66, 66),
             disabled: Color::new(102, 102, 102),
@@ -148,16 +173,14 @@ pub struct Input {
     /// Square of the maximum distance before touch input is considered a drag.
     pub max_tap_distance: f64,
     /// Maximum interval between taps to be considered a double/trible-tap.
-    #[serde(deserialize_with = "duration_ms")]
     #[docgen(doc_type = "integer (milliseconds)", default = "300")]
-    pub max_multi_tap: Duration,
+    pub max_multi_tap: MillisDuration,
     /// Minimum time before a tap is considered a long-press.
-    #[serde(deserialize_with = "duration_ms")]
     #[docgen(doc_type = "integer (milliseconds)", default = "300")]
-    pub long_press: Duration,
+    pub long_press: MillisDuration,
 
-    /// Microseconds per velocity tick.
-    pub velocity_interval: f64,
+    /// Milliseconds per velocity tick.
+    pub velocity_interval: u16,
     /// Percentage of velocity retained each tick.
     pub velocity_friction: f64,
 }
@@ -165,9 +188,9 @@ pub struct Input {
 impl Default for Input {
     fn default() -> Self {
         Self {
-            max_multi_tap: Duration::from_millis(300),
-            long_press: Duration::from_millis(300),
-            velocity_interval: 30_000.,
+            max_multi_tap: Duration::from_millis(300).into(),
+            long_press: Duration::from_millis(300).into(),
+            velocity_interval: 30,
             velocity_friction: 0.85,
             max_tap_distance: 400.,
         }
@@ -271,13 +294,44 @@ impl<'de> Deserialize<'de> for Color {
     }
 }
 
-/// Deserialize rgb color from a hex string.
-fn duration_ms<'de, D>(deserializer: D) -> Result<Duration, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let ms = u64::deserialize(deserializer)?;
-    Ok(Duration::from_millis(ms))
+impl Display for Color {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "#{:0>2x}{:0>2x}{:0>2x}", self.r, self.g, self.b)
+    }
+}
+
+/// Config wrapper for millisecond-precision durations.
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
+pub struct MillisDuration(Duration);
+
+impl Deref for MillisDuration {
+    type Target = Duration;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for MillisDuration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let ms = u64::deserialize(deserializer)?;
+        Ok(Duration::from_millis(ms).into())
+    }
+}
+
+impl From<Duration> for MillisDuration {
+    fn from(duration: Duration) -> Self {
+        Self(duration)
+    }
+}
+
+impl Display for MillisDuration {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.0.as_millis())
+    }
 }
 
 /// Event handler for configuration manager updates.
@@ -292,26 +346,8 @@ impl ConfigEventHandler {
 
     /// Reload config and unstall renderer.
     fn reload_config(&self, config: &configory::Config) {
-        info!("Reloading configuration file");
-
-        // Parse config or fall back to the default.
-        let parsed = config
-            .get::<&str, Config>(&[])
-            .inspect_err(|err| error!("Config error: {err}"))
-            .ok()
-            .flatten()
-            .unwrap_or_default();
-
-        // Calculate generation based on current config.
-        let mut config = CONFIG.write().unwrap();
-        let next_generation = config.generation + 1;
-
-        // Update the config.
-        *config = parsed;
-        config.generation = next_generation;
-
-        // Request redraw.
-        self.queue.clone().unstall();
+        reload_config(config);
+        self.queue.clone().config_reloaded();
     }
 }
 
@@ -327,6 +363,27 @@ impl EventHandler<()> for ConfigEventHandler {
     fn file_error(&self, _config: &configory::Config, err: configory::Error) {
         error!("Configuration file error: {err}");
     }
+}
+
+/// Update the configuration file.
+pub fn reload_config(config: &configory::Config) {
+    info!("Reloading configuration file");
+
+    // Parse config or fall back to the default.
+    let parsed = config
+        .get::<&str, Config>(&[])
+        .inspect_err(|err| error!("Config error: {err}"))
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+
+    // Calculate generation based on current config.
+    let mut config = CONFIG.write().unwrap();
+    let next_generation = config.generation + 1;
+
+    // Update the config.
+    *config = parsed;
+    config.generation = next_generation;
 }
 
 #[cfg(test)]

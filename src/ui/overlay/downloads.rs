@@ -322,7 +322,7 @@ impl Popup for Downloads {
         //
         // NOTE: This clears the entire surface, but works fine since the downloads
         // popup always fills the entire surface.
-        let [r, g, b] = config.colors.bg.as_f32();
+        let [r, g, b] = config.colors.background.as_f32();
         unsafe {
             gl::ClearColor(r, g, b, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -593,12 +593,12 @@ impl TextureCache {
 
             // Create texture with uniform background.
             let builder = TextureBuilder::new(entry_size.into());
-            builder.clear(config.colors.secondary_bg.as_f64());
+            builder.clear(config.colors.alt_background.as_f64());
 
             // Render load progress indication.
             if download.progress < 100 {
                 let width = entry_size.width as f64 / 100. * download.progress.max(5) as f64;
-                let hl = config.colors.hl.as_f64();
+                let hl = config.colors.highlight.as_f64();
 
                 let context = builder.context();
                 context.rectangle(0., 0., width, entry_size.height as f64);
@@ -617,7 +617,7 @@ impl TextureCache {
             let path_y = y_padding + filename_height as f64;
             text_options.position(Position::new(close_position.y, path_y));
             text_options.size(path_size);
-            text_options.text_color(config.colors.secondary_fg.as_f64());
+            text_options.text_color(config.colors.alt_foreground.as_f64());
             builder.rasterize(&path_layout, &text_options);
 
             // Render uri text to the texture.
@@ -625,11 +625,11 @@ impl TextureCache {
             let uri_y = path_y + path_height as f64;
             text_options.position(Position::new(close_position.y, uri_y));
             text_options.size(uri_size);
-            text_options.text_color(config.colors.secondary_fg.as_f64());
+            text_options.text_color(config.colors.alt_foreground.as_f64());
             builder.rasterize(&uri_layout, &text_options);
 
             // Render close `X`.
-            let fg = config.colors.fg.as_f64();
+            let fg = config.colors.foreground.as_f64();
             let size = Downloads::close_entry_button_size(entry_size, scale);
             let context = builder.context();
             context.move_to(close_position.x, close_position.y);

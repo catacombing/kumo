@@ -47,7 +47,7 @@ xkbcommon-sys = "1.4.1"
 bitflags = "2.5.0"
 chrono = "0.4.39"
 clap = { version = "4.5.39", features = ["derive"] }
-configory = { version = "0.4.2", features = ["log", "docgen"] }
+configory = { version = "0.5.0", features = ["log", "docgen"] }
 dashmap = "6.0.1"
 dirs = "5.0.1"
 drm = "0.14.0"

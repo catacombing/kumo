@@ -85,7 +85,7 @@ impl EngineBackdrop {
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn draw(&mut self) -> bool {
         // Abort early if backdrop is up to date.
-        let bg = CONFIG.read().unwrap().colors.bg;
+        let bg = CONFIG.read().unwrap().colors.background;
         if !self.dirty && self.color == Some(bg) {
             return false;
         }

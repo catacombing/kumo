@@ -374,7 +374,7 @@ impl WebKitState {
             WebView::builder().network_session(network_session).display(&webkit_display).build();
 
         // Set browser background color.
-        let bg = CONFIG.read().unwrap().colors.bg.as_f64();
+        let bg = CONFIG.read().unwrap().colors.background.as_f64();
         let mut color = Color::new(bg[0], bg[1], bg[2], 1.);
         web_view.set_background_color(&mut color);
 
@@ -579,7 +579,7 @@ impl Engine for WebKitEngine {
         self.dirty = false;
 
         // Regularly check for background color config changes.
-        let bg = CONFIG.read().unwrap().colors.bg.as_f64();
+        let bg = CONFIG.read().unwrap().colors.background.as_f64();
         if self.bg != bg {
             let mut color = Color::new(bg[0], bg[1], bg[2], 1.);
             self.web_view.set_background_color(&mut color);

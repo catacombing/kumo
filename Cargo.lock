@@ -404,9 +404,9 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
 name = "configory"
-version = "0.4.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76d31e59a3060a6d62e1439752566314aa6d81e714d659f3af97ba276f090fd7"
+checksum = "24257562d92208dba73763b075ddcea32703c6f8cfc1087a67a215773a245a32"
 dependencies = [
  "configory_derive",
  "dirs 6.0.0",
@@ -414,6 +414,7 @@ dependencies = [
  "notify",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.12",
  "toml",
 ]
@@ -3134,9 +3135,9 @@ checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
 name = "tempfile"
-version = "3.19.1"
+version = "3.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7437ac7763b9b123ccf33c338a5cc1bac6f69b45a136c19bdd8a65e3916435bf"
+checksum = "e8a64e3985349f2441a1a9ef0b853f869006c3855f2cda6862a94d26ebb9d6a1"
 dependencies = [
  "fastrand",
  "getrandom 0.3.2",

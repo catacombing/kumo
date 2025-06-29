@@ -419,14 +419,14 @@ impl TextureBuilder {
 
             let text_attributes = AttrList::new();
 
-            let selection_bg = colors.hl.as_u16();
+            let selection_bg = colors.highlight.as_u16();
             let mut bg_attr =
                 AttrColor::new_background(selection_bg[0], selection_bg[1], selection_bg[2]);
             bg_attr.set_start_index(selection.start as u32);
             bg_attr.set_end_index(selection.end as u32);
             text_attributes.insert(bg_attr);
 
-            let selection_fg = colors.bg.as_u16();
+            let selection_fg = colors.background.as_u16();
             let mut fg_attr =
                 AttrColor::new_foreground(selection_fg[0], selection_fg[1], selection_fg[2]);
             fg_attr.set_start_index(selection.start as u32);
@@ -481,7 +481,7 @@ impl TextureBuilder {
 
                 // Set color for autocomplete text.
                 let attributes = layout.attributes().unwrap_or_default();
-                let [r, g, b] = colors.secondary_fg.as_u16();
+                let [r, g, b] = colors.alt_foreground.as_u16();
                 let mut col_attr = AttrColor::new_foreground(r, g, b);
                 col_attr.set_start_index(autocomplete_start as u32);
                 col_attr.set_end_index(virtual_text.len() as u32);
@@ -561,7 +561,7 @@ impl TextureBuilder {
             Loader::new().read_stream(&stream, None::<&File>, None::<&Cancellable>).unwrap();
 
         // Override SVG colors with configured foreground color.
-        let [r, g, b, _] = CONFIG.read().unwrap().colors.fg.as_u8();
+        let [r, g, b, _] = CONFIG.read().unwrap().colors.foreground.as_u8();
         #[rustfmt::skip]
         let stylesheet = format!("svg > :not(defs), marker > * {{
             stroke: #{r:0>2x}{g:0>2x}{b:0>2x};
@@ -611,7 +611,7 @@ pub struct TextOptions {
 
 impl TextOptions {
     pub fn new() -> Self {
-        let text_color = CONFIG.read().unwrap().colors.fg.as_f64();
+        let text_color = CONFIG.read().unwrap().colors.foreground.as_f64();
         Self {
             text_color,
             ellipsize: true,
@@ -703,14 +703,18 @@ pub struct TextLayout {
 
 impl TextLayout {
     pub fn new(font_size: u8, scale: f64) -> Self {
+        let font_family = &CONFIG.read().unwrap().font.family;
+        Self::with_family(font_family, font_size, scale)
+    }
+
+    pub fn with_family(font_family: &str, font_size: u8, scale: f64) -> Self {
         // Create pango layout.
         let image_surface = ImageSurface::create(Format::ARgb32, 0, 0).unwrap();
         let context = Context::new(&image_surface).unwrap();
         let layout = pangocairo::functions::create_layout(&context);
 
         // Set font description.
-        let family = &CONFIG.read().unwrap().font.family;
-        let font_desc = format!("{family} {font_size}px");
+        let font_desc = format!("{font_family} {font_size}px");
         let mut font = FontDescription::from_string(&font_desc);
         font.set_absolute_size(font.size() as f64 * scale);
         layout.set_font_description(Some(&font));
@@ -767,6 +771,7 @@ pub enum Svg {
     PersistentOn,
     Checkmark,
     Download,
+    Settings,
     History,
     Close,
     Menu,
@@ -782,6 +787,7 @@ impl Svg {
             Self::PersistentOn => include_bytes!("../../svgs/persistent_on.svg"),
             Self::Checkmark => include_bytes!("../../svgs/checkmark.svg"),
             Self::Download => include_bytes!("../../svgs/download.svg"),
+            Self::Settings => include_bytes!("../../svgs/settings.svg"),
             Self::History => include_bytes!("../../svgs/history.svg"),
             Self::Close => include_bytes!("../../svgs/close.svg"),
             Self::Menu => include_bytes!("../../svgs/menu.svg"),

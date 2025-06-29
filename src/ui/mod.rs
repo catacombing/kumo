@@ -379,7 +379,7 @@ impl Ui {
         self.renderer.draw(physical_size, |renderer| {
             unsafe {
                 // Draw background.
-                let [r, g, b] = config.colors.bg.as_f32();
+                let [r, g, b] = config.colors.background.as_f32();
                 gl::ClearColor(r, g, b, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
 
@@ -815,7 +815,8 @@ impl Uribar {
         let font_size = CONFIG.read().unwrap().font.size(1.);
         let mut text_field = TextField::new(window_id, queue.clone(), font_size);
         let mut submit_queue = queue.clone();
-        text_field.set_submit_handler(Box::new(move |uri| submit_queue.load_uri(window_id, uri)));
+        let _ = text_field
+            .set_submit_handler(Box::new(move |uri| submit_queue.load_uri(window_id, uri)));
         text_field.set_purpose(ContentPurpose::Url);
 
         // Setup autocomplete suggestion on text change.
@@ -839,7 +840,7 @@ impl Uribar {
             text_field.set_autocomplete(suggestion);
         });
         let handler = autocomplete_handler.clone();
-        text_field.set_text_change_handler(Box::new(move |text_field| handler(text_field)));
+        let _ = text_field.set_text_change_handler(Box::new(move |text_field| handler(text_field)));
 
         Self {
             autocomplete_handler,
@@ -901,10 +902,10 @@ impl Uribar {
             // Switch text field to search mode.
             let mut queue = self.queue.clone();
             let window_id = self.window_id;
-            self.text_field.set_text_change_handler(Box::new(move |text| {
+            let _ = self.text_field.set_text_change_handler(Box::new(move |text| {
                 queue.update_search_text(window_id, text.text())
             }));
-            self.text_field.set_submit_handler(Box::new(|_| {}));
+            let _ = self.text_field.set_submit_handler(Box::new(|_| {}));
             self.text_field.set_purpose(ContentPurpose::Normal);
             self.text_field.set_autocomplete("");
             self.text_field.set_text("");
@@ -916,8 +917,10 @@ impl Uribar {
             let handler = self.autocomplete_handler.clone();
             let mut queue = self.queue.clone();
             let window_id = self.window_id;
-            self.text_field.set_submit_handler(Box::new(move |uri| queue.load_uri(window_id, uri)));
-            self.text_field.set_text_change_handler(Box::new(move |field| handler(field)));
+            let _ = self
+                .text_field
+                .set_submit_handler(Box::new(move |uri| queue.load_uri(window_id, uri)));
+            let _ = self.text_field.set_text_change_handler(Box::new(move |field| handler(field)));
             self.text_field.set_purpose(ContentPurpose::Url);
             self.text_field.set_text(&self.uri);
         }
@@ -951,9 +954,9 @@ impl Uribar {
         let size = self.size.into();
         let builder = TextureBuilder::new(size);
         let bg = if self.searching && !self.search_has_matches {
-            config.colors.hl.as_f64()
+            config.colors.highlight.as_f64()
         } else {
-            config.colors.secondary_bg.as_f64()
+            config.colors.alt_background.as_f64()
         };
         builder.clear(bg);
 
@@ -965,7 +968,7 @@ impl Uribar {
         text_options.preedit(self.text_field.preedit.clone());
         text_options.position(position);
         text_options.size(size);
-        text_options.text_color(config.colors.fg.as_f64());
+        text_options.text_color(config.colors.foreground.as_f64());
         text_options.set_ellipsize(false);
 
         // Show cursor or selection when focused.
@@ -1050,7 +1053,7 @@ struct Separator {
 impl Separator {
     fn texture(&mut self) -> &Texture {
         // Invalidate texture if highlight color changed.
-        let hl = CONFIG.read().unwrap().colors.hl.as_u8();
+        let hl = CONFIG.read().unwrap().colors.highlight.as_u8();
         if self.color != hl {
             if let Some(texture) = self.texture.take() {
                 texture.delete();
@@ -1119,10 +1122,10 @@ impl TabsButton {
         let padding = (PADDING * self.scale).round();
 
         // Render button outline.
-        let fg = config.colors.fg.as_f64();
+        let fg = config.colors.foreground.as_f64();
         let builder = TextureBuilder::new(self.size.into());
         let context = builder.context();
-        builder.clear(config.colors.bg.as_f64());
+        builder.clear(config.colors.background.as_f64());
         context.set_source_rgb(fg[0], fg[1], fg[2]);
         context.rectangle(
             padding,
@@ -1185,10 +1188,10 @@ impl IconButton {
     fn draw(&mut self) -> Texture {
         let colors = &CONFIG.read().unwrap().colors;
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(colors.bg.as_f64());
+        builder.clear(colors.background.as_f64());
 
         // Set line drawing properties.
-        let fg = colors.fg.as_f64();
+        let fg = colors.foreground.as_f64();
         let context = builder.context();
         context.set_source_rgb(fg[0], fg[1], fg[2]);
         context.set_line_width(self.scale);
@@ -1294,10 +1297,20 @@ pub struct TextField {
 
 impl TextField {
     fn new(window_id: WindowId, queue: MtQueueHandle<State>, font_size: u8) -> Self {
+        let font_family = &CONFIG.read().unwrap().font.family;
+        Self::with_family(window_id, queue, font_family, font_size)
+    }
+
+    fn with_family(
+        window_id: WindowId,
+        queue: MtQueueHandle<State>,
+        family: &str,
+        font_size: u8,
+    ) -> Self {
         Self {
             window_id,
             queue,
-            layout: TextLayout::new(font_size, 1.),
+            layout: TextLayout::with_family(family, font_size, 1.),
             text_change_handler: Box::new(|_| {}),
             submit_handler: Box::new(|_| {}),
             change_cause: ChangeCause::Other,
@@ -1317,13 +1330,16 @@ impl TextField {
     }
 
     /// Update return key handler.
-    fn set_submit_handler(&mut self, handler: Box<dyn FnMut(String)>) {
-        self.submit_handler = handler;
+    fn set_submit_handler(&mut self, handler: Box<dyn FnMut(String)>) -> Box<dyn FnMut(String)> {
+        mem::replace(&mut self.submit_handler, handler)
     }
 
     /// Update text change handler.
-    fn set_text_change_handler(&mut self, handler: Box<dyn FnMut(&mut Self)>) {
-        self.text_change_handler = handler;
+    fn set_text_change_handler(
+        &mut self,
+        handler: Box<dyn FnMut(&mut Self)>,
+    ) -> Box<dyn FnMut(&mut Self)> {
+        mem::replace(&mut self.text_change_handler, handler)
     }
 
     /// Update the field's text.
@@ -1331,7 +1347,6 @@ impl TextField {
     /// This automatically positions the cursor at the end of the text.
     fn set_text(&mut self, text: &str) {
         self.layout.set_text(text);
-        self.emit_text_changed();
 
         // Move cursor to the beginning.
         if text.is_empty() {
@@ -1349,6 +1364,8 @@ impl TextField {
 
         self.text_input_dirty = true;
         self.dirty = true;
+
+        self.emit_text_changed();
     }
 
     /// Set the field width in pixels.
@@ -1486,10 +1503,11 @@ impl TextField {
                         let mut text = self.text();
                         text.drain(start_index..end_index);
                         self.layout.set_text(&text);
-                        self.emit_text_changed();
 
                         // Ensure cursor is still visible.
                         self.update_scroll_offset();
+
+                        self.emit_text_changed();
                     },
                 }
 
@@ -1520,6 +1538,7 @@ impl TextField {
                         // Remove all bytes in the range from the text.
                         text.drain(start_index..end_index);
                         self.layout.set_text(&text);
+
                         self.emit_text_changed();
                     },
                 }
@@ -1535,6 +1554,7 @@ impl TextField {
                     if text.len() as i32 == self.cursor_index + self.cursor_offset {
                         text.push('/');
                         self.set_text(&text);
+
                         self.emit_text_changed();
                     }
 
@@ -1551,6 +1571,7 @@ impl TextField {
                     .unwrap_or(self.autocomplete.len());
                 text.push_str(&self.autocomplete[..complete_index]);
                 self.set_text(&text);
+
                 self.emit_text_changed();
             },
             (Keysym::XF86_Copy, ..) | (Keysym::C, true, true) => {
@@ -1573,13 +1594,14 @@ impl TextField {
                     let mut text = self.text();
                     text.insert(index, key_char);
                     self.layout.set_text(&text);
-                    self.emit_text_changed();
 
                     // Move cursor behind the new character.
                     self.move_cursor(1);
 
                     self.text_input_dirty = true;
                     self.dirty = true;
+
+                    self.emit_text_changed();
                 }
             },
             _ => (),
@@ -1593,10 +1615,9 @@ impl TextField {
     pub fn delete_selected(&mut self, selection: Range<i32>) {
         // Remove selected text from input.
         let range = selection.start as usize..selection.end as usize;
-        let mut text = self.text().to_string();
+        let mut text = self.text();
         text.drain(range);
         self.layout.set_text(&text);
-        self.emit_text_changed();
 
         // Update cursor.
         if selection.start > 0 && selection.start == text.len() as i32 {
@@ -1609,6 +1630,8 @@ impl TextField {
 
         self.text_input_dirty = true;
         self.dirty = true;
+
+        self.emit_text_changed();
     }
 
     /// Handle touch press events.
@@ -1784,7 +1807,6 @@ impl TextField {
         text.drain(index..end);
         text.drain(start..index);
         self.layout.set_text(&text);
-        self.emit_text_changed();
 
         // Update cursor position.
         self.cursor_index = start as i32;
@@ -1798,6 +1820,8 @@ impl TextField {
 
         self.text_input_dirty = true;
         self.dirty = true;
+
+        self.emit_text_changed();
     }
 
     /// Insert text at the current cursor position.
@@ -1838,7 +1862,6 @@ impl TextField {
         let mut input_text = self.text();
         input_text.insert_str(index, text);
         self.layout.set_text(&input_text);
-        self.emit_text_changed();
 
         // Move cursor behind the new characters.
         self.cursor_index += text.len() as i32;
@@ -1848,6 +1871,8 @@ impl TextField {
 
         self.text_input_dirty = true;
         self.dirty = true;
+
+        self.emit_text_changed();
     }
 
     /// Set autocomplete text.
@@ -2105,7 +2130,7 @@ impl TouchState {
 
         // Stage new timeout callback.
         let long_press = CONFIG.read().unwrap().input.long_press;
-        let source = source::timeout_source_new(long_press, None, Priority::DEFAULT, move || {
+        let source = source::timeout_source_new(*long_press, None, Priority::DEFAULT, move || {
             callback();
             ControlFlow::Break
         });
@@ -2123,7 +2148,7 @@ impl TouchState {
 }
 
 /// Intention of a touch sequence.
-#[derive(Default, PartialEq, Eq, Copy, Clone)]
+#[derive(Default, PartialEq, Eq, Copy, Clone, Debug)]
 enum TouchAction {
     #[default]
     Tap,
@@ -2198,10 +2223,10 @@ impl SvgButton {
         // Clear with background color.
         let colors = &CONFIG.read().unwrap().colors;
         let builder = TextureBuilder::new(self.size.into());
-        builder.clear(colors.bg.as_f64());
+        builder.clear(colors.background.as_f64());
 
         // Draw button background.
-        let bg = colors.secondary_bg.as_f64();
+        let bg = colors.alt_background.as_f64();
         let padding = self.padding_size * self.scale;
         let width = self.size.width as f64 - 2. * padding;
         let height = self.size.height as f64 - 2. * padding;
@@ -2283,7 +2308,7 @@ impl ZoomLabel {
     pub fn draw(&self) -> Texture {
         // Clear with background color.
         let config = CONFIG.read().unwrap();
-        let secondary_bg = config.colors.secondary_bg.as_f64();
+        let secondary_bg = config.colors.alt_background.as_f64();
         let builder = TextureBuilder::new(self.size.into());
         builder.clear(secondary_bg);
 
@@ -2353,7 +2378,8 @@ impl ScrollVelocity {
         // Calculate velocity steps since last tick.
         let input = &CONFIG.read().unwrap().input;
         let now = Instant::now();
-        let interval = (now - last_tick).as_micros() as f64 / input.velocity_interval;
+        let interval =
+            ((now - last_tick).as_micros() / (input.velocity_interval as u128 * 1_000)) as f64;
 
         // Apply and update velocity.
         *scroll_offset += self.velocity * (1. - input.velocity_friction.powf(interval + 1.))

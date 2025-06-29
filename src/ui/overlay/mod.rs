@@ -15,6 +15,7 @@ use crate::ui::overlay::menu::Menu;
 use crate::ui::overlay::option_menu::{
     OptionMenu, OptionMenuId, OptionMenuItem, OptionMenuPosition,
 };
+use crate::ui::overlay::settings::Settings;
 use crate::ui::overlay::tabs::Tabs;
 use crate::window::TextInputChange;
 use crate::{Position, Size, State, WindowId, gl, rect_contains};
@@ -23,6 +24,7 @@ pub mod downloads;
 pub mod history;
 pub mod menu;
 pub mod option_menu;
+pub mod settings;
 pub mod tabs;
 
 /// Overlay surface element.
@@ -427,6 +429,12 @@ impl Overlay {
         self.popups.menu.set_visible(visible);
     }
 
+    /// Set visibility of the settings overlay.
+    pub fn set_settings_visible(&mut self, visible: bool) {
+        self.dirty |= visible != self.popups.settings.visible();
+        self.popups.settings.set_visible(visible);
+    }
+
     /// Show an option menu.
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn open_option_menu<I>(
@@ -456,12 +464,18 @@ impl Overlay {
         self.popups.option_menus.retain(|menu| menu.id() != id);
         self.dirty = true;
     }
+
+    /// Reload settings UI's values from current config.
+    pub fn reload_settings(&mut self) {
+        self.popups.settings.reload_settings();
+    }
 }
 
 /// Overlay popup windows.
 struct Popups {
     option_menus: Vec<OptionMenu>,
     downloads: Downloads,
+    settings: Settings,
     history: History,
     menu: Menu,
     tabs: Tabs,
@@ -471,9 +485,10 @@ impl Popups {
     fn new(window_id: WindowId, queue: MtQueueHandle<State>, history_db: HistoryDb) -> Self {
         let history = History::new(window_id, queue.clone(), history_db);
         let downloads = Downloads::new(window_id, queue.clone());
+        let settings = Settings::new(window_id, queue.clone());
         let menu = Menu::new(window_id, queue.clone());
         let tabs = Tabs::new(window_id, queue);
-        Self { downloads, history, tabs, menu, option_menus: Default::default() }
+        Self { downloads, settings, history, tabs, menu, option_menus: Default::default() }
     }
 
     /// Update logical popup size.
@@ -482,6 +497,7 @@ impl Popups {
             menu.set_size(size);
         }
         self.downloads.set_size(size);
+        self.settings.set_size(size);
         self.history.set_size(size);
         self.tabs.set_size(size);
         self.menu.set_size(size);
@@ -493,6 +509,7 @@ impl Popups {
             menu.set_scale(scale);
         }
         self.downloads.set_scale(scale);
+        self.settings.set_scale(scale);
         self.history.set_scale(scale);
         self.tabs.set_scale(scale);
         self.menu.set_scale(scale);
@@ -505,6 +522,8 @@ impl Popups {
             Box::new(option_menus.chain([&self.history as _]))
         } else if self.downloads.visible() {
             Box::new(option_menus.chain([&self.downloads as _]))
+        } else if self.settings.visible() {
+            Box::new(option_menus.chain([&self.settings as _]))
         } else if self.menu.visible() {
             Box::new(option_menus.chain([&self.menu as _]))
         } else if self.tabs.visible() {
@@ -521,6 +540,8 @@ impl Popups {
             Box::new(option_menus.chain([&mut self.history as _]))
         } else if self.downloads.visible() {
             Box::new(option_menus.chain([&mut self.downloads as _]))
+        } else if self.settings.visible() {
+            Box::new(option_menus.chain([&mut self.settings as _]))
         } else if self.menu.visible() {
             Box::new(option_menus.chain([&mut self.menu as _]))
         } else if self.tabs.visible() {

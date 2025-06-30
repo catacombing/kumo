@@ -48,6 +48,17 @@
         </screenshot>
     </screenshots>
     <releases>
+        <release version="1.4.0" date="2025-07-01">
+            <description>
+                <p>Kumo Version 1.4.0</p>
+                <ul>
+                    <li>Fixed odd looking checkmark SVG</li>
+                    <li>Added scroll velocity to UI lists</li>
+                    <li>Added configuration file, IPC, and UI</li>
+                    <li>Added new menu UI for opening downloads, history, and settings</li>
+                </ul>
+            </description>
+        </release>
         <release version="1.3.0" date="2025-05-24">
             <description>
                 <p>Kumo Version 1.3.0</p>

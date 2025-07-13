@@ -30,6 +30,11 @@ impl Toplevel {
     pub fn builder() -> ToplevelBuilder {
         ToplevelBuilder::new()
     }
+
+    #[doc(alias = "wpe_toplevel_list")]
+    pub fn list() -> Vec<Toplevel> {
+        unsafe { FromGlibPtrContainer::from_glib_container(ffi::wpe_toplevel_list()) }
+    }
 }
 
 // rustdoc-stripper-ignore-next
@@ -48,6 +53,10 @@ impl ToplevelBuilder {
 
     pub fn display(self, display: &impl IsA<Display>) -> Self {
         Self { builder: self.builder.property("display", display.clone().upcast()) }
+    }
+
+    pub fn max_views(self, max_views: u32) -> Self {
+        Self { builder: self.builder.property("max-views", max_views) }
     }
 
     // rustdoc-stripper-ignore-next
@@ -75,12 +84,10 @@ pub trait ToplevelExt: IsA<Toplevel> + 'static {
             view: *mut ffi::WPEView,
             user_data: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let toplevel = from_glib_borrow(toplevel);
-                let view = from_glib_borrow(view);
-                let callback = user_data as *mut P;
-                (*callback)(&toplevel, &view).into_glib()
-            }
+            let toplevel = from_glib_borrow(toplevel);
+            let view = from_glib_borrow(view);
+            let callback = user_data as *mut P;
+            (*callback)(&toplevel, &view).into_glib()
         }
         let func = Some(func_func::<P> as _);
         let super_callback0: &mut P = &mut func_data;
@@ -106,6 +113,7 @@ pub trait ToplevelExt: IsA<Toplevel> + 'static {
 
     #[doc(alias = "wpe_toplevel_get_max_views")]
     #[doc(alias = "get_max_views")]
+    #[doc(alias = "max-views")]
     fn max_views(&self) -> u32 {
         unsafe { ffi::wpe_toplevel_get_max_views(self.as_ref().to_glib_none().0) }
     }

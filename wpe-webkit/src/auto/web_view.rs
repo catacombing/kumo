@@ -183,19 +183,15 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             web_view: *mut ffi::WebKitWebView,
             user_data: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let web_view = from_glib_borrow(web_view);
-                let callback = &*(user_data as *mut P);
-                (*callback)(&web_view)
-            }
+            let web_view = from_glib_borrow(web_view);
+            let callback = &*(user_data as *mut P);
+            (*callback)(&web_view)
         }
         let callback = Some(callback_func::<P> as _);
         unsafe extern "C" fn destroy_notify_func<P: Fn(&WebView) + 'static>(
             data: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let _callback = Box_::from_raw(data as *mut P);
-            }
+            let _callback = Box_::from_raw(data as *mut P);
         }
         let destroy_call3 = Some(destroy_notify_func::<P> as _);
         let super_callback0: Box_<P> = callback_data;
@@ -241,23 +237,18 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let mut error = std::ptr::null_mut();
-                let ret = ffi::webkit_web_view_call_async_javascript_function_finish(
-                    _source_object as *mut _,
-                    res,
-                    &mut error,
-                );
-                let result = if error.is_null() {
-                    Ok(from_glib_full(ret))
-                } else {
-                    Err(from_glib_full(error))
-                };
-                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                    Box_::from_raw(user_data as *mut _);
-                let callback: P = callback.into_inner();
-                callback(result);
-            }
+            let mut error = std::ptr::null_mut();
+            let ret = ffi::webkit_web_view_call_async_javascript_function_finish(
+                _source_object as *mut _,
+                res,
+                &mut error,
+            );
+            let result =
+                if error.is_null() { Ok(from_glib_full(ret)) } else { Err(from_glib_full(error)) };
+            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                Box_::from_raw(user_data as *mut _);
+            let callback: P = callback.into_inner();
+            callback(result);
         }
         let callback = call_async_javascript_function_trampoline::<P>;
         unsafe {
@@ -330,19 +321,17 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let mut error = std::ptr::null_mut();
-                ffi::webkit_web_view_can_execute_editing_command_finish(
-                    _source_object as *mut _,
-                    res,
-                    &mut error,
-                );
-                let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
-                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                    Box_::from_raw(user_data as *mut _);
-                let callback: P = callback.into_inner();
-                callback(result);
-            }
+            let mut error = std::ptr::null_mut();
+            ffi::webkit_web_view_can_execute_editing_command_finish(
+                _source_object as *mut _,
+                res,
+                &mut error,
+            );
+            let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
+            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                Box_::from_raw(user_data as *mut _);
+            let callback: P = callback.into_inner();
+            callback(result);
         }
         let callback = can_execute_editing_command_trampoline::<P>;
         unsafe {
@@ -429,23 +418,18 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let mut error = std::ptr::null_mut();
-                let ret = ffi::webkit_web_view_evaluate_javascript_finish(
-                    _source_object as *mut _,
-                    res,
-                    &mut error,
-                );
-                let result = if error.is_null() {
-                    Ok(from_glib_full(ret))
-                } else {
-                    Err(from_glib_full(error))
-                };
-                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                    Box_::from_raw(user_data as *mut _);
-                let callback: P = callback.into_inner();
-                callback(result);
-            }
+            let mut error = std::ptr::null_mut();
+            let ret = ffi::webkit_web_view_evaluate_javascript_finish(
+                _source_object as *mut _,
+                res,
+                &mut error,
+            );
+            let result =
+                if error.is_null() { Ok(from_glib_full(ret)) } else { Err(from_glib_full(error)) };
+            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                Box_::from_raw(user_data as *mut _);
+            let callback: P = callback.into_inner();
+            callback(result);
         }
         let callback = evaluate_javascript_trampoline::<P>;
         unsafe {
@@ -703,6 +687,18 @@ pub trait WebViewExt: IsA<WebView> + 'static {
     #[doc(alias = "get_settings")]
     fn settings(&self) -> Option<Settings> {
         unsafe { from_glib_none(ffi::webkit_web_view_get_settings(self.as_ref().to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_web_view_get_theme_color")]
+    #[doc(alias = "get_theme_color")]
+    #[doc(alias = "theme-color")]
+    fn is_theme_color(&self, color: &mut Color) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_web_view_get_theme_color(
+                self.as_ref().to_glib_none().0,
+                color.to_glib_none_mut().0,
+            ))
+        }
     }
 
     #[doc(alias = "webkit_web_view_get_title")]
@@ -969,20 +965,14 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let mut error = std::ptr::null_mut();
-                let ret =
-                    ffi::webkit_web_view_save_finish(_source_object as *mut _, res, &mut error);
-                let result = if error.is_null() {
-                    Ok(from_glib_full(ret))
-                } else {
-                    Err(from_glib_full(error))
-                };
-                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                    Box_::from_raw(user_data as *mut _);
-                let callback: P = callback.into_inner();
-                callback(result);
-            }
+            let mut error = std::ptr::null_mut();
+            let ret = ffi::webkit_web_view_save_finish(_source_object as *mut _, res, &mut error);
+            let result =
+                if error.is_null() { Ok(from_glib_full(ret)) } else { Err(from_glib_full(error)) };
+            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                Box_::from_raw(user_data as *mut _);
+            let callback: P = callback.into_inner();
+            callback(result);
         }
         let callback = save_trampoline::<P>;
         unsafe {
@@ -1034,15 +1024,13 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let mut error = std::ptr::null_mut();
-                ffi::webkit_web_view_save_to_file_finish(_source_object as *mut _, res, &mut error);
-                let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
-                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                    Box_::from_raw(user_data as *mut _);
-                let callback: P = callback.into_inner();
-                callback(result);
-            }
+            let mut error = std::ptr::null_mut();
+            ffi::webkit_web_view_save_to_file_finish(_source_object as *mut _, res, &mut error);
+            let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
+            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                Box_::from_raw(user_data as *mut _);
+            let callback: P = callback.into_inner();
+            callback(result);
         }
         let callback = save_to_file_trampoline::<P>;
         unsafe {
@@ -1095,23 +1083,18 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let mut error = std::ptr::null_mut();
-                let ret = ffi::webkit_web_view_send_message_to_page_finish(
-                    _source_object as *mut _,
-                    res,
-                    &mut error,
-                );
-                let result = if error.is_null() {
-                    Ok(from_glib_full(ret))
-                } else {
-                    Err(from_glib_full(error))
-                };
-                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                    Box_::from_raw(user_data as *mut _);
-                let callback: P = callback.into_inner();
-                callback(result);
-            }
+            let mut error = std::ptr::null_mut();
+            let ret = ffi::webkit_web_view_send_message_to_page_finish(
+                _source_object as *mut _,
+                res,
+                &mut error,
+            );
+            let result =
+                if error.is_null() { Ok(from_glib_full(ret)) } else { Err(from_glib_full(error)) };
+            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                Box_::from_raw(user_data as *mut _);
+            let callback: P = callback.into_inner();
+            callback(result);
         }
         let callback = send_message_to_page_trampoline::<P>;
         unsafe {
@@ -1292,11 +1275,9 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             request: *mut ffi::WebKitAuthenticationRequest,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
-                    .into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
+                .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1317,10 +1298,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             this: *mut ffi::WebKitWebView,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1349,15 +1328,13 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             p0: *mut ffi::WebKitHitTestResult,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(
-                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                    &from_glib_borrow(object),
-                    &from_glib_borrow(p0),
-                )
-                .into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(
+                WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                &from_glib_borrow(object),
+                &from_glib_borrow(p0),
+            )
+            .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1382,10 +1359,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             this: *mut ffi::WebKitWebView,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1413,14 +1388,12 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             navigation_action: *mut ffi::WebKitNavigationAction,
             f: glib::ffi::gpointer,
         ) -> *mut ffi::WebKitWebView {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(
-                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                    &from_glib_borrow(navigation_action),
-                )
-                .to_glib_full()
-            }
+            let f: &F = &*(f as *const F);
+            f(
+                WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                &from_glib_borrow(navigation_action),
+            )
+            .to_glib_full()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1451,15 +1424,13 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             decision_type: ffi::WebKitPolicyDecisionType,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(
-                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                    &from_glib_borrow(decision),
-                    from_glib(decision_type),
-                )
-                .into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(
+                WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                &from_glib_borrow(decision),
+                from_glib(decision_type),
+            )
+            .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1483,10 +1454,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             this: *mut ffi::WebKitWebView,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1510,10 +1479,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             this: *mut ffi::WebKitWebView,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1538,10 +1505,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             load_event: ffi::WebKitLoadEvent,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), from_glib(load_event))
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), from_glib(load_event))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1571,16 +1536,14 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             error: *mut glib::ffi::GError,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(
-                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                    from_glib(load_event),
-                    &glib::GString::from_glib_borrow(failing_uri),
-                    &from_glib_borrow(error),
-                )
-                .into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(
+                WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                from_glib(load_event),
+                &glib::GString::from_glib_borrow(failing_uri),
+                &from_glib_borrow(error),
+            )
+            .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1612,16 +1575,14 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             errors: gio::ffi::GTlsCertificateFlags,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(
-                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                    &glib::GString::from_glib_borrow(failing_uri),
-                    &from_glib_borrow(certificate),
-                    from_glib(errors),
-                )
-                .into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(
+                WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                &glib::GString::from_glib_borrow(failing_uri),
+                &from_glib_borrow(certificate),
+                from_glib(errors),
+            )
+            .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1650,14 +1611,12 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             modifiers: std::ffi::c_uint,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(
-                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                    &from_glib_borrow(hit_test_result),
-                    modifiers,
-                )
-            }
+            let f: &F = &*(f as *const F);
+            f(
+                WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                &from_glib_borrow(hit_test_result),
+                modifiers,
+            )
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1685,11 +1644,9 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             request: *mut ffi::WebKitPermissionRequest,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
-                    .into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
+                .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1717,11 +1674,9 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             query: *mut ffi::WebKitPermissionStateQuery,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(query))
-                    .into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(query))
+                .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1742,10 +1697,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             this: *mut ffi::WebKitWebView,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1774,14 +1727,12 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             request: *mut ffi::WebKitURIRequest,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(
-                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                    &from_glib_borrow(resource),
-                    &from_glib_borrow(request),
-                )
-            }
+            let f: &F = &*(f as *const F);
+            f(
+                WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                &from_glib_borrow(resource),
+                &from_glib_borrow(request),
+            )
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1802,10 +1753,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             this: *mut ffi::WebKitWebView,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1833,11 +1782,9 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             request: *mut ffi::WebKitFileChooserRequest,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
-                    .into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
+                .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1865,11 +1812,9 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             dialog: *mut ffi::WebKitScriptDialog,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(dialog))
-                    .into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(dialog))
+                .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1897,14 +1842,9 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             notification: *mut ffi::WebKitNotification,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(
-                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                    &from_glib_borrow(notification),
-                )
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(notification))
                 .into_glib()
-            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1933,15 +1873,13 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             p0: *mut ffi::WebKitRectangle,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(
-                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                    &from_glib_borrow(object),
-                    &from_glib_borrow(p0),
-                )
-                .into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(
+                WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                &from_glib_borrow(object),
+                &from_glib_borrow(p0),
+            )
+            .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -1969,10 +1907,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             request: *mut ffi::WebKitFormSubmissionRequest,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2000,11 +1936,9 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             message: *mut ffi::WebKitUserMessage,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(message))
-                    .into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(message))
+                .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2032,10 +1966,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             reason: ffi::WebKitWebProcessTerminationReason,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), from_glib(reason))
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), from_glib(reason))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2060,10 +1992,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2091,10 +2021,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2116,10 +2044,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2147,10 +2073,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2172,10 +2096,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2197,10 +2119,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2222,10 +2142,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2250,10 +2168,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2281,10 +2197,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2312,10 +2226,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2337,10 +2249,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2362,10 +2272,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2380,6 +2288,31 @@ pub trait WebViewExt: IsA<WebView> + 'static {
         }
     }
 
+    #[cfg(feature = "v2_50")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v2_50")))]
+    #[doc(alias = "theme-color")]
+    fn connect_theme_color_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_theme_color_trampoline<P: IsA<WebView>, F: Fn(&P) + 'static>(
+            this: *mut ffi::WebKitWebView,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::theme-color".as_ptr() as *const _,
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_theme_color_trampoline::<Self, F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
     #[doc(alias = "title")]
     fn connect_title_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
         unsafe extern "C" fn notify_title_trampoline<P: IsA<WebView>, F: Fn(&P) + 'static>(
@@ -2387,10 +2320,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2412,10 +2343,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -2437,10 +2366,8 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);

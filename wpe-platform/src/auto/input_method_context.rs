@@ -166,13 +166,11 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             text: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(
-                    InputMethodContext::from_glib_borrow(this).unsafe_cast_ref(),
-                    &glib::GString::from_glib_borrow(text),
-                )
-            }
+            let f: &F = &*(f as *const F);
+            f(
+                InputMethodContext::from_glib_borrow(this).unsafe_cast_ref(),
+                &glib::GString::from_glib_borrow(text),
+            )
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -201,10 +199,8 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             n_chars: std::ffi::c_uint,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref(), offset, n_chars)
-            }
+            let f: &F = &*(f as *const F);
+            f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref(), offset, n_chars)
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -228,10 +224,8 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             this: *mut ffi::WPEInputMethodContext,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -255,10 +249,8 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             this: *mut ffi::WPEInputMethodContext,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -282,10 +274,8 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             this: *mut ffi::WPEInputMethodContext,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -310,10 +300,8 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -338,10 +326,8 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
-            }
+            let f: &F = &*(f as *const F);
+            f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);

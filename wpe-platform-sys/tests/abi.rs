@@ -205,6 +205,10 @@ fn get_c_output(name: &str) -> Result<String, Box<dyn Error>> {
 }
 
 const RUST_LAYOUTS: &[(&str, Layout)] = &[
+    ("WPEAvailableInputDevices", Layout {
+        size: size_of::<WPEAvailableInputDevices>(),
+        alignment: align_of::<WPEAvailableInputDevices>(),
+    }),
     ("WPEBuffer", Layout { size: size_of::<WPEBuffer>(), alignment: align_of::<WPEBuffer>() }),
     ("WPEBufferClass", Layout {
         size: size_of::<WPEBufferClass>(),
@@ -230,6 +234,14 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WPEBufferSHMClass>(),
         alignment: align_of::<WPEBufferSHMClass>(),
     }),
+    ("WPEClipboard", Layout {
+        size: size_of::<WPEClipboard>(),
+        alignment: align_of::<WPEClipboard>(),
+    }),
+    ("WPEClipboardClass", Layout {
+        size: size_of::<WPEClipboardClass>(),
+        alignment: align_of::<WPEClipboardClass>(),
+    }),
     ("WPEColor", Layout { size: size_of::<WPEColor>(), alignment: align_of::<WPEColor>() }),
     ("WPEDisplay", Layout { size: size_of::<WPEDisplay>(), alignment: align_of::<WPEDisplay>() }),
     ("WPEDisplayClass", Layout {
@@ -247,6 +259,27 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
     ("WPEEventType", Layout {
         size: size_of::<WPEEventType>(),
         alignment: align_of::<WPEEventType>(),
+    }),
+    ("WPEGamepad", Layout { size: size_of::<WPEGamepad>(), alignment: align_of::<WPEGamepad>() }),
+    ("WPEGamepadAxis", Layout {
+        size: size_of::<WPEGamepadAxis>(),
+        alignment: align_of::<WPEGamepadAxis>(),
+    }),
+    ("WPEGamepadButton", Layout {
+        size: size_of::<WPEGamepadButton>(),
+        alignment: align_of::<WPEGamepadButton>(),
+    }),
+    ("WPEGamepadClass", Layout {
+        size: size_of::<WPEGamepadClass>(),
+        alignment: align_of::<WPEGamepadClass>(),
+    }),
+    ("WPEGamepadManager", Layout {
+        size: size_of::<WPEGamepadManager>(),
+        alignment: align_of::<WPEGamepadManager>(),
+    }),
+    ("WPEGamepadManagerClass", Layout {
+        size: size_of::<WPEGamepadManagerClass>(),
+        alignment: align_of::<WPEGamepadManagerClass>(),
     }),
     ("WPEGesture", Layout { size: size_of::<WPEGesture>(), alignment: align_of::<WPEGesture>() }),
     ("WPEGestureControllerInterface", Layout {
@@ -303,6 +336,14 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         size: size_of::<WPEScreenClass>(),
         alignment: align_of::<WPEScreenClass>(),
     }),
+    ("WPEScreenSyncObserver", Layout {
+        size: size_of::<WPEScreenSyncObserver>(),
+        alignment: align_of::<WPEScreenSyncObserver>(),
+    }),
+    ("WPEScreenSyncObserverClass", Layout {
+        size: size_of::<WPEScreenSyncObserverClass>(),
+        alignment: align_of::<WPEScreenSyncObserverClass>(),
+    }),
     ("WPESettingsClass", Layout {
         size: size_of::<WPESettingsClass>(),
         alignment: align_of::<WPESettingsClass>(),
@@ -351,6 +392,10 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
 ];
 
 const RUST_CONSTANTS: &[(&str, &str)] = &[
+    ("(guint) WPE_AVAILABLE_INPUT_DEVICE_KEYBOARD", "2"),
+    ("(guint) WPE_AVAILABLE_INPUT_DEVICE_MOUSE", "1"),
+    ("(guint) WPE_AVAILABLE_INPUT_DEVICE_NONE", "0"),
+    ("(guint) WPE_AVAILABLE_INPUT_DEVICE_TOUCHSCREEN", "4"),
     ("(gint) WPE_BUFFER_DMA_BUF_FORMAT_USAGE_MAPPING", "1"),
     ("(gint) WPE_BUFFER_DMA_BUF_FORMAT_USAGE_RENDERING", "0"),
     ("(gint) WPE_BUFFER_DMA_BUF_FORMAT_USAGE_SCANOUT", "2"),
@@ -376,9 +421,31 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) WPE_EVENT_TOUCH_DOWN", "9"),
     ("(gint) WPE_EVENT_TOUCH_MOVE", "11"),
     ("(gint) WPE_EVENT_TOUCH_UP", "10"),
+    ("(gint) WPE_GAMEPAD_AXIS_LEFT_X", "0"),
+    ("(gint) WPE_GAMEPAD_AXIS_LEFT_Y", "1"),
+    ("(gint) WPE_GAMEPAD_AXIS_RIGHT_X", "2"),
+    ("(gint) WPE_GAMEPAD_AXIS_RIGHT_Y", "3"),
+    ("(gint) WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_CENTER", "16"),
+    ("(gint) WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_LEFT", "8"),
+    ("(gint) WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_RIGHT", "9"),
+    ("(gint) WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_BOTTOM", "13"),
+    ("(gint) WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_LEFT", "14"),
+    ("(gint) WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_RIGHT", "15"),
+    ("(gint) WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_TOP", "12"),
+    ("(gint) WPE_GAMEPAD_BUTTON_LEFT_SHOULDER_BACK", "6"),
+    ("(gint) WPE_GAMEPAD_BUTTON_LEFT_SHOULDER_FRONT", "4"),
+    ("(gint) WPE_GAMEPAD_BUTTON_LEFT_THUMB", "10"),
+    ("(gint) WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_BOTTOM", "0"),
+    ("(gint) WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_LEFT", "2"),
+    ("(gint) WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_RIGHT", "1"),
+    ("(gint) WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_TOP", "3"),
+    ("(gint) WPE_GAMEPAD_BUTTON_RIGHT_SHOULDER_BACK", "7"),
+    ("(gint) WPE_GAMEPAD_BUTTON_RIGHT_SHOULDER_FRONT", "5"),
+    ("(gint) WPE_GAMEPAD_BUTTON_RIGHT_THUMB", "11"),
     ("(gint) WPE_GESTURE_DRAG", "2"),
     ("(gint) WPE_GESTURE_NONE", "0"),
     ("(gint) WPE_GESTURE_TAP", "1"),
+    ("(gint) WPE_GESTURE_ZOOM", "3"),
     ("(guint) WPE_INPUT_HINT_EMOJI", "512"),
     ("(guint) WPE_INPUT_HINT_INHIBIT_OSK", "128"),
     ("(guint) WPE_INPUT_HINT_LOWERCASE", "8"),
@@ -2700,7 +2767,7 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(guint) WPE_MODIFIER_POINTER_BUTTON5", "4096"),
     ("(gint) WPE_PIXEL_FORMAT_ARGB8888", "0"),
     ("WPE_PLATFORM_MAJOR_VERSION", "2"),
-    ("WPE_PLATFORM_MICRO_VERSION", "0"),
+    ("WPE_PLATFORM_MICRO_VERSION", "3"),
     ("WPE_PLATFORM_MINOR_VERSION", "49"),
     ("(gint) WPE_SETTINGS_ERROR_ALREADY_REGISTERED", "2"),
     ("(gint) WPE_SETTINGS_ERROR_INCORRECT_TYPE", "0"),
@@ -2716,6 +2783,7 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) WPE_SETTINGS_SUBPIXEL_LAYOUT_RGB", "0"),
     ("(gint) WPE_SETTINGS_SUBPIXEL_LAYOUT_VBGR", "3"),
     ("(gint) WPE_SETTINGS_SUBPIXEL_LAYOUT_VRGB", "2"),
+    ("WPE_SETTING_CREATE_VIEWS_WITH_A_TOPLEVEL", "/wpe-platform/create-views-with-a-toplevel"),
     ("WPE_SETTING_CURSOR_BLINK_TIME", "/wpe-platform/cursor-blink-time"),
     ("WPE_SETTING_DARK_MODE", "/wpe-platform/dark-mode"),
     ("WPE_SETTING_DISABLE_ANIMATIONS", "/wpe-platform/disable-animations"),

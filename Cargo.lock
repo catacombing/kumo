@@ -4007,6 +4007,7 @@ dependencies = [
 name = "wpe-platform-sys"
 version = "0.1.0"
 dependencies = [
+ "gio-sys",
  "glib-sys",
  "gobject-sys",
  "libc",

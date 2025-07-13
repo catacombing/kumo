@@ -142,19 +142,15 @@ impl WebContext {
             request: *mut ffi::WebKitURISchemeRequest,
             user_data: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let request = from_glib_borrow(request);
-                let callback = &*(user_data as *mut P);
-                (*callback)(&request)
-            }
+            let request = from_glib_borrow(request);
+            let callback = &*(user_data as *mut P);
+            (*callback)(&request)
         }
         let callback = Some(callback_func::<P> as _);
         unsafe extern "C" fn user_data_destroy_func_func<P: Fn(&URISchemeRequest) + 'static>(
             data: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let _callback = Box_::from_raw(data as *mut P);
-            }
+            let _callback = Box_::from_raw(data as *mut P);
         }
         let destroy_call4 = Some(user_data_destroy_func_func::<P> as _);
         let super_callback0: Box_<P> = callback_data;
@@ -265,10 +261,8 @@ impl WebContext {
             session: *mut ffi::WebKitAutomationSession,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(&from_glib_borrow(this), &from_glib_borrow(session))
-            }
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this), &from_glib_borrow(session))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -294,10 +288,8 @@ impl WebContext {
             this: *mut ffi::WebKitWebContext,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(&from_glib_borrow(this))
-            }
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -323,10 +315,8 @@ impl WebContext {
             this: *mut ffi::WebKitWebContext,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(&from_glib_borrow(this))
-            }
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -353,10 +343,8 @@ impl WebContext {
             message: *mut ffi::WebKitUserMessage,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(&from_glib_borrow(this), &from_glib_borrow(message)).into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this), &from_glib_borrow(message)).into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);

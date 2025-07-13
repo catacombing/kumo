@@ -8,6 +8,7 @@
 #include <stdio.h>
 
 int main() {
+    printf("%s;%zu;%zu\n", "WPEAvailableInputDevices", sizeof(WPEAvailableInputDevices), alignof(WPEAvailableInputDevices));
     printf("%s;%zu;%zu\n", "WPEBuffer", sizeof(WPEBuffer), alignof(WPEBuffer));
     printf("%s;%zu;%zu\n", "WPEBufferClass", sizeof(WPEBufferClass), alignof(WPEBufferClass));
     printf("%s;%zu;%zu\n", "WPEBufferDMABufClass", sizeof(WPEBufferDMABufClass), alignof(WPEBufferDMABufClass));
@@ -15,12 +16,20 @@ int main() {
     printf("%s;%zu;%zu\n", "WPEBufferDMABufFormatsClass", sizeof(WPEBufferDMABufFormatsClass), alignof(WPEBufferDMABufFormatsClass));
     printf("%s;%zu;%zu\n", "WPEBufferError", sizeof(WPEBufferError), alignof(WPEBufferError));
     printf("%s;%zu;%zu\n", "WPEBufferSHMClass", sizeof(WPEBufferSHMClass), alignof(WPEBufferSHMClass));
+    printf("%s;%zu;%zu\n", "WPEClipboard", sizeof(WPEClipboard), alignof(WPEClipboard));
+    printf("%s;%zu;%zu\n", "WPEClipboardClass", sizeof(WPEClipboardClass), alignof(WPEClipboardClass));
     printf("%s;%zu;%zu\n", "WPEColor", sizeof(WPEColor), alignof(WPEColor));
     printf("%s;%zu;%zu\n", "WPEDisplay", sizeof(WPEDisplay), alignof(WPEDisplay));
     printf("%s;%zu;%zu\n", "WPEDisplayClass", sizeof(WPEDisplayClass), alignof(WPEDisplayClass));
     printf("%s;%zu;%zu\n", "WPEDisplayError", sizeof(WPEDisplayError), alignof(WPEDisplayError));
     printf("%s;%zu;%zu\n", "WPEEGLError", sizeof(WPEEGLError), alignof(WPEEGLError));
     printf("%s;%zu;%zu\n", "WPEEventType", sizeof(WPEEventType), alignof(WPEEventType));
+    printf("%s;%zu;%zu\n", "WPEGamepad", sizeof(WPEGamepad), alignof(WPEGamepad));
+    printf("%s;%zu;%zu\n", "WPEGamepadAxis", sizeof(WPEGamepadAxis), alignof(WPEGamepadAxis));
+    printf("%s;%zu;%zu\n", "WPEGamepadButton", sizeof(WPEGamepadButton), alignof(WPEGamepadButton));
+    printf("%s;%zu;%zu\n", "WPEGamepadClass", sizeof(WPEGamepadClass), alignof(WPEGamepadClass));
+    printf("%s;%zu;%zu\n", "WPEGamepadManager", sizeof(WPEGamepadManager), alignof(WPEGamepadManager));
+    printf("%s;%zu;%zu\n", "WPEGamepadManagerClass", sizeof(WPEGamepadManagerClass), alignof(WPEGamepadManagerClass));
     printf("%s;%zu;%zu\n", "WPEGesture", sizeof(WPEGesture), alignof(WPEGesture));
     printf("%s;%zu;%zu\n", "WPEGestureControllerInterface", sizeof(WPEGestureControllerInterface), alignof(WPEGestureControllerInterface));
     printf("%s;%zu;%zu\n", "WPEInputHints", sizeof(WPEInputHints), alignof(WPEInputHints));
@@ -37,6 +46,8 @@ int main() {
     printf("%s;%zu;%zu\n", "WPERectangle", sizeof(WPERectangle), alignof(WPERectangle));
     printf("%s;%zu;%zu\n", "WPEScreen", sizeof(WPEScreen), alignof(WPEScreen));
     printf("%s;%zu;%zu\n", "WPEScreenClass", sizeof(WPEScreenClass), alignof(WPEScreenClass));
+    printf("%s;%zu;%zu\n", "WPEScreenSyncObserver", sizeof(WPEScreenSyncObserver), alignof(WPEScreenSyncObserver));
+    printf("%s;%zu;%zu\n", "WPEScreenSyncObserverClass", sizeof(WPEScreenSyncObserverClass), alignof(WPEScreenSyncObserverClass));
     printf("%s;%zu;%zu\n", "WPESettingsClass", sizeof(WPESettingsClass), alignof(WPESettingsClass));
     printf("%s;%zu;%zu\n", "WPESettingsError", sizeof(WPESettingsError), alignof(WPESettingsError));
     printf("%s;%zu;%zu\n", "WPESettingsHintingStyle", sizeof(WPESettingsHintingStyle), alignof(WPESettingsHintingStyle));

@@ -273,7 +273,7 @@ pub const WEBKIT_EDITING_COMMAND_REDO: &[u8] = b"Redo\0";
 pub const WEBKIT_EDITING_COMMAND_SELECT_ALL: &[u8] = b"SelectAll\0";
 pub const WEBKIT_EDITING_COMMAND_UNDO: &[u8] = b"Undo\0";
 pub const WEBKIT_MAJOR_VERSION: c_int = 2;
-pub const WEBKIT_MICRO_VERSION: c_int = 0;
+pub const WEBKIT_MICRO_VERSION: c_int = 3;
 pub const WEBKIT_MINOR_VERSION: c_int = 49;
 
 // Flags
@@ -4331,6 +4331,10 @@ unsafe extern "C" {
         web_view: *mut WebKitWebView,
     ) -> *mut WebKitWebViewSessionState;
     pub fn webkit_web_view_get_settings(web_view: *mut WebKitWebView) -> *mut WebKitSettings;
+    pub fn webkit_web_view_get_theme_color(
+        web_view: *mut WebKitWebView,
+        color: *mut WebKitColor,
+    ) -> gboolean;
     pub fn webkit_web_view_get_title(web_view: *mut WebKitWebView) -> *const c_char;
     pub fn webkit_web_view_get_tls_info(
         web_view: *mut WebKitWebView,

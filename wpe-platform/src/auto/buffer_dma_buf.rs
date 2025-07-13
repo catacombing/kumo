@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{Buffer, View, ffi};
+use crate::{Buffer, Display, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEBufferDMABuf")]
@@ -116,12 +116,12 @@ impl BufferDMABufBuilder {
         Self { builder: glib::object::Object::builder() }
     }
 
-    pub fn height(self, height: i32) -> Self {
-        Self { builder: self.builder.property("height", height) }
+    pub fn display(self, display: &impl IsA<Display>) -> Self {
+        Self { builder: self.builder.property("display", display.clone().upcast()) }
     }
 
-    pub fn view(self, view: &impl IsA<View>) -> Self {
-        Self { builder: self.builder.property("view", view.clone().upcast()) }
+    pub fn height(self, height: i32) -> Self {
+        Self { builder: self.builder.property("height", height) }
     }
 
     pub fn width(self, width: i32) -> Self {

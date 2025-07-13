@@ -71,12 +71,10 @@ impl AutomationSession {
             this: *mut ffi::WebKitAutomationSession,
             f: glib::ffi::gpointer,
         ) -> *mut ffi::WebKitWebView {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(&from_glib_borrow(this)) // Not checked
-                    .to_glib_none()
-                    .0
-            }
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this)) // Not checked
+                .to_glib_none()
+                .0
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -101,10 +99,8 @@ impl AutomationSession {
             this: *mut ffi::WebKitAutomationSession,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(&from_glib_borrow(this))
-            }
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);

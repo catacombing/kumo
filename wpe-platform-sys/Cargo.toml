@@ -4,12 +4,12 @@ version = "0.1.0"
 description = "System bindings for WPE WebKit's platform API"
 authors = ["Christian Duerr <contact@christianduerr.com>"]
 repository = "https://github.com/catacombing/kumo"
-rust-version = "1.85.0"
 license = "MIT OR Apache-2.0"
 categories = ["api-bindings"]
 keywords = ["webkit", "wpe", "browser", "embedded"]
-edition = "2024"
 build = "build.rs"
+rust-version.workspace = true
+edition.workspace = true
 
 [package.metadata.system-deps.wpe_platform_2_0]
 name = "wpe-platform-2.0"
@@ -27,6 +27,9 @@ libc = "0.2"
 workspace = true
 
 [dependencies.gobject-sys]
+workspace = true
+
+[dependencies.gio-sys]
 workspace = true
 
 [dependencies.xkbcommon-sys]

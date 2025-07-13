@@ -3,12 +3,12 @@
 use glib::object::IsA;
 use glib::translate::*;
 
-use crate::{BufferDMABuf, View};
+use crate::{BufferDMABuf, Display};
 
 pub trait BufferDMABufExtManual: IsA<BufferDMABuf> + 'static {
     #[doc(alias = "wpe_buffer_dma_buf_new")]
     fn new(
-        view: &impl IsA<View>,
+        display: &impl IsA<Display>,
         width: i32,
         height: i32,
         format: u32,
@@ -22,7 +22,7 @@ pub trait BufferDMABufExtManual: IsA<BufferDMABuf> + 'static {
 
 impl<O: IsA<BufferDMABuf>> BufferDMABufExtManual for O {
     fn new(
-        view: &impl IsA<View>,
+        display: &impl IsA<Display>,
         width: i32,
         height: i32,
         format: u32,
@@ -34,7 +34,7 @@ impl<O: IsA<BufferDMABuf>> BufferDMABufExtManual for O {
     ) -> BufferDMABuf {
         unsafe {
             from_glib_full(ffi::wpe_buffer_dma_buf_new(
-                view.as_ref().to_glib_none().0,
+                display.as_ref().to_glib_none().0,
                 width,
                 height,
                 format,

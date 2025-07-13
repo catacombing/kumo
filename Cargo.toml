@@ -4,9 +4,9 @@ version = "1.4.0"
 description = "Wayland Mobile Web Browser"
 authors = ["Christian Duerr <contact@christianduerr.com>"]
 repository = "https://github.com/catacombing/kumo"
-rust-version = "1.85.0"
 license = "GPL-3.0"
-edition = "2024"
+rust-version.workspace = true
+edition.workspace = true
 
 [features]
 default = []
@@ -24,6 +24,10 @@ members = [
     "wpe-webkit",
     "wpe-webkit-sys",
 ]
+
+[workspace.package]
+rust-version = "1.85.0"
+edition = "2024"
 
 # Workspace member dependencies are defined here for consistency and easier updates.
 [workspace.dependencies]

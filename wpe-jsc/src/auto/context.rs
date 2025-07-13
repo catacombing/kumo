@@ -153,20 +153,16 @@ impl Context {
             exception: *mut ffi::JSCException,
             user_data: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let context = from_glib_borrow(context);
-                let exception = from_glib_borrow(exception);
-                let callback = &*(user_data as *mut P);
-                (*callback)(&context, &exception)
-            }
+            let context = from_glib_borrow(context);
+            let exception = from_glib_borrow(exception);
+            let callback = &*(user_data as *mut P);
+            (*callback)(&context, &exception)
         }
         let handler = Some(handler_func::<P> as _);
         unsafe extern "C" fn destroy_notify_func<P: Fn(&Context, &Exception) + 'static>(
             data: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let _callback = Box_::from_raw(data as *mut P);
-            }
+            let _callback = Box_::from_raw(data as *mut P);
         }
         let destroy_call3 = Some(destroy_notify_func::<P> as _);
         let super_callback0: Box_<P> = handler_data;

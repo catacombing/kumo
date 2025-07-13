@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{View, ffi};
+use crate::{Display, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEBuffer")]
@@ -22,6 +22,12 @@ impl Buffer {
 }
 
 pub trait BufferExt: IsA<Buffer> + 'static {
+    #[doc(alias = "wpe_buffer_get_display")]
+    #[doc(alias = "get_display")]
+    fn display(&self) -> Option<Display> {
+        unsafe { from_glib_none(ffi::wpe_buffer_get_display(self.as_ref().to_glib_none().0)) }
+    }
+
     #[doc(alias = "wpe_buffer_get_height")]
     #[doc(alias = "get_height")]
     fn height(&self) -> i32 {
@@ -33,12 +39,6 @@ pub trait BufferExt: IsA<Buffer> + 'static {
     // fn user_data(&self) -> /*Unimplemented*/Option<Basic: Pointer> {
     //    unsafe { TODO: call ffi:wpe_buffer_get_user_data() }
     //}
-
-    #[doc(alias = "wpe_buffer_get_view")]
-    #[doc(alias = "get_view")]
-    fn view(&self) -> Option<View> {
-        unsafe { from_glib_none(ffi::wpe_buffer_get_view(self.as_ref().to_glib_none().0)) }
-    }
 
     #[doc(alias = "wpe_buffer_get_width")]
     #[doc(alias = "get_width")]

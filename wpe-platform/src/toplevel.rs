@@ -23,7 +23,6 @@ unsafe impl<T: ToplevelImpl> IsSubclassable<T> for Toplevel {
 
         let klass = class.as_mut();
         klass.set_title = None;
-        klass.get_max_views = None;
         klass.get_screen = None;
         klass.resize = None;
         klass.set_fullscreen = Some(set_fullscreen::<T>);

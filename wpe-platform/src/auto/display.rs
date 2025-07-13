@@ -3,7 +3,10 @@
 // from ../gir-files
 // DO NOT EDIT
 
+use std::boxed::Box as Box_;
+
 use glib::prelude::*;
+use glib::signal::{SignalHandlerId, connect_raw};
 use glib::translate::*;
 
 use crate::{BufferDMABufFormats, Keymap, ffi};
@@ -45,6 +48,24 @@ pub trait DisplayExt: IsA<Display> + 'static {
         }
     }
 
+    //#[doc(alias = "wpe_display_create_gamepad_manager")]
+    // fn create_gamepad_manager(&self) -> /*Ignored*/Option<GamepadManager> {
+    //    unsafe { TODO: call ffi:wpe_display_create_gamepad_manager() }
+    //}
+
+    //#[doc(alias = "wpe_display_get_available_input_devices")]
+    //#[doc(alias = "get_available_input_devices")]
+    //#[doc(alias = "available-input-devices")]
+    // fn available_input_devices(&self) -> /*Ignored*/AvailableInputDevices {
+    //    unsafe { TODO: call ffi:wpe_display_get_available_input_devices() }
+    //}
+
+    //#[doc(alias = "wpe_display_get_clipboard")]
+    //#[doc(alias = "get_clipboard")]
+    // fn clipboard(&self) -> /*Ignored*/Option<Clipboard> {
+    //    unsafe { TODO: call ffi:wpe_display_get_clipboard() }
+    //}
+
     #[doc(alias = "wpe_display_get_drm_device")]
     #[doc(alias = "get_drm_device")]
     fn drm_device(&self) -> Option<glib::GString> {
@@ -67,12 +88,8 @@ pub trait DisplayExt: IsA<Display> + 'static {
 
     #[doc(alias = "wpe_display_get_keymap")]
     #[doc(alias = "get_keymap")]
-    fn keymap(&self) -> Result<Keymap, glib::Error> {
-        unsafe {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::wpe_display_get_keymap(self.as_ref().to_glib_none().0, &mut error);
-            if error.is_null() { Ok(from_glib_none(ret)) } else { Err(from_glib_full(error)) }
-        }
+    fn keymap(&self) -> Option<Keymap> {
+        unsafe { from_glib_none(ffi::wpe_display_get_keymap(self.as_ref().to_glib_none().0)) }
     }
 
     #[doc(alias = "wpe_display_get_n_screens")]
@@ -113,6 +130,13 @@ pub trait DisplayExt: IsA<Display> + 'static {
     //    unsafe { TODO: call ffi:wpe_display_screen_removed() }
     //}
 
+    //#[doc(alias = "wpe_display_set_available_input_devices")]
+    //#[doc(alias = "available-input-devices")]
+    // fn set_available_input_devices(&self, devices:
+    // /*Ignored*/AvailableInputDevices) {    unsafe { TODO: call
+    // ffi:wpe_display_set_available_input_devices() }
+    //}
+
     #[doc(alias = "wpe_display_set_primary")]
     fn set_primary(&self) {
         unsafe {
@@ -134,6 +158,35 @@ pub trait DisplayExt: IsA<Display> + 'static {
     // fn connect_screen_removed<Unsupported or ignored types>(&self, f: F) ->
     // SignalHandlerId {    Ignored screen: WPEPlatform.Screen
     //}
+
+    #[doc(alias = "available-input-devices")]
+    fn connect_available_input_devices_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_available_input_devices_trampoline<
+            P: IsA<Display>,
+            F: Fn(&P) + 'static,
+        >(
+            this: *mut ffi::WPEDisplay,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(Display::from_glib_borrow(this).unsafe_cast_ref())
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::available-input-devices".as_ptr() as *const _,
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_available_input_devices_trampoline::<Self, F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
 }
 
 impl<O: IsA<Display>> DisplayExt for O {}

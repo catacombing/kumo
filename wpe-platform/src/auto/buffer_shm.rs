@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{Buffer, PixelFormat, View, ffi};
+use crate::{Buffer, Display, PixelFormat, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEBufferSHM")]
@@ -20,7 +20,7 @@ glib::wrapper! {
 impl BufferSHM {
     #[doc(alias = "wpe_buffer_shm_new")]
     pub fn new(
-        view: &impl IsA<View>,
+        display: &impl IsA<Display>,
         width: i32,
         height: i32,
         format: PixelFormat,
@@ -29,7 +29,7 @@ impl BufferSHM {
     ) -> BufferSHM {
         unsafe {
             from_glib_full(ffi::wpe_buffer_shm_new(
-                view.as_ref().to_glib_none().0,
+                display.as_ref().to_glib_none().0,
                 width,
                 height,
                 format.into_glib(),
@@ -101,12 +101,12 @@ impl BufferSHMBuilder {
         Self { builder: self.builder.property("stride", stride) }
     }
 
-    pub fn height(self, height: i32) -> Self {
-        Self { builder: self.builder.property("height", height) }
+    pub fn display(self, display: &impl IsA<Display>) -> Self {
+        Self { builder: self.builder.property("display", display.clone().upcast()) }
     }
 
-    pub fn view(self, view: &impl IsA<View>) -> Self {
-        Self { builder: self.builder.property("view", view.clone().upcast()) }
+    pub fn height(self, height: i32) -> Self {
+        Self { builder: self.builder.property("height", height) }
     }
 
     pub fn width(self, width: i32) -> Self {

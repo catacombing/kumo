@@ -77,7 +77,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for BufferDMABufFormatUsage {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
     }
 }
 
@@ -189,7 +189,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for BufferError {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
     }
 }
 
@@ -301,7 +301,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for DisplayError {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
     }
 }
 
@@ -409,7 +409,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for EGLError {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
     }
 }
 
@@ -543,7 +543,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for EventType {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
     }
 }
 
@@ -580,6 +580,8 @@ pub enum Gesture {
     Tap,
     #[doc(alias = "WPE_GESTURE_DRAG")]
     Drag,
+    #[doc(alias = "WPE_GESTURE_ZOOM")]
+    Zoom,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -594,6 +596,7 @@ impl IntoGlib for Gesture {
             Self::None => ffi::WPE_GESTURE_NONE,
             Self::Tap => ffi::WPE_GESTURE_TAP,
             Self::Drag => ffi::WPE_GESTURE_DRAG,
+            Self::Zoom => ffi::WPE_GESTURE_ZOOM,
             Self::__Unknown(value) => value,
         }
     }
@@ -607,6 +610,7 @@ impl FromGlib<ffi::WPEGesture> for Gesture {
             ffi::WPE_GESTURE_NONE => Self::None,
             ffi::WPE_GESTURE_TAP => Self::Tap,
             ffi::WPE_GESTURE_DRAG => Self::Drag,
+            ffi::WPE_GESTURE_ZOOM => Self::Zoom,
             value => Self::__Unknown(value),
         }
     }
@@ -639,7 +643,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for Gesture {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
     }
 }
 
@@ -767,7 +771,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for InputPurpose {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
     }
 }
 
@@ -879,7 +883,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for InputSource {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
     }
 }
 
@@ -967,7 +971,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PixelFormat {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
     }
 }
 
@@ -1076,7 +1080,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ViewError {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
     }
 }
 

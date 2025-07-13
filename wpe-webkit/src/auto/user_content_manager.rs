@@ -168,10 +168,8 @@ impl UserContentManager {
             value: *mut wpe_java_script_core::ffi::JSCValue,
             f: glib::ffi::gpointer,
         ) {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(&from_glib_borrow(this), &from_glib_borrow(value))
-            }
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this), &from_glib_borrow(value))
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
@@ -208,11 +206,9 @@ impl UserContentManager {
             reply: *mut ffi::WebKitScriptMessageReply,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            unsafe {
-                let f: &F = &*(f as *const F);
-                f(&from_glib_borrow(this), &from_glib_borrow(value), &from_glib_borrow(reply))
-                    .into_glib()
-            }
+            let f: &F = &*(f as *const F);
+            f(&from_glib_borrow(this), &from_glib_borrow(value), &from_glib_borrow(reply))
+                .into_glib()
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);

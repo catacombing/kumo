@@ -25,7 +25,7 @@ use libc::{FILE, intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t};
 #[allow(unused_imports)]
 use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
 use xkbcommon::{xkb_keymap, xkb_state};
-use {glib_sys as glib, gobject_sys as gobject, xkbcommon_sys as xkbcommon};
+use {gio_sys as gio, glib_sys as glib, gobject_sys as gobject, xkbcommon_sys as xkbcommon};
 
 // Enums
 pub type WPEBufferDMABufFormatUsage = c_int;
@@ -59,10 +59,36 @@ pub const WPE_EVENT_TOUCH_UP: WPEEventType = 10;
 pub const WPE_EVENT_TOUCH_MOVE: WPEEventType = 11;
 pub const WPE_EVENT_TOUCH_CANCEL: WPEEventType = 12;
 
+pub type WPEGamepadAxis = c_int;
+pub const WPE_GAMEPAD_AXIS_LEFT_X: WPEGamepadAxis = 0;
+pub const WPE_GAMEPAD_AXIS_LEFT_Y: WPEGamepadAxis = 1;
+pub const WPE_GAMEPAD_AXIS_RIGHT_X: WPEGamepadAxis = 2;
+pub const WPE_GAMEPAD_AXIS_RIGHT_Y: WPEGamepadAxis = 3;
+
+pub type WPEGamepadButton = c_int;
+pub const WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_BOTTOM: WPEGamepadButton = 0;
+pub const WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_RIGHT: WPEGamepadButton = 1;
+pub const WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_LEFT: WPEGamepadButton = 2;
+pub const WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_TOP: WPEGamepadButton = 3;
+pub const WPE_GAMEPAD_BUTTON_LEFT_SHOULDER_FRONT: WPEGamepadButton = 4;
+pub const WPE_GAMEPAD_BUTTON_RIGHT_SHOULDER_FRONT: WPEGamepadButton = 5;
+pub const WPE_GAMEPAD_BUTTON_LEFT_SHOULDER_BACK: WPEGamepadButton = 6;
+pub const WPE_GAMEPAD_BUTTON_RIGHT_SHOULDER_BACK: WPEGamepadButton = 7;
+pub const WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_LEFT: WPEGamepadButton = 8;
+pub const WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_RIGHT: WPEGamepadButton = 9;
+pub const WPE_GAMEPAD_BUTTON_LEFT_THUMB: WPEGamepadButton = 10;
+pub const WPE_GAMEPAD_BUTTON_RIGHT_THUMB: WPEGamepadButton = 11;
+pub const WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_TOP: WPEGamepadButton = 12;
+pub const WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_BOTTOM: WPEGamepadButton = 13;
+pub const WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_LEFT: WPEGamepadButton = 14;
+pub const WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_RIGHT: WPEGamepadButton = 15;
+pub const WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_CENTER: WPEGamepadButton = 16;
+
 pub type WPEGesture = c_int;
 pub const WPE_GESTURE_NONE: WPEGesture = 0;
 pub const WPE_GESTURE_TAP: WPEGesture = 1;
 pub const WPE_GESTURE_DRAG: WPEGesture = 2;
+pub const WPE_GESTURE_ZOOM: WPEGesture = 3;
 
 pub type WPEInputPurpose = c_int;
 pub const WPE_INPUT_PURPOSE_FREE_FORM: WPEInputPurpose = 0;
@@ -2398,8 +2424,10 @@ pub const WPE_KEY_zerosubscript: c_int = 16785536;
 pub const WPE_KEY_zerosuperior: c_int = 16785520;
 pub const WPE_KEY_zstroke: c_int = 16777654;
 pub const WPE_PLATFORM_MAJOR_VERSION: c_int = 2;
-pub const WPE_PLATFORM_MICRO_VERSION: c_int = 0;
+pub const WPE_PLATFORM_MICRO_VERSION: c_int = 3;
 pub const WPE_PLATFORM_MINOR_VERSION: c_int = 49;
+pub const WPE_SETTING_CREATE_VIEWS_WITH_A_TOPLEVEL: &[u8] =
+    b"/wpe-platform/create-views-with-a-toplevel\0";
 pub const WPE_SETTING_CURSOR_BLINK_TIME: &[u8] = b"/wpe-platform/cursor-blink-time\0";
 pub const WPE_SETTING_DARK_MODE: &[u8] = b"/wpe-platform/dark-mode\0";
 pub const WPE_SETTING_DISABLE_ANIMATIONS: &[u8] = b"/wpe-platform/disable-animations\0";
@@ -2417,6 +2445,12 @@ pub const WPE_SETTING_KEY_REPEAT_INTERVAL: &[u8] = b"/wpe-platform/events/key-re
 pub const WPE_SETTING_TOPLEVEL_DEFAULT_SIZE: &[u8] = b"/wpe-platform/toplevel-default-size\0";
 
 // Flags
+pub type WPEAvailableInputDevices = c_uint;
+pub const WPE_AVAILABLE_INPUT_DEVICE_NONE: WPEAvailableInputDevices = 0;
+pub const WPE_AVAILABLE_INPUT_DEVICE_MOUSE: WPEAvailableInputDevices = 1;
+pub const WPE_AVAILABLE_INPUT_DEVICE_KEYBOARD: WPEAvailableInputDevices = 2;
+pub const WPE_AVAILABLE_INPUT_DEVICE_TOUCHSCREEN: WPEAvailableInputDevices = 4;
+
 pub type WPEInputHints = c_uint;
 pub const WPE_INPUT_HINT_NONE: WPEInputHints = 0;
 pub const WPE_INPUT_HINT_SPELLCHECK: WPEInputHints = 1;
@@ -2451,6 +2485,8 @@ pub const WPE_TOPLEVEL_STATE_MAXIMIZED: WPEToplevelState = 2;
 pub const WPE_TOPLEVEL_STATE_ACTIVE: WPEToplevelState = 4;
 
 // Callbacks
+pub type WPEScreenSyncObserverSyncFunc =
+    Option<unsafe extern "C" fn(*mut WPEScreenSyncObserver, gpointer)>;
 pub type WPEToplevelForeachViewFunc =
     Option<unsafe extern "C" fn(*mut WPEToplevel, *mut WPEView, gpointer) -> gboolean>;
 
@@ -2543,6 +2579,55 @@ impl ::std::fmt::Debug for WPEBufferSHMClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct WPEClipboardClass {
+    pub parent_class: gobject::GObjectClass,
+    pub read: Option<unsafe extern "C" fn(*mut WPEClipboard, *const c_char) -> *mut glib::GBytes>,
+    pub changed: Option<
+        unsafe extern "C" fn(
+            *mut WPEClipboard,
+            *mut glib::GPtrArray,
+            gboolean,
+            *mut WPEClipboardContent,
+        ),
+    >,
+    pub padding: [gpointer; 32],
+}
+
+impl ::std::fmt::Debug for WPEClipboardClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPEClipboardClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .field("read", &self.read)
+            .field("changed", &self.changed)
+            .field("padding", &self.padding)
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct WPEClipboardContent {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for WPEClipboardContent {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPEClipboardContent @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _WPEClipboardPrivate {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type WPEClipboardPrivate = _WPEClipboardPrivate;
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct WPEColor {
     pub red: c_double,
     pub green: c_double,
@@ -2569,8 +2654,8 @@ pub struct WPEDisplayClass {
     pub create_view: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEView>,
     pub get_egl_display:
         Option<unsafe extern "C" fn(*mut WPEDisplay, *mut *mut glib::GError) -> gpointer>,
-    pub get_keymap:
-        Option<unsafe extern "C" fn(*mut WPEDisplay, *mut *mut glib::GError) -> *mut WPEKeymap>,
+    pub get_keymap: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEKeymap>,
+    pub get_clipboard: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEClipboard>,
     pub get_preferred_dma_buf_formats:
         Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEBufferDMABufFormats>,
     pub get_n_screens: Option<unsafe extern "C" fn(*mut WPEDisplay) -> c_uint>,
@@ -2580,6 +2665,8 @@ pub struct WPEDisplayClass {
     pub use_explicit_sync: Option<unsafe extern "C" fn(*mut WPEDisplay) -> gboolean>,
     pub create_input_method_context:
         Option<unsafe extern "C" fn(*mut WPEDisplay, *mut WPEView) -> *mut WPEInputMethodContext>,
+    pub create_gamepad_manager:
+        Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEGamepadManager>,
     pub padding: [gpointer; 32],
 }
 
@@ -2591,6 +2678,7 @@ impl ::std::fmt::Debug for WPEDisplayClass {
             .field("create_view", &self.create_view)
             .field("get_egl_display", &self.get_egl_display)
             .field("get_keymap", &self.get_keymap)
+            .field("get_clipboard", &self.get_clipboard)
             .field("get_preferred_dma_buf_formats", &self.get_preferred_dma_buf_formats)
             .field("get_n_screens", &self.get_n_screens)
             .field("get_screen", &self.get_screen)
@@ -2598,6 +2686,7 @@ impl ::std::fmt::Debug for WPEDisplayClass {
             .field("get_drm_render_node", &self.get_drm_render_node)
             .field("use_explicit_sync", &self.use_explicit_sync)
             .field("create_input_method_context", &self.create_input_method_context)
+            .field("create_gamepad_manager", &self.create_gamepad_manager)
             .field("padding", &self.padding)
             .finish()
     }
@@ -2627,6 +2716,60 @@ impl ::std::fmt::Debug for WPEEvent {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct WPEGamepadClass {
+    pub parent_class: gobject::GObjectClass,
+    pub start_input_monitor: Option<unsafe extern "C" fn(*mut WPEGamepad)>,
+    pub stop_input_monitor: Option<unsafe extern "C" fn(*mut WPEGamepad)>,
+    pub padding: [gpointer; 32],
+}
+
+impl ::std::fmt::Debug for WPEGamepadClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPEGamepadClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .field("start_input_monitor", &self.start_input_monitor)
+            .field("stop_input_monitor", &self.stop_input_monitor)
+            .field("padding", &self.padding)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WPEGamepadManagerClass {
+    pub parent_class: gobject::GObjectClass,
+    pub padding: [gpointer; 32],
+}
+
+impl ::std::fmt::Debug for WPEGamepadManagerClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPEGamepadManagerClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .field("padding", &self.padding)
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _WPEGamepadManagerPrivate {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type WPEGamepadManagerPrivate = _WPEGamepadManagerPrivate;
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _WPEGamepadPrivate {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type WPEGamepadPrivate = _WPEGamepadPrivate;
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct WPEGestureControllerInterface {
     pub parent_interface: gobject::GTypeInterface,
     pub handle_event: Option<unsafe extern "C" fn(*mut WPEGestureController, *mut WPEEvent)>,
@@ -2639,6 +2782,8 @@ pub struct WPEGestureControllerInterface {
         unsafe extern "C" fn(*mut WPEGestureController, *mut c_double, *mut c_double) -> gboolean,
     >,
     pub is_drag_begin: Option<unsafe extern "C" fn(*mut WPEGestureController) -> gboolean>,
+    pub get_gesture_zoom_delta:
+        Option<unsafe extern "C" fn(*mut WPEGestureController, *mut c_double) -> gboolean>,
 }
 
 impl ::std::fmt::Debug for WPEGestureControllerInterface {
@@ -2651,6 +2796,7 @@ impl ::std::fmt::Debug for WPEGestureControllerInterface {
             .field("get_gesture_position", &self.get_gesture_position)
             .field("get_gesture_delta", &self.get_gesture_delta)
             .field("is_drag_begin", &self.is_drag_begin)
+            .field("get_gesture_zoom_delta", &self.get_gesture_zoom_delta)
             .finish()
     }
 }
@@ -2824,6 +2970,8 @@ impl ::std::fmt::Debug for WPERectangle {
 pub struct WPEScreenClass {
     pub parent_class: gobject::GObjectClass,
     pub invalidate: Option<unsafe extern "C" fn(*mut WPEScreen)>,
+    pub get_sync_observer:
+        Option<unsafe extern "C" fn(*mut WPEScreen) -> *mut WPEScreenSyncObserver>,
     pub padding: [gpointer; 32],
 }
 
@@ -2832,6 +2980,7 @@ impl ::std::fmt::Debug for WPEScreenClass {
         f.debug_struct(&format!("WPEScreenClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .field("invalidate", &self.invalidate)
+            .field("get_sync_observer", &self.get_sync_observer)
             .field("padding", &self.padding)
             .finish()
     }
@@ -2845,6 +2994,37 @@ pub struct _WPEScreenPrivate {
 }
 
 pub type WPEScreenPrivate = _WPEScreenPrivate;
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WPEScreenSyncObserverClass {
+    pub parent_class: gobject::GObjectClass,
+    pub start: Option<unsafe extern "C" fn(*mut WPEScreenSyncObserver)>,
+    pub stop: Option<unsafe extern "C" fn(*mut WPEScreenSyncObserver)>,
+    pub sync: Option<unsafe extern "C" fn(*mut WPEScreenSyncObserver)>,
+    pub padding: [gpointer; 32],
+}
+
+impl ::std::fmt::Debug for WPEScreenSyncObserverClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPEScreenSyncObserverClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .field("start", &self.start)
+            .field("stop", &self.stop)
+            .field("sync", &self.sync)
+            .field("padding", &self.padding)
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _WPEScreenSyncObserverPrivate {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type WPEScreenSyncObserverPrivate = _WPEScreenSyncObserverPrivate;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -2865,7 +3045,6 @@ impl ::std::fmt::Debug for WPESettingsClass {
 pub struct WPEToplevelClass {
     pub parent_class: gobject::GObjectClass,
     pub set_title: Option<unsafe extern "C" fn(*mut WPEToplevel, *const c_char)>,
-    pub get_max_views: Option<unsafe extern "C" fn(*mut WPEToplevel) -> c_uint>,
     pub get_screen: Option<unsafe extern "C" fn(*mut WPEToplevel) -> *mut WPEScreen>,
     pub resize: Option<unsafe extern "C" fn(*mut WPEToplevel, c_int, c_int) -> gboolean>,
     pub set_fullscreen: Option<unsafe extern "C" fn(*mut WPEToplevel, gboolean) -> gboolean>,
@@ -2881,7 +3060,6 @@ impl ::std::fmt::Debug for WPEToplevelClass {
         f.debug_struct(&format!("WPEToplevelClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .field("set_title", &self.set_title)
-            .field("get_max_views", &self.get_max_views)
             .field("get_screen", &self.get_screen)
             .field("resize", &self.resize)
             .field("set_fullscreen", &self.set_fullscreen)
@@ -3036,6 +3214,22 @@ impl ::std::fmt::Debug for WPEBufferSHM {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct WPEClipboard {
+    pub parent_instance: gobject::GObject,
+    pub priv_: *mut WPEClipboardPrivate,
+}
+
+impl ::std::fmt::Debug for WPEClipboard {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPEClipboard @ {self:p}"))
+            .field("parent_instance", &self.parent_instance)
+            .field("priv_", &self.priv_)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct WPEDisplay {
     pub parent_instance: gobject::GObject,
     pub priv_: *mut WPEDisplayPrivate,
@@ -3044,6 +3238,38 @@ pub struct WPEDisplay {
 impl ::std::fmt::Debug for WPEDisplay {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WPEDisplay @ {self:p}"))
+            .field("parent_instance", &self.parent_instance)
+            .field("priv_", &self.priv_)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WPEGamepad {
+    pub parent_instance: gobject::GObject,
+    pub priv_: *mut WPEGamepadPrivate,
+}
+
+impl ::std::fmt::Debug for WPEGamepad {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPEGamepad @ {self:p}"))
+            .field("parent_instance", &self.parent_instance)
+            .field("priv_", &self.priv_)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WPEGamepadManager {
+    pub parent_instance: gobject::GObject,
+    pub priv_: *mut WPEGamepadManagerPrivate,
+}
+
+impl ::std::fmt::Debug for WPEGamepadManager {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPEGamepadManager @ {self:p}"))
             .field("parent_instance", &self.parent_instance)
             .field("priv_", &self.priv_)
             .finish()
@@ -3105,6 +3331,22 @@ pub struct WPEScreen {
 impl ::std::fmt::Debug for WPEScreen {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WPEScreen @ {self:p}"))
+            .field("parent_instance", &self.parent_instance)
+            .field("priv_", &self.priv_)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WPEScreenSyncObserver {
+    pub parent_instance: gobject::GObject,
+    pub priv_: *mut WPEScreenSyncObserverPrivate,
+}
+
+impl ::std::fmt::Debug for WPEScreenSyncObserver {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPEScreenSyncObserver @ {self:p}"))
             .field("parent_instance", &self.parent_instance)
             .field("priv_", &self.priv_)
             .finish()
@@ -3214,6 +3456,16 @@ unsafe extern "C" {
     pub fn wpe_event_type_get_type() -> GType;
 
     //=========================================================================
+    // WPEGamepadAxis
+    //=========================================================================
+    pub fn wpe_gamepad_axis_get_type() -> GType;
+
+    //=========================================================================
+    // WPEGamepadButton
+    //=========================================================================
+    pub fn wpe_gamepad_button_get_type() -> GType;
+
+    //=========================================================================
     // WPEGesture
     //=========================================================================
     pub fn wpe_gesture_get_type() -> GType;
@@ -3261,6 +3513,11 @@ unsafe extern "C" {
     pub fn wpe_view_error_quark() -> glib::GQuark;
 
     //=========================================================================
+    // WPEAvailableInputDevices
+    //=========================================================================
+    pub fn wpe_available_input_devices_get_type() -> GType;
+
+    //=========================================================================
     // WPEInputHints
     //=========================================================================
     pub fn wpe_input_hints_get_type() -> GType;
@@ -3299,6 +3556,26 @@ unsafe extern "C" {
         builder: *mut WPEBufferDMABufFormatsBuilder,
     ) -> *mut WPEBufferDMABufFormatsBuilder;
     pub fn wpe_buffer_dma_buf_formats_builder_unref(builder: *mut WPEBufferDMABufFormatsBuilder);
+
+    //=========================================================================
+    // WPEClipboardContent
+    //=========================================================================
+    pub fn wpe_clipboard_content_get_type() -> GType;
+    pub fn wpe_clipboard_content_new() -> *mut WPEClipboardContent;
+    pub fn wpe_clipboard_content_ref(content: *mut WPEClipboardContent)
+    -> *mut WPEClipboardContent;
+    pub fn wpe_clipboard_content_serialize(
+        content: *mut WPEClipboardContent,
+        format: *const c_char,
+        stream: *mut gio::GOutputStream,
+    ) -> gboolean;
+    pub fn wpe_clipboard_content_set_bytes(
+        content: *mut WPEClipboardContent,
+        format: *const c_char,
+        bytes: *mut glib::GBytes,
+    );
+    pub fn wpe_clipboard_content_set_text(content: *mut WPEClipboardContent, text: *const c_char);
+    pub fn wpe_clipboard_content_unref(content: *mut WPEClipboardContent);
 
     //=========================================================================
     // WPEColor
@@ -3433,9 +3710,9 @@ unsafe extern "C" {
     // WPEBuffer
     //=========================================================================
     pub fn wpe_buffer_get_type() -> GType;
+    pub fn wpe_buffer_get_display(buffer: *mut WPEBuffer) -> *mut WPEDisplay;
     pub fn wpe_buffer_get_height(buffer: *mut WPEBuffer) -> c_int;
     pub fn wpe_buffer_get_user_data(buffer: *mut WPEBuffer) -> gpointer;
-    pub fn wpe_buffer_get_view(buffer: *mut WPEBuffer) -> *mut WPEView;
     pub fn wpe_buffer_get_width(buffer: *mut WPEBuffer) -> c_int;
     pub fn wpe_buffer_import_to_egl_image(
         buffer: *mut WPEBuffer,
@@ -3456,7 +3733,7 @@ unsafe extern "C" {
     //=========================================================================
     pub fn wpe_buffer_dma_buf_get_type() -> GType;
     pub fn wpe_buffer_dma_buf_new(
-        view: *mut WPEView,
+        display: *mut WPEDisplay,
         width: c_int,
         height: c_int,
         format: u32,
@@ -3515,7 +3792,7 @@ unsafe extern "C" {
     //=========================================================================
     pub fn wpe_buffer_shm_get_type() -> GType;
     pub fn wpe_buffer_shm_new(
-        view: *mut WPEView,
+        display: *mut WPEDisplay,
         width: c_int,
         height: c_int,
         format: WPEPixelFormat,
@@ -3527,6 +3804,29 @@ unsafe extern "C" {
     pub fn wpe_buffer_shm_get_stride(buffer: *mut WPEBufferSHM) -> c_uint;
 
     //=========================================================================
+    // WPEClipboard
+    //=========================================================================
+    pub fn wpe_clipboard_get_type() -> GType;
+    pub fn wpe_clipboard_new(display: *mut WPEDisplay) -> *mut WPEClipboard;
+    pub fn wpe_clipboard_get_change_count(clipboard: *mut WPEClipboard) -> i64;
+    pub fn wpe_clipboard_get_content(clipboard: *mut WPEClipboard) -> *mut WPEClipboardContent;
+    pub fn wpe_clipboard_get_display(clipboard: *mut WPEClipboard) -> *mut WPEDisplay;
+    pub fn wpe_clipboard_get_formats(clipboard: *mut WPEClipboard) -> *const *const c_char;
+    pub fn wpe_clipboard_read_bytes(
+        clipboard: *mut WPEClipboard,
+        format: *const c_char,
+    ) -> *mut glib::GBytes;
+    pub fn wpe_clipboard_read_text(
+        clipboard: *mut WPEClipboard,
+        format: *const c_char,
+        size: *mut size_t,
+    ) -> *mut c_char;
+    pub fn wpe_clipboard_set_content(
+        clipboard: *mut WPEClipboard,
+        content: *mut WPEClipboardContent,
+    );
+
+    //=========================================================================
     // WPEDisplay
     //=========================================================================
     pub fn wpe_display_get_type() -> GType;
@@ -3534,16 +3834,18 @@ unsafe extern "C" {
     pub fn wpe_display_get_primary() -> *mut WPEDisplay;
     pub fn wpe_display_connect(display: *mut WPEDisplay, error: *mut *mut glib::GError)
     -> gboolean;
+    pub fn wpe_display_create_gamepad_manager(display: *mut WPEDisplay) -> *mut WPEGamepadManager;
+    pub fn wpe_display_get_available_input_devices(
+        display: *mut WPEDisplay,
+    ) -> WPEAvailableInputDevices;
+    pub fn wpe_display_get_clipboard(display: *mut WPEDisplay) -> *mut WPEClipboard;
     pub fn wpe_display_get_drm_device(display: *mut WPEDisplay) -> *const c_char;
     pub fn wpe_display_get_drm_render_node(display: *mut WPEDisplay) -> *const c_char;
     pub fn wpe_display_get_egl_display(
         display: *mut WPEDisplay,
         error: *mut *mut glib::GError,
     ) -> gpointer;
-    pub fn wpe_display_get_keymap(
-        display: *mut WPEDisplay,
-        error: *mut *mut glib::GError,
-    ) -> *mut WPEKeymap;
+    pub fn wpe_display_get_keymap(display: *mut WPEDisplay) -> *mut WPEKeymap;
     pub fn wpe_display_get_n_screens(display: *mut WPEDisplay) -> c_uint;
     pub fn wpe_display_get_preferred_dma_buf_formats(
         display: *mut WPEDisplay,
@@ -3552,8 +3854,43 @@ unsafe extern "C" {
     pub fn wpe_display_get_settings(display: *mut WPEDisplay) -> *mut WPESettings;
     pub fn wpe_display_screen_added(display: *mut WPEDisplay, screen: *mut WPEScreen);
     pub fn wpe_display_screen_removed(display: *mut WPEDisplay, screen: *mut WPEScreen);
+    pub fn wpe_display_set_available_input_devices(
+        display: *mut WPEDisplay,
+        devices: WPEAvailableInputDevices,
+    );
     pub fn wpe_display_set_primary(display: *mut WPEDisplay);
     pub fn wpe_display_use_explicit_sync(display: *mut WPEDisplay) -> gboolean;
+
+    //=========================================================================
+    // WPEGamepad
+    //=========================================================================
+    pub fn wpe_gamepad_get_type() -> GType;
+    pub fn wpe_gamepad_axis_event(gamepad: *mut WPEGamepad, axis: WPEGamepadAxis, value: c_double);
+    pub fn wpe_gamepad_button_event(
+        gamepad: *mut WPEGamepad,
+        button: WPEGamepadButton,
+        is_pressed: gboolean,
+    );
+    pub fn wpe_gamepad_get_name(gamepad: *mut WPEGamepad) -> *const c_char;
+    pub fn wpe_gamepad_start_input_monitor(gamepad: *mut WPEGamepad);
+    pub fn wpe_gamepad_stop_input_monitor(gamepad: *mut WPEGamepad);
+
+    //=========================================================================
+    // WPEGamepadManager
+    //=========================================================================
+    pub fn wpe_gamepad_manager_get_type() -> GType;
+    pub fn wpe_gamepad_manager_add_device(
+        manager: *mut WPEGamepadManager,
+        gamepad: *mut WPEGamepad,
+    );
+    pub fn wpe_gamepad_manager_list_devices(
+        manager: *mut WPEGamepadManager,
+        n_devices: *mut size_t,
+    ) -> *mut *mut WPEGamepad;
+    pub fn wpe_gamepad_manager_remove_device(
+        manager: *mut WPEGamepadManager,
+        gamepad: *mut WPEGamepad,
+    );
 
     //=========================================================================
     // WPEInputMethodContext
@@ -3652,6 +3989,7 @@ unsafe extern "C" {
     pub fn wpe_screen_get_physical_width(screen: *mut WPEScreen) -> c_int;
     pub fn wpe_screen_get_refresh_rate(screen: *mut WPEScreen) -> c_int;
     pub fn wpe_screen_get_scale(screen: *mut WPEScreen) -> c_double;
+    pub fn wpe_screen_get_sync_observer(screen: *mut WPEScreen) -> *mut WPEScreenSyncObserver;
     pub fn wpe_screen_get_width(screen: *mut WPEScreen) -> c_int;
     pub fn wpe_screen_get_x(screen: *mut WPEScreen) -> c_int;
     pub fn wpe_screen_get_y(screen: *mut WPEScreen) -> c_int;
@@ -3661,6 +3999,20 @@ unsafe extern "C" {
     pub fn wpe_screen_set_refresh_rate(screen: *mut WPEScreen, refresh_rate: c_int);
     pub fn wpe_screen_set_scale(screen: *mut WPEScreen, scale: c_double);
     pub fn wpe_screen_set_size(screen: *mut WPEScreen, width: c_int, height: c_int);
+
+    //=========================================================================
+    // WPEScreenSyncObserver
+    //=========================================================================
+    pub fn wpe_screen_sync_observer_get_type() -> GType;
+    pub fn wpe_screen_sync_observer_is_active(observer: *mut WPEScreenSyncObserver) -> gboolean;
+    pub fn wpe_screen_sync_observer_set_callback(
+        observer: *mut WPEScreenSyncObserver,
+        sync_func: WPEScreenSyncObserverSyncFunc,
+        user_data: gpointer,
+        destroy_notify: glib::GDestroyNotify,
+    );
+    pub fn wpe_screen_sync_observer_start(observer: *mut WPEScreenSyncObserver);
+    pub fn wpe_screen_sync_observer_stop(observer: *mut WPEScreenSyncObserver);
 
     //=========================================================================
     // WPESettings
@@ -3792,6 +4144,7 @@ unsafe extern "C" {
     // WPEToplevel
     //=========================================================================
     pub fn wpe_toplevel_get_type() -> GType;
+    pub fn wpe_toplevel_list() -> *mut glib::GList;
     pub fn wpe_toplevel_closed(toplevel: *mut WPEToplevel);
     pub fn wpe_toplevel_foreach_view(
         toplevel: *mut WPEToplevel,
@@ -3904,6 +4257,10 @@ unsafe extern "C" {
         controller: *mut WPEGestureController,
         x: *mut c_double,
         y: *mut c_double,
+    ) -> gboolean;
+    pub fn wpe_gesture_controller_get_zoom_delta(
+        controller: *mut WPEGestureController,
+        delta: *mut c_double,
     ) -> gboolean;
     pub fn wpe_gesture_controller_handle_event(
         controller: *mut WPEGestureController,

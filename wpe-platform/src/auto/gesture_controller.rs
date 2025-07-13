@@ -67,6 +67,19 @@ pub trait GestureControllerExt: IsA<GestureController> + 'static {
         }
     }
 
+    #[doc(alias = "wpe_gesture_controller_get_zoom_delta")]
+    #[doc(alias = "get_zoom_delta")]
+    fn zoom_delta(&self) -> Option<f64> {
+        unsafe {
+            let mut delta = std::mem::MaybeUninit::uninit();
+            let ret = from_glib(ffi::wpe_gesture_controller_get_zoom_delta(
+                self.as_ref().to_glib_none().0,
+                delta.as_mut_ptr(),
+            ));
+            if ret { Some(delta.assume_init()) } else { None }
+        }
+    }
+
     #[doc(alias = "wpe_gesture_controller_handle_event")]
     fn handle_event(&self, event: &Event) {
         unsafe {

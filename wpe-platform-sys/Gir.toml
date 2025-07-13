@@ -7,6 +7,7 @@ girs_directories = ["/usr/share/gir-1.0/", "../gir-files"]
 work_mode = "sys"
 single_version_file = true
 external_libraries = [
+    "Gio",
     "GLib",
     "GObject",
     "xkbcommon",

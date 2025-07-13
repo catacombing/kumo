@@ -495,7 +495,7 @@ impl Ui {
         &mut self,
         _time: u32,
         id: i32,
-        position: Position<f64>,
+        logical_position: Position<f64>,
         _modifiers: Modifiers,
     ) {
         // Ignore all unknown touch points.
@@ -504,11 +504,11 @@ impl Ui {
         }
 
         // Convert position to physical space.
-        self.touch_position = position * self.scale;
+        self.touch_position = logical_position * self.scale;
 
         if let TouchFocusElement::UriBar = &self.touch_focus {
             // Forward touch event.
-            let uribar_position = position - self.uribar_position();
+            let uribar_position = self.touch_position - self.uribar_position();
             self.uribar.touch_motion(uribar_position);
         }
     }
@@ -1020,20 +1020,18 @@ impl Uribar {
         &mut self,
         time: u32,
         absolute_logical_position: Position<f64>,
-        position: Position<f64>,
+        mut position: Position<f64>,
     ) {
         // Forward event to text field.
-        let mut relative_position = position;
-        relative_position.x -= PADDING * self.scale;
-        self.text_field.touch_down(time, absolute_logical_position, relative_position);
+        position.x -= PADDING * self.scale;
+        self.text_field.touch_down(time, absolute_logical_position, position);
     }
 
     /// Handle touch motion events.
-    pub fn touch_motion(&mut self, position: Position<f64>) {
+    pub fn touch_motion(&mut self, mut position: Position<f64>) {
         // Forward event to text field.
-        let mut relative_position = position;
-        relative_position.x -= PADDING * self.scale;
-        self.text_field.touch_motion(relative_position);
+        position.x -= PADDING * self.scale;
+        self.text_field.touch_motion(position);
     }
 
     /// Handle touch release events.

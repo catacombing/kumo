@@ -1581,9 +1581,13 @@ impl GroupLabel {
                 }
             }
 
-            // Rasterize the text field.
+            // Ensure font family, size, and scale are up to date.
+            let font_size = config.font.size(1.);
             let layout = self.input.layout();
             layout.set_scale(self.scale);
+            layout.set_font(&config.font.family, font_size);
+
+            // Rasterize the text field.
             builder.rasterize(layout, &text_options);
         } else if !self.text.is_empty() {
             let layout = TextLayout::new(config.font.size(1.25), self.scale);
@@ -1610,6 +1614,7 @@ impl GroupLabel {
         // Update text input width.
         let (_, text_size) = self.text_geometry();
         self.input.set_width(text_size.width as f64);
+        self.input.set_scale(scale);
 
         // Force redraw.
         self.dirty = true;

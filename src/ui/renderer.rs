@@ -25,7 +25,7 @@ use rsvg::{CairoRenderer, Loader};
 use smithay_client_toolkit::reexports::client::Proxy;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 
-use crate::config::CONFIG;
+use crate::config::{CONFIG, FontFamily};
 use crate::gl::types::{GLfloat, GLint, GLuint};
 use crate::{Position, Size, gl};
 
@@ -697,17 +697,18 @@ impl Default for TextOptions {
 pub struct TextLayout {
     layout: Layout,
     font: FontDescription,
+    font_family: FontFamily,
     font_size: u8,
     scale: f64,
 }
 
 impl TextLayout {
     pub fn new(font_size: u8, scale: f64) -> Self {
-        let font_family = &CONFIG.read().unwrap().font.family;
+        let font_family = CONFIG.read().unwrap().font.family.clone();
         Self::with_family(font_family, font_size, scale)
     }
 
-    pub fn with_family(font_family: &str, font_size: u8, scale: f64) -> Self {
+    pub fn with_family(font_family: FontFamily, font_size: u8, scale: f64) -> Self {
         // Create pango layout.
         let image_surface = ImageSurface::create(Format::ARgb32, 0, 0).unwrap();
         let context = Context::new(&image_surface).unwrap();
@@ -719,7 +720,7 @@ impl TextLayout {
         font.set_absolute_size(font.size() as f64 * scale);
         layout.set_font_description(Some(&font));
 
-        Self { layout, font, font_size, scale }
+        Self { layout, font, font_family, font_size, scale }
     }
 
     /// Update the font scale.
@@ -740,18 +741,34 @@ impl TextLayout {
     /// This internally maintains a cache of the line heights at each font size.
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn line_height(&self) -> i32 {
-        static CACHE: OnceLock<DashMap<u16, i32>> = OnceLock::new();
+        static CACHE: OnceLock<DashMap<(FontFamily, u16), i32>> = OnceLock::new();
         let cache = CACHE.get_or_init(DashMap::new);
 
         // Get scaled font size with one decimal point.
         let font_size = (self.font_size as f64 * self.scale * 10.).round() as u16;
 
         // Calculate and cache line height.
-        *cache.entry(font_size).or_insert_with(|| {
+        *cache.entry((self.font_family.clone(), font_size)).or_insert_with(|| {
             // Get logical line height from font metrics.
             let metrics = self.context().metrics(Some(&self.font), None);
             metrics.height() / PANGO_SCALE
         })
+    }
+
+    /// Update the layout's font family and size.
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    pub fn set_font(&mut self, font_family: &FontFamily, font_size: u8) {
+        // Ignore request if there are no changes.
+        if &self.font_family == font_family && self.font_size == font_size {
+            return;
+        }
+
+        let font_desc = format!("{font_family} {font_size}px");
+        self.font = FontDescription::from_string(&font_desc);
+        self.font.set_absolute_size(self.font.size() as f64 * self.scale);
+        self.layout.set_font_description(Some(&self.font));
+        self.font_family = font_family.clone();
+        self.font_size = font_size;
     }
 }
 

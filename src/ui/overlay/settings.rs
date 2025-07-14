@@ -618,8 +618,8 @@ impl SettingsEntry {
         value: &str,
     ) -> Self {
         let font_family = match format {
-            InputFormat::None => &CONFIG.read().unwrap().font.family,
-            _ => &CONFIG.read().unwrap().font.monospace_family,
+            InputFormat::None => CONFIG.read().unwrap().font.family.clone(),
+            _ => CONFIG.read().unwrap().font.monospace_family.clone(),
         };
         let font_size = CONFIG.read().unwrap().font.size(1.);
 

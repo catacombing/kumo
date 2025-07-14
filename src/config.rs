@@ -88,16 +88,20 @@ pub struct Config {
 #[serde(default, deny_unknown_fields)]
 pub struct Font {
     /// Font family.
-    pub family: String,
+    pub family: FontFamily,
     /// Monospace font family.
-    pub monospace_family: String,
+    pub monospace_family: FontFamily,
     /// Font size.
     pub size: f64,
 }
 
 impl Default for Font {
     fn default() -> Self {
-        Self { monospace_family: String::from("mono"), family: String::from("sans"), size: 16. }
+        Self {
+            monospace_family: FontFamily::from("mono"),
+            family: FontFamily::from("sans"),
+            size: 16.,
+        }
     }
 }
 
@@ -331,6 +335,52 @@ impl From<Duration> for MillisDuration {
 impl Display for MillisDuration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.0.as_millis())
+    }
+}
+
+/// Read-only reference counted font family string.
+#[derive(Hash, PartialEq, Eq, Clone, Debug)]
+pub struct FontFamily {
+    arc: Arc<String>,
+}
+
+impl FontFamily {
+    fn from(family: impl Into<String>) -> Self {
+        Self { arc: Arc::new(family.into()) }
+    }
+}
+
+impl Deref for FontFamily {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.arc.as_str()
+    }
+}
+
+impl Display for FontFamily {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.arc.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for FontFamily {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let family = String::deserialize(deserializer)?;
+        Ok(Self::from(family))
+    }
+}
+
+impl Docgen for FontFamily {
+    fn doc_type() -> DocType {
+        String::doc_type()
+    }
+
+    fn format(&self) -> String {
+        self.arc.format()
     }
 }
 

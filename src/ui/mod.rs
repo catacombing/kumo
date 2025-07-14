@@ -20,7 +20,7 @@ use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
-use crate::config::CONFIG;
+use crate::config::{CONFIG, FontFamily};
 use crate::storage::history::{HistoryMatch, MAX_MATCHES};
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
 use crate::window::{PasteTarget, TextInputChange, TextInputState, WindowHandler};
@@ -865,6 +865,7 @@ impl Uribar {
         // Update text field dimensions.
         let field_width = self.size.width as f64 - (2. * PADDING * scale).round();
         self.text_field.set_width(field_width);
+        self.text_field.set_scale(scale);
 
         // Force redraw.
         self.dirty = true;
@@ -980,9 +981,13 @@ impl Uribar {
             }
         }
 
-        // Draw URI bar.
+        // Ensure font family, size, and scale are up to date.
+        let font_size = config.font.size(1.);
         let layout = self.text_field.layout();
+        layout.set_font(&config.font.family, font_size);
         layout.set_scale(self.scale);
+
+        // Draw URI bar.
         builder.rasterize(layout, &text_options);
 
         // Draw start gradient to indicate available scroll content.
@@ -1295,14 +1300,14 @@ pub struct TextField {
 
 impl TextField {
     fn new(window_id: WindowId, queue: MtQueueHandle<State>, font_size: u8) -> Self {
-        let font_family = &CONFIG.read().unwrap().font.family;
+        let font_family = CONFIG.read().unwrap().font.family.clone();
         Self::with_family(window_id, queue, font_family, font_size)
     }
 
     fn with_family(
         window_id: WindowId,
         queue: MtQueueHandle<State>,
-        family: &str,
+        family: FontFamily,
         font_size: u8,
     ) -> Self {
         Self {
@@ -1372,6 +1377,14 @@ impl TextField {
 
         // Ensure cursor is visible.
         self.update_scroll_offset();
+
+        self.dirty = true;
+    }
+
+    /// Set the text's scale.
+    fn set_scale(&mut self, scale: f64) {
+        self.layout().set_scale(scale);
+        self.dirty = true;
     }
 
     /// Get current text content.

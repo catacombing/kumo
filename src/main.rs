@@ -216,13 +216,16 @@ fn run() -> Result<(), Error> {
     });
 
     // Register funq with GLib event loop.
-    source::unix_fd_add_local(queue.fd().as_raw_fd(), IOCondition::IN, move |_, _| {
+    let source = source::unix_fd_add_local(queue.fd().as_raw_fd(), IOCondition::IN, move |_, _| {
         let _ = queue.dispatch(&mut state);
         ControlFlow::Continue
     });
 
     // Run main event loop.
     main_loop.run();
+
+    // Remove event sources, to drop their captured state.
+    source.remove();
 
     Ok(())
 }

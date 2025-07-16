@@ -1537,6 +1537,8 @@ impl Window {
         }
 
         self.ui.set_search_match_count(count);
+
+        self.unstall();
     }
 
     /// Jump to the active engine's next search match.

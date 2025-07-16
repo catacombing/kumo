@@ -664,6 +664,7 @@ impl Ui {
         self.dirty |= self.uribar.search_has_matches != has_matches;
 
         self.uribar.search_has_matches = has_matches;
+        self.uribar.dirty = true;
     }
 
     /// Physical height of the toolbar without the separator.

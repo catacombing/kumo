@@ -73,13 +73,16 @@ impl Groups {
             None => return HashSet::new(),
         };
 
-        match db.all_group_ids() {
+        let mut group_ids = match db.all_group_ids() {
             Ok(groups) => groups,
             Err(err) => {
                 error!("Failed load all groups: {err}");
                 HashSet::new()
             },
-        }
+        };
+        group_ids.insert(Uuid::nil());
+
+        group_ids
     }
 }
 

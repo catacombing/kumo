@@ -48,6 +48,18 @@
         </screenshot>
     </screenshots>
     <releases>
+        <release version="1.4.2" date="2025-07-17">
+            <description>
+                <p>Kumo Version 1.4.2</p>
+                <ul>
+                    <li>Fixed touch drag on URI input</li>
+                    <li>Fixed inut element fonts not live updating</li>
+                    <li>Fixed IPC socket file leakage on shutdown</li>
+                    <li>Fixed search error indicator lagging behind one frame</li>
+                    <li>Fixed cookies always getting deleted for the default group</li>
+                </ul>
+            </description>
+        </release>
         <release version="1.4.1" date="2025-07-13">
             <description>
                 <p>Kumo Version 1.4.1</p>

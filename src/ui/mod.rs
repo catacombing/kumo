@@ -706,15 +706,15 @@ impl Ui {
 
     /// Physical size of the URI bar.
     fn uribar_size(&self) -> Size {
+        let zoom_label_size = self.zoom_label_size();
         let uribar_end = if self.uribar.searching {
             self.search_prev_button_position().x
         } else {
-            self.tabs_button_position().x
+            self.tabs_button_position().x - zoom_label_size.width as f64
         };
-        let zoom_label_height = self.zoom_label_size().height;
         let uribar_start = self.uribar_position().x;
 
-        Size::new((uribar_end - uribar_start) as u32, zoom_label_height)
+        Size::new((uribar_end - uribar_start) as u32, zoom_label_size.height)
     }
 
     /// Physical position of the zoom level label

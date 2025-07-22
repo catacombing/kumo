@@ -2298,18 +2298,15 @@ impl Default for ZoomLabel {
 impl ZoomLabel {
     /// Get this label's OpenGL texture.
     pub fn texture(&mut self) -> Option<&Texture> {
-        // Skip rendering label at 100% scale.
-        if self.level == 1. {
-            return None;
-        }
-
         // Ensure texture is up to date.
         if mem::take(&mut self.dirty) {
             // Ensure texture is cleared while program is bound.
             if let Some(texture) = self.texture.take() {
                 texture.delete();
             }
-            self.texture = Some(self.draw());
+
+            // Skip rendering label at 100% scale.
+            self.texture = (self.level != 1.).then(|| self.draw());
         }
 
         self.texture.as_ref()

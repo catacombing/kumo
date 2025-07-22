@@ -635,7 +635,7 @@ impl Ui {
     /// Check whether UI needs redraw.
     pub fn dirty(&self) -> bool {
         self.dirty
-            || self.zoom_label.dirty
+            || (!self.uribar.searching && self.zoom_label.dirty)
             || self.uribar.dirty()
             || self.last_config != CONFIG.read().unwrap().generation
     }

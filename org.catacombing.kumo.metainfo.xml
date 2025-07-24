@@ -48,6 +48,15 @@
         </screenshot>
     </screenshots>
     <releases>
+        <release version="1.4.3" date="2025-07-24">
+            <description>
+                <p>Kumo Version 1.4.3</p>
+                <ul>
+                    <li>Fixed situational excessive redraws</li>
+                    <li>Fixed zoom label hiding behind tabs button</li>
+                </ul>
+            </description>
+        </release>
         <release version="1.4.2" date="2025-07-17">
             <description>
                 <p>Kumo Version 1.4.2</p>

@@ -497,6 +497,9 @@ impl Popup for History {
         }
         self.touch_state.slot = Some(id);
 
+        // Cancel velocity when a new touch sequence starts.
+        self.velocity.set(0.);
+
         // Convert position to physical space.
         let position = logical_position * self.scale;
         self.touch_state.position = position;

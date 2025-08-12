@@ -1,9 +1,17 @@
 //! IME subclass implementation.
 
+use std::mem;
+
 use glib::Object;
 use glib::subclass::types::ObjectSubclassIsExt;
 
 use crate::window::TextInputChange;
+
+/// Maximum number of surrounding bytes submitted to IME.
+///
+/// The value `4000` is chosen to match the maximum Wayland protocol message
+/// size, a higher value will lead to errors.
+const MAX_SURROUNDING_BYTES: usize = 4000;
 
 mod imp {
     use std::cell::Cell;
@@ -106,13 +114,18 @@ mod imp {
         }
 
         fn set_surrounding(&self, text: &str, cursor_index: u32, selection_index: u32) {
-            let selection_index = selection_index as i32;
-            let cursor_index = cursor_index as i32;
             if let Some(mut text_input_state) = self.text_input_state.take() {
-                text_input_state.surrounding_text = text.into();
-                text_input_state.cursor_index = cursor_index;
-                if selection_index != cursor_index {
-                    text_input_state.selection = Some(cursor_index..selection_index);
+                let (text, start, end) = super::clamp_surrounding_text(
+                    text,
+                    cursor_index as usize,
+                    selection_index as usize,
+                    super::MAX_SURROUNDING_BYTES,
+                );
+
+                text_input_state.surrounding_text = text;
+                text_input_state.cursor_index = start;
+                if start != end {
+                    text_input_state.selection = Some(start..end);
                 }
                 self.text_input_state.set(Some(text_input_state));
 
@@ -176,5 +189,79 @@ impl InputMethodContext {
 impl Default for InputMethodContext {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Clamp surrounding text to at most `max_len`.
+pub fn clamp_surrounding_text(
+    text: &str,
+    mut cursor_start: usize,
+    mut cursor_end: usize,
+    max_bytes: usize,
+) -> (String, i32, i32) {
+    // Ensure start/end are in the right order.
+    if cursor_start > cursor_end {
+        mem::swap(&mut cursor_start, &mut cursor_end);
+    }
+
+    // If the cursor range is longer than the maximum allowed bytes, we ignore the
+    // start and just return the bytes surrounding the end.
+    let original_cursor_start = cursor_start as i32;
+    if cursor_end - cursor_start > max_bytes {
+        cursor_start = cursor_end;
+    }
+
+    // Calculate available bytes outside the cursor range.
+    let max_bytes = max_bytes - (cursor_end - cursor_start);
+
+    // Get up to half of the available bytes after the cursor end.
+    let mut end = cursor_end + max_bytes / 2;
+    if end >= text.len() {
+        end = text.len();
+    } else {
+        while end > 0 && !text.is_char_boundary(end) {
+            end -= 1;
+        }
+    };
+
+    // Get as many bytes as available before the cursor.
+    let remaining = max_bytes - (end - cursor_end);
+    let mut start = cursor_start.saturating_sub(remaining);
+    while start < text.len() && !text.is_char_boundary(start) {
+        start += 1;
+    }
+
+    // Calculate cursor indices relative to surrounding text.
+    let relative_start = original_cursor_start - start as i32;
+    let relative_end = cursor_end as i32 - start as i32;
+
+    (text[start..end].into(), relative_start, relative_end)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn surrounding_text() {
+        let (text, start, end) = clamp_surrounding_text("01234", 1, 4, 1);
+        assert_eq!(text, "3");
+        assert_eq!(start, -2);
+        assert_eq!(end, 1);
+
+        let (text, start, end) = clamp_surrounding_text("01234", 1, 4, 3);
+        assert_eq!(text, "123");
+        assert_eq!(start, 0);
+        assert_eq!(end, 3);
+
+        let (text, start, end) = clamp_surrounding_text("01234", 1, 4, 4);
+        assert_eq!(text, "0123");
+        assert_eq!(start, 1);
+        assert_eq!(end, 4);
+
+        let (text, start, end) = clamp_surrounding_text("01234", 1, 4, 99);
+        assert_eq!(text, "01234");
+        assert_eq!(start, 1);
+        assert_eq!(end, 4);
     }
 }

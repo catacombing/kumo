@@ -48,6 +48,15 @@
         </screenshot>
     </screenshots>
     <releases>
+        <release version="1.4.4" date="2025-08-12">
+            <description>
+                <p>Kumo Version 1.4.4</p>
+                <ul>
+                    <li>Fixed scroll velocity not stopping on new touch input</li>
+                    <li>Fixed crash with input elements that exceed 4000 characters</li>
+                </ul>
+            </description>
+        </release>
         <release version="1.4.3" date="2025-07-24">
             <description>
                 <p>Kumo Version 1.4.3</p>

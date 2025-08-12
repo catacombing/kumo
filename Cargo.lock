@@ -1491,7 +1491,7 @@ dependencies = [
 
 [[package]]
 name = "kumo"
-version = "1.4.3"
+version = "1.4.4"
 dependencies = [
  "bitflags 2.9.1",
  "chrono",

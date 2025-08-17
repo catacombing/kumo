@@ -132,7 +132,14 @@ fn run() -> Result<(), Error> {
     let mut state = State::new(queue.local_handle(), main_loop.clone())?;
 
     // Create our initial window.
-    let window_id = state.create_window();
+    let root_window = state.create_window();
+    let root_window_id = root_window.id();
+
+    // Create initial browser tab.
+    root_window.add_tab(true, true, NO_GROUP_ID);
+
+    // Ensure Wayland processing is kicked off.
+    state.wayland_dispatch();
 
     // Create an empty tab for loading a new page.
     let mut is_first_tab = true;
@@ -155,7 +162,7 @@ fn run() -> Result<(), Error> {
     });
 
     // Restore all orphan sessions.
-    let mut window = state.windows.get_mut(&window_id).unwrap();
+    let mut window = state.windows.get_mut(&root_window_id).unwrap();
     let mut session_window_id = None;
     let mut session_pid = None;
     for entry in &mut orphan_sessions {
@@ -163,8 +170,9 @@ fn run() -> Result<(), Error> {
         if session_pid != Some(entry.pid) || session_window_id != Some(entry.window_id) {
             // Create a new window.
             if session_pid.is_some() || session_window_id.is_some() {
-                let new_window_id = state.create_window();
+                let new_window_id = state.create_window().id();
                 window = state.windows.get_mut(&new_window_id).unwrap();
+                window.add_tab(true, true, NO_GROUP_ID);
                 is_first_tab = true;
             }
 
@@ -201,10 +209,10 @@ fn run() -> Result<(), Error> {
     state.storage.session.delete_orphans(orphan_sessions.iter().map(|s| s.pid));
 
     // Spawn a new tab for every CLI argument.
-    let window = state.windows.get_mut(&window_id).unwrap();
+    let root_window = state.windows.get_mut(&root_window_id).unwrap();
     for arg in options.links {
-        get_empty_tab(window, &mut is_first_tab, NO_GROUP_ID, true);
-        window.load_uri(arg, true);
+        get_empty_tab(root_window, &mut is_first_tab, NO_GROUP_ID, true);
+        root_window.load_uri(arg, true);
     }
 
     // Register Wayland socket with GLib event loop.
@@ -379,25 +387,17 @@ impl State {
     }
 
     /// Create a new browser window.
-    fn create_window(&mut self) -> WindowId {
-        // Setup new window.
-        let connection = self.connection.clone();
+    fn create_window(&mut self) -> &mut Window {
         let window = Window::new(
             &self.protocol_states,
-            connection,
+            self.connection.clone(),
             self.egl_display.clone(),
             self.queue.clone(),
             self.wayland_queue(),
             &self.storage,
             self.engine_state.clone(),
         );
-        let window_id = window.id();
-        self.windows.insert(window_id, window);
-
-        // Ensure Wayland processing is kicked off.
-        self.wayland_dispatch();
-
-        window_id
+        self.windows.entry(window.id()).insert_entry(window).into_mut()
     }
 
     /// Get access to the Wayland queue.

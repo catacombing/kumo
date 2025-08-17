@@ -248,7 +248,7 @@ impl Window {
         overlay.set_size(size);
         ui.set_size(size);
 
-        let mut window = Self {
+        Self {
             engine_backdrop,
             engine_viewport,
             engine_surface,
@@ -279,12 +279,7 @@ impl Window {
             closed: Default::default(),
             groups: Default::default(),
             tabs: Default::default(),
-        };
-
-        // Create initial browser tab.
-        window.add_tab(true, true, NO_GROUP_ID);
-
-        window
+        }
     }
 
     /// Get the ID of this window.
@@ -1489,6 +1484,11 @@ impl Window {
             // Persist new label to database.
             self.group_storage.persist(self.groups.values());
         }
+    }
+
+    /// Get a group by ID.
+    pub fn group(&self, id: GroupId) -> Option<&Group> {
+        self.groups.get(&id)
     }
 
     /// Start tab drop & drag.

@@ -1303,7 +1303,7 @@ impl ContextMenu {
             },
             Some(ContextMenuItem::OpenInNewWindow) => {
                 if let Some(uri) = self.uri() {
-                    engine.queue.open_in_window(uri);
+                    engine.queue.open_in_window(engine.id, uri);
                 }
             },
             Some(ContextMenuItem::CopyLink) => {

@@ -220,7 +220,10 @@ pub trait EngineHandler {
     fn open_in_tab(&mut self, engine_id: EngineId, uri: String);
 
     /// Open URI in a new window.
-    fn open_in_window(&mut self, uri: String);
+    ///
+    /// This will automatically copy the parent's group settings to ensure
+    /// ephemeral mode is persisted for the new window.
+    fn open_in_window(&mut self, parent: EngineId, uri: String);
 
     /// Add host to the cookie whitelist.
     fn add_cookie_exception(&mut self, host: String);
@@ -284,12 +287,24 @@ impl EngineHandler for State {
         }
     }
 
-    fn open_in_window(&mut self, uri: String) {
-        let window_id = self.create_window();
-        let window = match self.windows.get_mut(&window_id) {
-            Some(window) => window,
-            None => return,
-        };
+    fn open_in_window(&mut self, parent: EngineId, uri: String) {
+        // Check if group of the tab spawning the window is ephemeral.
+        let parent_ephemeral = self
+            .windows
+            .get(&parent.window_id())
+            .and_then(|window| window.group(parent.group_id()))
+            .is_some_and(|group| group.ephemeral);
+
+        let window = self.create_window();
+
+        // If the parent is ephemeral, switch to a new ephemeral group.
+        if parent_ephemeral {
+            let group_id = window.create_tab_group(None, true);
+            window.set_ephemeral_mode(group_id, true);
+            window.add_tab(false, true, group_id);
+        } else {
+            window.add_tab(false, true, NO_GROUP_ID);
+        }
 
         window.set_keyboard_focus(KeyboardFocus::None);
         if let Some(engine) = window.active_tab_mut() {

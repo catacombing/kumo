@@ -2,6 +2,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::f64::consts::PI;
 use std::mem;
 use std::time::Instant;
 
@@ -42,6 +43,9 @@ const BUTTON_HEIGHT: u32 = 60;
 
 /// Favicon width and height at scale 1.
 const FAVICON_SIZE: f64 = 28.;
+
+/// Size of the audio playback icon at scale 1.
+const AUDIO_SIZE: f64 = 10.;
 
 /// Scale of a tab being drag & dropped.
 const REORDERING_SCALE: f32 = 0.9;
@@ -349,6 +353,11 @@ impl Tabs {
     /// Get current URI of a tab.
     pub fn tab_uri(&self, tab: EngineId) -> Option<&str> {
         self.texture_cache.tabs.get(&tab).map(|tab| tab.uri.as_str())
+    }
+
+    /// Set a tab's audio playback state.
+    pub fn set_audio_playing(&mut self, engine_id: EngineId, playing: bool) {
+        self.dirty |= self.texture_cache.set_audio_playing(engine_id, playing);
     }
 
     /// Physical size of the tab creation button bar.
@@ -733,8 +742,6 @@ impl Popup for Tabs {
                 && reordering_tab != Some(engine_id)
             {
                 let tab_textures = self.texture_cache.texture(tab, tab_size, self.scale);
-                renderer.draw_texture_at(tab_textures.tab, texture_pos, None);
-
                 if let Some(favicon_texture) = tab_textures.favicon {
                     // Center favicon within the tab.
                     let offset = (tab_textures.tab.height as f32 - favicon_size.height) / 2.;
@@ -742,6 +749,7 @@ impl Popup for Tabs {
 
                     renderer.draw_texture_at(favicon_texture, favicon_pos, favicon_size);
                 }
+                renderer.draw_texture_at(tab_textures.tab, texture_pos, None);
             } else if reordering_tab == Some(engine_id) {
                 reordering_tab_position = texture_pos;
             }
@@ -772,8 +780,6 @@ impl Popup for Tabs {
             reordering_tab_position.x += (textures.tab.width as f32 - width) / 2.;
             reordering_tab_position.y += (textures.tab.height as f32 - height) / 2.;
 
-            renderer.draw_texture_at(textures.tab, reordering_tab_position, size);
-
             if let Some(favicon_texture) = textures.favicon {
                 // Downscale favicon size.
                 let favicon_size = favicon_size * REORDERING_SCALE;
@@ -784,6 +790,7 @@ impl Popup for Tabs {
 
                 renderer.draw_texture_at(favicon_texture, favicon_position, favicon_size);
             }
+            renderer.draw_texture_at(textures.tab, reordering_tab_position, size);
         }
 
         // Restore tabs list to texture cache.
@@ -1178,6 +1185,17 @@ impl TextureCache {
         }
     }
 
+    /// Update a tab's audio playback state.
+    fn set_audio_playing(&mut self, engine_id: EngineId, playing: bool) -> bool {
+        match self.tabs.get_mut(&engine_id) {
+            Some(tab) if tab.audio_playing != playing => {
+                tab.audio_playing = playing;
+                true
+            },
+            _ => false,
+        }
+    }
+
     /// Update an existing engine's favicon.
     ///
     /// Returns `true` if a tab's favicon was reloaded.
@@ -1301,8 +1319,11 @@ impl TextureCache {
 
         // Calculate spacing to the left of tab text.
         let close_position = Tabs::close_button_position(tab_size, scale);
-        let x_offset =
-            if tab.favicon.is_some() { tab_size.height as f64 } else { close_position.y };
+        let x_offset = if tab.audio_playing || tab.favicon.is_some() {
+            tab_size.height as f64
+        } else {
+            close_position.y
+        };
 
         // Calculate available area font font rendering.
         let text_width = close_position.x - close_position.y - x_offset;
@@ -1310,10 +1331,27 @@ impl TextureCache {
         text_options.position(Position::new(x_offset, 0.));
         text_options.size(text_size);
 
-        // Render background with load progress indication.
+        // Create cairo surface for rendering.
         let builder = TextureBuilder::new(tab_size.into());
         let context = builder.context();
-        builder.clear(config.colors.alt_background.as_f64());
+
+        // Define clip mask for favicon cutout.
+        let favicon_size = (FAVICON_SIZE * scale).round();
+        let favicon_padding = (tab_size.height as f64 - favicon_size) / 2.;
+        if tab.favicon.is_some() {
+            let favicon_end = favicon_padding + favicon_size;
+            context.rectangle(0., 0., tab_size.width as f64, favicon_padding);
+            context.rectangle(0., favicon_padding, favicon_padding, favicon_size);
+            context.rectangle(favicon_end, favicon_padding, tab_size.width as f64, favicon_size);
+            context.rectangle(0., favicon_end, tab_size.width as f64, favicon_padding);
+            context.clip();
+        }
+
+        // Draw the background color.
+        let bg = config.colors.alt_background.as_f64();
+        builder.clear(bg);
+
+        // Draw load progress indicator as background color.
         if tab.load_progress < 100 {
             let width = tab_size.width as f64 / 100. * tab.load_progress as f64;
             let hl = config.colors.highlight.as_f64();
@@ -1336,6 +1374,30 @@ impl TextureCache {
         context.set_source_rgb(fg[0], fg[1], fg[2]);
         context.set_line_width(scale);
         context.stroke().unwrap();
+
+        // Render audio playback icon.
+        if tab.audio_playing {
+            // Render audio icon as favicon without favicon present.
+            let (x, y, size) = if tab.favicon.is_some() {
+                let audio_size = (AUDIO_SIZE * scale).round();
+                let offset = x_offset - favicon_padding - audio_size;
+                let center = offset + audio_size / 2.;
+
+                // Draw background to avoid blending into favicon.
+                context.reset_clip();
+                context.arc(center, center, audio_size, 0., 2. * PI);
+                context.set_source_rgb(bg[0], bg[1], bg[2]);
+                context.fill().unwrap();
+
+                (offset, offset, audio_size)
+            } else {
+                let audio_size = favicon_size * 0.75;
+                let offset = favicon_padding + favicon_size * 0.125;
+                (offset, offset, audio_size)
+            };
+
+            builder.rasterize_svg(Svg::Audio, x, y, size, size);
+        }
 
         let tab_texture = self.textures.entry(tab.owned_key()).or_insert(builder.build());
         TabTextures::new(tab_texture, &self.favicons, tab)
@@ -1371,6 +1433,7 @@ struct RenderTab {
     title: String,
     active: bool,
     favicon: Option<Favicon>,
+    audio_playing: bool,
     load_progress: u8,
 }
 
@@ -1382,6 +1445,7 @@ impl RenderTab {
             favicon: engine.favicon(),
             uri: engine.uri().into(),
             load_progress: 100,
+            audio_playing: Default::default(),
         }
     }
 
@@ -1395,6 +1459,7 @@ impl RenderTab {
         TabTextureCacheKey {
             favicon_uri: self.favicon.as_ref().map(|f| Cow::Borrowed(&f.resource_uri)),
             label: Cow::Borrowed(self.label()),
+            audio_playing: self.audio_playing,
             load_progress: self.load_progress,
             active: self.active,
         }
@@ -1405,6 +1470,7 @@ impl RenderTab {
         TabTextureCacheKey {
             favicon_uri: self.favicon.as_ref().map(|f| Cow::Owned(f.resource_uri.clone())),
             label: Cow::Owned(self.label().to_string()),
+            audio_playing: self.audio_playing,
             load_progress: self.load_progress,
             active: self.active,
         }
@@ -1416,6 +1482,7 @@ impl RenderTab {
 struct TabTextureCacheKey<'a> {
     favicon_uri: Option<Cow<'a, glib::GString>>,
     label: Cow<'a, str>,
+    audio_playing: bool,
     load_progress: u8,
     active: bool,
 }

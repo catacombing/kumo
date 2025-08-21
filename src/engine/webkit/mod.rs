@@ -438,6 +438,12 @@ impl WebKitState {
             });
         }
 
+        // Listen for audio playback changes.
+        let audio_queue = self.queue.clone();
+        web_view.connect_is_playing_audio_notify(move |web_view| {
+            audio_queue.clone().set_audio_playing(engine_id, web_view.is_playing_audio());
+        });
+
         // Load adblock content filter.
         load_adblock(web_view.clone());
 

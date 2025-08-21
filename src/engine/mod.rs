@@ -248,6 +248,9 @@ pub trait EngineHandler {
 
     /// Update number of text search matches.
     fn set_search_match_count(&mut self, engine_id: EngineId, count: usize);
+
+    /// Set whether a tab is playing audio.
+    fn set_audio_playing(&mut self, engine_id: EngineId, playing: bool);
 }
 
 impl EngineHandler for State {
@@ -347,6 +350,12 @@ impl EngineHandler for State {
     fn set_search_match_count(&mut self, engine_id: EngineId, count: usize) {
         if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
             window.set_search_match_count(engine_id, count);
+        }
+    }
+
+    fn set_audio_playing(&mut self, engine_id: EngineId, playing: bool) {
+        if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
+            window.set_audio_playing(engine_id, playing);
         }
     }
 }

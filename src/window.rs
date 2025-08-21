@@ -1559,6 +1559,15 @@ impl Window {
     pub fn reload_settings(&mut self) {
         self.overlay.reload_settings();
     }
+
+    /// Update an engine's audio playback state.
+    pub fn set_audio_playing(&mut self, engine_id: EngineId, playing: bool) {
+        self.overlay.tabs_mut().set_audio_playing(engine_id, playing);
+
+        if self.overlay.dirty() {
+            self.unstall();
+        }
+    }
 }
 
 /// Unique identifier for one window.

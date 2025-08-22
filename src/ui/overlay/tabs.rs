@@ -2,7 +2,6 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::f64::consts::PI;
 use std::mem;
 use std::time::Instant;
 
@@ -45,7 +44,7 @@ const BUTTON_HEIGHT: u32 = 60;
 const FAVICON_SIZE: f64 = 28.;
 
 /// Size of the audio playback icon at scale 1.
-const AUDIO_SIZE: f64 = 10.;
+const AUDIO_SIZE: f64 = 12.;
 
 /// Scale of a tab being drag & dropped.
 const REORDERING_SCALE: f32 = 0.9;
@@ -216,6 +215,7 @@ pub struct Tabs {
     new_group_button: PlusButton,
     new_tab_button: PlusButton,
     menu_button: SvgButton,
+    audio_icon: SvgButton,
 
     keyboard_focus: Option<KeyboardInputElement>,
     touch_state: TouchState,
@@ -233,8 +233,12 @@ pub struct Tabs {
 impl Tabs {
     pub fn new(window_id: WindowId, queue: MtQueueHandle<State>) -> Self {
         let group_label = GroupLabel::new(window_id, queue.clone());
+        let mut audio_icon = SvgButton::new(Svg::Audio);
+        audio_icon.set_padding(0.);
+
         Self {
             group_label,
+            audio_icon,
             window_id,
             queue,
             persistent_button: SvgButton::new_toggle(Svg::PersistentOn, Svg::PersistentOff),
@@ -672,6 +676,7 @@ impl Popup for Tabs {
             self.new_tab_button.dirty = true;
             self.menu_button.dirty = true;
             self.group_label.dirty = true;
+            self.audio_icon.dirty = true;
         }
 
         // Get geometry required for rendering.
@@ -710,6 +715,7 @@ impl Popup for Tabs {
         let new_tab_button = self.new_tab_button.texture();
         let group_label = self.group_label.texture();
         let menu_button = self.menu_button.texture();
+        let audio_icon = self.audio_icon.texture();
 
         // Draw background.
         //
@@ -742,14 +748,27 @@ impl Popup for Tabs {
                 && reordering_tab != Some(engine_id)
             {
                 let tab_textures = self.texture_cache.texture(tab, tab_size, self.scale);
-                if let Some(favicon_texture) = tab_textures.favicon {
-                    // Center favicon within the tab.
-                    let offset = (tab_textures.tab.height as f32 - favicon_size.height) / 2.;
-                    let favicon_pos = texture_pos + Position::new(offset, offset);
+                renderer.draw_texture_at(tab_textures.tab, texture_pos, None);
 
+                // Calculate favicon position.
+                let favicon_offset = (tab_textures.tab.height as f32 - favicon_size.height) / 2.;
+                let favicon_pos = texture_pos + Position::new(favicon_offset, favicon_offset);
+
+                if let Some(favicon_texture) = tab_textures.favicon {
                     renderer.draw_texture_at(favicon_texture, favicon_pos, favicon_size);
                 }
-                renderer.draw_texture_at(tab_textures.tab, texture_pos, None);
+
+                // Draw audio playback indicator.
+                if tab.audio_playing {
+                    let (audio_offset, audio_size) = if tab_textures.favicon.is_some() {
+                        let audio_size = (AUDIO_SIZE * self.scale).round() as f32;
+                        (favicon_size.width - audio_size, Size::new(audio_size, audio_size))
+                    } else {
+                        (0., favicon_size)
+                    };
+                    let audio_pos = favicon_pos + Position::new(audio_offset, audio_offset);
+                    renderer.draw_texture_at(audio_icon, audio_pos, audio_size);
+                }
             } else if reordering_tab == Some(engine_id) {
                 reordering_tab_position = texture_pos;
             }
@@ -759,9 +778,9 @@ impl Popup for Tabs {
         }
 
         // Draw tab in the process of being reordered.
-        if let Some(textures) = reordering_tab.and_then(|engine_id| {
-            tabs.get(&engine_id).map(|tab| self.texture_cache.texture(tab, tab_size, self.scale))
-        }) {
+        if let Some(tab) = reordering_tab.and_then(|engine_id| tabs.get(&engine_id)) {
+            let textures = self.texture_cache.texture(tab, tab_size, self.scale);
+
             // Add drag offset to tab position.
             let start: Position<f32> = self.touch_state.start.into();
             let end: Position<f32> = self.touch_state.position.into();
@@ -780,17 +799,29 @@ impl Popup for Tabs {
             reordering_tab_position.x += (textures.tab.width as f32 - width) / 2.;
             reordering_tab_position.y += (textures.tab.height as f32 - height) / 2.;
 
-            if let Some(favicon_texture) = textures.favicon {
-                // Downscale favicon size.
-                let favicon_size = favicon_size * REORDERING_SCALE;
-
-                // Center favicon within the tab.
-                let offset = (height - favicon_size.height) / 2.;
-                let favicon_position = reordering_tab_position + Position::new(offset, offset);
-
-                renderer.draw_texture_at(favicon_texture, favicon_position, favicon_size);
-            }
             renderer.draw_texture_at(textures.tab, reordering_tab_position, size);
+
+            // Get downscaled favicon geometry.
+            let favicon_size = favicon_size * REORDERING_SCALE;
+            let favicon_offset = (height - favicon_size.height) / 2.;
+            let favicon_pos =
+                reordering_tab_position + Position::new(favicon_offset, favicon_offset);
+
+            if let Some(favicon_texture) = textures.favicon {
+                renderer.draw_texture_at(favicon_texture, favicon_pos, favicon_size);
+            }
+
+            // Draw audio playback indicator.
+            if tab.audio_playing {
+                let (audio_offset, audio_size) = if textures.favicon.is_some() {
+                    let audio_size = (AUDIO_SIZE * self.scale).round() as f32;
+                    (favicon_size.width - audio_size, Size::new(audio_size, audio_size))
+                } else {
+                    (favicon_size.width * 0.125, favicon_size * 0.75)
+                };
+                let audio_pos = favicon_pos + Position::new(audio_offset, audio_offset);
+                renderer.draw_texture_at(audio_icon, audio_pos, audio_size);
+            }
         }
 
         // Restore tabs list to texture cache.
@@ -838,6 +869,7 @@ impl Popup for Tabs {
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
         self.group_label.set_geometry(self.group_label_size(), self.scale);
         self.menu_button.set_geometry(self.menu_button_size(), self.scale);
+        self.audio_icon.set_geometry(self.favicon_size(), self.scale);
         self.texture_cache.resized = true;
     }
 
@@ -857,6 +889,7 @@ impl Popup for Tabs {
         self.new_tab_button.set_geometry(self.new_tab_button_size(), self.scale);
         self.group_label.set_geometry(self.group_label_size(), self.scale);
         self.menu_button.set_geometry(self.menu_button_size(), self.scale);
+        self.audio_icon.set_geometry(self.favicon_size(), self.scale);
         self.texture_cache.resized = true;
     }
 
@@ -1335,18 +1368,6 @@ impl TextureCache {
         let builder = TextureBuilder::new(tab_size.into());
         let context = builder.context();
 
-        // Define clip mask for favicon cutout.
-        let favicon_size = (FAVICON_SIZE * scale).round();
-        let favicon_padding = (tab_size.height as f64 - favicon_size) / 2.;
-        if tab.favicon.is_some() {
-            let favicon_end = favicon_padding + favicon_size;
-            context.rectangle(0., 0., tab_size.width as f64, favicon_padding);
-            context.rectangle(0., favicon_padding, favicon_padding, favicon_size);
-            context.rectangle(favicon_end, favicon_padding, tab_size.width as f64, favicon_size);
-            context.rectangle(0., favicon_end, tab_size.width as f64, favicon_padding);
-            context.clip();
-        }
-
         // Draw the background color.
         let bg = config.colors.alt_background.as_f64();
         builder.clear(bg);
@@ -1374,30 +1395,6 @@ impl TextureCache {
         context.set_source_rgb(fg[0], fg[1], fg[2]);
         context.set_line_width(scale);
         context.stroke().unwrap();
-
-        // Render audio playback icon.
-        if tab.audio_playing {
-            // Render audio icon as favicon without favicon present.
-            let (x, y, size) = if tab.favicon.is_some() {
-                let audio_size = (AUDIO_SIZE * scale).round();
-                let offset = x_offset - favicon_padding - audio_size;
-                let center = offset + audio_size / 2.;
-
-                // Draw background to avoid blending into favicon.
-                context.reset_clip();
-                context.arc(center, center, audio_size, 0., 2. * PI);
-                context.set_source_rgb(bg[0], bg[1], bg[2]);
-                context.fill().unwrap();
-
-                (offset, offset, audio_size)
-            } else {
-                let audio_size = favicon_size * 0.75;
-                let offset = favicon_padding + favicon_size * 0.125;
-                (offset, offset, audio_size)
-            };
-
-            builder.rasterize_svg(Svg::Audio, x, y, size, size);
-        }
 
         let tab_texture = self.textures.entry(tab.owned_key()).or_insert(builder.build());
         TabTextures::new(tab_texture, &self.favicons, tab)
@@ -1459,7 +1456,6 @@ impl RenderTab {
         TabTextureCacheKey {
             favicon_uri: self.favicon.as_ref().map(|f| Cow::Borrowed(&f.resource_uri)),
             label: Cow::Borrowed(self.label()),
-            audio_playing: self.audio_playing,
             load_progress: self.load_progress,
             active: self.active,
         }
@@ -1470,7 +1466,6 @@ impl RenderTab {
         TabTextureCacheKey {
             favicon_uri: self.favicon.as_ref().map(|f| Cow::Owned(f.resource_uri.clone())),
             label: Cow::Owned(self.label().to_string()),
-            audio_playing: self.audio_playing,
             load_progress: self.load_progress,
             active: self.active,
         }
@@ -1482,7 +1477,6 @@ impl RenderTab {
 struct TabTextureCacheKey<'a> {
     favicon_uri: Option<Cow<'a, glib::GString>>,
     label: Cow<'a, str>,
-    audio_playing: bool,
     load_progress: u8,
     active: bool,
 }

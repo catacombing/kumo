@@ -2271,6 +2271,12 @@ impl SvgButton {
         self.dirty |= self.enabled != enabled;
         self.enabled = enabled;
     }
+
+    /// Set the padding at scale 1.
+    fn set_padding(&mut self, padding: f64) {
+        self.dirty |= self.padding_size != padding;
+        self.padding_size = padding;
+    }
 }
 
 /// Zoom level label.

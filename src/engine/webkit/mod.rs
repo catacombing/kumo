@@ -29,7 +29,7 @@ use smithay_client_toolkit::seat::pointer::AxisScroll;
 use tracing::{error, trace, warn};
 use uuid::Uuid;
 use wpe_platform::ffi::WPERectangle;
-use wpe_platform::{Buffer, BufferDMABuf, BufferExt, BufferSHM, EventType};
+use wpe_platform::{Buffer, BufferDMABuf, BufferExt, BufferSHM, DisplayExtManual, EventType};
 use wpe_webkit::{
     Color, CookieAcceptPolicy, CookiePersistentStorage, Download as WebKitDownload, FindOptions,
     HitTestResult, HitTestResultContext, NetworkSession, OptionMenu,
@@ -374,9 +374,13 @@ impl WebKitState {
             WebView::builder().network_session(network_session).display(&webkit_display).build();
 
         // Set browser background color.
-        let bg = CONFIG.read().unwrap().colors.background.as_f64();
+        let config = CONFIG.read().unwrap();
+        let bg = config.colors.background.as_f64();
         let mut color = Color::new(bg[0], bg[1], bg[2], 1.);
         web_view.set_background_color(&mut color);
+
+        // Set browser content dark mode.
+        set_dark_mode(&web_view, config.colors.dark_mode);
 
         // Notify UI about URI and title changes.
         let load_queue = self.queue.clone();
@@ -452,6 +456,7 @@ impl WebKitState {
             web_view,
             scale,
             bg,
+            dark_mode: config.colors.dark_mode,
             queue: self.queue.clone(),
             id: engine_id,
             buffers_pending_release: Default::default(),
@@ -487,6 +492,7 @@ pub struct WebKitEngine {
 
     downloads: HashMap<DownloadId, WebKitDownload>,
 
+    dark_mode: bool,
     bg: [f64; 3],
     dirty: bool,
 }
@@ -584,12 +590,20 @@ impl Engine for WebKitEngine {
     fn attach_buffer(&mut self, surface: &WlSurface) -> bool {
         self.dirty = false;
 
-        // Regularly check for background color config changes.
-        let bg = CONFIG.read().unwrap().colors.background.as_f64();
+        // Check for config updates on every frame.
+
+        let config = CONFIG.read().unwrap();
+        let bg = config.colors.background.as_f64();
         if self.bg != bg {
             let mut color = Color::new(bg[0], bg[1], bg[2], 1.);
             self.web_view.set_background_color(&mut color);
             self.bg = bg;
+        }
+
+        let dark_mode = config.colors.dark_mode;
+        if self.dark_mode != dark_mode {
+            set_dark_mode(&self.web_view, config.colors.dark_mode);
+            self.dark_mode = dark_mode;
         }
 
         match &self.buffer {
@@ -1380,4 +1394,12 @@ fn cache_dir() -> Option<PathBuf> {
 fn webkit_engine_by_id(window: &mut Window, engine_id: EngineId) -> Option<&mut WebKitEngine> {
     let engine = window.tab_mut(engine_id)?;
     engine.as_any().downcast_mut::<WebKitEngine>()
+}
+
+/// Update view's dark mode setting.
+fn set_dark_mode(web_view: &WebView, dark_mode: bool) {
+    let settings = web_view.display().unwrap().settings();
+    if let Err(err) = settings.set_boolean("/wpe-platform/dark-mode", dark_mode) {
+        error!("Failed setting dark mode to {}: {err}", dark_mode);
+    }
 }

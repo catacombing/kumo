@@ -3,10 +3,22 @@
 use std::ffi::{CStr, c_char};
 
 use ffi::{WPEBufferDMABufFormats, WPEDisplay, WPEInputMethodContext, WPEView};
+use glib::object::IsA;
 use glib::subclass::prelude::*;
-use glib::translate::ToGlibPtr;
+use glib::translate::{ToGlibPtr, *};
 
-use crate::{BufferDMABufFormats, Display, InputMethodContext, View};
+use crate::{BufferDMABufFormats, Display, InputMethodContext, Settings, View};
+
+pub trait DisplayExtManual: IsA<Display> + 'static {
+    /// Get WPE platform settings.
+    fn settings(&self) -> Settings;
+}
+
+impl<O: IsA<Display>> DisplayExtManual for O {
+    fn settings(&self) -> Settings {
+        unsafe { from_glib_none(ffi::wpe_display_get_settings(self.as_ref().to_glib_none().0)) }
+    }
+}
 
 pub trait DisplayImpl: ObjectImpl {
     /// Create a new [`crate::View`].

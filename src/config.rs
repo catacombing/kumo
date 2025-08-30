@@ -137,6 +137,9 @@ pub struct Colors {
     pub error: Color,
     /// Disabled foreground color.
     pub disabled: Color,
+
+    /// Whether pages should use a dark theme if available.
+    pub dark_mode: bool,
 }
 
 impl Default for Colors {
@@ -151,6 +154,8 @@ impl Default for Colors {
 
             error: Color::new(172, 66, 66),
             disabled: Color::new(102, 102, 102),
+
+            dark_mode: true,
         }
     }
 }

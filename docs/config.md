@@ -35,6 +35,7 @@ This section documents the `[color]` table.
 |alt_background|Alternative background color|color|`"#282828"`|
 |error|Error foreground color|color|`"#ac4242"`|
 |disabled|Disabled foreground color|color|`"#666666"`|
+|dark_mode|Whether pages should use a dark theme if available|boolean|`true`|
 
 ### search
 

@@ -26,23 +26,23 @@ members = [
 ]
 
 [workspace.package]
-rust-version = "1.85.0"
+rust-version = "1.85.1"
 edition = "2024"
 
 # Workspace member dependencies are defined here for consistency and easier updates.
 [workspace.dependencies]
-gio = "0.20.1"
-gio-sys = "0.20.1"
-glib = "0.20.1"
-glib-sys = "0.20.1"
-gobject-sys = "0.20.1"
+gio = "0.21.1"
+gio-sys = "0.21.1"
+glib = "0.21.1"
+glib-sys = "0.21.1"
+gobject-sys = "0.21.1"
 libc = "0.2.158"
 pkg-config = "0.3.30"
 proc-macro2 = "1.0.78"
 quote = "1.0.35"
-rustix = { version = "0.38.31", features = ["event"] }
-soup = { package = "soup3", version = "0.7.0" }
-soup-sys = { package = "soup3-sys", version = "0.7.0" }
+rustix = { version = "1.0.8", features = ["event"] }
+soup = { package = "soup3", version = "0.8.0" }
+soup-sys = { package = "soup3-sys", version = "0.8.0" }
 syn = { version = "2.0.51", features = ["full", "extra-traits"] }
 xkbcommon-sys = "1.4.1"
 
@@ -51,9 +51,9 @@ xkbcommon-sys = "1.4.1"
 bitflags = "2.5.0"
 chrono = "0.4.39"
 clap = { version = "4.5.39", features = ["derive"] }
-configory = { version = "0.5.0", features = ["log", "docgen"] }
+configory = { version = "0.5.2", features = ["log", "docgen"] }
 dashmap = "6.0.1"
-dirs = "5.0.1"
+dirs = "6.0.0"
 drm = "0.14.0"
 funq = { path = "./funq" }
 gio.workspace = true
@@ -61,18 +61,18 @@ glib.workspace = true
 glutin = { version = "0.32.1", default-features = false, features = ["wayland"] }
 indexmap = "2.2.6"
 libc.workspace = true
-librsvg = "2.58.5"
-pangocairo = "0.20.0"
+librsvg = "2.61.0"
+pangocairo = "0.21.1"
 profiling = { version = "1.0.14", optional = true, features = ["profile-with-puffin"] }
 puffin_http = { version = "0.16.0", optional = true }
 raw-window-handle = "0.6.0"
-rusqlite = { version = "0.32.0", features = ["uuid", "chrono"] }
+rusqlite = { version = "0.37.0", features = ["uuid", "chrono"] }
 rustix.workspace = true
 serde = { version = "1.0.219", features = ["derive"] }
 smallvec = "1.13.2"
 smithay-client-toolkit = { version = "0.19.1", default-features = false, features = ["xkbcommon"] }
 thiserror = "2.0.3"
-toml = "0.8.23"
+toml = "0.9.5"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 uuid = { version = "1.11.0", features = ["v4"] }

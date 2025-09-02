@@ -948,7 +948,6 @@ pub const TLDS: &[&str] = &[
     "REALTY",
     "RECIPES",
     "RED",
-    "REDSTONE",
     "REDUMBRELLA",
     "REHAB",
     "REISE",

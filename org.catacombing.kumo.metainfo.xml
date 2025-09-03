@@ -48,15 +48,6 @@
         </screenshot>
     </screenshots>
     <releases>
-        <release version="1.4.4" date="2025-08-12">
-            <description>
-                <p>Kumo Version 1.4.4</p>
-                <ul>
-                    <li>Fixed scroll velocity not stopping on new touch input</li>
-                    <li>Fixed crash with input elements that exceed 4000 characters</li>
-                </ul>
-            </description>
-        </release>
         <release version="1.5.0" date="2025-09-03">
             <description>
                 <p>Kumo Version 1.5.0</p>
@@ -64,6 +55,15 @@
                     <li>Fixed new windows not copying private browsing state</li>
                     <li>Added icon in the tab list for tabs playing audio</li>
                     <li>Added website dark mode option, defaulting to dark mode</li>
+                </ul>
+            </description>
+        </release>
+        <release version="1.4.4" date="2025-08-12">
+            <description>
+                <p>Kumo Version 1.4.4</p>
+                <ul>
+                    <li>Fixed scroll velocity not stopping on new touch input</li>
+                    <li>Fixed crash with input elements that exceed 4000 characters</li>
                 </ul>
             </description>
         </release>

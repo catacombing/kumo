@@ -48,9 +48,9 @@
         </screenshot>
     </screenshots>
     <releases>
-        <release version="1.5.0" date="2025-09-03">
+        <release version="1.5.1" date="2025-09-03">
             <description>
-                <p>Kumo Version 1.5.0</p>
+                <p>Kumo Version 1.5.1</p>
                 <ul>
                     <li>Fixed new windows not copying private browsing state</li>
                     <li>Added icon in the tab list for tabs playing audio</li>

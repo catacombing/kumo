@@ -2394,7 +2394,7 @@ impl ScrollVelocity {
         let input = &CONFIG.read().unwrap().input;
         let now = Instant::now();
         let interval =
-            ((now - last_tick).as_micros() / (input.velocity_interval as u128 * 1_000)) as f64;
+            (now - last_tick).as_micros() as f64 / (input.velocity_interval as f64 * 1_000.);
 
         // Apply and update velocity.
         *scroll_offset += self.velocity * (1. - input.velocity_friction.powf(interval + 1.))

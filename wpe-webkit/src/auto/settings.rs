@@ -45,11 +45,24 @@ impl Settings {
         SettingsBuilder::new()
     }
 
-    //#[doc(alias = "webkit_settings_apply_from_key_file")]
-    // pub fn apply_from_key_file(&self, key_file: /*Ignored*/&glib::KeyFile,
-    // group_name: &str) -> Result<(), glib::Error> {    unsafe { TODO: call
-    // ffi:webkit_settings_apply_from_key_file() }
-    //}
+    #[doc(alias = "webkit_settings_apply_from_key_file")]
+    pub fn apply_from_key_file(
+        &self,
+        key_file: &glib::KeyFile,
+        group_name: &str,
+    ) -> Result<(), glib::Error> {
+        unsafe {
+            let mut error = std::ptr::null_mut();
+            let is_ok = ffi::webkit_settings_apply_from_key_file(
+                self.to_glib_none().0,
+                key_file.to_glib_none().0,
+                group_name.to_glib_none().0,
+                &mut error,
+            );
+            debug_assert_eq!(is_ok == glib::ffi::GFALSE, !error.is_null());
+            if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) }
+        }
+    }
 
     #[doc(alias = "webkit_settings_get_allow_file_access_from_file_urls")]
     #[doc(alias = "get_allow_file_access_from_file_urls")]

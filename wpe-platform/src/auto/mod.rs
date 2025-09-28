@@ -15,8 +15,17 @@ pub use self::buffer_dma_buf_formats::BufferDMABufFormats;
 mod buffer_shm;
 pub use self::buffer_shm::BufferSHM;
 
+mod clipboard;
+pub use self::clipboard::Clipboard;
+
 mod display;
 pub use self::display::Display;
+
+mod gamepad;
+pub use self::gamepad::Gamepad;
+
+mod gamepad_manager;
+pub use self::gamepad_manager::GamepadManager;
 
 mod gesture_controller;
 pub use self::gesture_controller::GestureController;
@@ -30,17 +39,35 @@ pub use self::keymap::Keymap;
 mod keymap_xkb;
 pub use self::keymap_xkb::KeymapXKB;
 
+mod screen;
+pub use self::screen::Screen;
+
+mod screen_sync_observer;
+pub use self::screen_sync_observer::ScreenSyncObserver;
+
+mod settings;
+pub use self::settings::Settings;
+
 mod toplevel;
 pub use self::toplevel::Toplevel;
 
 mod view;
 pub use self::view::View;
 
+mod view_accessible;
+pub use self::view_accessible::ViewAccessible;
+
 mod buffer_dma_buf_formats_builder;
 pub use self::buffer_dma_buf_formats_builder::BufferDMABufFormatsBuilder;
 
+mod clipboard_content;
+pub use self::clipboard_content::ClipboardContent;
+
 mod color;
 pub use self::color::Color;
+
+mod drm_device;
+pub use self::drm_device::DRMDevice;
 
 mod event;
 pub use self::event::Event;
@@ -53,24 +80,32 @@ pub use self::rectangle::Rectangle;
 
 mod enums;
 pub use self::enums::{
-    BufferDMABufFormatUsage, BufferError, DisplayError, EGLError, EventType, Gesture, InputPurpose,
-    InputSource, PixelFormat, ViewError,
+    BufferDMABufFormatUsage, BufferError, DisplayError, EGLError, EventType, GamepadAxis,
+    GamepadButton, Gesture, InputPurpose, InputSource, PixelFormat, SettingsError,
+    SettingsHintingStyle, SettingsSource, SettingsSubpixelLayout, ViewError,
 };
 
 mod flags;
-pub use self::flags::{InputHints, Modifiers, ToplevelState};
+pub use self::flags::{AvailableInputDevices, InputHints, Modifiers, ToplevelState};
 
 pub(crate) mod traits {
     pub use super::buffer::BufferExt;
+    pub use super::clipboard::ClipboardExt;
     pub use super::display::DisplayExt;
+    pub use super::gamepad::GamepadExt;
+    pub use super::gamepad_manager::GamepadManagerExt;
     pub use super::gesture_controller::GestureControllerExt;
     pub use super::input_method_context::InputMethodContextExt;
     pub use super::keymap::KeymapExt;
+    pub use super::screen::ScreenExt;
+    pub use super::screen_sync_observer::ScreenSyncObserverExt;
     pub use super::toplevel::ToplevelExt;
     pub use super::view::ViewExt;
+    pub use super::view_accessible::ViewAccessibleExt;
 }
 pub(crate) mod builders {
     pub use super::buffer_dma_buf::BufferDMABufBuilder;
     pub use super::buffer_shm::BufferSHMBuilder;
+    pub use super::clipboard::ClipboardBuilder;
     pub use super::toplevel::ToplevelBuilder;
 }

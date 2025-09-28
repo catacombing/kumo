@@ -29,7 +29,9 @@ use smithay_client_toolkit::seat::pointer::AxisScroll;
 use tracing::{error, trace, warn};
 use uuid::Uuid;
 use wpe_platform::ffi::WPERectangle;
-use wpe_platform::{Buffer, BufferDMABuf, BufferExt, BufferSHM, DisplayExtManual, EventType};
+use wpe_platform::{
+    Buffer, BufferDMABuf, BufferExt, BufferSHM, DisplayExtManual, EventType, SettingsSource,
+};
 use wpe_webkit::{
     Color, CookieAcceptPolicy, CookiePersistentStorage, Download as WebKitDownload, FindOptions,
     HitTestResult, HitTestResultContext, NetworkSession, OptionMenu,
@@ -354,16 +356,13 @@ impl WebKitState {
         // Get the DRM render node.
         let Display::Egl(egl_display) = &self.display;
         let device = egl_display.device().expect("get DRM device");
-        let render_node = device
-            .drm_render_device_node_path()
-            .or_else(|| device.drm_device_node_path())
-            .expect("DRM node has no path");
+        let device_node = device.drm_device_node_path().expect("DRM node has no path");
 
         // Create WebKit platform.
         let webkit_display = WebKitDisplay::new(
             self.queue.clone(),
             engine_id,
-            render_node,
+            device_node,
             size,
             scale,
             self.dmabuf_feedback.borrow().as_ref(),
@@ -1398,8 +1397,9 @@ fn webkit_engine_by_id(window: &mut Window, engine_id: EngineId) -> Option<&mut 
 
 /// Update view's dark mode setting.
 fn set_dark_mode(web_view: &WebView, dark_mode: bool) {
+    let setting_path = "/wpe-platform/dark-mode";
     let settings = web_view.display().unwrap().settings();
-    if let Err(err) = settings.set_boolean("/wpe-platform/dark-mode", dark_mode) {
+    if let Err(err) = settings.set_boolean(setting_path, dark_mode, SettingsSource::Platform) {
         error!("Failed setting dark mode to {}: {err}", dark_mode);
     }
 }

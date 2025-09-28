@@ -220,7 +220,7 @@ pub use self::enums::{
     MediaCaptureState, MediaError, NavigationType, NetworkError, NetworkProxyMode, PermissionState,
     PolicyDecisionType, PolicyError, SaveMode, ScriptDialogType, SnapshotError, TLSErrorsPolicy,
     UserContentFilterError, UserContentInjectedFrames, UserMessageError, UserScriptInjectionTime,
-    UserStyleLevel, WebExtensionMode, WebProcessTerminationReason,
+    UserStyleLevel, WebExtensionMatchPatternError, WebExtensionMode, WebProcessTerminationReason,
 };
 
 mod flags;

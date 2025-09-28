@@ -2424,8 +2424,8 @@ pub const WPE_KEY_zerosubscript: c_int = 16785536;
 pub const WPE_KEY_zerosuperior: c_int = 16785520;
 pub const WPE_KEY_zstroke: c_int = 16777654;
 pub const WPE_PLATFORM_MAJOR_VERSION: c_int = 2;
-pub const WPE_PLATFORM_MICRO_VERSION: c_int = 3;
-pub const WPE_PLATFORM_MINOR_VERSION: c_int = 49;
+pub const WPE_PLATFORM_MICRO_VERSION: c_int = 0;
+pub const WPE_PLATFORM_MINOR_VERSION: c_int = 50;
 pub const WPE_SETTING_CREATE_VIEWS_WITH_A_TOPLEVEL: &[u8] =
     b"/wpe-platform/create-views-with-a-toplevel\0";
 pub const WPE_SETTING_CURSOR_BLINK_TIME: &[u8] = b"/wpe-platform/cursor-blink-time\0";
@@ -2646,6 +2646,19 @@ impl ::std::fmt::Debug for WPEColor {
     }
 }
 
+#[repr(C)]
+#[allow(dead_code)]
+pub struct WPEDRMDevice {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for WPEDRMDevice {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WPEDRMDevice @ {self:p}")).finish()
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WPEDisplayClass {
@@ -2660,8 +2673,7 @@ pub struct WPEDisplayClass {
         Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEBufferDMABufFormats>,
     pub get_n_screens: Option<unsafe extern "C" fn(*mut WPEDisplay) -> c_uint>,
     pub get_screen: Option<unsafe extern "C" fn(*mut WPEDisplay, c_uint) -> *mut WPEScreen>,
-    pub get_drm_device: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *const c_char>,
-    pub get_drm_render_node: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *const c_char>,
+    pub get_drm_device: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEDRMDevice>,
     pub use_explicit_sync: Option<unsafe extern "C" fn(*mut WPEDisplay) -> gboolean>,
     pub create_input_method_context:
         Option<unsafe extern "C" fn(*mut WPEDisplay, *mut WPEView) -> *mut WPEInputMethodContext>,
@@ -2683,7 +2695,6 @@ impl ::std::fmt::Debug for WPEDisplayClass {
             .field("get_n_screens", &self.get_n_screens)
             .field("get_screen", &self.get_screen)
             .field("get_drm_device", &self.get_drm_device)
-            .field("get_drm_render_node", &self.get_drm_render_node)
             .field("use_explicit_sync", &self.use_explicit_sync)
             .field("create_input_method_context", &self.create_input_method_context)
             .field("create_gamepad_manager", &self.create_gamepad_manager)
@@ -3537,7 +3548,7 @@ unsafe extern "C" {
     //=========================================================================
     pub fn wpe_buffer_dma_buf_formats_builder_get_type() -> GType;
     pub fn wpe_buffer_dma_buf_formats_builder_new(
-        device: *const c_char,
+        device: *mut WPEDRMDevice,
     ) -> *mut WPEBufferDMABufFormatsBuilder;
     pub fn wpe_buffer_dma_buf_formats_builder_append_format(
         builder: *mut WPEBufferDMABufFormatsBuilder,
@@ -3546,7 +3557,7 @@ unsafe extern "C" {
     );
     pub fn wpe_buffer_dma_buf_formats_builder_append_group(
         builder: *mut WPEBufferDMABufFormatsBuilder,
-        device: *const c_char,
+        device: *mut WPEDRMDevice,
         usage: WPEBufferDMABufFormatUsage,
     );
     pub fn wpe_buffer_dma_buf_formats_builder_end(
@@ -3581,6 +3592,19 @@ unsafe extern "C" {
     // WPEColor
     //=========================================================================
     pub fn wpe_color_get_type() -> GType;
+
+    //=========================================================================
+    // WPEDRMDevice
+    //=========================================================================
+    pub fn wpe_drm_device_get_type() -> GType;
+    pub fn wpe_drm_device_new(
+        primary_node: *const c_char,
+        render_node: *const c_char,
+    ) -> *mut WPEDRMDevice;
+    pub fn wpe_drm_device_get_primary_node(device: *mut WPEDRMDevice) -> *const c_char;
+    pub fn wpe_drm_device_get_render_node(device: *mut WPEDRMDevice) -> *const c_char;
+    pub fn wpe_drm_device_ref(device: *mut WPEDRMDevice) -> *mut WPEDRMDevice;
+    pub fn wpe_drm_device_unref(device: *mut WPEDRMDevice);
 
     //=========================================================================
     // WPEEvent
@@ -3762,7 +3786,7 @@ unsafe extern "C" {
     pub fn wpe_buffer_dma_buf_formats_get_type() -> GType;
     pub fn wpe_buffer_dma_buf_formats_get_device(
         formats: *mut WPEBufferDMABufFormats,
-    ) -> *const c_char;
+    ) -> *mut WPEDRMDevice;
     pub fn wpe_buffer_dma_buf_formats_get_format_fourcc(
         formats: *mut WPEBufferDMABufFormats,
         group: c_uint,
@@ -3776,7 +3800,7 @@ unsafe extern "C" {
     pub fn wpe_buffer_dma_buf_formats_get_group_device(
         formats: *mut WPEBufferDMABufFormats,
         group: c_uint,
-    ) -> *const c_char;
+    ) -> *mut WPEDRMDevice;
     pub fn wpe_buffer_dma_buf_formats_get_group_n_formats(
         formats: *mut WPEBufferDMABufFormats,
         group: c_uint,
@@ -3839,8 +3863,7 @@ unsafe extern "C" {
         display: *mut WPEDisplay,
     ) -> WPEAvailableInputDevices;
     pub fn wpe_display_get_clipboard(display: *mut WPEDisplay) -> *mut WPEClipboard;
-    pub fn wpe_display_get_drm_device(display: *mut WPEDisplay) -> *const c_char;
-    pub fn wpe_display_get_drm_render_node(display: *mut WPEDisplay) -> *const c_char;
+    pub fn wpe_display_get_drm_device(display: *mut WPEDisplay) -> *mut WPEDRMDevice;
     pub fn wpe_display_get_egl_display(
         display: *mut WPEDisplay,
         error: *mut *mut glib::GError,

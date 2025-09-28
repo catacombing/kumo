@@ -11,6 +11,93 @@ use crate::ffi;
 
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[doc(alias = "WPEAvailableInputDevices")]
+    pub struct AvailableInputDevices: u32 {
+        #[doc(alias = "WPE_AVAILABLE_INPUT_DEVICE_NONE")]
+        const NONE = ffi::WPE_AVAILABLE_INPUT_DEVICE_NONE as _;
+        #[doc(alias = "WPE_AVAILABLE_INPUT_DEVICE_MOUSE")]
+        const MOUSE = ffi::WPE_AVAILABLE_INPUT_DEVICE_MOUSE as _;
+        #[doc(alias = "WPE_AVAILABLE_INPUT_DEVICE_KEYBOARD")]
+        const KEYBOARD = ffi::WPE_AVAILABLE_INPUT_DEVICE_KEYBOARD as _;
+        #[doc(alias = "WPE_AVAILABLE_INPUT_DEVICE_TOUCHSCREEN")]
+        const TOUCHSCREEN = ffi::WPE_AVAILABLE_INPUT_DEVICE_TOUCHSCREEN as _;
+    }
+}
+
+#[doc(hidden)]
+impl IntoGlib for AvailableInputDevices {
+    type GlibType = ffi::WPEAvailableInputDevices;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WPEAvailableInputDevices {
+        self.bits()
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WPEAvailableInputDevices> for AvailableInputDevices {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WPEAvailableInputDevices) -> Self {
+        Self::from_bits_truncate(value)
+    }
+}
+
+impl StaticType for AvailableInputDevices {
+    #[inline]
+    #[doc(alias = "wpe_available_input_devices_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::wpe_available_input_devices_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for AvailableInputDevices {
+    type BuilderFn = fn(&str) -> glib::ParamSpecFlagsBuilder<Self>;
+    type ParamSpec = glib::ParamSpecFlags;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder
+    }
+}
+
+impl glib::value::ValueType for AvailableInputDevices {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for AvailableInputDevices {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0))
+    }
+}
+
+impl ToValue for AvailableInputDevices {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_flags(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<AvailableInputDevices> for glib::Value {
+    #[inline]
+    fn from(v: AvailableInputDevices) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[doc(alias = "WPEInputHints")]
     pub struct InputHints: u32 {
         #[doc(alias = "WPE_INPUT_HINT_NONE")]

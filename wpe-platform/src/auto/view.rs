@@ -11,7 +11,8 @@ use glib::signal::{SignalHandlerId, connect_raw};
 use glib::translate::*;
 
 use crate::{
-    Buffer, BufferDMABufFormats, Display, Event, GestureController, Toplevel, ToplevelState, ffi,
+    Buffer, BufferDMABufFormats, Display, Event, GestureController, Screen, Toplevel,
+    ToplevelState, ViewAccessible, ffi,
 };
 
 glib::wrapper! {
@@ -88,11 +89,11 @@ pub trait ViewExt: IsA<View> + 'static {
         }
     }
 
-    //#[doc(alias = "wpe_view_get_accessible")]
-    //#[doc(alias = "get_accessible")]
-    // fn accessible(&self) -> /*Ignored*/Option<ViewAccessible> {
-    //    unsafe { TODO: call ffi:wpe_view_get_accessible() }
-    //}
+    #[doc(alias = "wpe_view_get_accessible")]
+    #[doc(alias = "get_accessible")]
+    fn accessible(&self) -> Option<ViewAccessible> {
+        unsafe { from_glib_none(ffi::wpe_view_get_accessible(self.as_ref().to_glib_none().0)) }
+    }
 
     #[doc(alias = "wpe_view_get_display")]
     #[doc(alias = "get_display")]
@@ -144,11 +145,11 @@ pub trait ViewExt: IsA<View> + 'static {
         unsafe { ffi::wpe_view_get_scale(self.as_ref().to_glib_none().0) }
     }
 
-    //#[doc(alias = "wpe_view_get_screen")]
-    //#[doc(alias = "get_screen")]
-    // fn screen(&self) -> /*Ignored*/Option<Screen> {
-    //    unsafe { TODO: call ffi:wpe_view_get_screen() }
-    //}
+    #[doc(alias = "wpe_view_get_screen")]
+    #[doc(alias = "get_screen")]
+    fn screen(&self) -> Option<Screen> {
+        unsafe { from_glib_none(ffi::wpe_view_get_screen(self.as_ref().to_glib_none().0)) }
+    }
 
     #[doc(alias = "wpe_view_get_toplevel")]
     #[doc(alias = "get_toplevel")]

@@ -5,11 +5,15 @@
 
 use std::boxed::Box as Box_;
 
+use glib::object::ObjectType as _;
 use glib::prelude::*;
 use glib::signal::{SignalHandlerId, connect_raw};
 use glib::translate::*;
 
-use crate::{BufferDMABufFormats, Keymap, ffi};
+use crate::{
+    AvailableInputDevices, BufferDMABufFormats, Clipboard, DRMDevice, GamepadManager, Keymap,
+    Screen, Settings, ffi,
+};
 
 glib::wrapper! {
     #[doc(alias = "WPEDisplay")]
@@ -48,36 +52,32 @@ pub trait DisplayExt: IsA<Display> + 'static {
         }
     }
 
-    //#[doc(alias = "wpe_display_create_gamepad_manager")]
-    // fn create_gamepad_manager(&self) -> /*Ignored*/Option<GamepadManager> {
-    //    unsafe { TODO: call ffi:wpe_display_create_gamepad_manager() }
-    //}
+    #[doc(alias = "wpe_display_create_gamepad_manager")]
+    fn create_gamepad_manager(&self) -> Option<GamepadManager> {
+        unsafe {
+            from_glib_full(ffi::wpe_display_create_gamepad_manager(self.as_ref().to_glib_none().0))
+        }
+    }
 
-    //#[doc(alias = "wpe_display_get_available_input_devices")]
-    //#[doc(alias = "get_available_input_devices")]
-    //#[doc(alias = "available-input-devices")]
-    // fn available_input_devices(&self) -> /*Ignored*/AvailableInputDevices {
-    //    unsafe { TODO: call ffi:wpe_display_get_available_input_devices() }
-    //}
+    #[doc(alias = "wpe_display_get_available_input_devices")]
+    #[doc(alias = "get_available_input_devices")]
+    #[doc(alias = "available-input-devices")]
+    fn available_input_devices(&self) -> AvailableInputDevices {
+        unsafe {
+            from_glib(ffi::wpe_display_get_available_input_devices(self.as_ref().to_glib_none().0))
+        }
+    }
 
-    //#[doc(alias = "wpe_display_get_clipboard")]
-    //#[doc(alias = "get_clipboard")]
-    // fn clipboard(&self) -> /*Ignored*/Option<Clipboard> {
-    //    unsafe { TODO: call ffi:wpe_display_get_clipboard() }
-    //}
+    #[doc(alias = "wpe_display_get_clipboard")]
+    #[doc(alias = "get_clipboard")]
+    fn clipboard(&self) -> Option<Clipboard> {
+        unsafe { from_glib_none(ffi::wpe_display_get_clipboard(self.as_ref().to_glib_none().0)) }
+    }
 
     #[doc(alias = "wpe_display_get_drm_device")]
     #[doc(alias = "get_drm_device")]
-    fn drm_device(&self) -> Option<glib::GString> {
+    fn drm_device(&self) -> Option<DRMDevice> {
         unsafe { from_glib_none(ffi::wpe_display_get_drm_device(self.as_ref().to_glib_none().0)) }
-    }
-
-    #[doc(alias = "wpe_display_get_drm_render_node")]
-    #[doc(alias = "get_drm_render_node")]
-    fn drm_render_node(&self) -> Option<glib::GString> {
-        unsafe {
-            from_glib_none(ffi::wpe_display_get_drm_render_node(self.as_ref().to_glib_none().0))
-        }
     }
 
     //#[doc(alias = "wpe_display_get_egl_display")]
@@ -108,34 +108,50 @@ pub trait DisplayExt: IsA<Display> + 'static {
         }
     }
 
-    //#[doc(alias = "wpe_display_get_screen")]
-    //#[doc(alias = "get_screen")]
-    // fn screen(&self, index: u32) -> /*Ignored*/Option<Screen> {
-    //    unsafe { TODO: call ffi:wpe_display_get_screen() }
-    //}
+    #[doc(alias = "wpe_display_get_screen")]
+    #[doc(alias = "get_screen")]
+    fn screen(&self, index: u32) -> Option<Screen> {
+        unsafe {
+            from_glib_none(ffi::wpe_display_get_screen(self.as_ref().to_glib_none().0, index))
+        }
+    }
 
-    //#[doc(alias = "wpe_display_get_settings")]
-    //#[doc(alias = "get_settings")]
-    // fn settings(&self) -> /*Ignored*/Option<Settings> {
-    //    unsafe { TODO: call ffi:wpe_display_get_settings() }
-    //}
+    #[doc(alias = "wpe_display_get_settings")]
+    #[doc(alias = "get_settings")]
+    fn settings(&self) -> Option<Settings> {
+        unsafe { from_glib_none(ffi::wpe_display_get_settings(self.as_ref().to_glib_none().0)) }
+    }
 
-    //#[doc(alias = "wpe_display_screen_added")]
-    // fn screen_added(&self, screen: /*Ignored*/&Screen) {
-    //    unsafe { TODO: call ffi:wpe_display_screen_added() }
-    //}
+    #[doc(alias = "wpe_display_screen_added")]
+    fn screen_added(&self, screen: &impl IsA<Screen>) {
+        unsafe {
+            ffi::wpe_display_screen_added(
+                self.as_ref().to_glib_none().0,
+                screen.as_ref().to_glib_none().0,
+            );
+        }
+    }
 
-    //#[doc(alias = "wpe_display_screen_removed")]
-    // fn screen_removed(&self, screen: /*Ignored*/&Screen) {
-    //    unsafe { TODO: call ffi:wpe_display_screen_removed() }
-    //}
+    #[doc(alias = "wpe_display_screen_removed")]
+    fn screen_removed(&self, screen: &impl IsA<Screen>) {
+        unsafe {
+            ffi::wpe_display_screen_removed(
+                self.as_ref().to_glib_none().0,
+                screen.as_ref().to_glib_none().0,
+            );
+        }
+    }
 
-    //#[doc(alias = "wpe_display_set_available_input_devices")]
-    //#[doc(alias = "available-input-devices")]
-    // fn set_available_input_devices(&self, devices:
-    // /*Ignored*/AvailableInputDevices) {    unsafe { TODO: call
-    // ffi:wpe_display_set_available_input_devices() }
-    //}
+    #[doc(alias = "wpe_display_set_available_input_devices")]
+    #[doc(alias = "available-input-devices")]
+    fn set_available_input_devices(&self, devices: AvailableInputDevices) {
+        unsafe {
+            ffi::wpe_display_set_available_input_devices(
+                self.as_ref().to_glib_none().0,
+                devices.into_glib(),
+            );
+        }
+    }
 
     #[doc(alias = "wpe_display_set_primary")]
     fn set_primary(&self) {
@@ -149,15 +165,57 @@ pub trait DisplayExt: IsA<Display> + 'static {
         unsafe { from_glib(ffi::wpe_display_use_explicit_sync(self.as_ref().to_glib_none().0)) }
     }
 
-    //#[doc(alias = "screen-added")]
-    // fn connect_screen_added<Unsupported or ignored types>(&self, f: F) ->
-    // SignalHandlerId {    Ignored screen: WPEPlatform.Screen
-    //}
+    #[doc(alias = "screen-added")]
+    fn connect_screen_added<F: Fn(&Self, &Screen) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn screen_added_trampoline<
+            P: IsA<Display>,
+            F: Fn(&P, &Screen) + 'static,
+        >(
+            this: *mut ffi::WPEDisplay,
+            screen: *mut ffi::WPEScreen,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(Display::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(screen))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"screen-added".as_ptr() as *const _,
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    screen_added_trampoline::<Self, F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
 
-    //#[doc(alias = "screen-removed")]
-    // fn connect_screen_removed<Unsupported or ignored types>(&self, f: F) ->
-    // SignalHandlerId {    Ignored screen: WPEPlatform.Screen
-    //}
+    #[doc(alias = "screen-removed")]
+    fn connect_screen_removed<F: Fn(&Self, &Screen) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn screen_removed_trampoline<
+            P: IsA<Display>,
+            F: Fn(&P, &Screen) + 'static,
+        >(
+            this: *mut ffi::WPEDisplay,
+            screen: *mut ffi::WPEScreen,
+            f: glib::ffi::gpointer,
+        ) {
+            let f: &F = &*(f as *const F);
+            f(Display::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(screen))
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"screen-removed".as_ptr() as *const _,
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    screen_removed_trampoline::<Self, F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
 
     #[doc(alias = "available-input-devices")]
     fn connect_available_input_devices_notify<F: Fn(&Self) + 'static>(

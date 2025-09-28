@@ -8,8 +8,12 @@ license = "MIT OR Apache-2.0"
 categories = ["api-bindings"]
 keywords = ["webkit", "wpe", "browser", "embedded"]
 build = "build.rs"
-rust-version.workspace = true
-edition.workspace = true
+
+[package.rust-version]
+workspace = true
+
+[package.edition]
+workspace = true
 
 [package.metadata.system-deps.wpe_platform_2_0]
 name = "wpe-platform-2.0"

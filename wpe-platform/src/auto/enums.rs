@@ -572,6 +572,256 @@ impl From<EventType> for glib::Value {
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
+#[doc(alias = "WPEGamepadAxis")]
+pub enum GamepadAxis {
+    #[doc(alias = "WPE_GAMEPAD_AXIS_LEFT_X")]
+    LeftX,
+    #[doc(alias = "WPE_GAMEPAD_AXIS_LEFT_Y")]
+    LeftY,
+    #[doc(alias = "WPE_GAMEPAD_AXIS_RIGHT_X")]
+    RightX,
+    #[doc(alias = "WPE_GAMEPAD_AXIS_RIGHT_Y")]
+    RightY,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[doc(hidden)]
+impl IntoGlib for GamepadAxis {
+    type GlibType = ffi::WPEGamepadAxis;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WPEGamepadAxis {
+        match self {
+            Self::LeftX => ffi::WPE_GAMEPAD_AXIS_LEFT_X,
+            Self::LeftY => ffi::WPE_GAMEPAD_AXIS_LEFT_Y,
+            Self::RightX => ffi::WPE_GAMEPAD_AXIS_RIGHT_X,
+            Self::RightY => ffi::WPE_GAMEPAD_AXIS_RIGHT_Y,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WPEGamepadAxis> for GamepadAxis {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WPEGamepadAxis) -> Self {
+        match value {
+            ffi::WPE_GAMEPAD_AXIS_LEFT_X => Self::LeftX,
+            ffi::WPE_GAMEPAD_AXIS_LEFT_Y => Self::LeftY,
+            ffi::WPE_GAMEPAD_AXIS_RIGHT_X => Self::RightX,
+            ffi::WPE_GAMEPAD_AXIS_RIGHT_Y => Self::RightY,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+impl StaticType for GamepadAxis {
+    #[inline]
+    #[doc(alias = "wpe_gamepad_axis_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::wpe_gamepad_axis_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for GamepadAxis {
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+impl glib::value::ValueType for GamepadAxis {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for GamepadAxis {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+    }
+}
+
+impl ToValue for GamepadAxis {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<GamepadAxis> for glib::Value {
+    #[inline]
+    fn from(v: GamepadAxis) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "WPEGamepadButton")]
+pub enum GamepadButton {
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_BOTTOM")]
+    RightClusterBottom,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_RIGHT")]
+    RightClusterRight,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_LEFT")]
+    RightClusterLeft,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_TOP")]
+    RightClusterTop,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_LEFT_SHOULDER_FRONT")]
+    LeftShoulderFront,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_RIGHT_SHOULDER_FRONT")]
+    RightShoulderFront,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_LEFT_SHOULDER_BACK")]
+    LeftShoulderBack,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_RIGHT_SHOULDER_BACK")]
+    RightShoulderBack,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_LEFT")]
+    CenterClusterLeft,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_RIGHT")]
+    CenterClusterRight,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_LEFT_THUMB")]
+    LeftThumb,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_RIGHT_THUMB")]
+    RightThumb,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_TOP")]
+    LeftClusterTop,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_BOTTOM")]
+    LeftClusterBottom,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_LEFT")]
+    LeftClusterLeft,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_RIGHT")]
+    LeftClusterRight,
+    #[doc(alias = "WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_CENTER")]
+    CenterClusterCenter,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[doc(hidden)]
+impl IntoGlib for GamepadButton {
+    type GlibType = ffi::WPEGamepadButton;
+
+    fn into_glib(self) -> ffi::WPEGamepadButton {
+        match self {
+            Self::RightClusterBottom => ffi::WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_BOTTOM,
+            Self::RightClusterRight => ffi::WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_RIGHT,
+            Self::RightClusterLeft => ffi::WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_LEFT,
+            Self::RightClusterTop => ffi::WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_TOP,
+            Self::LeftShoulderFront => ffi::WPE_GAMEPAD_BUTTON_LEFT_SHOULDER_FRONT,
+            Self::RightShoulderFront => ffi::WPE_GAMEPAD_BUTTON_RIGHT_SHOULDER_FRONT,
+            Self::LeftShoulderBack => ffi::WPE_GAMEPAD_BUTTON_LEFT_SHOULDER_BACK,
+            Self::RightShoulderBack => ffi::WPE_GAMEPAD_BUTTON_RIGHT_SHOULDER_BACK,
+            Self::CenterClusterLeft => ffi::WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_LEFT,
+            Self::CenterClusterRight => ffi::WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_RIGHT,
+            Self::LeftThumb => ffi::WPE_GAMEPAD_BUTTON_LEFT_THUMB,
+            Self::RightThumb => ffi::WPE_GAMEPAD_BUTTON_RIGHT_THUMB,
+            Self::LeftClusterTop => ffi::WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_TOP,
+            Self::LeftClusterBottom => ffi::WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_BOTTOM,
+            Self::LeftClusterLeft => ffi::WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_LEFT,
+            Self::LeftClusterRight => ffi::WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_RIGHT,
+            Self::CenterClusterCenter => ffi::WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_CENTER,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WPEGamepadButton> for GamepadButton {
+    unsafe fn from_glib(value: ffi::WPEGamepadButton) -> Self {
+        match value {
+            ffi::WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_BOTTOM => Self::RightClusterBottom,
+            ffi::WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_RIGHT => Self::RightClusterRight,
+            ffi::WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_LEFT => Self::RightClusterLeft,
+            ffi::WPE_GAMEPAD_BUTTON_RIGHT_CLUSTER_TOP => Self::RightClusterTop,
+            ffi::WPE_GAMEPAD_BUTTON_LEFT_SHOULDER_FRONT => Self::LeftShoulderFront,
+            ffi::WPE_GAMEPAD_BUTTON_RIGHT_SHOULDER_FRONT => Self::RightShoulderFront,
+            ffi::WPE_GAMEPAD_BUTTON_LEFT_SHOULDER_BACK => Self::LeftShoulderBack,
+            ffi::WPE_GAMEPAD_BUTTON_RIGHT_SHOULDER_BACK => Self::RightShoulderBack,
+            ffi::WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_LEFT => Self::CenterClusterLeft,
+            ffi::WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_RIGHT => Self::CenterClusterRight,
+            ffi::WPE_GAMEPAD_BUTTON_LEFT_THUMB => Self::LeftThumb,
+            ffi::WPE_GAMEPAD_BUTTON_RIGHT_THUMB => Self::RightThumb,
+            ffi::WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_TOP => Self::LeftClusterTop,
+            ffi::WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_BOTTOM => Self::LeftClusterBottom,
+            ffi::WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_LEFT => Self::LeftClusterLeft,
+            ffi::WPE_GAMEPAD_BUTTON_LEFT_CLUSTER_RIGHT => Self::LeftClusterRight,
+            ffi::WPE_GAMEPAD_BUTTON_CENTER_CLUSTER_CENTER => Self::CenterClusterCenter,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+impl StaticType for GamepadButton {
+    #[inline]
+    #[doc(alias = "wpe_gamepad_button_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::wpe_gamepad_button_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for GamepadButton {
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+impl glib::value::ValueType for GamepadButton {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for GamepadButton {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+    }
+}
+
+impl ToValue for GamepadButton {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<GamepadButton> for glib::Value {
+    #[inline]
+    fn from(v: GamepadButton) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
 #[doc(alias = "WPEGesture")]
 pub enum Gesture {
     #[doc(alias = "WPE_GESTURE_NONE")]
@@ -994,6 +1244,418 @@ impl ToValue for PixelFormat {
 impl From<PixelFormat> for glib::Value {
     #[inline]
     fn from(v: PixelFormat) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "WPESettingsError")]
+pub enum SettingsError {
+    #[doc(alias = "WPE_SETTINGS_ERROR_INCORRECT_TYPE")]
+    IncorrectType,
+    #[doc(alias = "WPE_SETTINGS_ERROR_NOT_REGISTERED")]
+    NotRegistered,
+    #[doc(alias = "WPE_SETTINGS_ERROR_ALREADY_REGISTERED")]
+    AlreadyRegistered,
+    #[doc(alias = "WPE_SETTINGS_ERROR_INVALID_VALUE")]
+    InvalidValue,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[doc(hidden)]
+impl IntoGlib for SettingsError {
+    type GlibType = ffi::WPESettingsError;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WPESettingsError {
+        match self {
+            Self::IncorrectType => ffi::WPE_SETTINGS_ERROR_INCORRECT_TYPE,
+            Self::NotRegistered => ffi::WPE_SETTINGS_ERROR_NOT_REGISTERED,
+            Self::AlreadyRegistered => ffi::WPE_SETTINGS_ERROR_ALREADY_REGISTERED,
+            Self::InvalidValue => ffi::WPE_SETTINGS_ERROR_INVALID_VALUE,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WPESettingsError> for SettingsError {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WPESettingsError) -> Self {
+        match value {
+            ffi::WPE_SETTINGS_ERROR_INCORRECT_TYPE => Self::IncorrectType,
+            ffi::WPE_SETTINGS_ERROR_NOT_REGISTERED => Self::NotRegistered,
+            ffi::WPE_SETTINGS_ERROR_ALREADY_REGISTERED => Self::AlreadyRegistered,
+            ffi::WPE_SETTINGS_ERROR_INVALID_VALUE => Self::InvalidValue,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+impl glib::error::ErrorDomain for SettingsError {
+    #[inline]
+    fn domain() -> glib::Quark {
+        unsafe { from_glib(ffi::wpe_settings_error_quark()) }
+    }
+
+    #[inline]
+    fn code(self) -> i32 {
+        self.into_glib()
+    }
+
+    #[inline]
+    #[allow(clippy::match_single_binding)]
+    fn from(code: i32) -> Option<Self> {
+        match unsafe { from_glib(code) } {
+            value => Some(value),
+        }
+    }
+}
+
+impl StaticType for SettingsError {
+    #[inline]
+    #[doc(alias = "wpe_settings_error_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::wpe_settings_error_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for SettingsError {
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+impl glib::value::ValueType for SettingsError {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for SettingsError {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+    }
+}
+
+impl ToValue for SettingsError {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<SettingsError> for glib::Value {
+    #[inline]
+    fn from(v: SettingsError) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "WPESettingsHintingStyle")]
+pub enum SettingsHintingStyle {
+    #[doc(alias = "WPE_SETTINGS_HINTING_STYLE_NONE")]
+    None,
+    #[doc(alias = "WPE_SETTINGS_HINTING_STYLE_SLIGHT")]
+    Slight,
+    #[doc(alias = "WPE_SETTINGS_HINTING_STYLE_MEDIUM")]
+    Medium,
+    #[doc(alias = "WPE_SETTINGS_HINTING_STYLE_FULL")]
+    Full,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[doc(hidden)]
+impl IntoGlib for SettingsHintingStyle {
+    type GlibType = ffi::WPESettingsHintingStyle;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WPESettingsHintingStyle {
+        match self {
+            Self::None => ffi::WPE_SETTINGS_HINTING_STYLE_NONE,
+            Self::Slight => ffi::WPE_SETTINGS_HINTING_STYLE_SLIGHT,
+            Self::Medium => ffi::WPE_SETTINGS_HINTING_STYLE_MEDIUM,
+            Self::Full => ffi::WPE_SETTINGS_HINTING_STYLE_FULL,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WPESettingsHintingStyle> for SettingsHintingStyle {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WPESettingsHintingStyle) -> Self {
+        match value {
+            ffi::WPE_SETTINGS_HINTING_STYLE_NONE => Self::None,
+            ffi::WPE_SETTINGS_HINTING_STYLE_SLIGHT => Self::Slight,
+            ffi::WPE_SETTINGS_HINTING_STYLE_MEDIUM => Self::Medium,
+            ffi::WPE_SETTINGS_HINTING_STYLE_FULL => Self::Full,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+impl StaticType for SettingsHintingStyle {
+    #[inline]
+    #[doc(alias = "wpe_settings_hinting_style_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::wpe_settings_hinting_style_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for SettingsHintingStyle {
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+impl glib::value::ValueType for SettingsHintingStyle {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for SettingsHintingStyle {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+    }
+}
+
+impl ToValue for SettingsHintingStyle {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<SettingsHintingStyle> for glib::Value {
+    #[inline]
+    fn from(v: SettingsHintingStyle) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "WPESettingsSource")]
+pub enum SettingsSource {
+    #[doc(alias = "WPE_SETTINGS_SOURCE_PLATFORM")]
+    Platform,
+    #[doc(alias = "WPE_SETTINGS_SOURCE_APPLICATION")]
+    Application,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[doc(hidden)]
+impl IntoGlib for SettingsSource {
+    type GlibType = ffi::WPESettingsSource;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WPESettingsSource {
+        match self {
+            Self::Platform => ffi::WPE_SETTINGS_SOURCE_PLATFORM,
+            Self::Application => ffi::WPE_SETTINGS_SOURCE_APPLICATION,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WPESettingsSource> for SettingsSource {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WPESettingsSource) -> Self {
+        match value {
+            ffi::WPE_SETTINGS_SOURCE_PLATFORM => Self::Platform,
+            ffi::WPE_SETTINGS_SOURCE_APPLICATION => Self::Application,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+impl StaticType for SettingsSource {
+    #[inline]
+    #[doc(alias = "wpe_settings_source_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::wpe_settings_source_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for SettingsSource {
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+impl glib::value::ValueType for SettingsSource {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for SettingsSource {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+    }
+}
+
+impl ToValue for SettingsSource {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<SettingsSource> for glib::Value {
+    #[inline]
+    fn from(v: SettingsSource) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "WPESettingsSubpixelLayout")]
+pub enum SettingsSubpixelLayout {
+    #[doc(alias = "WPE_SETTINGS_SUBPIXEL_LAYOUT_RGB")]
+    Rgb,
+    #[doc(alias = "WPE_SETTINGS_SUBPIXEL_LAYOUT_BGR")]
+    Bgr,
+    #[doc(alias = "WPE_SETTINGS_SUBPIXEL_LAYOUT_VRGB")]
+    Vrgb,
+    #[doc(alias = "WPE_SETTINGS_SUBPIXEL_LAYOUT_VBGR")]
+    Vbgr,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[doc(hidden)]
+impl IntoGlib for SettingsSubpixelLayout {
+    type GlibType = ffi::WPESettingsSubpixelLayout;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WPESettingsSubpixelLayout {
+        match self {
+            Self::Rgb => ffi::WPE_SETTINGS_SUBPIXEL_LAYOUT_RGB,
+            Self::Bgr => ffi::WPE_SETTINGS_SUBPIXEL_LAYOUT_BGR,
+            Self::Vrgb => ffi::WPE_SETTINGS_SUBPIXEL_LAYOUT_VRGB,
+            Self::Vbgr => ffi::WPE_SETTINGS_SUBPIXEL_LAYOUT_VBGR,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WPESettingsSubpixelLayout> for SettingsSubpixelLayout {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WPESettingsSubpixelLayout) -> Self {
+        match value {
+            ffi::WPE_SETTINGS_SUBPIXEL_LAYOUT_RGB => Self::Rgb,
+            ffi::WPE_SETTINGS_SUBPIXEL_LAYOUT_BGR => Self::Bgr,
+            ffi::WPE_SETTINGS_SUBPIXEL_LAYOUT_VRGB => Self::Vrgb,
+            ffi::WPE_SETTINGS_SUBPIXEL_LAYOUT_VBGR => Self::Vbgr,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+impl StaticType for SettingsSubpixelLayout {
+    #[inline]
+    #[doc(alias = "wpe_settings_subpixel_layout_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::wpe_settings_subpixel_layout_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for SettingsSubpixelLayout {
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+impl glib::value::ValueType for SettingsSubpixelLayout {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for SettingsSubpixelLayout {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+    }
+}
+
+impl ToValue for SettingsSubpixelLayout {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<SettingsSubpixelLayout> for glib::Value {
+    #[inline]
+    fn from(v: SettingsSubpixelLayout) -> Self {
         ToValue::to_value(&v)
     }
 }

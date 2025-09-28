@@ -21,6 +21,7 @@ generate = [
     "WPEJavaScriptCore.Context",
     "WPEJavaScriptCore.Exception",
     "WPEJavaScriptCore.ExceptionHandler",
+    "WPEJavaScriptCore.Executor",
     "WPEJavaScriptCore.OptionsFunc",
     "WPEJavaScriptCore.OptionType",
     "WPEJavaScriptCore.TypedArrayType",

@@ -9,18 +9,26 @@ single_version_file = true
 deprecate_by_min_version = true
 generate_builder = true
 generate = [
+    "WPEPlatform.AvailableInputDevices",
     "WPEPlatform.Buffer",
     "WPEPlatform.BufferDMABufFormats",
     "WPEPlatform.BufferDMABufFormatsBuilder",
     "WPEPlatform.BufferDMABufFormatUsage",
     "WPEPlatform.BufferError",
     "WPEPlatform.BufferSHM",
+    "WPEPlatform.Clipboard",
+    "WPEPlatform.ClipboardContent",
     "WPEPlatform.Color",
     "WPEPlatform.Display",
     "WPEPlatform.DisplayError",
+    "WPEPlatform.DRMDevice",
     "WPEPlatform.EGLError",
     "WPEPlatform.Event",
     "WPEPlatform.EventType",
+    "WPEPlatform.Gamepad",
+    "WPEPlatform.GamepadAxis",
+    "WPEPlatform.GamepadButton",
+    "WPEPlatform.GamepadManager",
     "WPEPlatform.Gesture",
     "WPEPlatform.GestureController",
     "WPEPlatform.InputHints",
@@ -35,15 +43,27 @@ generate = [
     "WPEPlatform.Monitor",
     "WPEPlatform.PixelFormat",
     "WPEPlatform.Rectangle",
+    "WPEPlatform.Screen",
+    "WPEPlatform.ScreenSyncObserver",
+    "WPEPlatform.Settings",
+    "WPEPlatform.SettingsError",
+    "WPEPlatform.SettingsHintingStyle",
+    "WPEPlatform.SettingsSource",
+    "WPEPlatform.SettingsSubpixelLayout",
     "WPEPlatform.Toplevel",
     "WPEPlatform.ToplevelState",
+    "WPEPlatform.ViewAccessible",
     "WPEPlatform.ViewError",
 ]
 
 manual = [
+    "Gio.OutputStream",
     "GLib.Bytes",
     "GLib.DestroyNotify",
     "GLib.Error",
+    "GLib.KeyFile",
+    "GLib.Variant",
+    "GLib.VariantType",
 ]
 
 [[object]]

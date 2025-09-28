@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::{BufferDMABufFormatUsage, BufferDMABufFormats, ffi};
+use crate::{BufferDMABufFormatUsage, BufferDMABufFormats, DRMDevice, ffi};
 
 glib::wrapper! {
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -20,7 +20,7 @@ glib::wrapper! {
 
 impl BufferDMABufFormatsBuilder {
     #[doc(alias = "wpe_buffer_dma_buf_formats_builder_new")]
-    pub fn new(device: Option<&str>) -> BufferDMABufFormatsBuilder {
+    pub fn new(device: Option<&DRMDevice>) -> BufferDMABufFormatsBuilder {
         unsafe {
             from_glib_full(ffi::wpe_buffer_dma_buf_formats_builder_new(device.to_glib_none().0))
         }
@@ -38,7 +38,7 @@ impl BufferDMABufFormatsBuilder {
     }
 
     #[doc(alias = "wpe_buffer_dma_buf_formats_builder_append_group")]
-    pub fn append_group(&self, device: Option<&str>, usage: BufferDMABufFormatUsage) {
+    pub fn append_group(&self, device: Option<&DRMDevice>, usage: BufferDMABufFormatUsage) {
         unsafe {
             ffi::wpe_buffer_dma_buf_formats_builder_append_group(
                 self.to_glib_none().0,

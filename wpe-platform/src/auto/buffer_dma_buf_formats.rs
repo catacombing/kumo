@@ -5,7 +5,7 @@
 
 use glib::translate::*;
 
-use crate::{BufferDMABufFormatUsage, ffi};
+use crate::{BufferDMABufFormatUsage, DRMDevice, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEBufferDMABufFormats")]
@@ -19,7 +19,7 @@ glib::wrapper! {
 impl BufferDMABufFormats {
     #[doc(alias = "wpe_buffer_dma_buf_formats_get_device")]
     #[doc(alias = "get_device")]
-    pub fn device(&self) -> Option<glib::GString> {
+    pub fn device(&self) -> Option<DRMDevice> {
         unsafe { from_glib_none(ffi::wpe_buffer_dma_buf_formats_get_device(self.to_glib_none().0)) }
     }
 
@@ -40,7 +40,7 @@ impl BufferDMABufFormats {
 
     #[doc(alias = "wpe_buffer_dma_buf_formats_get_group_device")]
     #[doc(alias = "get_group_device")]
-    pub fn group_device(&self, group: u32) -> Option<glib::GString> {
+    pub fn group_device(&self, group: u32) -> Option<DRMDevice> {
         unsafe {
             from_glib_none(ffi::wpe_buffer_dma_buf_formats_get_group_device(
                 self.to_glib_none().0,

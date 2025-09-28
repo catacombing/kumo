@@ -3584,6 +3584,139 @@ impl From<UserStyleLevel> for glib::Value {
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
+#[doc(alias = "WebKitWebExtensionMatchPatternError")]
+pub enum WebExtensionMatchPatternError {
+    #[doc(alias = "WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_UNKNOWN")]
+    Unknown,
+    #[doc(alias = "WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_INVALID_SCHEME")]
+    InvalidScheme,
+    #[doc(alias = "WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_INVALID_HOST")]
+    InvalidHost,
+    #[doc(alias = "WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_INVALID_PATH")]
+    InvalidPath,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+impl WebExtensionMatchPatternError {
+    #[doc(alias = "webkit_web_extension_match_pattern_error_quark")]
+    pub fn quark() -> glib::Quark {
+        unsafe { from_glib(ffi::webkit_web_extension_match_pattern_error_quark()) }
+    }
+}
+
+#[doc(hidden)]
+impl IntoGlib for WebExtensionMatchPatternError {
+    type GlibType = ffi::WebKitWebExtensionMatchPatternError;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WebKitWebExtensionMatchPatternError {
+        match self {
+            Self::Unknown => ffi::WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_UNKNOWN,
+            Self::InvalidScheme => ffi::WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_INVALID_SCHEME,
+            Self::InvalidHost => ffi::WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_INVALID_HOST,
+            Self::InvalidPath => ffi::WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_INVALID_PATH,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WebKitWebExtensionMatchPatternError> for WebExtensionMatchPatternError {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WebKitWebExtensionMatchPatternError) -> Self {
+        match value {
+            ffi::WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_UNKNOWN => Self::Unknown,
+            ffi::WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_INVALID_SCHEME => Self::InvalidScheme,
+            ffi::WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_INVALID_HOST => Self::InvalidHost,
+            ffi::WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_INVALID_PATH => Self::InvalidPath,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+impl glib::error::ErrorDomain for WebExtensionMatchPatternError {
+    #[inline]
+    fn domain() -> glib::Quark {
+        static QUARK: ::std::sync::OnceLock<glib::ffi::GQuark> = ::std::sync::OnceLock::new();
+        let quark = *QUARK.get_or_init(|| unsafe {
+            glib::ffi::g_quark_from_static_string(
+                b"WebKitWebExtensionMatchPatternError\0".as_ptr() as *const _
+            )
+        });
+        unsafe { from_glib(quark) }
+    }
+
+    #[inline]
+    fn code(self) -> i32 {
+        self.into_glib()
+    }
+
+    #[inline]
+    #[allow(clippy::match_single_binding)]
+    fn from(code: i32) -> Option<Self> {
+        match unsafe { from_glib(code) } {
+            value => Some(value),
+        }
+    }
+}
+
+impl StaticType for WebExtensionMatchPatternError {
+    #[inline]
+    #[doc(alias = "webkit_web_extension_match_pattern_error_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::webkit_web_extension_match_pattern_error_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for WebExtensionMatchPatternError {
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+impl glib::value::ValueType for WebExtensionMatchPatternError {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for WebExtensionMatchPatternError {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+    }
+}
+
+impl ToValue for WebExtensionMatchPatternError {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<WebExtensionMatchPatternError> for glib::Value {
+    #[inline]
+    fn from(v: WebExtensionMatchPatternError) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
 #[doc(alias = "WebKitWebExtensionMode")]
 pub enum WebExtensionMode {
     #[doc(alias = "WEBKIT_WEB_EXTENSION_MODE_NONE")]

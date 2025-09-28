@@ -64,8 +64,8 @@ pub const JSC_TYPED_ARRAY_FLOAT64: JSCTypedArrayType = 11;
 
 // Constants
 pub const JSC_MAJOR_VERSION: c_int = 2;
-pub const JSC_MICRO_VERSION: c_int = 3;
-pub const JSC_MINOR_VERSION: c_int = 49;
+pub const JSC_MICRO_VERSION: c_int = 0;
+pub const JSC_MINOR_VERSION: c_int = 50;
 pub const JSC_OPTIONS_USE_DFG: &[u8] = b"useDFGJIT\0";
 pub const JSC_OPTIONS_USE_FTL: &[u8] = b"useFTLJIT\0";
 pub const JSC_OPTIONS_USE_JIT: &[u8] = b"useJIT\0";

@@ -3926,6 +3926,7 @@ dependencies = [
 name = "wpe-platform"
 version = "0.1.0"
 dependencies = [
+ "gio",
  "glib",
  "glib-sys",
  "gobject-sys",

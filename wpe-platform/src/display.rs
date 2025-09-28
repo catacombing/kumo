@@ -1,8 +1,9 @@
 //! Trait for subclassing Display.
 
-use std::ffi::{CStr, c_char};
+use std::ffi::CStr;
+use std::ptr;
 
-use ffi::{WPEBufferDMABufFormats, WPEDisplay, WPEInputMethodContext, WPEView};
+use ffi::{WPEBufferDMABufFormats, WPEDRMDevice, WPEDisplay, WPEInputMethodContext, WPEView};
 use glib::object::IsA;
 use glib::subclass::prelude::*;
 use glib::translate::{ToGlibPtr, *};
@@ -30,8 +31,8 @@ pub trait DisplayImpl: ObjectImpl {
     /// Get acceptable DMA buffer formats.
     fn preferred_dmabuf_formats(&self) -> Option<BufferDMABufFormats>;
 
-    /// Get the DRM render node path.
-    fn render_node(&self) -> &CStr;
+    /// Get the DRM device node path.
+    fn device_node(&self) -> &CStr;
 }
 
 unsafe impl<T: DisplayImpl> IsSubclassable<T> for Display {
@@ -46,8 +47,7 @@ unsafe impl<T: DisplayImpl> IsSubclassable<T> for Display {
         klass.get_preferred_dma_buf_formats = Some(preferred_dmabuf_formats::<T>);
         klass.get_n_screens = None;
         klass.get_screen = None;
-        klass.get_drm_device = None;
-        klass.get_drm_render_node = Some(render_node::<T>);
+        klass.get_drm_device = Some(drm_device::<T>);
         klass.create_input_method_context = Some(create_input_method_context::<T>);
     }
 }
@@ -78,9 +78,10 @@ unsafe extern "C" fn create_input_method_context<T: DisplayImpl>(
     }
 }
 
-unsafe extern "C" fn render_node<T: DisplayImpl>(display: *mut WPEDisplay) -> *const c_char {
+unsafe extern "C" fn drm_device<T: DisplayImpl>(display: *mut WPEDisplay) -> *mut WPEDRMDevice {
     unsafe {
         let instance = &*(display as *mut T::Instance);
-        instance.imp().render_node().as_ptr()
+        let device_node = instance.imp().device_node().as_ptr();
+        ffi::wpe_drm_device_new(device_node, ptr::null())
     }
 }

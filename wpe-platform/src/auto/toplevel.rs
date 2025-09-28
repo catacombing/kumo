@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{BufferDMABufFormats, Display, ToplevelState, View, ffi};
+use crate::{BufferDMABufFormats, Display, Screen, ToplevelState, View, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEToplevel")]
@@ -140,11 +140,11 @@ pub trait ToplevelExt: IsA<Toplevel> + 'static {
         unsafe { ffi::wpe_toplevel_get_scale(self.as_ref().to_glib_none().0) }
     }
 
-    //#[doc(alias = "wpe_toplevel_get_screen")]
-    //#[doc(alias = "get_screen")]
-    // fn screen(&self) -> /*Ignored*/Option<Screen> {
-    //    unsafe { TODO: call ffi:wpe_toplevel_get_screen() }
-    //}
+    #[doc(alias = "wpe_toplevel_get_screen")]
+    #[doc(alias = "get_screen")]
+    fn screen(&self) -> Option<Screen> {
+        unsafe { from_glib_none(ffi::wpe_toplevel_get_screen(self.as_ref().to_glib_none().0)) }
+    }
 
     #[doc(alias = "wpe_toplevel_get_size")]
     #[doc(alias = "get_size")]

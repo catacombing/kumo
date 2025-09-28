@@ -8,12 +8,16 @@ license = "MIT OR Apache-2.0"
 categories = ["api-bindings"]
 keywords = ["webkit", "wpe", "wpewebkit", "browser", "embedded"]
 build = "build.rs"
-rust-version.workspace = true
-edition.workspace = true
+
+[package.rust-version]
+workspace = true
+
+[package.edition]
+workspace = true
 
 [package.metadata.system-deps.wpe_webkit_2_0]
 name = "wpe-webkit-2.0"
-version = "2.48"
+version = "2.50"
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

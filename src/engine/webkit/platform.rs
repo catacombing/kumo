@@ -2,7 +2,7 @@
 
 use std::ffi::CString;
 use std::os::unix::ffi::OsStrExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use _dmabuf::zwp_linux_dmabuf_feedback_v1::TrancheFlags;
 use drm::node::DrmNode;
@@ -18,8 +18,8 @@ use smithay_client_toolkit::seat::pointer::AxisScroll;
 use wayland_backend::protocol::WEnum;
 use wpe_platform::ffi::{WPE_BUTTON_MIDDLE, WPE_BUTTON_PRIMARY, WPE_BUTTON_SECONDARY};
 use wpe_platform::{
-    Buffer, BufferDMABufFormatUsage, BufferDMABufFormats, BufferDMABufFormatsBuilder, Display,
-    Event, EventType, InputSource, ToplevelExt, ViewExt,
+    Buffer, BufferDMABufFormatUsage, BufferDMABufFormats, BufferDMABufFormatsBuilder, DRMDevice,
+    Display, Event, EventType, InputSource, ToplevelExt, ViewExt,
 };
 
 use crate::engine::EngineId;
@@ -56,7 +56,7 @@ mod imp {
         queue: OnceCell<StQueueHandle<State>>,
         view: OnceCell<super::WebKitView>,
         engine_id: OnceCell<EngineId>,
-        render_node: OnceCell<CString>,
+        device_node: OnceCell<CString>,
 
         pointer_position: Cell<Option<Position<f64>>>,
         pointer_modifiers: Cell<Option<WebKitModifiers>>,
@@ -72,11 +72,11 @@ mod imp {
             &self,
             queue: StQueueHandle<State>,
             engine_id: EngineId,
-            render_node: CString,
+            device_node: CString,
             formats: Option<BufferDMABufFormats>,
         ) {
             let _ = self.input_method_context.set(KumoInputMethodContext::new());
-            let _ = self.render_node.set(render_node);
+            let _ = self.device_node.set(device_node);
             let _ = self.engine_id.set(engine_id);
             let _ = self.queue.set(queue);
 
@@ -220,8 +220,8 @@ mod imp {
             }
         }
 
-        fn render_node(&self) -> &CStr {
-            self.render_node.get().unwrap().as_c_str()
+        fn device_node(&self) -> &CStr {
+            self.device_node.get().unwrap().as_c_str()
         }
     }
 
@@ -320,14 +320,14 @@ impl WebKitDisplay {
     pub fn new(
         queue: StQueueHandle<State>,
         engine_id: EngineId,
-        render_node: &Path,
+        device_node: &Path,
         size: Size,
         scale: f64,
         feedback: Option<&DmabufFeedback>,
     ) -> Self {
         let display: Self = Object::new();
-        let render_node = CString::new(render_node.as_os_str().as_bytes()).unwrap();
-        display.imp().init(queue, engine_id, render_node, feedback.and_then(webkit_formats));
+        let device_node = CString::new(device_node.as_os_str().as_bytes()).unwrap();
+        display.imp().init(queue, engine_id, device_node, feedback.and_then(webkit_formats));
         display.set_size(size.width as i32, size.height as i32);
         display.set_scale(scale);
         display
@@ -542,11 +542,9 @@ fn webkit_formats(feedback: &DmabufFeedback) -> Option<BufferDMABufFormats> {
     let formats = feedback.format_table();
     let tranches = feedback.tranches();
 
-    // Convert main device ID to device path.
-    let main_device_path = drm_path(feedback.main_device());
-    let main_device_path = main_device_path.as_ref().and_then(|path| path.to_str());
+    let dev = drm_device(feedback.main_device());
+    let builder = BufferDMABufFormatsBuilder::new(dev.as_ref());
 
-    let builder = BufferDMABufFormatsBuilder::new(main_device_path);
     for tranche in tranches {
         // Convert Wayland flags to WebKit usage purpose.
         let usage = match tranche.flags {
@@ -556,12 +554,9 @@ fn webkit_formats(feedback: &DmabufFeedback) -> Option<BufferDMABufFormats> {
             _ => BufferDMABufFormatUsage::Rendering,
         };
 
-        // Convert device ID to device path.
-        let device_path = drm_path(tranche.device);
-        let device_path = device_path.as_ref().and_then(|path| path.to_str());
-
         // Start a new tranche group.
-        builder.append_group(device_path, usage);
+        let dev = drm_device(tranche.device);
+        builder.append_group(dev.as_ref(), usage);
 
         // Add all formats for this tranche.
         for format in &tranche.formats {
@@ -573,8 +568,9 @@ fn webkit_formats(feedback: &DmabufFeedback) -> Option<BufferDMABufFormats> {
     builder.end()
 }
 
-/// Get path for a DRM node ID.
-fn drm_path(dev: dev_t) -> Option<PathBuf> {
-    let node = DrmNode::from_dev_id(dev).ok()?;
-    node.dev_path()
+/// Convert a device ID to a DRM device.
+fn drm_device(id: dev_t) -> Option<DRMDevice> {
+    let node = DrmNode::from_dev_id(id).ok()?;
+    let path = node.dev_path()?;
+    Some(DRMDevice::new(path.to_str()?, None))
 }

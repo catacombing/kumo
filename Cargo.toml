@@ -1,6 +1,6 @@
 [package]
 name = "kumo"
-version = "1.5.1"
+version = "1.6.0"
 description = "Wayland Mobile Web Browser"
 authors = ["Christian Duerr <contact@christianduerr.com>"]
 repository = "https://github.com/catacombing/kumo"

@@ -48,6 +48,15 @@
         </screenshot>
     </screenshots>
     <releases>
+        <release version="1.6.0" date="2025-09-29">
+            <description>
+                <p>Kumo Version 1.6.0</p>
+                <ul>
+                    <li>Added desktop file mime types, to recognize Kumo as a browser</li>
+                    <li>Updated WebKit to 2.50.0</li>
+                </ul>
+            </description>
+        </release>
         <release version="1.5.1" date="2025-09-03">
             <description>
                 <p>Kumo Version 1.5.1</p>

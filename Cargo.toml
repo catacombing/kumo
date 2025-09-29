@@ -70,7 +70,7 @@ rusqlite = { version = "0.37.0", features = ["uuid", "chrono"] }
 rustix.workspace = true
 serde = { version = "1.0.219", features = ["derive"] }
 smallvec = "1.13.2"
-smithay-client-toolkit = { version = "0.19.1", default-features = false, features = ["xkbcommon"] }
+smithay-client-toolkit = { version = "0.20.0", default-features = false, features = ["xkbcommon"] }
 thiserror = "2.0.3"
 toml = "0.9.5"
 tracing = "0.1.40"

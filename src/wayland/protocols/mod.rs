@@ -34,7 +34,7 @@ use smithay_client_toolkit::reexports::protocols::wp::single_pixel_buffer::v1::c
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
 use smithay_client_toolkit::registry::{ProvidesRegistryState, RegistryState};
 use smithay_client_toolkit::seat::keyboard::{
-    KeyEvent, KeyboardHandler, Keysym, Modifiers, RepeatInfo,
+    KeyEvent, KeyboardHandler, Keysym, Modifiers, RawModifiers, RepeatInfo,
 };
 use smithay_client_toolkit::seat::pointer::{PointerEvent, PointerEventKind, PointerHandler};
 use smithay_client_toolkit::seat::touch::TouchHandler;
@@ -394,6 +394,26 @@ impl KeyboardHandler for State {
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
+    fn repeat_key(
+        &mut self,
+        _connection: &Connection,
+        _queue: &QueueHandle<Self>,
+        _keyboard: &WlKeyboard,
+        _serial: u32,
+        event: KeyEvent,
+    ) {
+        let keyboard_state = match &mut self.keyboard {
+            Some(keyboard_state) => keyboard_state,
+            None => return,
+        };
+        let window = match self.keyboard_focus.and_then(|focus| self.windows.get_mut(&focus)) {
+            Some(focus) => focus,
+            None => return,
+        };
+        window.press_key(event.time, event.raw_code, event.keysym, keyboard_state.modifiers);
+    }
+
+    #[cfg_attr(feature = "profiling", profiling::function)]
     fn update_modifiers(
         &mut self,
         _connection: &Connection,
@@ -401,6 +421,7 @@ impl KeyboardHandler for State {
         _keyboard: &WlKeyboard,
         _serial: u32,
         modifiers: Modifiers,
+        _raw_modifiers: RawModifiers,
         _layout: u32,
     ) {
         let keyboard_state = match &mut self.keyboard {

@@ -1025,7 +1025,7 @@ impl Window {
     }
 
     /// Update an engine's URI.
-    pub fn set_engine_uri(&mut self, engine_id: EngineId, uri: String) {
+    pub fn set_engine_uri(&mut self, engine_id: EngineId, uri: String, update_history: bool) {
         // Update UI if the URI change is for the active tab.
         //
         // This always needs to be performed since `Self::set_engine_title` might have
@@ -1035,29 +1035,20 @@ impl Window {
             self.ui.set_uri(Cow::Borrowed(&uri));
         }
 
-        // Short-circuit if the engine's URI has not changed.
-        if self.overlay.tabs_mut().tab_uri(engine_id).is_some_and(|old| old == uri) {
-            if self.ui.dirty() {
-                self.unstall();
-            }
-            return;
-        }
-
         // Update tabs popup.
-        self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
+        self.overlay.tabs_mut().set_tab_uri(engine_id, uri.clone());
 
-        // Redraw if visible surface was changed.
-        if self.overlay.opaque() || self.ui.dirty() {
-            self.unstall();
-        }
-
-        let group = self.groups.get(&engine_id.group_id()).unwrap_or(NO_GROUP_REF);
-        if !group.ephemeral {
+        if update_history && self.groups.get(&engine_id.group_id()).is_none_or(|g| !g.ephemeral) {
             // Increment URI visit count for history.
             self.history.visit(uri);
 
             // Update browser session.
             self.persist_session();
+        }
+
+        // Redraw if visible surface was changed.
+        if self.overlay.dirty() || self.ui.dirty() {
+            self.unstall();
         }
     }
 
@@ -1078,13 +1069,17 @@ impl Window {
 
     /// Update an engine's title.
     pub fn set_engine_title(&mut self, history: &History, engine_id: EngineId, title: String) {
-        // Update tabs popup.
-        self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
-
         // Update title of current URI for history.
         if let Some(engine) = self.tabs.get(&engine_id) {
             let uri = engine.uri();
-            history.set_title(&uri, title);
+            history.set_title(&uri, title.clone());
+        }
+
+        // Update tabs popup.
+        self.overlay.tabs_mut().set_tab_title(engine_id, title);
+
+        if self.overlay.dirty() {
+            self.unstall();
         }
     }
 

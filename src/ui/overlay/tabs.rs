@@ -2,6 +2,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::{self, Debug, Formatter};
 use std::mem;
 use std::time::Instant;
 
@@ -354,9 +355,20 @@ impl Tabs {
         self.dirty = true;
     }
 
-    /// Get current URI of a tab.
-    pub fn tab_uri(&self, tab: EngineId) -> Option<&str> {
-        self.texture_cache.tabs.get(&tab).map(|tab| tab.uri.as_str())
+    /// Update the URI of a tab.
+    pub fn set_tab_uri(&mut self, tab: EngineId, uri: String) {
+        if let Some(tab) = self.texture_cache.tabs.get_mut(&tab) {
+            self.dirty |= tab.uri != uri;
+            tab.uri = uri;
+        }
+    }
+
+    /// Update the title of a tab.
+    pub fn set_tab_title(&mut self, tab: EngineId, title: String) {
+        if let Some(tab) = self.texture_cache.tabs.get_mut(&tab) {
+            self.dirty |= tab.title != title;
+            tab.title = title;
+        }
     }
 
     /// Set a tab's audio playback state.
@@ -1424,7 +1436,6 @@ impl<'a> TabTextures<'a> {
 }
 
 /// Information required to render a tab.
-#[derive(Debug)]
 struct RenderTab {
     uri: String,
     title: String,
@@ -1469,6 +1480,19 @@ impl RenderTab {
             load_progress: self.load_progress,
             active: self.active,
         }
+    }
+}
+
+impl Debug for RenderTab {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("RenderTab")
+            .field("uri", &self.uri)
+            .field("title", &self.title)
+            .field("active", &self.active)
+            .field("favicon", &self.favicon.is_some())
+            .field("audio_playing", &self.audio_playing)
+            .field("load_progress", &self.load_progress)
+            .finish()
     }
 }
 

@@ -34,7 +34,7 @@ use wpe_platform::{
 };
 use wpe_webkit::{
     Color, CookieAcceptPolicy, CookiePersistentStorage, Download as WebKitDownload, FindOptions,
-    HitTestResult, HitTestResultContext, NetworkSession, OptionMenu,
+    HitTestResult, HitTestResultContext, LoadEvent, NetworkSession, OptionMenu,
     OptionMenuItem as WebKitOptionMenuItem, UserContentFilterStore, WebView, WebViewExt,
     WebViewSessionState, WebsiteDataManagerExtManual, WebsiteDataTypes,
 };
@@ -94,6 +94,12 @@ trait WebKitHandler {
 
     /// Remove a download from WebKit's cache.
     fn remove_webkit_download(&mut self, download_id: DownloadId);
+
+    /// Special WebKit pre-processor for updating the current URI for an engine.
+    fn set_webkit_engine_uri(&mut self, engine_id: EngineId, uri: String, update_history: bool);
+
+    /// Mark a URI as having failed to load.
+    fn set_uri_failed(&mut self, engine_id: EngineId, uri: String);
 }
 
 impl WebKitHandler for State {
@@ -288,6 +294,50 @@ impl WebKitHandler for State {
 
         webkit_engine.downloads.remove(&download_id);
     }
+
+    fn set_webkit_engine_uri(
+        &mut self,
+        engine_id: EngineId,
+        uri: String,
+        mut update_history: bool,
+    ) {
+        // Short-circuit to generic implementation if no pre-processing is necessary.
+        if !update_history {
+            self.queue.set_engine_uri(engine_id, uri, update_history);
+            return;
+        }
+
+        let webkit_engine = match self
+            .windows
+            .get_mut(&engine_id.window_id())
+            .and_then(|window| webkit_engine_by_id(window, engine_id))
+        {
+            Some(webkit_engine) => webkit_engine,
+            None => return,
+        };
+
+        // Ignore next successful load for a URI after load failure for the history,
+        // since it represents the successful load of the error page.
+        if webkit_engine.last_failed_uri.as_ref().is_some_and(|failed| failed == &uri) {
+            webkit_engine.last_failed_uri = None;
+            update_history = false;
+        }
+
+        self.queue.set_engine_uri(engine_id, uri, update_history);
+    }
+
+    fn set_uri_failed(&mut self, engine_id: EngineId, uri: String) {
+        let webkit_engine = match self
+            .windows
+            .get_mut(&engine_id.window_id())
+            .and_then(|window| webkit_engine_by_id(window, engine_id))
+        {
+            Some(webkit_engine) => webkit_engine,
+            None => return,
+        };
+
+        webkit_engine.last_failed_uri = Some(uri);
+    }
 }
 
 /// WebKit shared engine state.
@@ -383,14 +433,20 @@ impl WebKitState {
 
         // Notify UI about URI and title changes.
         let load_queue = self.queue.clone();
-        web_view.connect_load_changed(move |web_view, _| {
+        web_view.connect_load_changed(move |web_view, load| {
             let uri = web_view.uri().unwrap_or_default().to_string();
-            load_queue.clone().set_engine_uri(engine_id, uri);
+            let update_history = load == LoadEvent::Finished;
+            load_queue.clone().set_webkit_engine_uri(engine_id, uri, update_history);
         });
         let uri_queue = self.queue.clone();
         web_view.connect_uri_notify(move |web_view| {
             let uri = web_view.uri().unwrap_or_default().to_string();
-            uri_queue.clone().set_engine_uri(engine_id, uri);
+            uri_queue.clone().set_webkit_engine_uri(engine_id, uri, false);
+        });
+        let failed_queue = self.queue.clone();
+        web_view.connect_load_failed(move |_web_view, _load, uri, _error| {
+            failed_queue.clone().set_uri_failed(engine_id, uri.into());
+            false
         });
         let title_queue = self.queue.clone();
         web_view.connect_title_notify(move |web_view| {
@@ -460,6 +516,7 @@ impl WebKitState {
             id: engine_id,
             buffers_pending_release: Default::default(),
             last_input_position: Default::default(),
+            last_failed_uri: Default::default(),
             opaque_region: Default::default(),
             buffer_damage: Default::default(),
             buffer_size: Default::default(),
@@ -490,6 +547,8 @@ pub struct WebKitEngine {
     last_input_position: Position<f64>,
 
     downloads: HashMap<DownloadId, WebKitDownload>,
+
+    last_failed_uri: Option<String>,
 
     dark_mode: bool,
     bg: [f64; 3],

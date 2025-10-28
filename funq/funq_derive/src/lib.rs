@@ -157,13 +157,13 @@ fn trait_fn_tokens(
         arg_idents.push(arg_ident.clone());
 
         // Replace existing function argument.
-        arg.pat = Box::new(Pat::Ident(PatIdent {
+        *arg.pat = Pat::Ident(PatIdent {
             ident: arg_ident,
             attrs: Vec::new(),
             mutability: None,
             subpat: None,
             by_ref: None,
-        }));
+        });
     }
 
     // Calculate access path for sub-states.

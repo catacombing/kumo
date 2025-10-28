@@ -203,7 +203,7 @@ pub trait Engine {
 #[funq::callbacks(State)]
 pub trait EngineHandler {
     /// Update current URI for an engine.
-    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String);
+    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String, update_history: bool);
 
     /// Update current title for an engine.
     fn set_engine_title(&mut self, engine_id: EngineId, title: String);
@@ -254,9 +254,9 @@ pub trait EngineHandler {
 }
 
 impl EngineHandler for State {
-    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String) {
+    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String, update_history: bool) {
         if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
-            window.set_engine_uri(engine_id, uri);
+            window.set_engine_uri(engine_id, uri, update_history);
         }
     }
 

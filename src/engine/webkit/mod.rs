@@ -54,6 +54,8 @@ mod platform;
 /// Content filter store ID for the adblock json.
 const ADBLOCK_FILTER_ID: &str = "adblock";
 
+const ERROR_PAGE: &str = include_str!("../../../internal_pages/error.html");
+
 /// Maximum number of buffers kept for release tracking.
 ///
 /// If the number of buffers pending release exceeds this number,
@@ -444,9 +446,18 @@ impl WebKitState {
             uri_queue.clone().set_webkit_engine_uri(engine_id, uri, false);
         });
         let failed_queue = self.queue.clone();
-        web_view.connect_load_failed(move |_web_view, _load, uri, _error| {
+        web_view.connect_load_failed(move |web_view, _load, uri, error| {
+            let config = CONFIG.read().unwrap();
+            let fg = config.colors.foreground.to_string();
+            let error_color = config.colors.error.to_string();
+            let html = ERROR_PAGE
+                .replace("{{ERROR_MESSAGE}}", &error.to_string())
+                .replace("{{ERROR_COLOR}}", &error_color)
+                .replace("{{FG_COLOR}}", &fg);
+            web_view.load_alternate_html(&html, uri, None);
+
             failed_queue.clone().set_uri_failed(engine_id, uri.into());
-            false
+            true
         });
         let title_queue = self.queue.clone();
         web_view.connect_title_notify(move |web_view| {

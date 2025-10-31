@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Kumo Error</title>
+    <style>
+      body {
+        color: {{FG_COLOR}};
+        margin: 25px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+
+      h1 {
+        color: {{ERROR_COLOR}};
+      }
+
+      p {
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Page Load Failed</h1>
+    <p>{{ERROR_MESSAGE}}</p>
+  </body>
+</html>

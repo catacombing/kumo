@@ -107,8 +107,6 @@ impl Value {
     // ffi:jsc_value_new_object() }
     //}
 
-    #[cfg(feature = "v2_48")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "v2_48")))]
     #[doc(alias = "jsc_value_new_promise")]
     pub fn new_promise<P: FnMut(&Value, &Value)>(context: &Context, executor: P) -> Value {
         let mut executor_data: P = executor;

@@ -1349,7 +1349,7 @@ pub trait WebViewExt: IsA<WebView> + 'static {
         }
     }
 
-    #[cfg_attr(feature = "v2_48", deprecated = "Since 2.48")]
+    #[deprecated = "Since 2.48"]
     #[doc(alias = "context-menu-dismissed")]
     fn connect_context_menu_dismissed<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
         unsafe extern "C" fn context_menu_dismissed_trampoline<
@@ -2288,8 +2288,6 @@ pub trait WebViewExt: IsA<WebView> + 'static {
         }
     }
 
-    #[cfg(feature = "v2_50")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "v2_50")))]
     #[doc(alias = "theme-color")]
     fn connect_theme_color_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
         unsafe extern "C" fn notify_theme_color_trampoline<P: IsA<WebView>, F: Fn(&P) + 'static>(

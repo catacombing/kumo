@@ -347,7 +347,6 @@ pub const TLDS: &[&str] = &[
     "DRIVE",
     "DTV",
     "DUBAI",
-    "DUNLOP",
     "DUPONT",
     "DURBAN",
     "DVAG",

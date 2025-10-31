@@ -191,7 +191,7 @@ impl Settings {
         }
     }
 
-    #[cfg_attr(feature = "v2_48", deprecated = "Since 2.48")]
+    #[deprecated = "Since 2.48"]
     #[allow(deprecated)]
     #[doc(alias = "webkit_settings_get_enable_dns_prefetching")]
     #[doc(alias = "get_enable_dns_prefetching")]
@@ -230,7 +230,7 @@ impl Settings {
         }
     }
 
-    #[cfg_attr(feature = "v2_50", deprecated = "Since 2.50")]
+    #[deprecated = "Since 2.50"]
     #[allow(deprecated)]
     #[doc(alias = "webkit_settings_get_enable_hyperlink_auditing")]
     #[doc(alias = "get_enable_hyperlink_auditing")]
@@ -506,8 +506,6 @@ impl Settings {
         unsafe { from_glib_none(ffi::webkit_settings_get_user_agent(self.to_glib_none().0)) }
     }
 
-    #[cfg(feature = "v2_48")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "v2_48")))]
     #[doc(alias = "webkit_settings_get_webrtc_udp_ports_range")]
     #[doc(alias = "get_webrtc_udp_ports_range")]
     #[doc(alias = "webrtc-udp-ports-range")]
@@ -680,7 +678,7 @@ impl Settings {
         }
     }
 
-    #[cfg_attr(feature = "v2_48", deprecated = "Since 2.48")]
+    #[deprecated = "Since 2.48"]
     #[allow(deprecated)]
     #[doc(alias = "webkit_settings_set_enable_dns_prefetching")]
     #[doc(alias = "enable-dns-prefetching")]
@@ -734,7 +732,7 @@ impl Settings {
         }
     }
 
-    #[cfg_attr(feature = "v2_50", deprecated = "Since 2.50")]
+    #[deprecated = "Since 2.50"]
     #[allow(deprecated)]
     #[doc(alias = "webkit_settings_set_enable_hyperlink_auditing")]
     #[doc(alias = "enable-hyperlink-auditing")]
@@ -1076,8 +1074,6 @@ impl Settings {
         }
     }
 
-    #[cfg(feature = "v2_48")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "v2_48")))]
     #[doc(alias = "webkit_settings_set_webrtc_udp_ports_range")]
     #[doc(alias = "webrtc-udp-ports-range")]
     pub fn set_webrtc_udp_ports_range(&self, udp_port_range: &str) {
@@ -1516,7 +1512,7 @@ impl Settings {
         }
     }
 
-    #[cfg_attr(feature = "v2_48", deprecated = "Since 2.48")]
+    #[deprecated = "Since 2.48"]
     #[doc(alias = "enable-dns-prefetching")]
     pub fn connect_enable_dns_prefetching_notify<F: Fn(&Self) + 'static>(
         &self,
@@ -1653,7 +1649,7 @@ impl Settings {
         }
     }
 
-    #[cfg_attr(feature = "v2_50", deprecated = "Since 2.50")]
+    #[deprecated = "Since 2.50"]
     #[doc(alias = "enable-hyperlink-auditing")]
     pub fn connect_enable_hyperlink_auditing_notify<F: Fn(&Self) + 'static>(
         &self,
@@ -2478,8 +2474,6 @@ impl Settings {
         }
     }
 
-    #[cfg(feature = "v2_48")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "v2_48")))]
     #[doc(alias = "webrtc-udp-ports-range")]
     pub fn connect_webrtc_udp_ports_range_notify<F: Fn(&Self) + 'static>(
         &self,
@@ -2643,7 +2637,7 @@ impl SettingsBuilder {
         Self { builder: self.builder.property("enable-developer-extras", enable_developer_extras) }
     }
 
-    #[cfg_attr(feature = "v2_48", deprecated = "Since 2.48")]
+    #[deprecated = "Since 2.48"]
     pub fn enable_dns_prefetching(self, enable_dns_prefetching: bool) -> Self {
         Self { builder: self.builder.property("enable-dns-prefetching", enable_dns_prefetching) }
     }
@@ -2668,7 +2662,7 @@ impl SettingsBuilder {
         }
     }
 
-    #[cfg_attr(feature = "v2_50", deprecated = "Since 2.50")]
+    #[deprecated = "Since 2.50"]
     pub fn enable_hyperlink_auditing(self, enable_hyperlink_auditing: bool) -> Self {
         Self {
             builder: self.builder.property("enable-hyperlink-auditing", enable_hyperlink_auditing),
@@ -2859,8 +2853,6 @@ impl SettingsBuilder {
         Self { builder: self.builder.property("user-agent", user_agent.into()) }
     }
 
-    #[cfg(feature = "v2_48")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "v2_48")))]
     pub fn webrtc_udp_ports_range(self, webrtc_udp_ports_range: impl Into<glib::GString>) -> Self {
         Self {
             builder: self.builder.property("webrtc-udp-ports-range", webrtc_udp_ports_range.into()),

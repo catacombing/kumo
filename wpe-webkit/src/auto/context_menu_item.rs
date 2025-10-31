@@ -87,8 +87,6 @@ impl ContextMenuItem {
         unsafe { from_glib_none(ffi::webkit_context_menu_item_get_submenu(self.to_glib_none().0)) }
     }
 
-    #[cfg(feature = "v2_48")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "v2_48")))]
     #[doc(alias = "webkit_context_menu_item_get_title")]
     #[doc(alias = "get_title")]
     pub fn title(&self) -> Option<glib::GString> {

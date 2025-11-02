@@ -7,6 +7,7 @@ use std::mem;
 use std::ops::Range;
 use std::path::Path;
 use std::rc::Rc;
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, ZwpTextInputV3};
@@ -41,13 +42,18 @@ use crate::ui::overlay::option_menu::{
     Borders, OptionMenuId, OptionMenuItem, OptionMenuPosition, ScrollTarget,
 };
 use crate::ui::{TOOLBAR_HEIGHT, Ui};
-use crate::uri::{SCHEMES, TLDS};
 use crate::wayland::protocols::ProtocolStates;
 use crate::{Position, Size, State, WebKitState};
 
 // Default window size.
 const DEFAULT_WIDTH: u32 = 360;
 const DEFAULT_HEIGHT: u32 = 640;
+
+/// Allowed URI schemes.
+///
+/// This is used for autocomplete, so entries are sorted by autocomplete
+/// priority.
+const SCHEMES: &[&str] = &["https", "http", "file", "data"];
 
 #[funq::callbacks(State)]
 pub trait WindowHandler {
@@ -1895,11 +1901,22 @@ fn build_uri(mut input: &str, allow_relative_paths: bool) -> Option<Cow<'_, str>
     match input.rfind('.') {
         // Accept missing TLD with explicitly specified ports.
         None if has_port => Some(Cow::Owned(format!("https://{uri}"))),
-        Some(tld_index) if TLDS.contains(&input[tld_index + 1..].to_uppercase().as_str()) => {
+        Some(tld_index) if tlds().contains(&input[tld_index + 1..].to_uppercase().as_str()) => {
             Some(Cow::Owned(format!("https://{uri}")))
         },
         _ => None,
     }
+}
+
+/// All available TLDs.
+///
+/// <https://data.iana.org/TLD/tlds-alpha-by-domain.txt>
+fn tlds() -> &'static [&'static str] {
+    const TLDS: &str = include_str!("../tlds.txt");
+
+    static PARSED_TLDS: OnceLock<Vec<&'static str>> = OnceLock::new();
+
+    PARSED_TLDS.get_or_init(|| TLDS.lines().skip(1).collect())
 }
 
 #[cfg(test)]

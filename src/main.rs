@@ -49,7 +49,6 @@ mod config;
 mod engine;
 mod storage;
 mod ui;
-mod uri;
 mod wayland;
 mod window;
 

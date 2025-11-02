@@ -1,0 +1,31 @@
+name: TLDs
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 9 * * *
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Update TLDs
+        run: curl https://data.iana.org/TLD/tlds-alpha-by-domain.txt > ./tlds.txt
+      - name: Commit & PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! git rev-list master@{upstream} 2> /dev/null; then
+            git config --global user.name 'Christian Duerr'
+            git config --global user.email 'chrisduerr@users.noreply.github.com'
+
+            git checkout -b update_tlds
+            git commit -am "Update TLD list"
+            git push origin update_tlds --force
+
+            gh pr create --title "Update TLD list" --body "" --reviewer chrisduerr
+          fi

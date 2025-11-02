@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+    <defs>
+        <marker id="a" orient="auto-start-reverse" markerWidth=".65" markerHeight=".65" viewBox="0 0 1 1" overflow="visible">
+            <path stroke="#ffffff" fill="#ffffff" transform="scale(.5)" d="m5.77 0-8.65 5V-5Z"/>
+        </marker>
+    </defs>
+    <path stroke="#ffffff" stroke-width="1.5" fill-opacity="0" marker-start="url(#a)" d="M4 16a12 12 0 0 1 8.894-11.59A12 12 0 0 1 26.392 10a12 12 0 0 1-1.907 14.486A12 12 0 0 1 10 26.393"/>
+</svg>

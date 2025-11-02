@@ -359,9 +359,9 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
 name = "configory"
-version = "0.5.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e29a6389e8c41abdfdc1ce3e766c0e51b62bb34002182efb180adda7ed995acd"
+checksum = "1525492c13e900883f8de2090a443cdcb636531353667b761dedf3c9ca80aae3"
 dependencies = [
  "configory_derive",
  "dirs",

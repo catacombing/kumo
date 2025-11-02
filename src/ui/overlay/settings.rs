@@ -39,10 +39,19 @@ trait SettingsHandler {
     fn close_settings(&mut self, window_id: WindowId);
 
     /// Persist settings to config file.
-    fn save_settings(&mut self);
+    fn save_settings(&mut self, window_id: WindowId);
+
+    /// Reset all settings to the config value.
+    fn reset_settings(&mut self, window_id: WindowId);
 
     /// Handle setting changes.
-    fn set_setting(&mut self, path: String, format: InputFormat, value: String);
+    fn set_setting(
+        &mut self,
+        window_id: WindowId,
+        path: String,
+        format: InputFormat,
+        value: String,
+    );
 
     /// Clear settings value.
     fn reset_setting(&mut self, path: String);
@@ -57,13 +66,42 @@ impl SettingsHandler for State {
         window.set_settings_ui_visible(false);
     }
 
-    fn save_settings(&mut self) {
-        if let Err(err) = self.config_manager.persist() {
-            error!("Failed to save config: {err}");
+    fn save_settings(&mut self, window_id: WindowId) {
+        match self.config_manager.persist() {
+            Ok(_) => {
+                let window = match self.windows.get_mut(&window_id) {
+                    Some(window) => window,
+                    None => return,
+                };
+
+                window.set_settings_savable(false);
+            },
+            Err(err) => error!("Failed to save config: {err}"),
         }
     }
 
-    fn set_setting(&mut self, path: String, format: InputFormat, value: String) {
+    fn reset_settings(&mut self, window_id: WindowId) {
+        self.config_manager.reset::<&str>(&[]);
+
+        config::reload_config(&self.config_manager);
+
+        let window = match self.windows.get_mut(&window_id) {
+            Some(window) => window,
+            None => return,
+        };
+
+        window.reload_settings();
+
+        window.set_settings_savable(false);
+    }
+
+    fn set_setting(
+        &mut self,
+        window_id: WindowId,
+        path: String,
+        format: InputFormat,
+        value: String,
+    ) {
         let value = match format.toml_value(&value) {
             Ok(value) => value,
             Err(err) => {
@@ -76,6 +114,13 @@ impl SettingsHandler for State {
         self.config_manager.set(&path, value);
 
         config::reload_config(&self.config_manager);
+
+        let window = match self.windows.get_mut(&window_id) {
+            Some(window) => window,
+            None => return,
+        };
+
+        window.set_settings_savable(true);
     }
 
     fn reset_setting(&mut self, path: String) {
@@ -90,8 +135,10 @@ impl SettingsHandler for State {
 pub struct Settings {
     entries: Vec<SettingsEntry>,
     close_button: SvgButton,
+    reset_button: SvgButton,
     save_button: SvgButton,
     scroll_offset: f64,
+    savable: bool,
 
     keyboard_focus: Option<KeyboardInputElement>,
     touch_state: TouchState,
@@ -117,14 +164,16 @@ impl Settings {
             window_id,
             entries,
             queue,
-            save_button: SvgButton::new(Svg::Checkmark),
-            close_button: SvgButton::new(Svg::Close),
+            close_button: SvgButton::new(Svg::ArrowLeft),
+            reset_button: SvgButton::new(Svg::Reset),
+            save_button: SvgButton::new(Svg::Save),
             scale: 1.,
             keyboard_focus: Default::default(),
             scroll_offset: Default::default(),
             last_config: Default::default(),
             touch_state: Default::default(),
             velocity: Default::default(),
+            savable: Default::default(),
             visible: Default::default(),
             dirty: Default::default(),
             size: Default::default(),
@@ -151,6 +200,12 @@ impl Settings {
         load_entries(&mut self.entries, LoadOperation::Reload);
     }
 
+    /// Set whether there are changes available for saving to disk.
+    pub fn set_savable(&mut self, savable: bool) {
+        self.dirty |= self.savable != savable;
+        self.savable = savable;
+    }
+
     /// Get default physical UI button size.
     ///
     /// This includes all padding, since that is part of the texture.
@@ -175,6 +230,15 @@ impl Settings {
     /// This includes all padding since that is included in the texture.
     fn save_button_position(&self) -> Position<f64> {
         Position::new(0., self.close_button_position().y)
+    }
+
+    /// Physical position of the Reset button.
+    ///
+    /// This includes all padding since that is included in the texture.
+    fn reset_button_position(&self) -> Position<f64> {
+        let mut position = self.save_button_position();
+        position.x += self.button_size().width as f64;
+        position
     }
 
     /// Physical size of each settings item row.
@@ -302,6 +366,7 @@ impl Popup for Settings {
             for entry in &mut self.entries {
                 entry.dirty = true;
             }
+            self.reset_button.dirty = true;
             self.close_button.dirty = true;
             self.save_button.dirty = true;
         }
@@ -309,6 +374,7 @@ impl Popup for Settings {
         // Get geometry required for rendering.
         let ui_height = (self.size.height as f64 * self.scale).round() as f32;
         let outside_padding = (OUTSIDE_PADDING * self.scale) as f32;
+        let reset_button_position: Position<f32> = self.reset_button_position().into();
         let close_button_position: Position<f32> = self.close_button_position().into();
         let save_button_position: Position<f32> = self.save_button_position().into();
         let entry_height = self.entry_size().height as f32;
@@ -318,6 +384,7 @@ impl Popup for Settings {
         //
         // This must happen with the renderer bound to ensure new textures are
         // associated with the correct program.
+        let reset_button = self.reset_button.texture();
         let close_button = self.close_button.texture();
         let save_button = self.save_button.texture();
 
@@ -357,8 +424,11 @@ impl Popup for Settings {
         unsafe { gl::Disable(gl::SCISSOR_TEST) };
 
         // Draw buttons.
+        if self.savable {
+            renderer.draw_texture_at(save_button, save_button_position, None);
+            renderer.draw_texture_at(reset_button, reset_button_position, None);
+        }
         renderer.draw_texture_at(close_button, close_button_position, None);
-        renderer.draw_texture_at(save_button, save_button_position, None);
     }
 
     fn position(&self) -> Position {
@@ -382,6 +452,7 @@ impl Popup for Settings {
         for entry in &mut self.entries {
             entry.set_geometry(entry_size, self.scale);
         }
+        self.reset_button.set_geometry(self.button_size(), self.scale);
         self.close_button.set_geometry(self.button_size(), self.scale);
         self.save_button.set_geometry(self.button_size(), self.scale);
     }
@@ -399,6 +470,7 @@ impl Popup for Settings {
         for entry in &mut self.entries {
             entry.set_geometry(entry_size, self.scale);
         }
+        self.reset_button.set_geometry(self.button_size(), self.scale);
         self.close_button.set_geometry(self.button_size(), self.scale);
         self.save_button.set_geometry(self.button_size(), self.scale);
     }
@@ -429,6 +501,7 @@ impl Popup for Settings {
         self.touch_state.start = position;
 
         // Get button geometries.
+        let reset_button_position = self.reset_button_position();
         let close_button_position = self.close_button_position();
         let save_button_position = self.save_button_position();
         let button_size = self.button_size().into();
@@ -437,6 +510,9 @@ impl Popup for Settings {
             self.touch_state.action = TouchAction::CloseTap;
         } else if rect_contains(save_button_position, button_size, position) {
             self.touch_state.action = TouchAction::SaveTap;
+            self.clear_keyboard_focus();
+        } else if rect_contains(reset_button_position, button_size, position) {
+            self.touch_state.action = TouchAction::ResetTap;
             self.clear_keyboard_focus();
         } else if let Some((index, entry, input_position)) = self.input_at(position) {
             entry.touch_down(time, logical_position, position - input_position);
@@ -518,7 +594,11 @@ impl Popup for Settings {
 
         match self.touch_state.action {
             TouchAction::CloseTap => self.queue.close_settings(self.window_id),
-            TouchAction::SaveTap => self.queue.save_settings(),
+            TouchAction::ResetTap => {
+                self.queue.reset_settings(self.window_id);
+                self.dirty = true;
+            },
+            TouchAction::SaveTap => self.queue.save_settings(self.window_id),
             // Forward input to touched settings text field.
             TouchAction::SettingsInput(index, _) => {
                 if let Some(entry) = self.entries.get_mut(index) {
@@ -647,7 +727,7 @@ impl SettingsEntry {
             if text.is_empty() {
                 queue.reset_setting(path.to_string());
             } else if validation_result == ValidationResult::Success {
-                queue.set_setting(path.to_string(), format, text);
+                queue.set_setting(window_id, path.to_string(), format, text);
             }
         }));
 
@@ -928,6 +1008,7 @@ enum TouchAction {
     None,
     Scrolling,
     CloseTap,
+    ResetTap,
     SaveTap,
     SettingsInput(usize, Position<f64>),
 }

@@ -1555,6 +1555,11 @@ impl Window {
         self.overlay.reload_settings();
     }
 
+    /// Mark settings UI as un-/available for saving.
+    pub fn set_settings_savable(&mut self, savable: bool) {
+        self.overlay.set_settings_savable(savable);
+    }
+
     /// Update an engine's audio playback state.
     pub fn set_audio_playing(&mut self, engine_id: EngineId, playing: bool) {
         self.overlay.tabs_mut().set_audio_playing(engine_id, playing);

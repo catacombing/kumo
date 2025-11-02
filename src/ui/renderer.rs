@@ -792,7 +792,9 @@ pub enum Svg {
     History,
     Audio,
     Close,
+    Reset,
     Menu,
+    Save,
     Bin,
 }
 
@@ -809,7 +811,9 @@ impl Svg {
             Self::History => include_bytes!("../../svgs/history.svg"),
             Self::Audio => include_bytes!("../../svgs/audio.svg"),
             Self::Close => include_bytes!("../../svgs/close.svg"),
+            Self::Reset => include_bytes!("../../svgs/reset.svg"),
             Self::Menu => include_bytes!("../../svgs/menu.svg"),
+            Self::Save => include_bytes!("../../svgs/save.svg"),
             Self::Bin => include_bytes!("../../svgs/bin.svg"),
         }
     }

@@ -35,6 +35,7 @@ use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers, RepeatInfo};
 use tracing::{error, info, warn};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
+use crate::config::ConfigEventHandler;
 use crate::engine::webkit::{WebKitError, WebKitState};
 use crate::engine::{Group, GroupId, NO_GROUP_ID};
 use crate::storage::Storage;
@@ -334,7 +335,7 @@ pub struct State {
 
     engine_state: Rc<RefCell<WebKitState>>,
 
-    config_manager: ConfigManager,
+    config_manager: ConfigManager<ConfigEventHandler>,
     storage: Storage,
 
     queue: StQueueHandle<State>,

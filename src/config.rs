@@ -37,7 +37,7 @@ pub static CONFIG: LazyLock<Arc<RwLock<Config>>> =
     LazyLock::new(|| Arc::new(RwLock::new(Config::default())));
 
 /// Initialize configuration state.
-pub fn init_config(queue: MtQueueHandle<State>) -> Result<Manager, Error> {
+pub fn init_config(queue: MtQueueHandle<State>) -> Result<Manager<ConfigEventHandler>, Error> {
     let config_manager = Manager::new("kumo", ConfigEventHandler::new(queue))?;
 
     // Load initial configuration.
@@ -390,7 +390,7 @@ impl Docgen for FontFamily {
 }
 
 /// Event handler for configuration manager updates.
-struct ConfigEventHandler {
+pub struct ConfigEventHandler {
     queue: MtQueueHandle<State>,
 }
 
@@ -406,7 +406,9 @@ impl ConfigEventHandler {
     }
 }
 
-impl EventHandler<()> for ConfigEventHandler {
+impl EventHandler for ConfigEventHandler {
+    type MessageData = ();
+
     fn file_changed(&self, config: &configory::Config) {
         self.reload_config(config);
     }

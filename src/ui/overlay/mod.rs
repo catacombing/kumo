@@ -475,6 +475,11 @@ impl Overlay {
     pub fn reload_settings(&mut self) {
         self.popups.settings.reload_settings();
     }
+
+    /// Mark settings UI as un-/available for saving.
+    pub fn set_settings_savable(&mut self, savable: bool) {
+        self.popups.settings.set_savable(savable);
+    }
 }
 
 /// Overlay popup windows.

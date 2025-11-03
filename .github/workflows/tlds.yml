@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Update TLDs
-        run: curl https://data.iana.org/TLD/tlds-alpha-by-domain.txt > ./tlds.txt
+        run: curl https://data.iana.org/TLD/tlds-alpha-by-domain.txt | tail -n +2 > ./tlds.txt
       - name: Commit & PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1916,7 +1916,7 @@ fn tlds() -> &'static [&'static str] {
 
     static PARSED_TLDS: OnceLock<Vec<&'static str>> = OnceLock::new();
 
-    PARSED_TLDS.get_or_init(|| TLDS.lines().skip(1).collect())
+    PARSED_TLDS.get_or_init(|| TLDS.lines().collect())
 }
 
 #[cfg(test)]

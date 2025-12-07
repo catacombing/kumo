@@ -24,7 +24,7 @@ use crate::{Position, Size, State, WindowId, gl, rect_contains};
 const TABS_X_PADDING: f64 = 10.;
 
 /// Vertical padding between tabs.
-const TABS_Y_PADDING: f64 = 1.;
+const TABS_Y_PADDING: f64 = 2.;
 
 /// Horizontal padding around buttons.
 const BUTTON_X_PADDING: f64 = 10.;

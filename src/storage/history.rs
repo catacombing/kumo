@@ -5,10 +5,12 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::RwLock;
 
+use rusqlite::types::Type;
 use rusqlite::{Connection as SqliteConnection, Transaction};
 use smallvec::SmallVec;
 use tracing::error;
 
+use crate::Error;
 use crate::storage::DbVersion;
 
 /// Maximum scored history matches compared.
@@ -36,14 +38,13 @@ impl History {
     }
 
     /// Increment URI visit count for history.
-    pub fn visit(&self, uri: String) {
-        let mut history_uri = HistoryUri::new(&uri);
+    pub fn visit(&self, uri: &str) {
+        let mut history_uri = match HistoryUri::new(uri, false) {
+            Some(history_uri) => history_uri,
+            // Ignore invalid URIs.
+            None => return,
+        };
         history_uri.normalize();
-
-        // Ignore invalid URIs.
-        if history_uri.base.is_empty() {
-            return;
-        }
 
         // Update filesystem history.
         if let Some(db) = &self.db {
@@ -61,13 +62,12 @@ impl History {
 
     /// Set the title for a URI.
     pub fn set_title(&self, uri: &str, title: String) {
-        let mut history_uri = HistoryUri::new(uri);
+        let mut history_uri = match HistoryUri::new(uri, false) {
+            Some(history_uri) => history_uri,
+            // Ignore invalid URIs.
+            None => return,
+        };
         history_uri.normalize();
-
-        // Ignore invalid URIs.
-        if history_uri.base.is_empty() {
-            return;
-        }
 
         // Update filesystem history.
         if let Some(db) = &self.db {
@@ -86,13 +86,12 @@ impl History {
 
     /// Delete an entry from the history ( ͡° ͜ʖ ͡°).
     pub fn delete(&self, uri: &str) {
-        let mut history_uri = HistoryUri::new(uri);
+        let mut history_uri = match HistoryUri::new(uri, false) {
+            Some(history_uri) => history_uri,
+            // Ignore invalid URIs.
+            None => return,
+        };
         history_uri.normalize();
-
-        // Ignore invalid URIs.
-        if history_uri.base.is_empty() {
-            return;
-        }
 
         // Update filesystem history.
         if let Some(db) = &self.db {
@@ -138,10 +137,7 @@ impl History {
         }
 
         // Ignore empty input and scheme-only.
-        let input_uri = HistoryUri::new(input);
-        if input_uri.base.is_empty() {
-            return None;
-        }
+        let input_uri = HistoryUri::new(input, true)?;
 
         // Find matching URI with most views.
         let entries = self.entries.read().unwrap();
@@ -257,11 +253,11 @@ impl HistoryDb {
                 let title: String = row.get(1)?;
                 let views: i32 = row.get(2)?;
                 let last_access: i64 = row.get(3)?;
-                Ok((HistoryUri::new(&uri), HistoryEntry {
-                    title,
-                    views: views as u32,
-                    last_access,
-                }))
+                let history_uri = HistoryUri::new(&uri, false).ok_or_else(|| {
+                    let err = Box::new(Error::InvalidDatabaseType);
+                    rusqlite::Error::FromSqlConversionFailure(0, Type::Text, err)
+                })?;
+                Ok((history_uri, HistoryEntry { title, views: views as u32, last_access }))
             })?
             .flatten()
             .collect();
@@ -341,24 +337,56 @@ pub struct HistoryUri {
 }
 
 impl HistoryUri {
-    fn new(mut uri: &str) -> Self {
-        // Remove query parameters.
-        if let Some(index) = uri.rfind('?') {
-            uri = &uri[..index];
+    fn new(mut uri: &str, autocomplete: bool) -> Option<Self> {
+        // For autocomplete without a scheme, we just split base and path.
+        if autocomplete && !uri.is_empty() && !uri.contains(':') {
+            let mut split = uri.split('/');
+            let base = split.next().unwrap().to_string();
+            let path = split.map(String::from).collect();
+            return Some(HistoryUri { scheme: String::new(), base, path });
         }
 
-        // Extract scheme.
-        let (scheme, mut uri) = uri.split_once(':').unwrap_or(("", uri));
-        uri = uri.trim_start_matches('/');
+        // Handle URIs shorter than the smallest scheme.
+        if uri.len() < 5 {
+            return None;
+        }
 
-        // Extract base.
-        let mut split = uri.split('/');
-        let base = split.next().unwrap().into();
+        match &uri[..4] {
+            "http" | "abou" => {
+                // Remove query parameters.
+                if let Some(index) = uri.rfind('?') {
+                    uri = &uri[..index];
+                }
 
-        // Collect path segments.
-        let path = split.map(String::from).collect();
+                // Extract scheme.
+                let (scheme, mut uri) = uri.split_once(':').unwrap_or(("", uri));
+                uri = uri.trim_start_matches('/');
 
-        Self { base, path, scheme: scheme.into() }
+                // Extract base.
+                let mut split = uri.split('/');
+                let base = split.next().unwrap().to_string();
+                if !autocomplete && base.is_empty() {
+                    return None;
+                }
+
+                // Collect path segments.
+                let path = split.map(String::from).collect();
+
+                Some(Self { base, path, scheme: scheme.into() })
+            },
+            "file" => {
+                let path = uri.strip_prefix("file://").or_else(|| uri.strip_prefix("file:"))?;
+
+                let mut split = path.split('/');
+                let base = split.next().unwrap().to_string();
+                let path = split.map(String::from).collect();
+
+                Some(HistoryUri { scheme: "file".into(), base, path })
+            },
+            // Data URIs should never be stored in history.
+            "data" => None,
+            _ => None,
+        }
     }
 
     /// Convert the URI back to its string representation.
@@ -452,28 +480,30 @@ impl HistoryUri {
     }
 }
 
-impl From<&str> for HistoryUri {
-    fn from(s: &str) -> Self {
-        Self::new(s)
-    }
-}
-
 /// Run database migrations inside a transaction.
 pub fn run_migrations(
     transaction: &Transaction<'_>,
     db_version: DbVersion,
 ) -> rusqlite::Result<()> {
-    // Create table if it doesn't exist yet.
-    if db_version == DbVersion::Zero {
-        transaction.execute(
-            "CREATE TABLE IF NOT EXISTS history (
-                uri TEXT NOT NULL PRIMARY KEY,
-                title TEXT DEFAULT '',
-                views INTEGER NOT NULL DEFAULT 1,
-                last_access INTEGER NOT NULL
-            )",
-            [],
-        )?;
+    match db_version {
+        // Create table if it doesn't exist yet.
+        DbVersion::Zero => {
+            let _ = transaction.execute(
+                "CREATE TABLE IF NOT EXISTS history (
+                    uri TEXT NOT NULL PRIMARY KEY,
+                    title TEXT DEFAULT '',
+                    views INTEGER NOT NULL DEFAULT 1,
+                    last_access INTEGER NOT NULL
+                )",
+                [],
+            )?;
+        },
+        // Delete all file/data URIs, since they were persisted incorrectly.
+        DbVersion::One => {
+            let _ = transaction.execute("DELETE FROM history WHERE uri LIKE 'file:%'", [])?;
+            let _ = transaction.execute("DELETE FROM history WHERE uri LIKE 'data:%'", [])?;
+        },
+        _ => (),
     }
 
     Ok(())
@@ -491,150 +521,239 @@ mod tests {
             path: path.iter().map(|s| String::from(*s)).collect(),
         };
 
-        let uri = HistoryUri::new("example.org");
+        let uri = HistoryUri::new("example.org", false);
+        assert_eq!(uri, None);
+
+        let uri = HistoryUri::new("example.org", true).unwrap();
         let expected = build_uri("", "example.org", &[]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("example.org/path");
+        let uri = HistoryUri::new("example.org/path", true).unwrap();
         let expected = build_uri("", "example.org", &["path"]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("https:");
+        let uri = HistoryUri::new("https:", false);
+        assert_eq!(uri, None);
+
+        let uri = HistoryUri::new("https://", false);
+        assert_eq!(uri, None);
+
+        let uri = HistoryUri::new("https:", true).unwrap();
         let expected = build_uri("https", "", &[]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("https:/");
+        let uri = HistoryUri::new("https:/", true).unwrap();
         let expected = build_uri("https", "", &[]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("https://");
+        let uri = HistoryUri::new("https://", true).unwrap();
         let expected = build_uri("https", "", &[]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("https://example.org");
+        let uri = HistoryUri::new("https://example.org", false).unwrap();
         let expected = build_uri("https", "example.org", &[]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("https://example.org/");
+        let uri = HistoryUri::new("https://example.org/", false).unwrap();
         let expected = build_uri("https", "example.org", &[""]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("https://example.org/path");
+        let uri = HistoryUri::new("https://example.org/path", false).unwrap();
         let expected = build_uri("https", "example.org", &["path"]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("https://example.org/path/");
+        let uri = HistoryUri::new("https://example.org/path/", false).unwrap();
         let expected = build_uri("https", "example.org", &["path", ""]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("https://example.org/path/segments");
+        let uri = HistoryUri::new("https://example.org/path/segments", false).unwrap();
         let expected = build_uri("https", "example.org", &["path", "segments"]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("https://example.org/path/segments?query=a");
+        let uri = HistoryUri::new("https://example.org/path/segments?query=a", false).unwrap();
         let expected = build_uri("https", "example.org", &["path", "segments"]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("https://example.org/path/segments?query=a&other=b");
+        let uri =
+            HistoryUri::new("https://example.org/path/segments?query=a&other=b", false).unwrap();
         let expected = build_uri("https", "example.org", &["path", "segments"]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("https://example.org//");
+        let uri = HistoryUri::new("https://example.org//", false).unwrap();
         let expected = build_uri("https", "example.org", &["", ""]);
         assert_eq!(uri, expected);
 
-        let uri = HistoryUri::new("https://example.org/path//segment");
+        let uri = HistoryUri::new("https://example.org/path//segment", false).unwrap();
         let expected = build_uri("https", "example.org", &["path", "", "segment"]);
+        assert_eq!(uri, expected);
+
+        let uri = HistoryUri::new("about:blank", false).unwrap();
+        let expected = build_uri("about", "blank", &[]);
+        assert_eq!(uri, expected);
+
+        let uri = HistoryUri::new("file:relative/path", false).unwrap();
+        let expected = build_uri("file", "relative", &["path"]);
+        assert_eq!(uri, expected);
+
+        let uri = HistoryUri::new("file://relative/path", false).unwrap();
+        let expected = build_uri("file", "relative", &["path"]);
+        assert_eq!(uri, expected);
+
+        let uri = HistoryUri::new("file:/absolute/path", false).unwrap();
+        let expected = build_uri("file", "", &["absolute", "path"]);
+        assert_eq!(uri, expected);
+
+        let uri = HistoryUri::new("file:///absolute/path", false).unwrap();
+        let expected = build_uri("file", "", &["absolute", "path"]);
         assert_eq!(uri, expected);
     }
 
     #[test]
     fn normalize_normalized_uri() {
-        let mut uri = HistoryUri::new("https://example.org");
+        let mut uri = HistoryUri::new("https://example.org", false).unwrap();
         uri.normalize();
         assert_eq!(uri, uri);
 
-        let mut uri = HistoryUri::new("https://example.org/test/ing");
+        let mut uri = HistoryUri::new("https://example.org/test/ing", false).unwrap();
         uri.normalize();
         assert_eq!(uri, uri);
     }
 
     #[test]
     fn normalize_trailing_slash() {
-        let mut uri = HistoryUri::new("https://example.org/");
+        let mut uri = HistoryUri::new("https://example.org/", false).unwrap();
         uri.normalize();
-        assert_eq!(uri, HistoryUri::new("https://example.org"));
+        assert_eq!(uri, HistoryUri::new("https://example.org", false).unwrap());
 
-        let mut uri = HistoryUri::new("https://example.org/test/");
+        let mut uri = HistoryUri::new("https://example.org/test/", false).unwrap();
         uri.normalize();
-        assert_eq!(uri, HistoryUri::new("https://example.org/test"));
+        assert_eq!(uri, HistoryUri::new("https://example.org/test", false).unwrap());
     }
 
     #[test]
     fn normalize_multi_slash() {
-        let mut uri = HistoryUri::new("https://example.org//");
+        let mut uri = HistoryUri::new("https://example.org//", false).unwrap();
         uri.normalize();
-        assert_eq!(uri, HistoryUri::new("https://example.org"));
+        assert_eq!(uri, HistoryUri::new("https://example.org", false).unwrap());
 
-        let mut uri = HistoryUri::new("https://example.org/test//");
+        let mut uri = HistoryUri::new("https://example.org/test//", false).unwrap();
         uri.normalize();
-        assert_eq!(uri, HistoryUri::new("https://example.org/test"));
+        assert_eq!(uri, HistoryUri::new("https://example.org/test", false).unwrap());
 
-        let mut uri = HistoryUri::new("https://example.org/test///ing");
+        let mut uri = HistoryUri::new("https://example.org/test///ing", false).unwrap();
         uri.normalize();
-        assert_eq!(uri, HistoryUri::new("https://example.org/test/ing"));
+        assert_eq!(uri, HistoryUri::new("https://example.org/test/ing", false).unwrap());
+    }
+
+    #[test]
+    fn file_uris() {
+        let mut uri = HistoryUri::new("file:///home/user", false).unwrap();
+        uri.normalize();
+        assert_eq!(uri.to_string(true), "file:///home/user");
+        assert!(uri.base.is_empty());
+
+        let mut uri = HistoryUri::new("file:///home/user/", false).unwrap();
+        uri.normalize();
+        assert_eq!(uri.to_string(true), "file:///home/user");
+        assert!(uri.base.is_empty());
+
+        let mut uri = HistoryUri::new("file:/home/user/", false).unwrap();
+        uri.normalize();
+        assert_eq!(uri.to_string(true), "file:///home/user");
+        assert!(uri.base.is_empty());
+
+        let mut uri = HistoryUri::new("file://relative/path", false).unwrap();
+        uri.normalize();
+        assert_eq!(uri.to_string(true), "file://relative/path");
+        assert_eq!(uri.base, "relative");
+
+        let mut uri = HistoryUri::new("file:relative/path/", false).unwrap();
+        uri.normalize();
+        assert_eq!(uri.to_string(true), "file://relative/path");
+        assert_eq!(uri.base, "relative");
+
+        let mut uri = HistoryUri::new("file:///some/wei?rd/path", false).unwrap();
+        uri.normalize();
+        assert_eq!(uri.to_string(true), "file:///some/wei?rd/path");
+        assert!(uri.base.is_empty());
+    }
+
+    #[test]
+    fn data_uris() {
+        let uri = HistoryUri::new("data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAZABkAAD", false);
+        assert_eq!(uri, None);
     }
 
     #[test]
     fn history_uri_autocomplete() {
-        let uri = HistoryUri::new("https://example.org/path/segments/xxx");
-        assert!(!uri.autocomplete(&"https://example.org/path/segments/xxx/longer".into()));
-        assert!(!uri.autocomplete(&"https://example.org/path/segments/xxxlonger".into()));
-        assert!(!uri.autocomplete(&"https://example.org/path/segments/xxx/".into()));
-        assert!(!uri.autocomplete(&"https://example.org/path/segments/xxx".into()));
-        assert!(!uri.autocomplete(&"https://example.org/path/seg/xxx".into()));
-        assert!(uri.autocomplete(&"https://example.org/path/segments".into()));
-        assert!(uri.autocomplete(&"https://example.org/".into()));
-        assert!(uri.autocomplete(&"https://example.org".into()));
-        assert!(!uri.autocomplete(&"http://example.org".into()));
-        assert!(uri.autocomplete(&"example.org".into()));
-        assert!(uri.autocomplete(&"example".into()));
-        assert!(!uri.autocomplete(&"org".into()));
-        assert!(uri.autocomplete(&"example.org/path/segments".into()));
-        assert!(!uri.autocomplete(&"other.org/p".into()));
-        assert!(!uri.autocomplete(&"example.org/path/segmen/".into()));
-        assert!(!uri.autocomplete(&"example.org/path//segment".into()));
-        assert!(!uri.autocomplete(&"example.org//".into()));
+        let uri = HistoryUri::new("https://example.org/path/segments/xxx", false).unwrap();
+        assert!(!autocomplete(&uri, "https://example.org/path/segments/xxx/longer"));
+        assert!(!autocomplete(&uri, "https://example.org/path/segments/xxxlonger"));
+        assert!(!autocomplete(&uri, "https://example.org/path/segments/xxx/"));
+        assert!(!autocomplete(&uri, "https://example.org/path/segments/xxx"));
+        assert!(!autocomplete(&uri, "https://example.org/path/seg/xxx"));
+        assert!(autocomplete(&uri, "https://example.org/path/segments"));
+        assert!(autocomplete(&uri, "https://example.org/"));
+        assert!(autocomplete(&uri, "https://example.org"));
+        assert!(!autocomplete(&uri, "http://example.org"));
+        assert!(autocomplete(&uri, "example.org"));
+        assert!(autocomplete(&uri, "example"));
+        assert!(!autocomplete(&uri, "org"));
+        assert!(autocomplete(&uri, "example.org/path/segments"));
+        assert!(!autocomplete(&uri, "other.org/p"));
+        assert!(!autocomplete(&uri, "example.org/path/segmen/"));
+        assert!(!autocomplete(&uri, "example.org/path//segment"));
+        assert!(!autocomplete(&uri, "example.org//"));
     }
 
     #[test]
     fn subdomain_autocomplete() {
-        let uri = HistoryUri::new("https://www.example.org/one/two/three");
-        assert!(!uri.autocomplete(&"ww.".into()));
-        assert!(uri.autocomplete(&"ww".into()));
+        let uri = HistoryUri::new("https://www.example.org/one/two/three", false).unwrap();
+        assert!(!autocomplete(&uri, "ww."));
+        assert!(autocomplete(&uri, "ww"));
 
-        let uri = HistoryUri::new("https://catacomb.example.org/one/two/three");
-        assert!(!uri.autocomplete(&"ca.".into()));
-        assert!(uri.autocomplete(&"ca".into()));
+        let uri = HistoryUri::new("https://catacomb.example.org/one/two/three", false).unwrap();
+        assert!(!autocomplete(&uri, "ca."));
+        assert!(autocomplete(&uri, "ca"));
     }
 
     #[test]
     fn www_subdomain_autocomplete() {
-        let uri = HistoryUri::new("https://www.example.org/one/two/three");
-        assert!(uri.autocomplete(&"https://www.example.org/".into()));
-        assert!(uri.autocomplete(&"https://example.org/".into()));
-        assert!(uri.autocomplete(&"example.org/on".into()));
-        assert!(uri.autocomplete(&"example.org/".into()));
-        assert!(uri.autocomplete(&"example.org".into()));
+        let uri = HistoryUri::new("https://www.example.org/one/two/three", false).unwrap();
+        assert!(autocomplete(&uri, "https://www.example.org/"));
+        assert!(autocomplete(&uri, "https://example.org/"));
+        assert!(autocomplete(&uri, "example.org/on"));
+        assert!(autocomplete(&uri, "example.org/"));
+        assert!(autocomplete(&uri, "example.org"));
     }
 
     #[test]
     fn ignore_case_autocomplete() {
-        let uri = HistoryUri::new("https://example.org/One/Two/Three");
-        assert!(uri.autocomplete(&"example.org/one/two/thre".into()));
-        assert!(uri.autocomplete(&"example.org/one/two".into()));
-        assert!(uri.autocomplete(&"example.org/one/".into()));
+        let uri = HistoryUri::new("https://example.org/One/Two/Three", false).unwrap();
+        assert!(autocomplete(&uri, "example.org/one/two/thre"));
+        assert!(autocomplete(&uri, "example.org/one/two"));
+        assert!(autocomplete(&uri, "example.org/one/"));
 
-        assert!(!uri.autocomplete(&"example.org/One/tw".into()));
+        assert!(!autocomplete(&uri, "example.org/One/tw"));
+    }
+
+    #[test]
+    fn no_empty_autocomplete() {
+        let uri = HistoryUri::new("", true);
+        assert_eq!(uri, None);
+    }
+
+    #[test]
+    fn autocomplete_scheme_without_slashes() {
+        let uri = HistoryUri::new("about://blank", false).unwrap();
+        assert!(autocomplete(&uri, "about:blan"));
+
+        let uri = HistoryUri::new("https://example.org", false).unwrap();
+        assert!(autocomplete(&uri, "https:example"));
+    }
+
+    fn autocomplete(uri: &HistoryUri, input: &str) -> bool {
+        let input_uri = HistoryUri::new(input, true).unwrap();
+        uri.autocomplete(&input_uri)
     }
 }

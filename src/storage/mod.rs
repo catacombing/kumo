@@ -1,7 +1,7 @@
 //! Bulk data storage.
 
+use std::fs;
 use std::rc::Rc;
-use std::{fs, mem};
 
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use tracing::error;
@@ -96,14 +96,15 @@ impl Storage {
             statement.query_row([], |row| row.get(0)).optional().ok()?
         };
 
-        let version = load_version().unwrap_or_default();
-        let latest_version = DbVersion::Last as u8 - 1;
-
-        // Report an error if the DB version is newer than expected.
-        if version <= latest_version {
-            Ok(unsafe { mem::transmute::<u8, DbVersion>(version) })
-        } else {
-            Err(Error::UnknownDbVersion(version, latest_version))
+        match load_version() {
+            None | Some(0) => Ok(DbVersion::Zero),
+            Some(1) => Ok(DbVersion::One),
+            Some(2) => Ok(DbVersion::Two),
+            // Report an error if the DB version is newer than expected.
+            Some(version) => {
+                let latest_version = DbVersion::Unknown as u8 - 1;
+                Err(Error::UnknownDbVersion(version, latest_version))
+            },
         }
     }
 
@@ -127,7 +128,7 @@ impl Storage {
     /// Update migration version to the latest version.
     fn update_version(transaction: &Transaction, version: DbVersion) -> Result<(), Error> {
         // Nothing to do if we're already on the latest version.
-        let latest_version = DbVersion::Last as u8 - 1;
+        let latest_version = DbVersion::Unknown as u8 - 1;
         if version as u8 >= latest_version {
             return Ok(());
         }
@@ -143,17 +144,15 @@ impl Storage {
 ///
 /// This version is used to detect the current database state and automatically
 /// migrate tables when required.
-#[repr(u8)]
-#[derive(PartialEq, Eq, Copy, Clone, Default, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum DbVersion {
     /// Any version before versioning was introduced.
-    #[default]
     Zero,
     /// First versioned database.
-    _One,
+    One,
+    Two,
 
-    /// SAFETY: Must be last field, with no gap in variant values before it.
-    ///
-    /// The value automatically assigned is used to ensure transmutes are safe.
-    Last,
+    /// XXX: Used to determine incompatible DB versions,
+    /// this **must** always be the last field.
+    Unknown,
 }

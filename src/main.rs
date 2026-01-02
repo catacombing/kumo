@@ -83,6 +83,8 @@ enum Error {
     Io(#[from] io::Error),
     #[error("local database version ({0}) is higher than latest supported version ({1})")]
     UnknownDbVersion(u8, u8),
+    #[error("invalid database type")]
+    InvalidDatabaseType,
     #[error("No available IPC socket files found")]
     NoSocketFound,
 }

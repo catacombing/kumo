@@ -51,9 +51,9 @@ const DEFAULT_HEIGHT: u32 = 640;
 
 /// Allowed URI schemes.
 ///
-/// This is used for autocomplete, so entries are sorted by autocomplete
-/// priority.
-const SCHEMES: &[&str] = &["https", "http", "file", "data"];
+/// This is used to determine if a URI input should be loaded directly with the
+/// browser engine, or if it should be loaded as a search query.
+const SCHEMES: &[&str] = &["https", "http", "file", "about", "data"];
 
 #[funq::callbacks(State)]
 pub trait WindowHandler {
@@ -1045,7 +1045,7 @@ impl Window {
 
         if update_history && self.groups.get(&engine_id.group_id()).is_none_or(|g| !g.ephemeral) {
             // Increment URI visit count for history.
-            self.history.visit(uri);
+            self.history.visit(&uri);
 
             // Update browser session.
             self.persist_session();

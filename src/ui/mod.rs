@@ -833,9 +833,7 @@ impl Uribar {
 
             // Get suggestion for autocomplete.
             let suggestion = match history.autocomplete(&text) {
-                Some(mut suggestion) if suggestion.len() > text.len() => {
-                    suggestion.split_off(text.len())
-                },
+                Some(suggestion) => autocomplete_suffix(&text, suggestion),
                 _ => String::new(),
             };
             text_field.set_autocomplete(suggestion);
@@ -2407,5 +2405,107 @@ impl ScrollVelocity {
         } else {
             self.velocity = 0.
         }
+    }
+}
+
+/// Get the autocomplete suggestion text for an input.
+fn autocomplete_suffix(mut input: &str, mut suggestion: String) -> String {
+    // Remove scheme if it is fully present in both.
+    if let Some(mut i) = suggestion.find(':') {
+        // Abort if input cannot be split at scheme boundary.
+        i += 1;
+        if !input.is_char_boundary(i + 1) {
+            return String::new();
+        }
+
+        // Strip input slashes also present in the suggestion.
+        while suggestion[i..].starts_with('/') && input[i..].starts_with('/') {
+            i += 1;
+        }
+
+        // Allow ommission of slashes in input as long as they're insignificant.
+        // Uneven suggestion slashes are significant due to absolute paths.
+        let mut suggestion_i = i;
+        while suggestion[suggestion_i..].starts_with("//") {
+            suggestion_i += 2;
+        }
+
+        suggestion = suggestion.split_off(suggestion_i);
+        input = &input[i..];
+    }
+
+    // Return remaining suggestion as long as it contains the input as prefix.
+    if suggestion.starts_with(input) { suggestion.split_off(input.len()) } else { String::new() }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn autocomplete() {
+        let suffix = autocomplete_suffix("ex", "example.org".into());
+        assert_eq!(suffix, "ample.org");
+
+        let suffix = autocomplete_suffix("https://ex", "https://example.org".into());
+        assert_eq!(suffix, "ample.org");
+
+        let suffix = autocomplete_suffix("https:ex", "https://example.org".into());
+        assert_eq!(suffix, "ample.org");
+
+        let suffix = autocomplete_suffix("longer_than_suggestion", "longer_".into());
+        assert_eq!(suffix, "");
+
+        let suffix = autocomplete_suffix("about://c", "about://config".into());
+        assert_eq!(suffix, "onfig");
+
+        let suffix = autocomplete_suffix("about:c", "about://config".into());
+        assert_eq!(suffix, "onfig");
+    }
+
+    #[test]
+    fn absolute_file_autocomplete() {
+        // Since there's no good reason to ever use them, excess slashes produce no
+        // autocomplete.
+        let suffix = autocomplete_suffix("file://///ho", "file:///home".into());
+        assert_eq!(suffix, "");
+
+        let suffix = autocomplete_suffix("file:///ho", "file:///home".into());
+        assert_eq!(suffix, "me");
+
+        let suffix = autocomplete_suffix("file:/ho", "file:///home".into());
+        assert_eq!(suffix, "me");
+
+        let suffix = autocomplete_suffix("file:////ho", "file:///home".into());
+        assert_eq!(suffix, "");
+
+        let suffix = autocomplete_suffix("file://ho", "file:///home".into());
+        assert_eq!(suffix, "");
+
+        let suffix = autocomplete_suffix("file:ho", "file:///home".into());
+        assert_eq!(suffix, "");
+    }
+
+    #[test]
+    fn relative_file_autocomplete() {
+        // Since there's no good reason to ever use them, excess slashes produce no
+        // autocomplete.
+        let suffix = autocomplete_suffix("file:////re", "file://relative".into());
+        assert_eq!(suffix, "");
+
+        let suffix = autocomplete_suffix("file://re", "file://relative".into());
+        assert_eq!(suffix, "lative");
+
+        let suffix = autocomplete_suffix("file:re", "file://relative".into());
+        assert_eq!(suffix, "lative");
+
+        let suffix = autocomplete_suffix("file://///re", "file://relative".into());
+        assert_eq!(suffix, "");
+
+        let suffix = autocomplete_suffix("file:///re", "file://relative".into());
+        assert_eq!(suffix, "");
+
+        let suffix = autocomplete_suffix("file:/re", "file://relative".into());
+        assert_eq!(suffix, "");
     }
 }

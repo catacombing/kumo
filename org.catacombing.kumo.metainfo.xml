@@ -48,6 +48,16 @@
         </screenshot>
     </screenshots>
     <releases>
+        <release version="1.6.2" date="2026-01-02">
+            <description>
+                <p>Kumo Version 1.6.2</p>
+                <ul>
+                    <li>Added button to clear runtime configuration overrides</li>
+                    <li>Fixed opening of file paths from history</li>
+                    <li>Fixed autosuggestions with optional slashes after scheme separator</li>
+                </ul>
+            </description>
+        </release>
         <release version="1.6.1" date="2025-10-31">
             <description>
                 <p>Kumo Version 1.6.1</p>

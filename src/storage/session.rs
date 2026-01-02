@@ -155,7 +155,7 @@ impl SessionDb {
         let sessions = statement
             .query_map([], |row| {
                 let pid: u32 = row.get(0)?;
-                let window_id: usize = row.get(1)?;
+                let window_id: u32 = row.get(1)?;
                 let group_id: Uuid = row.get(2)?;
                 let session_data: Vec<u8> = row.get(3)?;
                 let uri: String = row.get(4)?;
@@ -183,7 +183,7 @@ impl SessionDb {
 #[derive(Debug)]
 pub struct SessionEntry {
     pub pid: u32,
-    pub window_id: usize,
+    pub window_id: u32,
     pub group_id: Uuid,
     pub session_data: Vec<u8>,
     pub uri: String,

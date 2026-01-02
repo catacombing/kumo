@@ -8,7 +8,7 @@ use std::ops::Range;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, ZwpTextInputV3};
 use funq::{MtQueueHandle, StQueueHandle};
@@ -1577,16 +1577,16 @@ impl Window {
 
 /// Unique identifier for one window.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct WindowId(usize);
+pub struct WindowId(u32);
 
 impl WindowId {
     pub fn new() -> Self {
-        static NEXT_WINDOW_ID: AtomicUsize = AtomicUsize::new(0);
+        static NEXT_WINDOW_ID: AtomicU32 = AtomicU32::new(0);
         Self(NEXT_WINDOW_ID.fetch_add(1, Ordering::Relaxed))
     }
 
     /// Get the raw window ID value.
-    pub fn as_raw(&self) -> usize {
+    pub fn as_raw(&self) -> u32 {
         self.0
     }
 }

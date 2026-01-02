@@ -26,7 +26,7 @@ members = [
 ]
 
 [workspace.package]
-rust-version = "1.85.1"
+rust-version = "1.88.0"
 edition = "2024"
 
 # Workspace member dependencies are defined here for consistency and easier updates.

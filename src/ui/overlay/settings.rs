@@ -437,11 +437,11 @@ impl Popup for Settings {
 
     fn set_size(&mut self, size: Size) {
         // Anchor scroll offset to top if focused input is in the screen's top half.
-        if let Some(KeyboardInputElement::Setting(_, position)) = self.keyboard_focus {
-            if position.y <= self.size.height as f64 / 2. * self.scale {
-                let height_delta = size.height as f64 - self.size.height as f64;
-                self.scroll_offset -= height_delta * self.scale;
-            }
+        if let Some(KeyboardInputElement::Setting(_, position)) = self.keyboard_focus
+            && position.y <= self.size.height as f64 / 2. * self.scale
+        {
+            let height_delta = size.height as f64 - self.size.height as f64;
+            self.scroll_offset -= height_delta * self.scale;
         }
 
         self.size = size;
@@ -611,56 +611,56 @@ impl Popup for Settings {
     }
 
     fn press_key(&mut self, raw: u32, keysym: Keysym, modifiers: Modifiers) {
-        if let Some(KeyboardInputElement::Setting(index, _)) = self.keyboard_focus {
-            if let Some(input) = self.entries.get_mut(index).and_then(|e| e.input.as_mut()) {
-                input.press_key(raw, keysym, modifiers);
-                self.dirty |= input.dirty;
-            }
+        if let Some(KeyboardInputElement::Setting(index, _)) = self.keyboard_focus
+            && let Some(input) = self.entries.get_mut(index).and_then(|e| e.input.as_mut())
+        {
+            input.press_key(raw, keysym, modifiers);
+            self.dirty |= input.dirty;
         }
     }
 
     fn delete_surrounding_text(&mut self, before_length: u32, after_length: u32) {
-        if let Some(KeyboardInputElement::Setting(index, _)) = self.keyboard_focus {
-            if let Some(input) = self.entries.get_mut(index).and_then(|e| e.input.as_mut()) {
-                input.delete_surrounding_text(before_length, after_length);
-                self.dirty |= input.dirty;
-            }
+        if let Some(KeyboardInputElement::Setting(index, _)) = self.keyboard_focus
+            && let Some(input) = self.entries.get_mut(index).and_then(|e| e.input.as_mut())
+        {
+            input.delete_surrounding_text(before_length, after_length);
+            self.dirty |= input.dirty;
         }
     }
 
     fn commit_string(&mut self, text: &str) {
-        if let Some(KeyboardInputElement::Setting(index, _)) = self.keyboard_focus {
-            if let Some(input) = self.entries.get_mut(index).and_then(|e| e.input.as_mut()) {
-                input.commit_string(text);
-                self.dirty |= input.dirty;
-            }
+        if let Some(KeyboardInputElement::Setting(index, _)) = self.keyboard_focus
+            && let Some(input) = self.entries.get_mut(index).and_then(|e| e.input.as_mut())
+        {
+            input.commit_string(text);
+            self.dirty |= input.dirty;
         }
     }
 
     fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
-        if let Some(KeyboardInputElement::Setting(index, _)) = self.keyboard_focus {
-            if let Some(input) = self.entries.get_mut(index).and_then(|e| e.input.as_mut()) {
-                input.set_preedit_string(text, cursor_begin, cursor_end);
-                self.dirty |= input.dirty;
-            }
+        if let Some(KeyboardInputElement::Setting(index, _)) = self.keyboard_focus
+            && let Some(input) = self.entries.get_mut(index).and_then(|e| e.input.as_mut())
+        {
+            input.set_preedit_string(text, cursor_begin, cursor_end);
+            self.dirty |= input.dirty;
         }
     }
 
     fn text_input_state(&mut self) -> TextInputChange {
-        if let Some(KeyboardInputElement::Setting(index, position)) = self.keyboard_focus {
-            if let Some(input) = self.entries.get_mut(index).and_then(|e| e.input.as_mut()) {
-                return input.text_input_state(position);
-            }
+        if let Some(KeyboardInputElement::Setting(index, position)) = self.keyboard_focus
+            && let Some(input) = self.entries.get_mut(index).and_then(|e| e.input.as_mut())
+        {
+            return input.text_input_state(position);
         }
         TextInputChange::Disabled
     }
 
     fn paste(&mut self, text: &str) {
-        if let Some(KeyboardInputElement::Setting(index, _)) = self.keyboard_focus {
-            if let Some(input) = self.entries.get_mut(index).and_then(|e| e.input.as_mut()) {
-                input.paste(text);
-                self.dirty |= input.dirty;
-            }
+        if let Some(KeyboardInputElement::Setting(index, _)) = self.keyboard_focus
+            && let Some(input) = self.entries.get_mut(index).and_then(|e| e.input.as_mut())
+        {
+            input.paste(text);
+            self.dirty |= input.dirty;
         }
     }
 

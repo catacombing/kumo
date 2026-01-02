@@ -832,10 +832,10 @@ impl Window {
         position: Position<f64>,
         modifiers: Modifiers,
     ) {
-        if &self.engine_surface == surface {
-            if let Some(engine) = self.active_tab_mut() {
-                engine.pointer_enter(position, modifiers);
-            }
+        if &self.engine_surface == surface
+            && let Some(engine) = self.active_tab_mut()
+        {
+            engine.pointer_enter(position, modifiers);
         }
     }
 
@@ -846,10 +846,10 @@ impl Window {
         position: Position<f64>,
         modifiers: Modifiers,
     ) {
-        if &self.engine_surface == surface {
-            if let Some(engine) = self.active_tab_mut() {
-                engine.pointer_leave(position, modifiers);
-            }
+        if &self.engine_surface == surface
+            && let Some(engine) = self.active_tab_mut()
+        {
+            engine.pointer_leave(position, modifiers);
         }
     }
 
@@ -912,12 +912,11 @@ impl Window {
     /// Handle touch release events.
     pub fn touch_up(&mut self, surface: &WlSurface, time: u32, id: i32, modifiers: Modifiers) {
         // Forward events to corresponding surface.
-        if &self.engine_surface == surface {
-            if let Some(&position) = self.touch_points.get(&id) {
-                if let Some(engine) = self.active_tab_mut() {
-                    engine.touch_up(time, id, position, modifiers);
-                }
-            }
+        if &self.engine_surface == surface
+            && let Some(&position) = self.touch_points.get(&id)
+            && let Some(engine) = self.active_tab_mut()
+        {
+            engine.touch_up(time, id, position, modifiers);
         } else if self.ui.surface() == surface {
             self.ui.touch_up(time, id, modifiers);
         } else if self.overlay.surface() == surface {
@@ -1369,10 +1368,10 @@ impl Window {
         }
 
         // Clear engine focus.
-        if focus != KeyboardFocus::Browser {
-            if let Some(engine) = self.active_tab_mut() {
-                engine.clear_focus();
-            }
+        if focus != KeyboardFocus::Browser
+            && let Some(engine) = self.active_tab_mut()
+        {
+            engine.clear_focus();
         }
     }
 
@@ -1823,34 +1822,34 @@ fn build_uri(mut input: &str, allow_relative_paths: bool) -> Option<Cow<'_, str>
     // Allow relative paths at startup by checking against the filesystem.
     if allow_relative_paths {
         let path = Path::new(&*uri);
-        if path.exists() {
-            if let Some(absolute) = path.canonicalize().ok().as_deref().and_then(Path::to_str) {
-                return Some(Cow::Owned(format!("file://{absolute}")));
-            }
+        if path.exists()
+            && let Some(absolute) = path.canonicalize().ok().as_deref().and_then(Path::to_str)
+        {
+            return Some(Cow::Owned(format!("file://{absolute}")));
         }
     }
 
     // Parse scheme, short-circuiting if an unknown scheme was found.
     let mut has_scheme = false;
     let mut has_port = false;
-    if let Some(index) = input.find(|c: char| !c.is_alphabetic()) {
-        if input[index..].starts_with(':') {
-            has_scheme = SCHEMES.contains(&&input[..index]);
-            if has_scheme {
-                // Allow arbitrary number of slashes after the scheme.
-                input = input[index + 1..].trim_start_matches('/');
-            } else {
-                // Check if we're dealing with a local address + port, instead of scheme.
-                // Example: "localhost:80/index"
-                has_port = index + 1 < input.len()
-                    && &input[index + 1..index + 2] != "/"
-                    && input[index + 1..].chars().take_while(|c| *c != '/').all(|c| c.is_numeric());
+    if let Some(index) = input.find(|c: char| !c.is_alphabetic())
+        && input[index..].starts_with(':')
+    {
+        has_scheme = SCHEMES.contains(&&input[..index]);
+        if has_scheme {
+            // Allow arbitrary number of slashes after the scheme.
+            input = input[index + 1..].trim_start_matches('/');
+        } else {
+            // Check if we're dealing with a local address + port, instead of scheme.
+            // Example: "localhost:80/index"
+            has_port = index + 1 < input.len()
+                && &input[index + 1..index + 2] != "/"
+                && input[index + 1..].chars().take_while(|c| *c != '/').all(|c| c.is_numeric());
 
-                if has_port {
-                    input = &input[..index];
-                } else {
-                    return None;
-                }
+            if has_port {
+                input = &input[..index];
+            } else {
+                return None;
             }
         }
     }

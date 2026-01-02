@@ -507,20 +507,21 @@ impl TextureBuilder {
 
         // Render placeholder text.
         let mut rendered_placeholder = false;
-        if let Some(placeholder) = &text_options.placeholder {
-            if text_without_virtual.is_none() && layout.text().is_empty() {
-                // Set placeholder text.
-                layout.set_text(placeholder);
-                rendered_placeholder = true;
+        if let Some(placeholder) = &text_options.placeholder
+            && text_without_virtual.is_none()
+            && layout.text().is_empty()
+        {
+            // Set placeholder text.
+            layout.set_text(placeholder);
+            rendered_placeholder = true;
 
-                // Apply placeholder style transforms.
-                let mut it_attr = AttrInt::new_style(Style::Italic);
-                it_attr.set_start_index(0);
-                it_attr.set_end_index(placeholder.len() as u32);
-                let attributes = layout.attributes().unwrap_or_default();
-                attributes.insert(it_attr);
-                layout.set_attributes(Some(&attributes));
-            }
+            // Apply placeholder style transforms.
+            let mut it_attr = AttrInt::new_style(Style::Italic);
+            it_attr.set_start_index(0);
+            it_attr.set_end_index(placeholder.len() as u32);
+            let attributes = layout.attributes().unwrap_or_default();
+            attributes.insert(it_attr);
+            layout.set_attributes(Some(&attributes));
         }
 
         // Render text.

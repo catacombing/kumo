@@ -48,10 +48,10 @@ impl State {
     ) -> Result<(), WaylandError> {
         // Try to read from the socket.
         let guard = queue.prepare_read();
-        if let Some(Err(WaylandError::Io(err))) = guard.map(ReadEventsGuard::read) {
-            if err.kind() != io::ErrorKind::WouldBlock {
-                return Err(WaylandError::Io(err));
-            }
+        if let Some(Err(WaylandError::Io(err))) = guard.map(ReadEventsGuard::read)
+            && err.kind() != io::ErrorKind::WouldBlock
+        {
+            return Err(WaylandError::Io(err));
         }
 
         // Dispatch all non-blocking Wayland events.
@@ -65,10 +65,10 @@ impl State {
         }
 
         // Flush all responses to the compositor.
-        if let Err(WaylandError::Io(err)) = queue.flush() {
-            if err.kind() != io::ErrorKind::WouldBlock {
-                return Err(WaylandError::Io(err));
-            }
+        if let Err(WaylandError::Io(err)) = queue.flush()
+            && err.kind() != io::ErrorKind::WouldBlock
+        {
+            return Err(WaylandError::Io(err));
         }
 
         Ok(())

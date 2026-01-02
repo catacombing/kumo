@@ -573,10 +573,10 @@ impl Popup for OptionMenu {
         }
         self.touch_state.slot = None;
 
-        if self.touch_state.action == TouchAction::Tap {
-            if let Some(index) = self.item_at(self.touch_state.position) {
-                self.queue.option_menu_submit(self.id, index);
-            }
+        if self.touch_state.action == TouchAction::Tap
+            && let Some(index) = self.item_at(self.touch_state.position)
+        {
+            self.queue.option_menu_submit(self.id, index);
         }
     }
 }

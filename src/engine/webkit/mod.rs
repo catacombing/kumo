@@ -191,15 +191,15 @@ impl WebKitHandler for State {
         // Get properties from WebKit menu items.
         let mut items = Vec::new();
         for i in 0..menu.n_items() {
-            if let Some(mut item) = menu.item(i) {
-                if let Some(label) = item.label() {
-                    items.push(OptionMenuItem {
-                        label: label.into(),
-                        description: String::new(),
-                        disabled: !item.is_enabled(),
-                        selected: item.is_selected(),
-                    });
-                }
+            if let Some(mut item) = menu.item(i)
+                && let Some(label) = item.label()
+            {
+                items.push(OptionMenuItem {
+                    label: label.into(),
+                    description: String::new(),
+                    disabled: !item.is_enabled(),
+                    selected: item.is_selected(),
+                });
             }
         }
 
@@ -876,16 +876,16 @@ impl Engine for WebKitEngine {
     }
 
     fn close_option_menu(&mut self, menu_id: Option<OptionMenuId>) {
-        if let Some((id, menu)) = &self.menu {
-            if menu_id.is_none_or(|menu_id| *id == menu_id) {
-                // Notify menu about being closed from our end.
-                menu.close();
+        if let Some((id, menu)) = &self.menu
+            && menu_id.is_none_or(|menu_id| *id == menu_id)
+        {
+            // Notify menu about being closed from our end.
+            menu.close();
 
-                // Close our option menu UI.
-                self.queue.close_menu(*id);
+            // Close our option menu UI.
+            self.queue.close_menu(*id);
 
-                self.menu = None;
-            }
+            self.menu = None;
         }
     }
 
@@ -1287,11 +1287,11 @@ impl ContextMenu {
         };
 
         // Set correct cookie exception message if we are going to display it.
-        if context == HitTestResultContext::DOCUMENT {
-            if let Some(host) = Uri::parse(uri, UriFlags::NONE).ok().and_then(|uri| uri.host()) {
-                context_menu.has_cookie_exception = cookie_whitelist.contains(&host);
-                context_menu.host = Some(host);
-            }
+        if context == HitTestResultContext::DOCUMENT
+            && let Some(host) = Uri::parse(uri, UriFlags::NONE).ok().and_then(|uri| uri.host())
+        {
+            context_menu.has_cookie_exception = cookie_whitelist.contains(&host);
+            context_menu.host = Some(host);
         }
 
         context_menu

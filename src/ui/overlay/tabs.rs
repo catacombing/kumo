@@ -280,12 +280,12 @@ impl Tabs {
         self.texture_cache.set_tabs(tabs, active_tab);
 
         // Adjust reordering touch origin to account for new tab location.
-        if let Some((old_position, engine_id)) = old_reordering_tab {
-            if let Some(new_position) = self.texture_cache.tabs.get_index_of(&engine_id) {
-                let tabs_moved = new_position as f64 - old_position as f64;
-                let tab_height = self.tab_size().height as f64;
-                self.touch_state.start.y += tabs_moved * tab_height;
-            }
+        if let Some((old_position, engine_id)) = old_reordering_tab
+            && let Some(new_position) = self.texture_cache.tabs.get_index_of(&engine_id)
+        {
+            let tabs_moved = new_position as f64 - old_position as f64;
+            let tab_height = self.tab_size().height as f64;
+            self.touch_state.start.y += tabs_moved * tab_height;
         }
 
         self.dirty = true;
@@ -1328,17 +1328,17 @@ impl TextureCache {
         scale: f64,
     ) -> TabTextures<'a> {
         // Create favicon texture.
-        if let Some(favicon) = tab.favicon.as_ref() {
-            if !self.favicons.contains_key(&favicon.resource_uri) {
-                // Add favicon to texture cache.
-                let texture = Texture::new_with_format(
-                    &favicon.bytes,
-                    favicon.width,
-                    favicon.height,
-                    gl::BGRA_EXT,
-                );
-                self.favicons.insert(favicon.resource_uri.clone(), texture);
-            }
+        if let Some(favicon) = tab.favicon.as_ref()
+            && !self.favicons.contains_key(&favicon.resource_uri)
+        {
+            // Add favicon to texture cache.
+            let texture = Texture::new_with_format(
+                &favicon.bytes,
+                favicon.width,
+                favicon.height,
+                gl::BGRA_EXT,
+            );
+            self.favicons.insert(favicon.resource_uri.clone(), texture);
         }
 
         // Ignore tabs we already rendered.

@@ -265,7 +265,7 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) JSC_CHECK_SYNTAX_RESULT_SUCCESS", "0"),
     ("(gint) JSC_CHECK_SYNTAX_RESULT_UNTERMINATED_LITERAL_ERROR", "3"),
     ("JSC_MAJOR_VERSION", "2"),
-    ("JSC_MICRO_VERSION", "0"),
+    ("JSC_MICRO_VERSION", "1"),
     ("JSC_MINOR_VERSION", "50"),
     ("JSC_OPTIONS_USE_DFG", "useDFGJIT"),
     ("JSC_OPTIONS_USE_FTL", "useFTLJIT"),

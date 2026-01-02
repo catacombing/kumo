@@ -104,10 +104,10 @@ impl UiHandler for State {
     }
 
     fn load_prev(&mut self, window_id: WindowId) {
-        if let Some(window) = self.windows.get_mut(&window_id) {
-            if let Some(engine) = window.active_tab_mut() {
-                engine.load_prev();
-            }
+        if let Some(window) = self.windows.get_mut(&window_id)
+            && let Some(engine) = window.active_tab_mut()
+        {
+            engine.load_prev();
         }
     }
 
@@ -1058,10 +1058,10 @@ impl Separator {
     fn texture(&mut self) -> &Texture {
         // Invalidate texture if highlight color changed.
         let hl = CONFIG.read().unwrap().colors.highlight.as_u8();
-        if self.color != hl {
-            if let Some(texture) = self.texture.take() {
-                texture.delete();
-            }
+        if self.color != hl
+            && let Some(texture) = self.texture.take()
+        {
+            texture.delete();
         }
 
         // Ensure texture is up to date.
@@ -1847,10 +1847,10 @@ impl TextField {
     /// Set preedit text at the current cursor position.
     fn set_preedit_string(&mut self, text: String, cursor_begin: i32, cursor_end: i32) {
         // Delete selection as soon as preedit starts.
-        if !text.is_empty() {
-            if let Some(selection) = self.selection.take() {
-                self.delete_selected(selection);
-            }
+        if !text.is_empty()
+            && let Some(selection) = self.selection.take()
+        {
+            self.delete_selected(selection);
         }
 
         self.preedit = (text, cursor_begin, cursor_end);

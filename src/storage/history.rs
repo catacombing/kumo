@@ -110,10 +110,10 @@ impl History {
     /// Bulk delete history entries.
     pub fn bulk_delete(&self, filter: Option<&str>) {
         // Update filesystem history.
-        if let Some(db) = &self.db {
-            if let Err(err) = db.bulk_delete(filter) {
-                error!("Failed to delete items matching {filter:?} from history: {err}");
-            }
+        if let Some(db) = &self.db
+            && let Err(err) = db.bulk_delete(filter)
+        {
+            error!("Failed to delete items matching {filter:?} from history: {err}");
         }
 
         // Update in-memory history.

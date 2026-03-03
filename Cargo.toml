@@ -4,7 +4,7 @@ version = "1.6.2"
 description = "Wayland Mobile Web Browser"
 authors = ["Christian Duerr <contact@christianduerr.com>"]
 repository = "https://github.com/catacombing/kumo"
-license = "GPL-3.0"
+license = "GPL-3.0-only"
 rust-version.workspace = true
 edition.workspace = true
 

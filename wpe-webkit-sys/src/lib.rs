@@ -17,19 +17,21 @@ use std::ffi::{
     c_char, c_double, c_float, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort, c_void,
 };
 
+use gio_sys as gio;
 #[allow(unused_imports)]
 use glib::{GType, gboolean, gconstpointer, gpointer};
+use glib_sys as glib;
+use gobject_sys as gobject;
 #[allow(unused_imports)]
 use libc::{FILE, intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t};
 #[cfg(unix)]
 #[allow(unused_imports)]
 use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
+use soup_sys as soup;
 use wpe::wpe_view_backend;
-use {
-    gio_sys as gio, glib_sys as glib, gobject_sys as gobject, soup_sys as soup,
-    wpe_java_script_core_sys as wpe_java_script_core, wpe_platform_sys as wpe_platform,
-    wpe_sys as wpe,
-};
+use wpe_java_script_core_sys as wpe_java_script_core;
+use wpe_platform_sys as wpe_platform;
+use wpe_sys as wpe;
 
 // Enums
 pub type WebKitAuthenticationScheme = c_int;

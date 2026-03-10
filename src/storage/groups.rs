@@ -1,5 +1,6 @@
 //! Tab groups DB storage.
 
+#[cfg(feature = "webkit")]
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -67,6 +68,7 @@ impl Groups {
     }
 
     /// Get all known group IDs.
+    #[cfg(feature = "webkit")]
     pub fn all_group_ids(&self) -> HashSet<Uuid> {
         let db = match &self.db {
             Some(db) => db,
@@ -131,6 +133,7 @@ impl GroupsDb {
     }
 
     /// Get group IDs for all PIDs and windows.
+    #[cfg(feature = "webkit")]
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn all_group_ids(&self) -> rusqlite::Result<HashSet<Uuid>> {
         let mut statement = self.connection.prepare("SELECT id FROM tab_group")?;

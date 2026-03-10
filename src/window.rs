@@ -1,12 +1,10 @@
 //! Browser window handling.
 
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
 use std::ops::Range;
 use std::path::Path;
-use std::rc::Rc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -14,6 +12,8 @@ use _text_input::zwp_text_input_v3::{ChangeCause, ContentHint, ContentPurpose, Z
 use funq::{MtQueueHandle, StQueueHandle};
 use glutin::display::Display;
 use indexmap::IndexMap;
+#[cfg(feature = "servo")]
+use servo::StringRequest;
 use smallvec::SmallVec;
 use smithay_client_toolkit::dmabuf::DmabufFeedback;
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
@@ -28,22 +28,40 @@ use smithay_client_toolkit::shell::WaylandSurface;
 use smithay_client_toolkit::shell::xdg::window::{
     Window as XdgWindow, WindowConfigure, WindowDecorations,
 };
+#[cfg(all(feature = "servo", feature = "webkit"))]
+use tracing::error;
 
 use crate::config::CONFIG;
-use crate::engine::{Engine, EngineId, Group, GroupId, NO_GROUP_ID, NO_GROUP_REF};
+use crate::engine::dummy::DummyEngine;
+#[cfg(feature = "servo")]
+use crate::engine::servo::ServoState;
+#[cfg(feature = "webkit")]
+use crate::engine::webkit::WebKitState;
+use crate::engine::{
+    Engine, EngineId, EngineType, Group, GroupId, NO_GROUP_ID, NO_GROUP_REF, OnDemandState,
+};
 use crate::storage::Storage;
+use crate::storage::engine_preference::EnginePreference;
 use crate::storage::groups::Groups;
 use crate::storage::history::{History, HistoryMatch, MAX_MATCHES};
 use crate::storage::session::{Session, SessionRecord};
 use crate::ui::engine_backdrop::EngineBackdrop;
 use crate::ui::overlay::Overlay;
-use crate::ui::overlay::downloads::{Download, DownloadId};
+#[cfg(feature = "webkit")]
+use crate::ui::overlay::downloads::Download;
+use crate::ui::overlay::downloads::DownloadId;
 use crate::ui::overlay::option_menu::{
     Borders, OptionMenuId, OptionMenuItem, OptionMenuPosition, ScrollTarget,
 };
 use crate::ui::{TOOLBAR_HEIGHT, Ui};
 use crate::wayland::protocols::ProtocolStates;
-use crate::{Position, Size, State, WebKitState};
+use crate::{Position, Size, State};
+
+/// Maximum number of surrounding bytes submitted to IME.
+///
+/// The value `4000` is chosen to match the maximum Wayland protocol message
+/// size, a higher value will lead to errors.
+pub const MAX_SURROUNDING_BYTES: usize = 4000;
 
 // Default window size.
 const DEFAULT_WIDTH: u32 = 360;
@@ -88,6 +106,11 @@ impl WindowHandler for State {
 
             // Cleanup unused groups.
             self.storage.groups.delete_orphans();
+
+            #[cfg(feature = "servo")]
+            if let Some(servo_state) = self.servo_state.try_get().as_mut() {
+                servo_state.on_window_close(window_id);
+            }
         }
     }
 
@@ -118,8 +141,14 @@ impl WindowHandler for State {
                 if window.active_tab == Some(engine_id) =>
             {
                 if let Some(engine) = window.active_tab_mut() {
-                    engine.paste(text);
+                    engine.commit_string(text);
                 }
+            },
+            #[cfg(feature = "servo")]
+            (KeyboardFocus::Browser, PasteTarget::Servo(engine_id, request))
+                if window.active_tab == Some(engine_id) =>
+            {
+                request.success(text);
             },
             // Ignore paste requests if input focus has changed.
             _ => (),
@@ -133,7 +162,11 @@ pub struct Window {
 
     tabs: IndexMap<EngineId, Box<dyn Engine>>,
     groups: IndexMap<GroupId, Group>,
-    engine_state: Rc<RefCell<WebKitState>>,
+    #[cfg(feature = "webkit")]
+    webkit_state: OnDemandState<WebKitState>,
+    #[cfg(feature = "servo")]
+    servo_state: OnDemandState<ServoState>,
+    engine_preference: EnginePreference,
     active_tab: Option<EngineId>,
 
     wayland_queue: QueueHandle<State>,
@@ -172,6 +205,7 @@ pub struct Window {
 }
 
 impl Window {
+    #[cfg_attr(all(feature = "servo", feature = "webkit"), expect(clippy::too_many_arguments))]
     pub fn new(
         protocol_states: &ProtocolStates,
         connection: Connection,
@@ -179,7 +213,8 @@ impl Window {
         queue: StQueueHandle<State>,
         wayland_queue: QueueHandle<State>,
         storage: &Storage,
-        engine_state: Rc<RefCell<WebKitState>>,
+        #[cfg(feature = "webkit")] webkit_state: OnDemandState<WebKitState>,
+        #[cfg(feature = "servo")] servo_state: OnDemandState<ServoState>,
     ) -> Self {
         let id = WindowId::new();
 
@@ -259,13 +294,17 @@ impl Window {
             engine_viewport,
             engine_surface,
             wayland_queue,
-            engine_state,
+            #[cfg(feature = "webkit")]
+            webkit_state,
+            #[cfg(feature = "servo")]
+            servo_state,
             connection,
             overlay,
             size,
             xdg,
             ui,
             id,
+            engine_preference: storage.engine_preference.clone(),
             active_tab: Some(EngineId::new(id, NO_GROUP_ID)),
             session_storage: storage.session.clone(),
             group_storage: storage.groups.clone(),
@@ -293,6 +332,11 @@ impl Window {
         self.id
     }
 
+    /// Check if the window has any tabs.
+    pub fn has_tabs(&self) -> bool {
+        !self.tabs.is_empty()
+    }
+
     /// Get a reference to a tab using its ID.
     #[allow(clippy::borrowed_box)]
     pub fn tab(&self, engine_id: EngineId) -> Option<&Box<dyn Engine>> {
@@ -300,6 +344,7 @@ impl Window {
     }
 
     /// Get a mutable reference to a tab using its ID.
+    #[inline]
     pub fn tab_mut(&mut self, engine_id: EngineId) -> Option<&mut Box<dyn Engine>> {
         self.tabs.get_mut(&engine_id)
     }
@@ -310,8 +355,9 @@ impl Window {
         focus_uribar: bool,
         switch_focus: bool,
         group_id: GroupId,
+        url: Option<&str>,
     ) -> EngineId {
-        self.add_tab_from_engine(focus_uribar, switch_focus, group_id, None)
+        self.add_tab_from_engine(focus_uribar, switch_focus, group_id, url, None)
     }
 
     /// Add a tab from an existing engine.
@@ -323,32 +369,50 @@ impl Window {
         focus_uribar: bool,
         switch_focus: bool,
         group_id: GroupId,
+        url: Option<&str>,
         engine_id: impl Into<Option<EngineId>>,
     ) -> EngineId {
         // Get the tab group for the new engine.
         let group = self.groups.get(&group_id).unwrap_or(NO_GROUP_REF);
 
+        // Get browser engine for this URL.
+        //
+        // If no URL is provided, we create a dummy engine. The dummy engine is replaced
+        // when a URL is loaded, at which point we can determine the preferred engine
+        // for the URL.
+        let engine_type = match url {
+            Some(url) => self.engine_preference.get(url).unwrap_or_else(|| {
+                let config = CONFIG.read().unwrap();
+                config.engine.default
+            }),
+            None => EngineType::Dummy,
+        };
+
         // Create a new browser engine.
         let new_engine_id = EngineId::new(self.id, group.id());
-        let engine = Box::new(self.engine_state.borrow_mut().create_engine(
-            new_engine_id,
-            self.engine_size(),
-            self.scale,
-        ));
+        let engine = match engine_type {
+            EngineType::Dummy => {
+                let surface = self.engine_surface.clone();
+                Box::new(DummyEngine::new(new_engine_id, surface))
+            },
+
+            #[cfg(feature = "webkit")]
+            EngineType::WebKit => self.create_webkit_engine(new_engine_id, url),
+            #[cfg(not(feature = "servo"))]
+            EngineType::Servo => self.create_webkit_engine(new_engine_id, url),
+
+            #[cfg(feature = "servo")]
+            EngineType::Servo => self.create_servo_engine(new_engine_id, url),
+            #[cfg(not(feature = "webkit"))]
+            EngineType::WebKit => self.create_servo_engine(new_engine_id, url),
+        };
 
         // Insert tab after the specified `engine_id`, or at the end.
         match engine_id.into().and_then(|id| self.tabs.get_index_of(&id)) {
             Some(index) if index + 1 < self.tabs.len() => {
                 self.tabs.insert_before(index + 1, new_engine_id, engine);
             },
-            _ => {
-                self.tabs.insert(new_engine_id, engine);
-            },
-        }
-
-        // Switch the active tab.
-        if switch_focus {
-            self.active_tab = Some(new_engine_id);
+            _ => _ = self.tabs.insert(new_engine_id, engine),
         }
 
         // Update tabs popup.
@@ -360,9 +424,9 @@ impl Window {
             self.ui.keyboard_focus_uribar();
         }
 
+        // Switch the active tab.
         if switch_focus {
-            self.ui.set_load_progress(1.);
-            self.ui.set_uri(String::new().into());
+            self.set_active_tab(new_engine_id);
         }
 
         self.unstall();
@@ -394,6 +458,9 @@ impl Window {
             self.set_active_tab(new_focus.map(|(engine_id, _)| *engine_id));
         }
 
+        // Ensure all associated option menus are closed.
+        self.overlay.close_engine_menus(engine_id);
+
         // Update tabs popup.
         self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
 
@@ -404,6 +471,63 @@ impl Window {
         self.unstall();
     }
 
+    /// Reload a tab in a different browser engine.
+    ///
+    /// This uses the engine's current URI and automatically updates the engine
+    /// preference for its host.
+    #[cfg(all(feature = "servo", feature = "webkit"))]
+    pub fn switch_engine(&mut self, engine_id: EngineId, engine_type: EngineType) {
+        let uri = match self.tabs.get_mut(&engine_id) {
+            Some(engine) => engine.uri().to_string(),
+            None => return,
+        };
+
+        // Update engine preference.
+        self.engine_preference.set(&uri, engine_type);
+
+        // Swap out the tab's engine.
+        self.switch_engine_with_uri(engine_id, engine_type, &uri);
+
+        self.unstall();
+    }
+
+    /// Load a URI in an existing tab with a new browser engine.
+    fn switch_engine_with_uri(&mut self, engine_id: EngineId, engine_type: EngineType, uri: &str) {
+        // Just switch URI if the correct engine is already used.
+        if let Some(engine) = self.tabs.get_mut(&engine_id)
+            && engine.engine_type() == engine_type
+        {
+            engine.load_uri(uri);
+            return;
+        }
+
+        // Create a new engine with the desired engine type.
+        let new_engine = match engine_type {
+            #[cfg(feature = "webkit")]
+            EngineType::WebKit => self.create_webkit_engine(engine_id, Some(uri)),
+            #[cfg(not(feature = "servo"))]
+            EngineType::Servo => self.create_webkit_engine(engine_id, Some(uri)),
+
+            #[cfg(feature = "servo")]
+            EngineType::Servo => self.create_servo_engine(engine_id, Some(uri)),
+            #[cfg(not(feature = "webkit"))]
+            EngineType::WebKit => self.create_servo_engine(engine_id, Some(uri)),
+
+            EngineType::Dummy => unreachable!("switched to dummy engine"),
+        };
+
+        let old_engine = match self.tabs.get_mut(&engine_id) {
+            Some(engine) => engine,
+            None => return,
+        };
+
+        // Discard all existing option menus for the old engine.
+        self.overlay.close_engine_menus(engine_id);
+
+        // Replace the engine with a new one, using the requested URI.
+        *old_engine = new_engine;
+    }
+
     /// Get a reference to this window's active tab.
     #[allow(clippy::borrowed_box)]
     pub fn active_tab(&self) -> Option<&Box<dyn Engine>> {
@@ -411,18 +535,25 @@ impl Window {
     }
 
     /// Get a mutable reference to this window's active tab.
+    #[inline]
     pub fn active_tab_mut(&mut self) -> Option<&mut Box<dyn Engine>> {
         self.tab_mut(self.active_tab?)
     }
 
     /// Switch between tabs.
     pub fn set_active_tab(&mut self, engine_id: impl Into<Option<EngineId>>) {
+        // Indicate to the previous engine that it was hidden.
+        if let Some(engine) = self.active_tab_mut() {
+            engine.set_visible(false);
+        }
+
         self.active_tab = engine_id.into();
 
         // Update URI and load progress.
-        if let Some(engine) = self.active_tab.and_then(|id| self.tabs.get(&id)) {
+        if let Some(engine) = self.active_tab.and_then(|id| self.tabs.get_mut(&id)) {
             self.ui.set_uri(engine.uri());
             self.ui.set_load_progress(1.);
+            engine.set_visible(true);
         }
 
         // Update tabs popup.
@@ -455,6 +586,11 @@ impl Window {
 
     /// Load a URI with the active tab.
     pub fn load_uri(&mut self, uri: String, allow_relative_paths: bool) {
+        let active_tab = match self.active_tab {
+            Some(active_tab) => active_tab,
+            None => return,
+        };
+
         // Perform search if URI is not a recognized URI.
         let uri = match build_uri(uri.trim(), allow_relative_paths) {
             Some(uri) => uri,
@@ -464,8 +600,19 @@ impl Window {
             },
         };
 
-        if let Some(engine) = self.active_tab_mut() {
-            engine.load_uri(&uri);
+        // Switch browser engine if a URI with a different preference is loaded.
+        if let Some(engine_type) = self.engine_preference.get(&uri) {
+            self.switch_engine_with_uri(active_tab, engine_type, &uri);
+        } else {
+            let engine = self.active_tab_mut().unwrap();
+            match engine.engine_type() {
+                EngineType::Dummy => {
+                    let config = CONFIG.read().unwrap();
+                    let default_engine = config.engine.default;
+                    self.switch_engine_with_uri(active_tab, default_engine, &uri);
+                },
+                _ => engine.load_uri(&uri),
+            }
         }
 
         // Close open option menus.
@@ -578,16 +725,21 @@ impl Window {
         if !engine.dirty() && self.last_rendered_engine == Some(engine.id()) {
             return;
         }
+        self.last_rendered_engine = self.active_tab;
+        self.stalled = false;
 
-        // Attach the engine's buffer.
-        if !engine.attach_buffer(&self.engine_surface) {
-            self.engine_surface.attach(None, 0, 0);
-            self.engine_surface.commit();
-            return;
-        }
+        // Draw the engine's content.
+        let has_buffer = engine.draw();
 
         // Update the current page scale.
         self.ui.set_zoom_level(engine.zoom_level());
+
+        // Skip any other Wayland state changes without buffer attached.
+        if !has_buffer {
+            self.engine_surface.commit();
+            engine.frame_done();
+            return;
+        }
 
         // Update viewporter buffer transform.
 
@@ -603,7 +755,7 @@ impl Window {
         // Update opaque region.
         self.engine_surface.set_opaque_region(engine.opaque_region());
 
-        // Attach buffer with its damage since the last frame.
+        // Update damage since the last frame.
         match engine.take_buffer_damage() {
             Some(damage_rects) => {
                 for (x, y, width, height) in damage_rects {
@@ -612,13 +764,11 @@ impl Window {
             },
             None => self.engine_surface.damage(0, 0, dst_width, dst_height),
         }
+
         self.engine_surface.commit();
 
         // Request new engine frame.
         engine.frame_done();
-
-        self.last_rendered_engine = self.active_tab;
-        self.stalled = false;
     }
 
     /// Unstall the renderer.
@@ -787,6 +937,11 @@ impl Window {
 
             // Use real pointer events for the browser engine.
             if let Some(engine) = self.active_tab_mut() {
+                // Close all dropdowns when starting a new button press.
+                if down {
+                    engine.close_option_menu(None);
+                }
+
                 engine.pointer_button(time, position, button, down, modifiers);
             }
         } else {
@@ -1134,6 +1289,7 @@ impl Window {
     }
 
     /// Add a new download.
+    #[cfg(feature = "webkit")]
     pub fn add_download(&mut self, download: Download) {
         self.overlay.add_download(download);
 
@@ -1148,6 +1304,7 @@ impl Window {
     ///
     /// A progress value of `None` indicates that the download has failed and
     /// will not make any further progress.
+    #[cfg(feature = "webkit")]
     pub fn set_download_progress(&mut self, download_id: DownloadId, progress: Option<u8>) {
         self.overlay.set_download_progress(download_id, progress);
 
@@ -1505,6 +1662,7 @@ impl Window {
     }
 
     /// Open search UI for an engine.
+    #[cfg(feature = "webkit")]
     pub fn start_search(&mut self, engine_id: EngineId) {
         // Ignore request for background engines.
         if Some(engine_id) != self.active_tab {
@@ -1530,6 +1688,7 @@ impl Window {
     }
 
     /// Update the number of search matches.
+    #[cfg(feature = "webkit")]
     pub fn set_search_match_count(&mut self, engine_id: EngineId, count: usize) {
         // Ignore match count updates for inactive engines.
         if Some(engine_id) != self.active_tab {
@@ -1566,11 +1725,51 @@ impl Window {
     }
 
     /// Update an engine's audio playback state.
+    #[cfg(feature = "webkit")]
     pub fn set_audio_playing(&mut self, engine_id: EngineId, playing: bool) {
         self.overlay.tabs_mut().set_audio_playing(engine_id, playing);
 
         if self.overlay.dirty() {
             self.unstall();
+        }
+    }
+
+    /// Create a new WebKit browser engine.
+    #[cfg(feature = "webkit")]
+    fn create_webkit_engine(&self, engine_id: EngineId, uri: Option<&str>) -> Box<dyn Engine> {
+        let engine_size = self.engine_size();
+        Box::new(self.webkit_state.get().create_engine(
+            self.engine_surface.clone(),
+            engine_id,
+            engine_size,
+            self.scale,
+            uri,
+        ))
+    }
+
+    /// Create a new Servo browser engine.
+    #[cfg(feature = "servo")]
+    fn create_servo_engine(&self, engine_id: EngineId, uri: Option<&str>) -> Box<dyn Engine> {
+        let engine_size = self.engine_size();
+
+        let result = self.servo_state.get().create_engine(
+            &self.engine_surface,
+            engine_id,
+            engine_size,
+            self.scale,
+            uri,
+        );
+
+        match result {
+            Ok(engine) => Box::new(engine),
+            // Use WebKit as fallback if Servo engine cannot be created.
+            #[cfg(feature = "webkit")]
+            Err(err) => {
+                error!("Servo engine creation failed, falling back to WebKit: {err:?}");
+                self.create_webkit_engine(engine_id, uri)
+            },
+            #[cfg(not(feature = "webkit"))]
+            Err(err) => panic!("Failed to create Servo engine: {err:?}"),
         }
     }
 }
@@ -1600,8 +1799,8 @@ impl Default for WindowId {
 /// Keyboard focus surfaces.
 #[derive(PartialEq, Eq, Copy, Clone, Default, Debug)]
 pub enum KeyboardFocus {
-    None,
     #[default]
+    None,
     Ui,
     Overlay,
     Browser,
@@ -1746,8 +1945,9 @@ pub enum TextInputChange {
 }
 
 /// Target for a clipboard paste action.
-#[derive(Copy, Clone, Debug)]
 pub enum PasteTarget {
+    #[cfg(feature = "servo")]
+    Servo(EngineId, StringRequest),
     Browser(EngineId),
     Ui(WindowId),
 }
@@ -1756,6 +1956,8 @@ impl PasteTarget {
     /// Get the target window ID.
     pub fn window_id(&self) -> WindowId {
         match self {
+            #[cfg(feature = "servo")]
+            Self::Servo(engine_id, _) => engine_id.window_id(),
             Self::Browser(engine_id) => engine_id.window_id(),
             Self::Ui(window_id) => *window_id,
         }
@@ -1796,6 +1998,52 @@ impl From<TextMenuItem> for OptionMenuItem {
     fn from(item: TextMenuItem) -> Self {
         OptionMenuItem { label: item.label().into(), ..Default::default() }
     }
+}
+
+/// Clamp surrounding text to at most `max_len`.
+pub fn clamp_surrounding_text(
+    text: &str,
+    mut cursor_start: usize,
+    mut cursor_end: usize,
+    max_bytes: usize,
+) -> (String, i32, i32) {
+    // Ensure start/end are in the right order.
+    if cursor_start > cursor_end {
+        mem::swap(&mut cursor_start, &mut cursor_end);
+    }
+
+    // If the cursor range is longer than the maximum allowed bytes, we ignore the
+    // start and just return the bytes surrounding the end.
+    let original_cursor_start = cursor_start as i32;
+    if cursor_end - cursor_start > max_bytes {
+        cursor_start = cursor_end;
+    }
+
+    // Calculate available bytes outside the cursor range.
+    let max_bytes = max_bytes - (cursor_end - cursor_start);
+
+    // Get up to half of the available bytes after the cursor end.
+    let mut end = cursor_end + max_bytes / 2;
+    if end >= text.len() {
+        end = text.len();
+    } else {
+        while end > 0 && !text.is_char_boundary(end) {
+            end -= 1;
+        }
+    };
+
+    // Get as many bytes as available before the cursor.
+    let remaining = max_bytes - (end - cursor_end);
+    let mut start = cursor_start.saturating_sub(remaining);
+    while start < text.len() && !text.is_char_boundary(start) {
+        start += 1;
+    }
+
+    // Calculate cursor indices relative to surrounding text.
+    let relative_start = original_cursor_start - start as i32;
+    let relative_end = cursor_end as i32 - start as i32;
+
+    (text[start..end].into(), relative_start, relative_end)
 }
 
 #[allow(rustdoc::bare_urls)]
@@ -1976,5 +2224,28 @@ mod tests {
         let expected = format!("file://{cwd}/src/main.rs");
         assert_eq!(build_uri("./src/main.rs", true).as_deref(), Some(expected.as_str()));
         assert_eq!(build_uri("src/main.rs", true).as_deref(), Some(expected.as_str()));
+    }
+
+    #[test]
+    fn surrounding_text() {
+        let (text, start, end) = clamp_surrounding_text("01234", 1, 4, 1);
+        assert_eq!(text, "3");
+        assert_eq!(start, -2);
+        assert_eq!(end, 1);
+
+        let (text, start, end) = clamp_surrounding_text("01234", 1, 4, 3);
+        assert_eq!(text, "123");
+        assert_eq!(start, 0);
+        assert_eq!(end, 3);
+
+        let (text, start, end) = clamp_surrounding_text("01234", 1, 4, 4);
+        assert_eq!(text, "0123");
+        assert_eq!(start, 1);
+        assert_eq!(end, 4);
+
+        let (text, start, end) = clamp_surrounding_text("01234", 1, 4, 99);
+        assert_eq!(text, "01234");
+        assert_eq!(start, 1);
+        assert_eq!(end, 4);
     }
 }

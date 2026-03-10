@@ -71,10 +71,7 @@ impl HistoryHandler for State {
             None => return,
         };
 
-        let tab_id = window.add_tab(false, true, NO_GROUP_ID);
-        if let Some(engine) = window.tab_mut(tab_id) {
-            engine.load_uri(&uri);
-        }
+        window.add_tab(false, true, NO_GROUP_ID, Some(&uri));
     }
 }
 

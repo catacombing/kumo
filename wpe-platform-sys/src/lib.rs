@@ -17,15 +17,18 @@ use std::ffi::{
     c_char, c_double, c_float, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort, c_void,
 };
 
+use gio_sys as gio;
 #[allow(unused_imports)]
 use glib::{GType, gboolean, gconstpointer, gpointer};
+use glib_sys as glib;
+use gobject_sys as gobject;
 #[allow(unused_imports)]
 use libc::{FILE, intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t};
 #[cfg(unix)]
 #[allow(unused_imports)]
 use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
 use xkbcommon::{xkb_keymap, xkb_state};
-use {gio_sys as gio, glib_sys as glib, gobject_sys as gobject, xkbcommon_sys as xkbcommon};
+use xkbcommon_sys as xkbcommon;
 
 // Enums
 pub type WPEBufferDMABufFormatUsage = c_int;

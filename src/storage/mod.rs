@@ -8,17 +8,20 @@ use tracing::error;
 
 use crate::Error;
 use crate::storage::cookie_whitelist::CookieWhitelist;
+use crate::storage::engine_preference::EnginePreference;
 use crate::storage::groups::Groups;
 use crate::storage::history::History;
 use crate::storage::session::Session;
 
 pub mod cookie_whitelist;
+pub mod engine_preference;
 pub mod groups;
 pub mod history;
 pub mod session;
 
 /// Persistent data storage.
 pub struct Storage {
+    pub engine_preference: EnginePreference,
     pub cookie_whitelist: CookieWhitelist,
     pub history: History,
     pub session: Session,
@@ -47,6 +50,7 @@ impl Storage {
             let transaction = connection.transaction()?;
 
             // Run table migrations.
+            engine_preference::run_migrations(&transaction, version)?;
             cookie_whitelist::run_migrations(&transaction, version)?;
             history::run_migrations(&transaction, version)?;
             session::run_migrations(&transaction, version)?;
@@ -59,12 +63,13 @@ impl Storage {
         }
 
         let connection = connection.map(Rc::new);
+        let engine_preference = EnginePreference::new(connection.clone());
         let cookie_whitelist = CookieWhitelist::new(connection.clone());
         let history = History::new(connection.clone())?;
         let session = Session::new(connection.clone());
         let groups = Groups::new(connection.clone());
 
-        Ok(Self { cookie_whitelist, history, session, groups })
+        Ok(Self { engine_preference, cookie_whitelist, history, session, groups })
     }
 
     /// Attempt to create or access the SQLite database.
@@ -100,6 +105,7 @@ impl Storage {
             None | Some(0) => Ok(DbVersion::Zero),
             Some(1) => Ok(DbVersion::One),
             Some(2) => Ok(DbVersion::Two),
+            Some(3) => Ok(DbVersion::Three),
             // Report an error if the DB version is newer than expected.
             Some(version) => {
                 let latest_version = DbVersion::Unknown as u8 - 1;
@@ -144,13 +150,14 @@ impl Storage {
 ///
 /// This version is used to detect the current database state and automatically
 /// migrate tables when required.
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(PartialOrd, Ord, PartialEq, Eq, Copy, Clone, Debug)]
 pub enum DbVersion {
     /// Any version before versioning was introduced.
     Zero,
     /// First versioned database.
     One,
     Two,
+    Three,
 
     /// XXX: Used to determine incompatible DB versions,
     /// this **must** always be the last field.

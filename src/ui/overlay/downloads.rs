@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::mem;
 use std::path::PathBuf;
+#[cfg(feature = "webkit")]
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use funq::MtQueueHandle;
@@ -103,6 +104,7 @@ impl Downloads {
     }
 
     /// Add a new download.
+    #[cfg(feature = "webkit")]
     pub fn add_download(&mut self, download: Download) {
         self.texture_cache.entries.insert(download.id, download);
         self.dirty = true;
@@ -112,6 +114,7 @@ impl Downloads {
     ///
     /// A progress value of `None` indicates that the download has failed and
     /// will not make any further progress.
+    #[cfg(feature = "webkit")]
     pub fn set_download_progress(&mut self, download_id: DownloadId, progress: Option<u8>) {
         if let Some(download) = self.texture_cache.entries.get_mut(&download_id) {
             match progress {
@@ -703,6 +706,7 @@ pub struct DownloadId {
 }
 
 impl DownloadId {
+    #[cfg(feature = "webkit")]
     pub fn new(engine_id: EngineId) -> Self {
         static NEXT_DOWNLOAD_ID: AtomicUsize = AtomicUsize::new(0);
         let id = NEXT_DOWNLOAD_ID.fetch_add(1, Ordering::Relaxed);

@@ -853,7 +853,7 @@ impl OptionMenuPosition {
 
 impl From<Position> for OptionMenuPosition {
     fn from(position: Position) -> Self {
-        Self { position, anchor: Anchor::default() }
+        Self { position, anchor: Default::default() }
     }
 }
 

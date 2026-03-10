@@ -751,7 +751,10 @@ impl DmabufHandler for State {
         }
 
         // Update globally shared feedback.
-        self.engine_state.borrow_mut().dmabuf_feedback.replace(Some(feedback));
+        #[cfg(feature = "webkit")]
+        if let Some(webkit_state) = self.webkit_state.try_get().as_ref() {
+            webkit_state.dmabuf_feedback.replace(Some(feedback));
+        }
     }
 
     fn created(

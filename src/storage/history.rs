@@ -485,25 +485,23 @@ pub fn run_migrations(
     transaction: &Transaction<'_>,
     db_version: DbVersion,
 ) -> rusqlite::Result<()> {
-    match db_version {
-        // Create table if it doesn't exist yet.
-        DbVersion::Zero => {
-            let _ = transaction.execute(
-                "CREATE TABLE IF NOT EXISTS history (
+    // Create table if it doesn't exist yet.
+    if db_version == DbVersion::Zero {
+        let _ = transaction.execute(
+            "CREATE TABLE IF NOT EXISTS history (
                     uri TEXT NOT NULL PRIMARY KEY,
                     title TEXT DEFAULT '',
                     views INTEGER NOT NULL DEFAULT 1,
                     last_access INTEGER NOT NULL
                 )",
-                [],
-            )?;
-        },
-        // Delete all file/data URIs, since they were persisted incorrectly.
-        DbVersion::One => {
-            let _ = transaction.execute("DELETE FROM history WHERE uri LIKE 'file:%'", [])?;
-            let _ = transaction.execute("DELETE FROM history WHERE uri LIKE 'data:%'", [])?;
-        },
-        _ => (),
+            [],
+        )?;
+    }
+
+    // Delete all file/data URIs, since they were persisted incorrectly.
+    if db_version < DbVersion::Two {
+        let _ = transaction.execute("DELETE FROM history WHERE uri LIKE 'file:%'", [])?;
+        let _ = transaction.execute("DELETE FROM history WHERE uri LIKE 'data:%'", [])?;
     }
 
     Ok(())

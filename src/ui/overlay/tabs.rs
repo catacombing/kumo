@@ -13,7 +13,7 @@ use pangocairo::pango::Alignment;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::config::CONFIG;
-use crate::engine::{Engine, EngineId, Favicon, Group, GroupId, NO_GROUP, NO_GROUP_ID};
+use crate::engine::{Engine, EngineId, Favicon, FaviconId, Group, GroupId, NO_GROUP, NO_GROUP_ID};
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
 use crate::ui::{ScrollVelocity, SvgButton, TextField};
@@ -96,7 +96,7 @@ impl TabsHandler for State {
             None => return,
         };
 
-        let _ = window.add_tab(true, true, group_id);
+        window.add_tab(true, true, group_id, None);
         window.set_tabs_ui_visible(false);
     }
 
@@ -372,6 +372,7 @@ impl Tabs {
     }
 
     /// Set a tab's audio playback state.
+    #[cfg(feature = "webkit")]
     pub fn set_audio_playing(&mut self, engine_id: EngineId, playing: bool) {
         self.dirty |= self.texture_cache.set_audio_playing(engine_id, playing);
     }
@@ -1191,7 +1192,7 @@ impl Popup for Tabs {
 #[derive(Default)]
 struct TextureCache {
     textures: HashMap<TabTextureCacheKey<'static>, Texture>,
-    favicons: HashMap<glib::GString, Texture>,
+    favicons: HashMap<FaviconId, Texture>,
     tabs: IndexMap<EngineId, RenderTab>,
     resized: bool,
 }
@@ -1231,6 +1232,7 @@ impl TextureCache {
     }
 
     /// Update a tab's audio playback state.
+    #[cfg(feature = "webkit")]
     fn set_audio_playing(&mut self, engine_id: EngineId, playing: bool) -> bool {
         match self.tabs.get_mut(&engine_id) {
             Some(tab) if tab.audio_playing != playing => {
@@ -1251,18 +1253,19 @@ impl TextureCache {
             None => return false,
         };
 
-        let resource_uri = match tab.favicon_uri() {
-            Some(resource_uri) => resource_uri,
-            None => return false,
-        };
-
-        // Update favicon unless it was already loaded.
-        let changed = render_tab.favicon.as_ref().is_none_or(|f| f.resource_uri != resource_uri);
-        if changed {
-            render_tab.favicon = tab.favicon();
+        // Short-circuit if WebKit's favicon URI is unchanged.
+        #[cfg(feature = "webkit")]
+        if let Some(favicon) = render_tab.favicon.as_ref()
+            && let FaviconId::WebKit(uri) = &favicon.id
+            && tab.favicon_uri().as_ref() == Some(uri)
+        {
+            return false;
         }
 
-        changed
+        let was_none = render_tab.favicon.is_none();
+        render_tab.favicon = tab.favicon();
+
+        was_none && render_tab.favicon.is_none()
     }
 
     /// Cleanup unused textures.
@@ -1290,10 +1293,11 @@ impl TextureCache {
         }
 
         // Remove unused favicons textures from cache.
-        self.favicons.retain(|resource_uri, texture| {
-            let retain = self.tabs.values().any(|tab| {
-                tab.favicon.as_ref().is_some_and(|favicon| &favicon.resource_uri == resource_uri)
-            });
+        self.favicons.retain(|favicon_id, texture| {
+            let retain = self
+                .tabs
+                .values()
+                .any(|tab| tab.favicon.as_ref().is_some_and(|favicon| &favicon.id == favicon_id));
 
             // Release OpenGL texture.
             if !retain {
@@ -1329,16 +1333,16 @@ impl TextureCache {
     ) -> TabTextures<'a> {
         // Create favicon texture.
         if let Some(favicon) = tab.favicon.as_ref()
-            && !self.favicons.contains_key(&favicon.resource_uri)
+            && !self.favicons.contains_key(&favicon.id)
         {
             // Add favicon to texture cache.
             let texture = Texture::new_with_format(
                 &favicon.bytes,
                 favicon.width,
                 favicon.height,
-                gl::BGRA_EXT,
+                favicon.format,
             );
-            self.favicons.insert(favicon.resource_uri.clone(), texture);
+            self.favicons.insert(favicon.id.clone(), texture);
         }
 
         // Ignore tabs we already rendered.
@@ -1427,10 +1431,10 @@ impl<'a> TabTextures<'a> {
     /// Panics if the tab's main texture doesn't exist.
     fn new(
         tab: &'a Texture,
-        favicons: &'a HashMap<glib::GString, Texture>,
+        favicons: &'a HashMap<FaviconId, Texture>,
         render_tab: &'a RenderTab,
     ) -> Self {
-        let favicon = render_tab.favicon.as_ref().and_then(|f| favicons.get(&*f.resource_uri));
+        let favicon = render_tab.favicon.as_ref().and_then(|f| favicons.get(&f.id));
         Self { favicon, tab }
     }
 }
@@ -1465,7 +1469,7 @@ impl RenderTab {
     /// Get a borrowed texture cache key.
     fn key<'a>(&'a self) -> TabTextureCacheKey<'a> {
         TabTextureCacheKey {
-            favicon_uri: self.favicon.as_ref().map(|f| Cow::Borrowed(&f.resource_uri)),
+            favicon_id: self.favicon.as_ref().map(|f| Cow::Borrowed(&f.id)),
             label: Cow::Borrowed(self.label()),
             load_progress: self.load_progress,
             active: self.active,
@@ -1475,7 +1479,7 @@ impl RenderTab {
     /// Get an owned texture cache key.
     fn owned_key(&self) -> TabTextureCacheKey<'static> {
         TabTextureCacheKey {
-            favicon_uri: self.favicon.as_ref().map(|f| Cow::Owned(f.resource_uri.clone())),
+            favicon_id: self.favicon.as_ref().map(|f| Cow::Owned(f.id.clone())),
             label: Cow::Owned(self.label().to_string()),
             load_progress: self.load_progress,
             active: self.active,
@@ -1499,7 +1503,7 @@ impl Debug for RenderTab {
 /// Indexing key for the tab texture cache.
 #[derive(Hash, PartialEq, Eq, Debug)]
 struct TabTextureCacheKey<'a> {
-    favicon_uri: Option<Cow<'a, glib::GString>>,
+    favicon_id: Option<Cow<'a, FaviconId>>,
     label: Cow<'a, str>,
     load_progress: u8,
     active: bool,

@@ -20,6 +20,7 @@ impl CookieWhitelist {
     }
 
     /// Get all allowed hosts.
+    #[cfg(feature = "webkit")]
     pub fn hosts(&self) -> Vec<String> {
         let connection = match &self.connection {
             Some(connection) => connection,

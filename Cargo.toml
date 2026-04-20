@@ -9,8 +9,19 @@ rust-version.workspace = true
 edition.workspace = true
 
 [features]
-default = []
+default = ["servo", "webkit"]
 profiling = ["dep:profiling", "dep:puffin_http"]
+servo = [
+    "dep:dpi",
+    "dep:euclid",
+    "dep:keyboard-types",
+    "dep:servo",
+    "dep:surfman",
+]
+webkit = [
+    "dep:wpe-platform",
+    "dep:wpe-webkit",
+]
 
 [workspace]
 members = [
@@ -48,25 +59,30 @@ xkbcommon-sys = "1.4.1"
 
 # Dependencies only used by the binary.
 [dependencies]
-bitflags = "2.5.0"
+bitflags = "2.11.0"
 chrono = "0.4.39"
 clap = { version = "4.5.39", features = ["derive"] }
 configory = { version = "0.6.0", features = ["log", "docgen"] }
 dashmap = "6.0.1"
 dirs = "6.0.0"
+dpi = { version = "0.1.2", optional = true }
 drm = "0.14.0"
+euclid = { version = "0.22.13", optional = true }
 funq = { path = "./funq" }
 gio.workspace = true
 glib.workspace = true
 glutin = { version = "0.32.1", default-features = false, features = ["wayland"] }
 indexmap = "2.2.6"
+keyboard-types = { version = "0.8.3", optional = true }
 libc.workspace = true
 librsvg = "2.61.0"
 pangocairo = "0.21.1"
+servo = { git = "https://github.com/chrisduerr/servo", rev = "36c07f4e4f0fbbd775d68171a3767053e8a24b5e", optional = true }
+surfman = { version = "0.12.0", optional = true }
 profiling = { version = "1.0.14", optional = true, features = ["profile-with-puffin"] }
 puffin_http = { version = "0.16.0", optional = true }
 raw-window-handle = "0.6.0"
-rusqlite = { version = "0.38.0", features = ["uuid", "chrono"] }
+rusqlite = { version = "0.37.0", features = ["uuid", "chrono"] }
 rustix.workspace = true
 serde = { version = "1.0.219", features = ["derive"] }
 smallvec = "1.13.2"
@@ -75,13 +91,19 @@ thiserror = "2.0.3"
 toml = "0.9.5"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-uuid = { version = "1.11.0", features = ["v4"] }
+url = "2.5.8"
+uuid = { version = "1.23.0", features = ["v4"] }
 wayland-backend = { version = "0.3.8", features = ["client_system"] }
-wpe-platform = { path = "./wpe-platform" }
-wpe-webkit = { path = "./wpe-webkit" }
+wpe-platform = { path = "./wpe-platform", optional = true }
+wpe-webkit = { path = "./wpe-webkit", optional = true }
+xkbcommon-dl = "0.4.2"
 
 [build-dependencies]
 gl_generator = "0.14.0"
 
 [dev-dependencies]
-reqwest = { version = "0.13.1", default-features = false, features = ["default-tls", "blocking"] }
+tempfile = "3.27.0"
+
+[patch.crates-io]
+glslopt = { git = "https://github.com/chrisduerr/glslopt-rs", rev = "c3c9457b752729f90761352e6c1e70e051430dd6" }
+keyboard-types = { git = "https://github.com/chrisduerr/keyboard-types", rev = "03b47d33d345b35671076bcd8ce4533250997c72" }

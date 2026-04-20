@@ -3,7 +3,7 @@
 ## Syntax
 
 Kumo's configuration file uses the TOML format. The format's specification
-can be found at _https://toml.io/en/v1.0.0_.
+can be found at _<https://toml.io/en/v1.0.0>_.
 
 ## Location
 
@@ -56,3 +56,11 @@ This section documents the `[input]` table.
 |long_press|Minimum time before a tap is considered a long-press|integer (milliseconds)|`300`|
 |velocity_interval|Milliseconds per velocity tick|integer|`30`|
 |velocity_friction|Percentage of velocity retained each tick|float|`0.85`|
+
+### engine
+
+This section documents the `[engine]` table.
+
+|Name|Description|Type|Default|
+|-|-|-|-|
+|default|Default browser engine|"WebKit" \| "Servo"|`WebKit`|

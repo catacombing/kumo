@@ -12,6 +12,7 @@ use serde::de::Visitor;
 use serde::{Deserialize, Deserializer};
 use tracing::{error, info};
 
+use crate::engine::EngineType;
 use crate::{Error, State};
 
 #[funq::callbacks(State)]
@@ -57,7 +58,7 @@ pub fn init_config(queue: MtQueueHandle<State>) -> Result<Manager<ConfigEventHan
 /// ## Syntax
 ///
 /// Kumo's configuration file uses the TOML format. The format's specification
-/// can be found at _https://toml.io/en/v1.0.0_.
+/// can be found at _<https://toml.io/en/v1.0.0>_.
 ///
 /// ## Location
 ///
@@ -76,6 +77,8 @@ pub struct Config {
     pub search: Search,
     /// This section documents the `[input]` table.
     pub input: Input,
+    /// This section documents the `[engine]` table.
+    pub engine: Engine,
 
     /// Incremental config ID, to track changes.
     #[serde(skip)]
@@ -202,6 +205,24 @@ impl Default for Input {
             velocity_interval: 30,
             velocity_friction: 0.85,
             max_tap_distance: 400.,
+        }
+    }
+}
+
+#[derive(Docgen, Deserialize, Debug)]
+#[serde(default, deny_unknown_fields)]
+pub struct Engine {
+    /// Default browser engine.
+    pub default: EngineType,
+}
+
+impl Default for Engine {
+    fn default() -> Self {
+        Self {
+            #[cfg(feature = "webkit")]
+            default: EngineType::WebKit,
+            #[cfg(not(feature = "webkit"))]
+            default: EngineType::Servo,
         }
     }
 }
@@ -451,6 +472,7 @@ mod tests {
 
     use super::*;
 
+    #[cfg(feature = "webkit")]
     #[test]
     fn config_docs() {
         let mut formatter = Markdown::new();

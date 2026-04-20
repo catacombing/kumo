@@ -15,8 +15,7 @@ use funq::StQueueHandle;
 use gio::Cancellable;
 use glib::object::{Cast, ObjectExt};
 use glib::prelude::*;
-use glib::{Bytes, GString, TimeSpan, Uri, UriFlags, UserDirectory};
-use glutin::display::Display;
+use glib::{Bytes, GString, TimeSpan, UserDirectory};
 use smithay_client_toolkit::compositor::Region;
 use smithay_client_toolkit::dmabuf::{DmabufFeedback, DmabufState};
 use smithay_client_toolkit::reexports::client::protocol::wl_buffer::WlBuffer;
@@ -34,19 +33,20 @@ use wpe_platform::{
 };
 use wpe_webkit::{
     Color, CookieAcceptPolicy, CookiePersistentStorage, Download as WebKitDownload, FindOptions,
-    HitTestResult, HitTestResultContext, LoadEvent, NetworkSession, OptionMenu,
-    OptionMenuItem as WebKitOptionMenuItem, UserContentFilterStore, WebView, WebViewExt,
-    WebViewSessionState, WebsiteDataManagerExtManual, WebsiteDataTypes,
+    HitTestResultContext, LoadEvent, NetworkSession, OptionMenu, UserContentFilterStore, WebView,
+    WebViewExt, WebViewSessionState, WebsiteDataManagerExtManual, WebsiteDataTypes,
 };
 
 use crate::config::CONFIG;
 use crate::engine::webkit::platform::WebKitDisplay;
-use crate::engine::{Engine, EngineHandler, EngineId, Favicon, GroupId};
+use crate::engine::{
+    ContextMenu, Engine, EngineHandler, EngineId, EngineType, Favicon, FaviconId, GroupId,
+};
 use crate::storage::cookie_whitelist::CookieWhitelist;
 use crate::ui::overlay::downloads::{Download, DownloadId};
 use crate::ui::overlay::option_menu::{Anchor, OptionMenuId, OptionMenuItem, OptionMenuPosition};
-use crate::window::{TextInputChange, Window, WindowHandler};
-use crate::{PasteTarget, Position, Size, State};
+use crate::window::{TextInputChange, Window};
+use crate::{Position, Size, State, gl};
 
 mod input_method_context;
 mod platform;
@@ -188,21 +188,6 @@ impl WebKitHandler for State {
             None => return,
         };
 
-        // Get properties from WebKit menu items.
-        let mut items = Vec::new();
-        for i in 0..menu.n_items() {
-            if let Some(mut item) = menu.item(i)
-                && let Some(label) = item.label()
-            {
-                items.push(OptionMenuItem {
-                    label: label.into(),
-                    description: String::new(),
-                    disabled: !item.is_enabled(),
-                    selected: item.is_selected(),
-                });
-            }
-        }
-
         // Get popup position.
         let (menu_position, item_width) = match rect {
             Some((x, y, width, height)) => {
@@ -215,14 +200,16 @@ impl WebKitHandler for State {
             },
         };
 
+        let items = menu.items();
+
         // Hookup close callback.
         let menu_id = OptionMenuId::with_engine(engine_id);
         let close_queue = self.queue.clone();
         menu.connect_close(move || close_queue.clone().close_menu(menu_id));
 
         // Update engine's active popup for close/activate handling.
-        if let Some((menu_id, _)) = webkit_engine.menu.take() {
-            webkit_engine.close_option_menu(Some(menu_id));
+        if let Some((menu_id, _)) = &webkit_engine.menu {
+            webkit_engine.close_option_menu(Some(*menu_id));
         }
         webkit_engine.menu = Some((menu_id, menu));
 
@@ -349,13 +336,13 @@ pub struct WebKitState {
     network_sessions: HashMap<GroupId, NetworkSession>,
     cookie_whitelist: CookieWhitelist,
     queue: StQueueHandle<State>,
-    display: Display,
+    drm_node: PathBuf,
 }
 
 impl WebKitState {
     #[cfg_attr(feature = "profiling", profiling::function)]
     pub fn new(
-        display: Display,
+        drm_node: PathBuf,
         queue: StQueueHandle<State>,
         cookie_whitelist: CookieWhitelist,
         all_groups: &HashSet<Uuid>,
@@ -386,7 +373,7 @@ impl WebKitState {
 
         Self {
             cookie_whitelist,
-            display,
+            drm_node,
             queue,
             network_sessions: Default::default(),
             dmabuf_feedback: Default::default(),
@@ -394,7 +381,14 @@ impl WebKitState {
     }
 
     /// Create a new WebKit engine from this state.
-    pub fn create_engine(&mut self, engine_id: EngineId, size: Size, scale: f64) -> WebKitEngine {
+    pub fn create_engine(
+        &mut self,
+        surface: WlSurface,
+        engine_id: EngineId,
+        size: Size,
+        scale: f64,
+        uri: Option<&str>,
+    ) -> WebKitEngine {
         // Create a new network session for this group if necessary.
         let group_id = engine_id.group_id();
         let network_session = self.network_sessions.entry(group_id).or_insert_with(|| {
@@ -405,16 +399,11 @@ impl WebKitState {
             network_session
         });
 
-        // Get the DRM render node.
-        let Display::Egl(egl_display) = &self.display;
-        let device = egl_display.device().expect("get DRM device");
-        let device_node = device.drm_device_node_path().expect("DRM node has no path");
-
         // Create WebKit platform.
         let webkit_display = WebKitDisplay::new(
             self.queue.clone(),
             engine_id,
-            device_node,
+            &self.drm_node,
             size,
             scale,
             self.dmabuf_feedback.borrow().as_ref(),
@@ -477,7 +466,25 @@ impl WebKitState {
         let context_menu_queue = self.queue.clone();
         web_view.connect_context_menu(move |web_view, _, hit_test_result| {
             let uri = web_view.uri().unwrap_or_default().to_string();
-            let context_menu = ContextMenu::new(&cookie_whitelist, &uri, hit_test_result.clone());
+            let context = HitTestResultContext::from_bits(hit_test_result.context())
+                .unwrap_or(HitTestResultContext::empty());
+            let target_uri = if context.contains(HitTestResultContext::LINK) {
+                hit_test_result.link_uri().map(String::from)
+            } else if context.contains(HitTestResultContext::IMAGE) {
+                hit_test_result.image_uri().map(String::from)
+            } else if context.contains(HitTestResultContext::MEDIA) {
+                hit_test_result.media_uri().map(String::from)
+            } else {
+                None
+            };
+
+            let context_menu = ContextMenu::new(
+                EngineType::WebKit,
+                context.into(),
+                &cookie_whitelist,
+                &uri,
+                target_uri,
+            );
             let menu = Menu::ContextMenu(context_menu);
             context_menu_queue.clone().open_menu(engine_id, menu, None);
             true
@@ -517,6 +524,11 @@ impl WebKitState {
         // Load adblock content filter.
         load_adblock(web_view.clone());
 
+        // Load the initial URI.
+        if let Some(uri) = uri {
+            web_view.load_uri(uri);
+        }
+
         WebKitEngine {
             webkit_display,
             web_view,
@@ -524,6 +536,7 @@ impl WebKitState {
             bg,
             dark_mode: config.colors.dark_mode,
             queue: self.queue.clone(),
+            surface,
             id: engine_id,
             buffers_pending_release: Default::default(),
             last_input_position: Default::default(),
@@ -551,6 +564,7 @@ pub struct WebKitEngine {
     buffer: Option<(WaylandBuffer, BufferDMABuf)>,
     buffer_damage: Option<Vec<WPERectangle>>,
     buffers_pending_release: [Option<(WaylandBuffer, BufferDMABuf)>; MAX_PENDING_BUFFERS],
+    surface: WlSurface,
 
     buffer_size: Size,
     scale: f64,
@@ -652,11 +666,16 @@ impl Engine for WebKitEngine {
         self.id
     }
 
+    fn engine_type(&self) -> EngineType {
+        EngineType::WebKit
+    }
+
     fn dirty(&mut self) -> bool {
         self.dirty
     }
 
-    fn attach_buffer(&mut self, surface: &WlSurface) -> bool {
+    #[cfg_attr(feature = "profiling", profiling::function)]
+    fn draw(&mut self) -> bool {
         self.dirty = false;
 
         // Check for config updates on every frame.
@@ -677,10 +696,13 @@ impl Engine for WebKitEngine {
 
         match &self.buffer {
             Some((buffer, _)) => {
-                surface.attach(Some(buffer), 0, 0);
+                self.surface.attach(Some(buffer), 0, 0);
                 true
             },
-            None => false,
+            None => {
+                self.surface.attach(None, 0, 0);
+                false
+            },
         }
     }
 
@@ -808,6 +830,10 @@ impl Engine for WebKitEngine {
         self.webkit_display.touch(time, id, position, modifiers, EventType::TouchMove);
     }
 
+    fn reload(&mut self) {
+        self.web_view.reload();
+    }
+
     fn load_uri(&mut self, uri: &str) {
         self.web_view.load_uri(uri);
     }
@@ -828,7 +854,7 @@ impl Engine for WebKitEngine {
         self.web_view.title().unwrap_or_default().to_string().into()
     }
 
-    fn text_input_state(&self) -> TextInputChange {
+    fn text_input_state(&mut self) -> TextInputChange {
         self.webkit_display.input_method_context().text_input_state()
     }
 
@@ -853,10 +879,6 @@ impl Engine for WebKitEngine {
 
         self.webkit_display.input_method_context().emit_by_name::<()>("preedit-changed", &[]);
         self.webkit_display.input_method_context().emit_by_name::<()>("preedit-finished", &[]);
-    }
-
-    fn paste(&mut self, text: String) {
-        self.commit_string(text);
     }
 
     fn clear_focus(&mut self) {
@@ -915,15 +937,16 @@ impl Engine for WebKitEngine {
         let height = favicon.height();
 
         (width > 0 && height > 0).then_some(Favicon {
-            resource_uri,
             bytes,
+            id: FaviconId::WebKit(resource_uri),
             width: width as usize,
             height: height as usize,
+            format: gl::BGRA_EXT,
         })
     }
 
     #[cfg_attr(feature = "profiling", profiling::function)]
-    fn favicon_uri(&self) -> Option<glib::GString> {
+    fn favicon_uri(&self) -> Option<GString> {
         let data_manager = self.web_view.network_session()?.website_data_manager()?;
         let favicon_database = data_manager.favicon_database()?;
         favicon_database.favicon_uri(&self.uri())
@@ -1173,24 +1196,25 @@ enum Menu {
 }
 
 impl Menu {
-    /// Number of items in the menu.
-    fn n_items(&self) -> u32 {
+    /// Get option menu items for this menu.
+    fn items(&self) -> Vec<OptionMenuItem> {
         match self {
-            Self::ContextMenu(menu) => menu.n_items(),
-            Self::OptionMenu(menu) => menu.n_items(),
-        }
-    }
-
-    /// Get the item at the specified index.
-    fn item(&self, index: u32) -> Option<MenuItem> {
-        match self {
-            Self::ContextMenu(menu) => {
-                let item = menu.item(index)?;
-                Some(MenuItem::ContextMenuItem(item))
-            },
+            Self::ContextMenu(menu) => menu.items(),
             Self::OptionMenu(menu) => {
-                let item = menu.item(index)?;
-                Some(MenuItem::OptionMenuItem(item))
+                let mut items = Vec::new();
+                for i in 0..menu.n_items() {
+                    if let Some(mut item) = menu.item(i)
+                        && let Some(label) = item.label()
+                    {
+                        items.push(OptionMenuItem {
+                            label: label.into(),
+                            description: String::new(),
+                            disabled: !item.is_enabled(),
+                            selected: item.is_selected(),
+                        });
+                    }
+                }
+                items
             },
         }
     }
@@ -1219,7 +1243,7 @@ impl Menu {
     /// Activate item at the specified position.
     fn activate_item(&self, engine: &mut WebKitEngine, index: u32) {
         match self {
-            Self::ContextMenu(menu) => menu.activate_item(engine, index),
+            Self::ContextMenu(menu) => menu.activate_item(engine.queue.handle(), engine.id, index),
             Self::OptionMenu(menu) => menu.activate_item(index),
         }
     }
@@ -1228,224 +1252,6 @@ impl Menu {
 impl From<&OptionMenu> for Menu {
     fn from(menu: &OptionMenu) -> Menu {
         Self::OptionMenu(menu.clone())
-    }
-}
-
-/// WebKit popup menu item.
-enum MenuItem {
-    /// Right-click menu item.
-    ContextMenuItem(ContextMenuItem),
-    /// Dropdown menu item.
-    OptionMenuItem(WebKitOptionMenuItem),
-}
-
-impl MenuItem {
-    /// Get the text of the item.
-    fn label<'a>(&mut self) -> Option<Cow<'a, str>> {
-        match self {
-            Self::ContextMenuItem(item) => Some(item.label().into()),
-            Self::OptionMenuItem(item) => item.label().map(|label| label.to_string().into()),
-        }
-    }
-
-    /// Check whether an item is enabled.
-    fn is_enabled(&mut self) -> bool {
-        match self {
-            Self::ContextMenuItem(_) => true,
-            Self::OptionMenuItem(item) => item.is_enabled(),
-        }
-    }
-
-    /// Check whether an item is selected.
-    fn is_selected(&mut self) -> bool {
-        match self {
-            Self::ContextMenuItem(_) => false,
-            Self::OptionMenuItem(item) => item.is_selected(),
-        }
-    }
-}
-
-/// Custom context menu based on a hit test.
-#[derive(Debug)]
-struct ContextMenu {
-    hit_test_result: HitTestResult,
-    context: HitTestResultContext,
-    has_cookie_exception: bool,
-    host: Option<GString>,
-}
-
-impl ContextMenu {
-    fn new(cookie_whitelist: &CookieWhitelist, uri: &str, hit_test_result: HitTestResult) -> Self {
-        let context = HitTestResultContext::from_bits(hit_test_result.context())
-            .unwrap_or(HitTestResultContext::empty());
-
-        let mut context_menu = Self {
-            hit_test_result,
-            context,
-            has_cookie_exception: Default::default(),
-            host: Default::default(),
-        };
-
-        // Set correct cookie exception message if we are going to display it.
-        if context == HitTestResultContext::DOCUMENT
-            && let Some(host) = Uri::parse(uri, UriFlags::NONE).ok().and_then(|uri| uri.host())
-        {
-            context_menu.has_cookie_exception = cookie_whitelist.contains(&host);
-            context_menu.host = Some(host);
-        }
-
-        context_menu
-    }
-
-    /// Number of items in the menu.
-    fn n_items(&self) -> u32 {
-        let mut n_items = 0;
-
-        // Only show these entries without any targeted element.
-        if self.context == HitTestResultContext::DOCUMENT {
-            n_items += 2;
-        }
-
-        if self.context.contains(HitTestResultContext::DOCUMENT) {
-            n_items += 1;
-        }
-
-        if self.context.intersects(
-            HitTestResultContext::LINK | HitTestResultContext::IMAGE | HitTestResultContext::MEDIA,
-        ) {
-            n_items += 3;
-        }
-
-        if self.context.contains(HitTestResultContext::EDITABLE) {
-            n_items += 1;
-        }
-
-        n_items
-    }
-
-    /// Get the item at the specified index.
-    #[allow(clippy::single_match)]
-    fn item(&self, mut index: u32) -> Option<ContextMenuItem> {
-        // Only show these entries without any targeted element.
-        if self.context == HitTestResultContext::DOCUMENT {
-            match index {
-                0 if self.has_cookie_exception => {
-                    return Some(ContextMenuItem::RemoveCookieException);
-                },
-                0 => return Some(ContextMenuItem::AddCookieException),
-                1 => return Some(ContextMenuItem::Search),
-                _ => (),
-            }
-            index -= 2;
-        }
-
-        if self.context.contains(HitTestResultContext::DOCUMENT) {
-            match index {
-                0 => return Some(ContextMenuItem::Reload),
-                _ => (),
-            }
-            index -= 1;
-        }
-
-        if self.context.intersects(
-            HitTestResultContext::LINK | HitTestResultContext::IMAGE | HitTestResultContext::MEDIA,
-        ) {
-            match index {
-                0 => return Some(ContextMenuItem::CopyLink),
-                1 => return Some(ContextMenuItem::OpenInNewWindow),
-                2 => return Some(ContextMenuItem::OpenInNewTab),
-                _ => (),
-            }
-            index -= 3;
-        }
-
-        if self.context.contains(HitTestResultContext::EDITABLE) {
-            match index {
-                0 => return Some(ContextMenuItem::Paste),
-                _ => (),
-            }
-            // index -= 1;
-        }
-
-        None
-    }
-
-    /// Activate item at the specified position.
-    fn activate_item(&self, engine: &mut WebKitEngine, index: u32) {
-        match self.item(index) {
-            Some(ContextMenuItem::AddCookieException) => {
-                if let Some(host) = &self.host {
-                    engine.queue.add_cookie_exception(host.to_string());
-                }
-            },
-            Some(ContextMenuItem::RemoveCookieException) => {
-                if let Some(host) = &self.host {
-                    engine.queue.remove_cookie_exception(host.to_string());
-                }
-            },
-            Some(ContextMenuItem::Search) => engine.queue.start_search(engine.id),
-            Some(ContextMenuItem::Reload) => engine.web_view.reload(),
-            Some(ContextMenuItem::OpenInNewTab) => {
-                if let Some(uri) = self.uri() {
-                    engine.queue.open_in_tab(engine.id, uri);
-                }
-            },
-            Some(ContextMenuItem::OpenInNewWindow) => {
-                if let Some(uri) = self.uri() {
-                    engine.queue.open_in_window(engine.id, uri);
-                }
-            },
-            Some(ContextMenuItem::CopyLink) => {
-                if let Some(uri) = self.uri() {
-                    engine.queue.set_clipboard(uri);
-                }
-            },
-            Some(ContextMenuItem::Paste) => {
-                engine.queue.request_paste(PasteTarget::Browser(engine.id()))
-            },
-            None => (),
-        }
-    }
-
-    /// Get URI for the context menu's target resourc.
-    fn uri(&self) -> Option<String> {
-        if self.context.contains(HitTestResultContext::LINK) {
-            self.hit_test_result.link_uri().map(String::from)
-        } else if self.context.contains(HitTestResultContext::IMAGE) {
-            self.hit_test_result.image_uri().map(String::from)
-        } else if self.context.contains(HitTestResultContext::MEDIA) {
-            self.hit_test_result.media_uri().map(String::from)
-        } else {
-            None
-        }
-    }
-}
-
-/// Custom context menu item based on a hit test.
-#[derive(Debug)]
-enum ContextMenuItem {
-    AddCookieException,
-    RemoveCookieException,
-    Reload,
-    OpenInNewTab,
-    OpenInNewWindow,
-    CopyLink,
-    Paste,
-    Search,
-}
-
-impl ContextMenuItem {
-    fn label(&self) -> &'static str {
-        match self {
-            Self::AddCookieException => "Add Cookie Exception",
-            Self::RemoveCookieException => "Remove Cookie Exception",
-            Self::Reload => "Reload",
-            Self::OpenInNewTab => "Open in New Tab",
-            Self::OpenInNewWindow => "Open in New Window",
-            Self::CopyLink => "Copy Link",
-            Self::Paste => "Paste",
-            Self::Search => "Search Page",
-        }
     }
 }
 

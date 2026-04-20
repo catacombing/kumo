@@ -58,7 +58,10 @@ impl Renderer {
 
     /// Perform drawing with this renderer.
     #[cfg_attr(feature = "profiling", profiling::function)]
-    pub fn draw<F: FnOnce(&Renderer)>(&mut self, size: Size, fun: F) {
+    pub fn draw<T, F>(&mut self, size: Size, fun: F) -> T
+    where
+        F: FnOnce(&Renderer) -> T,
+    {
         self.sized(size).make_current();
 
         // Resize OpenGL viewport.
@@ -66,11 +69,13 @@ impl Renderer {
         // This isn't done in `Self::resize` since the renderer must be current.
         unsafe { gl::Viewport(0, 0, size.width as i32, size.height as i32) };
 
-        fun(self);
+        let result = fun(self);
 
         unsafe { gl::Flush() };
 
         self.sized(size).swap_buffers();
+
+        result
     }
 
     /// Render texture at a position in viewport-coordinates.

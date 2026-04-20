@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io::Read;
@@ -6,7 +5,6 @@ use std::num::{ParseFloatError, ParseIntError};
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use std::os::fd::{AsFd, AsRawFd};
 use std::ptr::NonNull;
-use std::rc::Rc;
 use std::time::Duration;
 use std::{env, io, mem, process};
 
@@ -14,6 +12,10 @@ use clap::Parser;
 use cli::{ConfigOptions, Options, Subcommands};
 use configory::Manager as ConfigManager;
 use configory::ipc::Ipc;
+#[cfg(feature = "servo")]
+use dpi::PhysicalSize;
+#[cfg(feature = "servo")]
+use euclid::Point2D;
 use funq::{MtQueueHandle, Queue, StQueueHandle};
 use glib::{ControlFlow, IOCondition, MainLoop, Priority, Source, source};
 use glutin::display::{Display, DisplayApiPreference};
@@ -22,6 +24,8 @@ use profiling::puffin;
 #[cfg(feature = "profiling")]
 use puffin_http::Server;
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
+#[cfg(feature = "servo")]
+use servo::WebViewPoint;
 use smithay_client_toolkit::data_device_manager::data_source::CopyPasteSource;
 use smithay_client_toolkit::reexports::client::globals::{self, BindError, GlobalError};
 use smithay_client_toolkit::reexports::client::protocol::wl_keyboard::WlKeyboard;
@@ -36,8 +40,11 @@ use tracing::{error, info, warn};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::config::ConfigEventHandler;
+#[cfg(feature = "servo")]
+use crate::engine::servo::ServoState;
+#[cfg(feature = "webkit")]
 use crate::engine::webkit::{WebKitError, WebKitState};
-use crate::engine::{Group, GroupId, NO_GROUP_ID};
+use crate::engine::{Group, NO_GROUP_ID, OnDemandState};
 use crate::storage::Storage;
 use crate::storage::history::History;
 use crate::wayland::WaylandDispatch;
@@ -57,6 +64,9 @@ mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
+#[cfg(not(any(feature = "servo", feature = "webkit")))]
+compile_error!("At least one browser engine feature must be enabled.");
+
 #[derive(thiserror::Error, Debug)]
 enum Error {
     #[error("{0}")]
@@ -64,21 +74,22 @@ enum Error {
     #[error("Wayland protocol error for {0}: {1}")]
     WaylandProtocol(&'static str, #[source] BindError),
     #[error("{0}")]
-    ParseFloatError(#[from] ParseFloatError),
-    #[error("{0}")]
-    ParseIntError(#[from] ParseIntError),
-    #[error("{0}")]
     Deserialize(#[from] toml::de::Error),
     #[error("{0}")]
     Glutin(#[from] glutin::error::Error),
+    #[error("{0}")]
+    ParseFloat(#[from] ParseFloatError),
     #[error("{0}")]
     WaylandGlobal(#[from] GlobalError),
     #[error("{0}")]
     Config(#[from] configory::Error),
     #[error("{0}")]
-    WebKit(#[from] WebKitError),
+    ParseInt(#[from] ParseIntError),
     #[error("{0}")]
     Sql(#[from] rusqlite::Error),
+    #[cfg(feature = "webkit")]
+    #[error("{0}")]
+    WebKit(#[from] WebKitError),
     #[error("{0}")]
     Io(#[from] io::Error),
     #[error("local database version ({0}) is higher than latest supported version ({1})")]
@@ -133,48 +144,36 @@ fn run() -> Result<(), Error> {
     let main_loop = MainLoop::new(None, true);
     let mut state = State::new(queue.local_handle(), main_loop.clone())?;
 
-    // Create our initial window.
-    let root_window = state.create_window();
-    let root_window_id = root_window.id();
-
-    // Create initial browser tab.
-    root_window.add_tab(true, true, NO_GROUP_ID);
-
-    // Ensure Wayland processing is kicked off.
-    state.wayland_dispatch();
-
-    // Create an empty tab for loading a new page.
-    let mut is_first_tab = true;
-    let get_empty_tab =
-        |window: &mut Window, is_first_tab: &mut bool, group_id: GroupId, focus: bool| -> _ {
-            if *is_first_tab && group_id == NO_GROUP_ID {
-                window.set_keyboard_focus(KeyboardFocus::None);
-                *is_first_tab = false;
-                window.active_tab().unwrap().id()
-            } else {
-                window.add_tab(false, focus, group_id)
-            }
-        };
-
     // Get all sessions requiring restoration, sorted by PID and window ID.
+    //
+    // XXX: This must be retrieved before the first engine creation,
+    // so the initial tab isn't counted as an orphan session.
     let mut orphan_sessions = state.storage.session.orphans();
     orphan_sessions.sort_by(|a, b| match a.pid.cmp(&b.pid) {
         Ordering::Equal => a.window_id.cmp(&b.window_id),
         ordering => ordering,
     });
 
+    // Create initial window.
+    let root_window_id = state.create_window().id();
+
     // Restore all orphan sessions.
     let mut window = state.windows.get_mut(&root_window_id).unwrap();
     let mut session_window_id = None;
+    let mut is_first_tab = true;
     let mut session_pid = None;
     for entry in &mut orphan_sessions {
+        // Ignore empty tabs for session recover.
+        if entry.uri.is_empty() || entry.uri == "about:blank" {
+            continue;
+        }
+
         // Create new window if session's process or window changed.
         if session_pid != Some(entry.pid) || session_window_id != Some(entry.window_id) {
             // Create a new window.
             if session_pid.is_some() || session_window_id.is_some() {
                 let new_window_id = state.create_window().id();
                 window = state.windows.get_mut(&new_window_id).unwrap();
-                window.add_tab(true, true, NO_GROUP_ID);
                 is_first_tab = true;
             }
 
@@ -193,18 +192,14 @@ fn run() -> Result<(), Error> {
         };
 
         // Restore the session in a new empty tab.
-        let engine_id = get_empty_tab(window, &mut is_first_tab, group_id, entry.focused);
+        let focus_tab = mem::take(&mut is_first_tab) || entry.focused;
+        let engine_id = window.add_tab(false, focus_tab, group_id, Some(&entry.uri));
         if let Some(engine) = window.tab_mut(engine_id) {
             engine.restore_session(mem::take(&mut entry.session_data));
-            engine.load_uri(&entry.uri);
         }
     }
 
     // Update database with the adopted sessions.
-    //
-    // NOTE: Calling `load_uri` automatically causes the session to be persisted
-    // once the page is loaded, however we explicitly sync here to avoid session
-    // loss due to a racing condition.
     for window in state.windows.values() {
         window.persist_session();
     }
@@ -213,9 +208,19 @@ fn run() -> Result<(), Error> {
     // Spawn a new tab for every CLI argument.
     let root_window = state.windows.get_mut(&root_window_id).unwrap();
     for arg in options.links {
-        get_empty_tab(root_window, &mut is_first_tab, NO_GROUP_ID, true);
+        root_window.add_tab(false, true, NO_GROUP_ID, None);
         root_window.load_uri(arg, true);
     }
+
+    // Ensure at least one tab exists.
+    if !root_window.has_tabs() {
+        root_window.add_tab(true, true, NO_GROUP_ID, None);
+    }
+
+    // Ensure Wayland processing is kicked off.
+    //
+    // XXX: This must happen *AFTER* the first tab is created.
+    state.wayland_dispatch();
 
     // Register Wayland socket with GLib event loop.
     let mut queue_handle = queue.handle();
@@ -322,6 +327,7 @@ pub struct State {
     wayland_queue: Option<EventQueue<Self>>,
     protocol_states: ProtocolStates,
     connection: Connection,
+
     egl_display: Display,
 
     text_input: Vec<TextInput>,
@@ -334,7 +340,10 @@ pub struct State {
     keyboard_focus: Option<WindowId>,
     touch_focus: Option<(WindowId, WlSurface)>,
 
-    engine_state: Rc<RefCell<WebKitState>>,
+    #[cfg(feature = "webkit")]
+    webkit_state: OnDemandState<WebKitState>,
+    #[cfg(feature = "servo")]
+    servo_state: OnDemandState<ServoState>,
 
     config_manager: ConfigManager<ConfigEventHandler>,
     storage: Storage,
@@ -360,18 +369,37 @@ impl State {
 
         let storage = Storage::new()?;
 
-        let engine_state = Rc::new(RefCell::new(WebKitState::new(
-            egl_display.clone(),
-            queue.clone(),
-            storage.cookie_whitelist.clone(),
-            &storage.groups.all_group_ids(),
-        )));
+        #[cfg(feature = "webkit")]
+        let webkit_state = {
+            // Get the DRM render node.
+            let Display::Egl(egl_display) = &egl_display;
+            let device = egl_display.device().expect("get DRM device");
+            let device_node = device.drm_device_node_path().expect("DRM node has no path").into();
+
+            let webkit_cookie_whitelist = storage.cookie_whitelist.clone();
+            let group_ids = storage.groups.all_group_ids();
+            let webkit_queue = queue.clone();
+            OnDemandState::new(Box::new(move || {
+                WebKitState::new(device_node, webkit_queue, webkit_cookie_whitelist, &group_ids)
+            }))
+        };
+        #[cfg(feature = "servo")]
+        let servo_state = {
+            let servo_cookie_whitelist = storage.cookie_whitelist.clone();
+            let servo_queue = queue.handle();
+            OnDemandState::new(Box::new(move || {
+                ServoState::new(raw_display, servo_queue, servo_cookie_whitelist)
+            }))
+        };
 
         Ok(Self {
             protocol_states,
             config_manager,
-            engine_state,
+            #[cfg(feature = "webkit")]
+            webkit_state,
             egl_display,
+            #[cfg(feature = "servo")]
+            servo_state,
             connection,
             main_loop,
             storage,
@@ -397,7 +425,10 @@ impl State {
             self.queue.clone(),
             self.wayland_queue(),
             &self.storage,
-            self.engine_state.clone(),
+            #[cfg(feature = "webkit")]
+            self.webkit_state.clone(),
+            #[cfg(feature = "servo")]
+            self.servo_state.clone(),
         );
         self.windows.entry(window.id()).insert_entry(window).into_mut()
     }
@@ -439,13 +470,14 @@ impl State {
 
         // Asynchronously write paste text to the window.
         let mut queue = self.queue.clone();
+        let mut target = Some(target);
         source::unix_fd_add_local(pipe.as_raw_fd(), IOCondition::IN, move |_, _| {
             // Read available text from pipe.
             let mut text = String::new();
             pipe.read_to_string(&mut text).unwrap();
 
             // Forward text to the paste target.
-            queue.paste(target, text);
+            queue.paste(target.take().unwrap(), text);
 
             ControlFlow::Break
         });
@@ -604,6 +636,27 @@ impl From<Position<f64>> for Position<f32> {
     }
 }
 
+#[cfg(feature = "servo")]
+impl<T, U> From<Point2D<T, U>> for Position<T> {
+    fn from(point: Point2D<T, U>) -> Self {
+        Self::new(point.x, point.y)
+    }
+}
+
+#[cfg(feature = "servo")]
+impl<T, U> From<Position<T>> for Point2D<T, U> {
+    fn from(position: Position<T>) -> Self {
+        Point2D::new(position.x, position.y)
+    }
+}
+
+#[cfg(feature = "servo")]
+impl From<Position<f64>> for WebViewPoint {
+    fn from(position: Position<f64>) -> Self {
+        WebViewPoint::Device(Point2D::new(position.x as f32, position.y as f32))
+    }
+}
+
 impl Mul<f64> for Position {
     type Output = Self;
 
@@ -706,6 +759,20 @@ impl From<Size> for Size<f64> {
 impl From<Size> for Size<f32> {
     fn from(size: Size) -> Self {
         Self { width: size.width as f32, height: size.height as f32 }
+    }
+}
+
+#[cfg(feature = "servo")]
+impl<T> From<PhysicalSize<T>> for Size<T> {
+    fn from(physical: PhysicalSize<T>) -> Self {
+        Self { width: physical.width, height: physical.height }
+    }
+}
+
+#[cfg(feature = "servo")]
+impl<T> From<Size<T>> for PhysicalSize<T> {
+    fn from(size: Size<T>) -> Self {
+        Self { width: size.width, height: size.height }
     }
 }
 

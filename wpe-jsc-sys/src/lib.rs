@@ -19,12 +19,13 @@ use std::ffi::{
 
 #[allow(unused_imports)]
 use glib::{GType, gboolean, gconstpointer, gpointer};
+use glib_sys as glib;
+use gobject_sys as gobject;
 #[allow(unused_imports)]
 use libc::{FILE, intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t};
 #[cfg(unix)]
 #[allow(unused_imports)]
 use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
-use {glib_sys as glib, gobject_sys as gobject};
 
 // Enums
 pub type JSCCheckSyntaxMode = c_int;

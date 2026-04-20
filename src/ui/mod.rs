@@ -28,7 +28,7 @@ use crate::{History, Position, Size, State, WindowId, gl, rect_contains};
 
 pub mod engine_backdrop;
 pub mod overlay;
-mod renderer;
+pub mod renderer;
 
 /// Logical height of the non-browser UI.
 pub const TOOLBAR_HEIGHT: u32 = 50;
@@ -229,7 +229,7 @@ impl Ui {
         let uribar = Uribar::new(window_id, history, queue.clone());
         let renderer = Renderer::new(display, surface.clone());
 
-        let mut ui = Self {
+        Self {
             compositor,
             subsurface,
             window_id,
@@ -257,12 +257,7 @@ impl Ui {
             origin: Default::default(),
             dirty: Default::default(),
             size: Default::default(),
-        };
-
-        // Focus URI bar on window creation.
-        ui.keyboard_focus_uribar();
-
-        ui
+        }
     }
 
     /// Update the logical UI size.
@@ -659,6 +654,7 @@ impl Ui {
     }
 
     /// Update the current number of search matches.
+    #[cfg(feature = "webkit")]
     pub fn set_search_match_count(&mut self, count: usize) {
         let has_matches = count != 0 || self.uribar.text_field.is_empty();
         self.dirty |= self.uribar.search_has_matches != has_matches;
@@ -871,7 +867,15 @@ impl Uribar {
     }
 
     /// Update the URI bar's content.
-    fn set_uri(&mut self, uri: Cow<'_, str>) {
+    fn set_uri(&mut self, mut uri: Cow<'_, str>) {
+        // Display about:blank as empty URI.
+        //
+        // This ensures that a new tab's URI can easily be changed,
+        // without having to clear the about:blank text first.
+        if uri == "about:blank" {
+            uri = Cow::Borrowed("");
+        }
+
         if uri == self.uri {
             return;
         }
@@ -1393,6 +1397,7 @@ impl TextField {
     }
 
     /// Check if the input's text is empty.
+    #[cfg(feature = "webkit")]
     #[cfg_attr(feature = "profiling", profiling::function)]
     fn is_empty(&self) -> bool {
         self.layout.text().is_empty()

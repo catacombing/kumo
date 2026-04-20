@@ -7,9 +7,12 @@ use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
+use crate::engine::EngineId;
 use crate::storage::history::History as HistoryDb;
 use crate::ui::Renderer;
-use crate::ui::overlay::downloads::{Download, DownloadId, Downloads};
+use crate::ui::overlay::downloads::Downloads;
+#[cfg(feature = "webkit")]
+use crate::ui::overlay::downloads::{Download, DownloadId};
 use crate::ui::overlay::history::History;
 use crate::ui::overlay::menu::Menu;
 use crate::ui::overlay::option_menu::{
@@ -400,6 +403,7 @@ impl Overlay {
     }
 
     /// Add a new download.
+    #[cfg(feature = "webkit")]
     pub fn add_download(&mut self, download: Download) {
         self.popups.downloads.add_download(download);
     }
@@ -408,6 +412,7 @@ impl Overlay {
     ///
     /// A progress value of `None` indicates that the download has failed and
     /// will not make any further progress.
+    #[cfg(feature = "webkit")]
     pub fn set_download_progress(&mut self, download_id: DownloadId, progress: Option<u8>) {
         self.popups.downloads.set_download_progress(download_id, progress);
     }
@@ -467,8 +472,16 @@ impl Overlay {
 
     /// Permanently discard an option menu.
     pub fn close_option_menu(&mut self, id: OptionMenuId) {
+        let old_len = self.popups.option_menus.len();
         self.popups.option_menus.retain(|menu| menu.id() != id);
-        self.dirty = true;
+        self.dirty |= old_len != self.popups.option_menus.len();
+    }
+
+    /// Remove all option menus associated with an engine.
+    pub fn close_engine_menus(&mut self, engine_id: EngineId) {
+        let old_len = self.popups.option_menus.len();
+        self.popups.option_menus.retain(|menu| menu.id().engine_id() != Some(engine_id));
+        self.dirty |= old_len != self.popups.option_menus.len();
     }
 
     /// Reload settings UI's values from current config.

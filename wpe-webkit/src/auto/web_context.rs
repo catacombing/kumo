@@ -142,15 +142,19 @@ impl WebContext {
             request: *mut ffi::WebKitURISchemeRequest,
             user_data: glib::ffi::gpointer,
         ) {
-            let request = from_glib_borrow(request);
-            let callback = &*(user_data as *mut P);
-            (*callback)(&request)
+            unsafe {
+                let request = from_glib_borrow(request);
+                let callback = &*(user_data as *mut P);
+                (*callback)(&request)
+            }
         }
         let callback = Some(callback_func::<P> as _);
         unsafe extern "C" fn user_data_destroy_func_func<P: Fn(&URISchemeRequest) + 'static>(
             data: glib::ffi::gpointer,
         ) {
-            let _callback = Box_::from_raw(data as *mut P);
+            unsafe {
+                let _callback = Box_::from_raw(data as *mut P);
+            }
         }
         let destroy_call4 = Some(user_data_destroy_func_func::<P> as _);
         let super_callback0: Box_<P> = callback_data;
@@ -261,14 +265,16 @@ impl WebContext {
             session: *mut ffi::WebKitAutomationSession,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(session))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(session))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"automation-started".as_ptr() as *const _,
+                c"automation-started".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     automation_started_trampoline::<F> as *const (),
                 )),
@@ -288,14 +294,16 @@ impl WebContext {
             this: *mut ffi::WebKitWebContext,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"initialize-notification-permissions".as_ptr() as *const _,
+                c"initialize-notification-permissions".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     initialize_notification_permissions_trampoline::<F> as *const (),
                 )),
@@ -315,14 +323,16 @@ impl WebContext {
             this: *mut ffi::WebKitWebContext,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"initialize-web-process-extensions".as_ptr() as *const _,
+                c"initialize-web-process-extensions".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     initialize_web_process_extensions_trampoline::<F> as *const (),
                 )),
@@ -343,14 +353,16 @@ impl WebContext {
             message: *mut ffi::WebKitUserMessage,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(message)).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(message)).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"user-message-received".as_ptr() as *const _,
+                c"user-message-received".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     user_message_received_trampoline::<F> as *const (),
                 )),

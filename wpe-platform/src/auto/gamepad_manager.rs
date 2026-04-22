@@ -71,14 +71,19 @@ pub trait GamepadManagerExt: IsA<GamepadManager> + 'static {
             gamepad: *mut ffi::WPEGamepad,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(GamepadManager::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(gamepad))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    GamepadManager::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(gamepad),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"device-added".as_ptr() as *const _,
+                c"device-added".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     device_added_trampoline::<Self, F> as *const (),
                 )),
@@ -97,14 +102,19 @@ pub trait GamepadManagerExt: IsA<GamepadManager> + 'static {
             gamepad: *mut ffi::WPEGamepad,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(GamepadManager::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(gamepad))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    GamepadManager::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(gamepad),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"device-removed".as_ptr() as *const _,
+                c"device-removed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     device_removed_trampoline::<Self, F> as *const (),
                 )),

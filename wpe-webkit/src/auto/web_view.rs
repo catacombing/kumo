@@ -14,12 +14,12 @@ use glib::translate::*;
 use crate::{
     AuthenticationRequest, AutomationBrowsingContextPresentation, BackForwardList,
     BackForwardListItem, Color, ContextMenu, Download, EditorState, Favicon, FileChooserRequest,
-    FindController, FormSubmissionRequest, HitTestResult, InputMethodContext, LoadEvent,
+    FindController, FormSubmissionRequest, HitTestResult, Image, InputMethodContext, LoadEvent,
     MediaCaptureState, NavigationAction, NetworkSession, Notification, OptionMenu,
     PermissionRequest, PermissionStateQuery, PolicyDecision, PolicyDecisionType, Rectangle,
-    SaveMode, ScriptDialog, Settings, URIRequest, UserContentManager, UserMessage, WebContext,
-    WebExtensionMode, WebProcessTerminationReason, WebResource, WebViewBackend,
-    WebViewSessionState, WebsitePolicies, WindowProperties, ffi,
+    SaveMode, ScriptDialog, Settings, SnapshotOptions, SnapshotRegion, URIRequest,
+    UserContentManager, UserMessage, WebContext, WebExtensionMode, WebProcessTerminationReason,
+    WebResource, WebViewBackend, WebViewSessionState, WebsitePolicies, WindowProperties, ffi,
 };
 
 glib::wrapper! {
@@ -183,15 +183,19 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             web_view: *mut ffi::WebKitWebView,
             user_data: glib::ffi::gpointer,
         ) {
-            let web_view = from_glib_borrow(web_view);
-            let callback = &*(user_data as *mut P);
-            (*callback)(&web_view)
+            unsafe {
+                let web_view = from_glib_borrow(web_view);
+                let callback = &*(user_data as *mut P);
+                (*callback)(&web_view)
+            }
         }
         let callback = Some(callback_func::<P> as _);
         unsafe extern "C" fn destroy_notify_func<P: Fn(&WebView) + 'static>(
             data: glib::ffi::gpointer,
         ) {
-            let _callback = Box_::from_raw(data as *mut P);
+            unsafe {
+                let _callback = Box_::from_raw(data as *mut P);
+            }
         }
         let destroy_call3 = Some(destroy_notify_func::<P> as _);
         let super_callback0: Box_<P> = callback_data;
@@ -237,18 +241,23 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::webkit_web_view_call_async_javascript_function_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result =
-                if error.is_null() { Ok(from_glib_full(ret)) } else { Err(from_glib_full(error)) };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::webkit_web_view_call_async_javascript_function_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = call_async_javascript_function_trampoline::<P>;
         unsafe {
@@ -321,17 +330,19 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            ffi::webkit_web_view_can_execute_editing_command_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                ffi::webkit_web_view_can_execute_editing_command_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = can_execute_editing_command_trampoline::<P>;
         unsafe {
@@ -418,18 +429,23 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::webkit_web_view_evaluate_javascript_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result =
-                if error.is_null() { Ok(from_glib_full(ret)) } else { Err(from_glib_full(error)) };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::webkit_web_view_evaluate_javascript_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = evaluate_javascript_trampoline::<P>;
         unsafe {
@@ -689,6 +705,76 @@ pub trait WebViewExt: IsA<WebView> + 'static {
         unsafe { from_glib_none(ffi::webkit_web_view_get_settings(self.as_ref().to_glib_none().0)) }
     }
 
+    #[doc(alias = "webkit_web_view_get_snapshot")]
+    #[doc(alias = "get_snapshot")]
+    fn snapshot<P: FnOnce(Result<Image, glib::Error>) + 'static>(
+        &self,
+        region: SnapshotRegion,
+        options: SnapshotOptions,
+        cancellable: Option<&impl IsA<gio::Cancellable>>,
+        callback: P,
+    ) {
+        let main_context = glib::MainContext::ref_thread_default();
+        let is_main_context_owner = main_context.is_owner();
+        let has_acquired_main_context =
+            (!is_main_context_owner).then(|| main_context.acquire().ok()).flatten();
+        assert!(
+            is_main_context_owner || has_acquired_main_context.is_some(),
+            "Async operations only allowed if the thread is owning the MainContext"
+        );
+
+        let user_data: Box_<glib::thread_guard::ThreadGuard<P>> =
+            Box_::new(glib::thread_guard::ThreadGuard::new(callback));
+        unsafe extern "C" fn snapshot_trampoline<
+            P: FnOnce(Result<Image, glib::Error>) + 'static,
+        >(
+            _source_object: *mut glib::gobject_ffi::GObject,
+            res: *mut gio::ffi::GAsyncResult,
+            user_data: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::webkit_web_view_get_snapshot_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
+        }
+        let callback = snapshot_trampoline::<P>;
+        unsafe {
+            ffi::webkit_web_view_get_snapshot(
+                self.as_ref().to_glib_none().0,
+                region.into_glib(),
+                options.into_glib(),
+                cancellable.map(|p| p.as_ref()).to_glib_none().0,
+                Some(callback),
+                Box_::into_raw(user_data) as *mut _,
+            );
+        }
+    }
+
+    fn snapshot_future(
+        &self,
+        region: SnapshotRegion,
+        options: SnapshotOptions,
+    ) -> Pin<Box_<dyn std::future::Future<Output = Result<Image, glib::Error>> + 'static>> {
+        Box_::pin(gio::GioFuture::new(self, move |obj, cancellable, send| {
+            obj.snapshot(region, options, Some(cancellable), move |res| {
+                send.resolve(res);
+            });
+        }))
+    }
+
     #[doc(alias = "webkit_web_view_get_theme_color")]
     #[doc(alias = "get_theme_color")]
     #[doc(alias = "theme-color")]
@@ -825,6 +911,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
         unsafe { from_glib(ffi::webkit_web_view_is_editable(self.as_ref().to_glib_none().0)) }
     }
 
+    #[doc(alias = "webkit_web_view_is_immersive_mode_enabled")]
+    #[doc(alias = "is-immersive-mode-enabled")]
+    fn is_immersive_mode_enabled(&self) -> bool {
+        unsafe {
+            from_glib(ffi::webkit_web_view_is_immersive_mode_enabled(
+                self.as_ref().to_glib_none().0,
+            ))
+        }
+    }
+
     #[doc(alias = "webkit_web_view_is_loading")]
     #[doc(alias = "is-loading")]
     fn is_loading(&self) -> bool {
@@ -835,6 +931,13 @@ pub trait WebViewExt: IsA<WebView> + 'static {
     #[doc(alias = "is-playing-audio")]
     fn is_playing_audio(&self) -> bool {
         unsafe { from_glib(ffi::webkit_web_view_is_playing_audio(self.as_ref().to_glib_none().0)) }
+    }
+
+    #[doc(alias = "webkit_web_view_leave_immersive_mode")]
+    fn leave_immersive_mode(&self) {
+        unsafe {
+            ffi::webkit_web_view_leave_immersive_mode(self.as_ref().to_glib_none().0);
+        }
     }
 
     #[doc(alias = "webkit_web_view_load_alternate_html")]
@@ -965,14 +1068,20 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::webkit_web_view_save_finish(_source_object as *mut _, res, &mut error);
-            let result =
-                if error.is_null() { Ok(from_glib_full(ret)) } else { Err(from_glib_full(error)) };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret =
+                    ffi::webkit_web_view_save_finish(_source_object as *mut _, res, &mut error);
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = save_trampoline::<P>;
         unsafe {
@@ -1024,13 +1133,15 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            ffi::webkit_web_view_save_to_file_finish(_source_object as *mut _, res, &mut error);
-            let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                ffi::webkit_web_view_save_to_file_finish(_source_object as *mut _, res, &mut error);
+                let result = if error.is_null() { Ok(()) } else { Err(from_glib_full(error)) };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = save_to_file_trampoline::<P>;
         unsafe {
@@ -1083,18 +1194,23 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::webkit_web_view_send_message_to_page_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result =
-                if error.is_null() { Ok(from_glib_full(ret)) } else { Err(from_glib_full(error)) };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::webkit_web_view_send_message_to_page_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = send_message_to_page_trampoline::<P>;
         unsafe {
@@ -1275,15 +1391,17 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             request: *mut ffi::WebKitAuthenticationRequest,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
-                .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
+                    .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"authenticate".as_ptr() as *const _,
+                c"authenticate".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     authenticate_trampoline::<Self, F> as *const (),
                 )),
@@ -1298,14 +1416,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             this: *mut ffi::WebKitWebView,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"close".as_ptr() as *const _,
+                c"close".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     close_trampoline::<Self, F> as *const (),
                 )),
@@ -1328,19 +1448,21 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             p0: *mut ffi::WebKitHitTestResult,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(object),
-                &from_glib_borrow(p0),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(object),
+                    &from_glib_borrow(p0),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"context-menu".as_ptr() as *const _,
+                c"context-menu".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     context_menu_trampoline::<Self, F> as *const (),
                 )),
@@ -1349,7 +1471,6 @@ pub trait WebViewExt: IsA<WebView> + 'static {
         }
     }
 
-    #[deprecated = "Since 2.48"]
     #[doc(alias = "context-menu-dismissed")]
     fn connect_context_menu_dismissed<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
         unsafe extern "C" fn context_menu_dismissed_trampoline<
@@ -1359,14 +1480,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             this: *mut ffi::WebKitWebView,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"context-menu-dismissed".as_ptr() as *const _,
+                c"context-menu-dismissed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     context_menu_dismissed_trampoline::<Self, F> as *const (),
                 )),
@@ -1388,18 +1511,20 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             navigation_action: *mut ffi::WebKitNavigationAction,
             f: glib::ffi::gpointer,
         ) -> *mut ffi::WebKitWebView {
-            let f: &F = &*(f as *const F);
-            f(
-                WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(navigation_action),
-            )
-            .to_glib_full()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(navigation_action),
+                )
+                .to_glib_full()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"create".as_ptr() as *const _,
+                c"create".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     create_trampoline::<Self, F> as *const (),
                 )),
@@ -1424,19 +1549,21 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             decision_type: ffi::WebKitPolicyDecisionType,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(decision),
-                from_glib(decision_type),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(decision),
+                    from_glib(decision_type),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"decide-policy".as_ptr() as *const _,
+                c"decide-policy".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     decide_policy_trampoline::<Self, F> as *const (),
                 )),
@@ -1454,14 +1581,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             this: *mut ffi::WebKitWebView,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"enter-fullscreen".as_ptr() as *const _,
+                c"enter-fullscreen".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     enter_fullscreen_trampoline::<Self, F> as *const (),
                 )),
@@ -1479,14 +1608,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             this: *mut ffi::WebKitWebView,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"leave-fullscreen".as_ptr() as *const _,
+                c"leave-fullscreen".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     leave_fullscreen_trampoline::<Self, F> as *const (),
                 )),
@@ -1505,14 +1636,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             load_event: ffi::WebKitLoadEvent,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), from_glib(load_event))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), from_glib(load_event))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"load-changed".as_ptr() as *const _,
+                c"load-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     load_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -1536,20 +1669,22 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             error: *mut glib::ffi::GError,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                from_glib(load_event),
-                &glib::GString::from_glib_borrow(failing_uri),
-                &from_glib_borrow(error),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                    from_glib(load_event),
+                    &glib::GString::from_glib_borrow(failing_uri),
+                    &from_glib_borrow(error),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"load-failed".as_ptr() as *const _,
+                c"load-failed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     load_failed_trampoline::<Self, F> as *const (),
                 )),
@@ -1575,20 +1710,22 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             errors: gio::ffi::GTlsCertificateFlags,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                &glib::GString::from_glib_borrow(failing_uri),
-                &from_glib_borrow(certificate),
-                from_glib(errors),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &glib::GString::from_glib_borrow(failing_uri),
+                    &from_glib_borrow(certificate),
+                    from_glib(errors),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"load-failed-with-tls-errors".as_ptr() as *const _,
+                c"load-failed-with-tls-errors".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     load_failed_with_tls_errors_trampoline::<Self, F> as *const (),
                 )),
@@ -1611,18 +1748,20 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             modifiers: std::ffi::c_uint,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(hit_test_result),
-                modifiers,
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(hit_test_result),
+                    modifiers,
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"mouse-target-changed".as_ptr() as *const _,
+                c"mouse-target-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     mouse_target_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -1644,15 +1783,17 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             request: *mut ffi::WebKitPermissionRequest,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
-                .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
+                    .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"permission-request".as_ptr() as *const _,
+                c"permission-request".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     permission_request_trampoline::<Self, F> as *const (),
                 )),
@@ -1674,15 +1815,17 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             query: *mut ffi::WebKitPermissionStateQuery,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(query))
-                .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(query))
+                    .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"query-permission-state".as_ptr() as *const _,
+                c"query-permission-state".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     query_permission_state_trampoline::<Self, F> as *const (),
                 )),
@@ -1697,14 +1840,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             this: *mut ffi::WebKitWebView,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"ready-to-show".as_ptr() as *const _,
+                c"ready-to-show".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     ready_to_show_trampoline::<Self, F> as *const (),
                 )),
@@ -1727,18 +1872,20 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             request: *mut ffi::WebKitURIRequest,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(resource),
-                &from_glib_borrow(request),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(resource),
+                    &from_glib_borrow(request),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"resource-load-started".as_ptr() as *const _,
+                c"resource-load-started".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     resource_load_started_trampoline::<Self, F> as *const (),
                 )),
@@ -1753,14 +1900,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             this: *mut ffi::WebKitWebView,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"run-as-modal".as_ptr() as *const _,
+                c"run-as-modal".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     run_as_modal_trampoline::<Self, F> as *const (),
                 )),
@@ -1782,15 +1931,17 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             request: *mut ffi::WebKitFileChooserRequest,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
-                .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
+                    .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"run-file-chooser".as_ptr() as *const _,
+                c"run-file-chooser".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     run_file_chooser_trampoline::<Self, F> as *const (),
                 )),
@@ -1812,15 +1963,17 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             dialog: *mut ffi::WebKitScriptDialog,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(dialog))
-                .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(dialog))
+                    .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"script-dialog".as_ptr() as *const _,
+                c"script-dialog".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     script_dialog_trampoline::<Self, F> as *const (),
                 )),
@@ -1842,15 +1995,20 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             notification: *mut ffi::WebKitNotification,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(notification))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(notification),
+                )
                 .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"show-notification".as_ptr() as *const _,
+                c"show-notification".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     show_notification_trampoline::<Self, F> as *const (),
                 )),
@@ -1873,19 +2031,21 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             p0: *mut ffi::WebKitRectangle,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                WebView::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(object),
-                &from_glib_borrow(p0),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    WebView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(object),
+                    &from_glib_borrow(p0),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"show-option-menu".as_ptr() as *const _,
+                c"show-option-menu".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     show_option_menu_trampoline::<Self, F> as *const (),
                 )),
@@ -1907,14 +2067,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             request: *mut ffi::WebKitFormSubmissionRequest,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(request))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"submit-form".as_ptr() as *const _,
+                c"submit-form".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     submit_form_trampoline::<Self, F> as *const (),
                 )),
@@ -1936,15 +2098,17 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             message: *mut ffi::WebKitUserMessage,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(message))
-                .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(message))
+                    .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"user-message-received".as_ptr() as *const _,
+                c"user-message-received".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     user_message_received_trampoline::<Self, F> as *const (),
                 )),
@@ -1966,14 +2130,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             reason: ffi::WebKitWebProcessTerminationReason,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref(), from_glib(reason))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref(), from_glib(reason))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"web-process-terminated".as_ptr() as *const _,
+                c"web-process-terminated".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     web_process_terminated_trampoline::<Self, F> as *const (),
                 )),
@@ -1992,14 +2158,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::camera-capture-state".as_ptr() as *const _,
+                c"notify::camera-capture-state".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_camera_capture_state_trampoline::<Self, F> as *const (),
                 )),
@@ -2021,14 +2189,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::display-capture-state".as_ptr() as *const _,
+                c"notify::display-capture-state".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_display_capture_state_trampoline::<Self, F> as *const (),
                 )),
@@ -2044,14 +2214,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::editable".as_ptr() as *const _,
+                c"notify::editable".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_editable_trampoline::<Self, F> as *const (),
                 )),
@@ -2073,14 +2245,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::estimated-load-progress".as_ptr() as *const _,
+                c"notify::estimated-load-progress".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_estimated_load_progress_trampoline::<Self, F> as *const (),
                 )),
@@ -2096,16 +2270,49 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::favicon".as_ptr() as *const _,
+                c"notify::favicon".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_favicon_trampoline::<Self, F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "is-immersive-mode-enabled")]
+    fn connect_is_immersive_mode_enabled_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_is_immersive_mode_enabled_trampoline<
+            P: IsA<WebView>,
+            F: Fn(&P) + 'static,
+        >(
+            this: *mut ffi::WebKitWebView,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::is-immersive-mode-enabled".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_is_immersive_mode_enabled_trampoline::<Self, F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -2119,14 +2326,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::is-loading".as_ptr() as *const _,
+                c"notify::is-loading".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_is_loading_trampoline::<Self, F> as *const (),
                 )),
@@ -2142,14 +2351,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::is-muted".as_ptr() as *const _,
+                c"notify::is-muted".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_is_muted_trampoline::<Self, F> as *const (),
                 )),
@@ -2168,14 +2379,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::is-playing-audio".as_ptr() as *const _,
+                c"notify::is-playing-audio".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_is_playing_audio_trampoline::<Self, F> as *const (),
                 )),
@@ -2197,14 +2410,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::is-web-process-responsive".as_ptr() as *const _,
+                c"notify::is-web-process-responsive".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_is_web_process_responsive_trampoline::<Self, F> as *const (),
                 )),
@@ -2226,14 +2441,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::microphone-capture-state".as_ptr() as *const _,
+                c"notify::microphone-capture-state".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_microphone_capture_state_trampoline::<Self, F> as *const (),
                 )),
@@ -2249,14 +2466,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::page-id".as_ptr() as *const _,
+                c"notify::page-id".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_page_id_trampoline::<Self, F> as *const (),
                 )),
@@ -2272,14 +2491,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::settings".as_ptr() as *const _,
+                c"notify::settings".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_settings_trampoline::<Self, F> as *const (),
                 )),
@@ -2295,14 +2516,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::theme-color".as_ptr() as *const _,
+                c"notify::theme-color".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_theme_color_trampoline::<Self, F> as *const (),
                 )),
@@ -2318,14 +2541,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::title".as_ptr() as *const _,
+                c"notify::title".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_title_trampoline::<Self, F> as *const (),
                 )),
@@ -2341,14 +2566,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::uri".as_ptr() as *const _,
+                c"notify::uri".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_uri_trampoline::<Self, F> as *const (),
                 )),
@@ -2364,14 +2591,16 @@ pub trait WebViewExt: IsA<WebView> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(WebView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::zoom-level".as_ptr() as *const _,
+                c"notify::zoom-level".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_zoom_level_trampoline::<Self, F> as *const (),
                 )),

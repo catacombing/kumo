@@ -71,20 +71,22 @@ impl AutomationSession {
             this: *mut ffi::WebKitAutomationSession,
             f: glib::ffi::gpointer,
         ) -> *mut ffi::WebKitWebView {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this)) // Not checked
-                .to_glib_none()
-                .0
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this)) // Not checked
+                    .to_glib_none()
+                    .0
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             let detailed_signal_name = detail.map(|name| format!("create-web-view::{name}\0"));
-            let signal_name: &[u8] = detailed_signal_name
-                .as_ref()
-                .map_or(c"create-web-view".to_bytes(), |n| n.as_bytes());
+            let signal_name = detailed_signal_name.as_ref().map_or(c"create-web-view", |n| {
+                std::ffi::CStr::from_bytes_with_nul_unchecked(n.as_bytes())
+            });
             connect_raw(
                 self.as_ptr() as *mut _,
-                signal_name.as_ptr() as *const _,
+                signal_name.as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     create_web_view_trampoline::<F> as *const (),
                 )),
@@ -99,14 +101,16 @@ impl AutomationSession {
             this: *mut ffi::WebKitAutomationSession,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"will-close".as_ptr() as *const _,
+                c"will-close".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     will_close_trampoline::<F> as *const (),
                 )),

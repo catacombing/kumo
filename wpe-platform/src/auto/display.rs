@@ -11,8 +11,8 @@ use glib::signal::{SignalHandlerId, connect_raw};
 use glib::translate::*;
 
 use crate::{
-    AvailableInputDevices, BufferDMABufFormats, Clipboard, DRMDevice, GamepadManager, Keymap,
-    Screen, Settings, ffi,
+    AvailableInputDevices, BufferFormats, Clipboard, DRMDevice, GamepadManager, Keymap, Screen,
+    Settings, Toplevel, ffi,
 };
 
 glib::wrapper! {
@@ -59,6 +59,16 @@ pub trait DisplayExt: IsA<Display> + 'static {
         }
     }
 
+    #[doc(alias = "wpe_display_create_toplevel")]
+    fn create_toplevel(&self, max_views: u32) -> Option<Toplevel> {
+        unsafe {
+            from_glib_full(ffi::wpe_display_create_toplevel(
+                self.as_ref().to_glib_none().0,
+                max_views,
+            ))
+        }
+    }
+
     #[doc(alias = "wpe_display_get_available_input_devices")]
     #[doc(alias = "get_available_input_devices")]
     #[doc(alias = "available-input-devices")]
@@ -98,11 +108,11 @@ pub trait DisplayExt: IsA<Display> + 'static {
         unsafe { ffi::wpe_display_get_n_screens(self.as_ref().to_glib_none().0) }
     }
 
-    #[doc(alias = "wpe_display_get_preferred_dma_buf_formats")]
-    #[doc(alias = "get_preferred_dma_buf_formats")]
-    fn preferred_dma_buf_formats(&self) -> Option<BufferDMABufFormats> {
+    #[doc(alias = "wpe_display_get_preferred_buffer_formats")]
+    #[doc(alias = "get_preferred_buffer_formats")]
+    fn preferred_buffer_formats(&self) -> Option<BufferFormats> {
         unsafe {
-            from_glib_none(ffi::wpe_display_get_preferred_dma_buf_formats(
+            from_glib_none(ffi::wpe_display_get_preferred_buffer_formats(
                 self.as_ref().to_glib_none().0,
             ))
         }
@@ -165,6 +175,40 @@ pub trait DisplayExt: IsA<Display> + 'static {
         unsafe { from_glib(ffi::wpe_display_use_explicit_sync(self.as_ref().to_glib_none().0)) }
     }
 
+    #[doc(alias = "disconnected")]
+    fn connect_disconnected<F: Fn(&Self, Option<&glib::Error>) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn disconnected_trampoline<
+            P: IsA<Display>,
+            F: Fn(&P, Option<&glib::Error>) + 'static,
+        >(
+            this: *mut ffi::WPEDisplay,
+            error: *mut glib::ffi::GError,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    Display::from_glib_borrow(this).unsafe_cast_ref(),
+                    Option::<glib::Error>::from_glib_borrow(error).as_ref().as_ref(),
+                )
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"disconnected".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    disconnected_trampoline::<Self, F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
     #[doc(alias = "screen-added")]
     fn connect_screen_added<F: Fn(&Self, &Screen) + 'static>(&self, f: F) -> SignalHandlerId {
         unsafe extern "C" fn screen_added_trampoline<
@@ -175,14 +219,16 @@ pub trait DisplayExt: IsA<Display> + 'static {
             screen: *mut ffi::WPEScreen,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Display::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(screen))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Display::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(screen))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"screen-added".as_ptr() as *const _,
+                c"screen-added".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     screen_added_trampoline::<Self, F> as *const (),
                 )),
@@ -201,14 +247,16 @@ pub trait DisplayExt: IsA<Display> + 'static {
             screen: *mut ffi::WPEScreen,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Display::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(screen))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Display::from_glib_borrow(this).unsafe_cast_ref(), &from_glib_borrow(screen))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"screen-removed".as_ptr() as *const _,
+                c"screen-removed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     screen_removed_trampoline::<Self, F> as *const (),
                 )),
@@ -230,14 +278,16 @@ pub trait DisplayExt: IsA<Display> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::available-input-devices".as_ptr() as *const _,
+                c"notify::available-input-devices".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_available_input_devices_trampoline::<Self, F> as *const (),
                 )),

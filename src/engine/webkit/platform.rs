@@ -18,8 +18,8 @@ use smithay_client_toolkit::seat::pointer::AxisScroll;
 use wayland_backend::protocol::WEnum;
 use wpe_platform::ffi::{WPE_BUTTON_MIDDLE, WPE_BUTTON_PRIMARY, WPE_BUTTON_SECONDARY};
 use wpe_platform::{
-    Buffer, BufferDMABufFormatUsage, BufferDMABufFormats, BufferDMABufFormatsBuilder, DRMDevice,
-    Display, Event, EventType, InputSource, ToplevelExt, ViewExt,
+    Buffer, BufferFormatUsage, BufferFormats, BufferFormatsBuilder, DRMDevice, Display, Event,
+    EventType, InputSource, ToplevelExt, ViewExt,
 };
 
 use crate::engine::EngineId;
@@ -37,9 +37,9 @@ mod imp {
     use smithay_client_toolkit::seat::keyboard::Modifiers;
     use wpe_platform::ffi::WPERectangle;
     use wpe_platform::{
-        Buffer, BufferDMABufFormatUsage, BufferDMABufFormats, BufferDMABufFormatsBuilder,
-        DisplayImpl, InputMethodContext, Modifiers as WebKitModifiers, Toplevel, ToplevelExt,
-        ToplevelImpl, ToplevelState, View, ViewExt, ViewImpl,
+        Buffer, BufferFormatUsage, BufferFormats, BufferFormatsBuilder, DisplayImpl,
+        InputMethodContext, Modifiers as WebKitModifiers, Toplevel, ToplevelExt, ToplevelImpl,
+        ToplevelState, View, ViewExt, ViewImpl,
     };
 
     use crate::engine::webkit::WebKitHandler;
@@ -60,7 +60,7 @@ mod imp {
 
         pointer_position: Cell<Option<Position<f64>>>,
         pointer_modifiers: Cell<Option<WebKitModifiers>>,
-        dmabuf_formats: Cell<Option<BufferDMABufFormats>>,
+        dmabuf_formats: Cell<Option<BufferFormats>>,
         fullscreened: AtomicBool,
         active: AtomicBool,
     }
@@ -73,7 +73,7 @@ mod imp {
             queue: StQueueHandle<State>,
             engine_id: EngineId,
             device_node: CString,
-            formats: Option<BufferDMABufFormats>,
+            formats: Option<BufferFormats>,
         ) {
             let _ = self.input_method_context.set(KumoInputMethodContext::new());
             let _ = self.device_node.set(device_node);
@@ -132,9 +132,9 @@ mod imp {
         }
 
         /// Update acceptable DMA buffer formats.
-        pub fn set_dmabuf_formats(&self, formats: Option<BufferDMABufFormats>) {
+        pub fn set_dmabuf_formats(&self, formats: Option<BufferFormats>) {
             self.dmabuf_formats.set(formats);
-            self.toplevel().preferred_dma_buf_formats_changed();
+            self.toplevel().preferred_buffer_formats_changed();
         }
 
         /// Update focus state.
@@ -203,7 +203,7 @@ mod imp {
             self.input_method_context().upcast_ref()
         }
 
-        fn preferred_dmabuf_formats(&self) -> Option<BufferDMABufFormats> {
+        fn preferred_dmabuf_formats(&self) -> Option<BufferFormats> {
             let formats = self.dmabuf_formats.take();
             self.dmabuf_formats.set(formats.clone());
 
@@ -212,8 +212,8 @@ mod imp {
                 // We use Argb8888 + Linear as default since the initial engine will be spawned
                 // before the compositor sends the first feedback.
                 None => {
-                    let builder = BufferDMABufFormatsBuilder::new(None);
-                    builder.append_group(None, BufferDMABufFormatUsage::Rendering);
+                    let builder = BufferFormatsBuilder::new(None);
+                    builder.append_group(None, BufferFormatUsage::Rendering);
                     builder.append_format(DRM_FOURCC_ARGB8888, 0);
                     builder.end()
                 },
@@ -538,20 +538,20 @@ impl WebKitToplevel {
 }
 
 /// Convert Wayland feedback to WebKit buffer formats.
-fn webkit_formats(feedback: &DmabufFeedback) -> Option<BufferDMABufFormats> {
+fn webkit_formats(feedback: &DmabufFeedback) -> Option<BufferFormats> {
     let formats = feedback.format_table();
     let tranches = feedback.tranches();
 
     let dev = drm_device(feedback.main_device());
-    let builder = BufferDMABufFormatsBuilder::new(dev.as_ref());
+    let builder = BufferFormatsBuilder::new(dev.as_ref());
 
     for tranche in tranches {
         // Convert Wayland flags to WebKit usage purpose.
         let usage = match tranche.flags {
             WEnum::Value(flags) if flags.contains(TrancheFlags::Scanout) => {
-                BufferDMABufFormatUsage::Scanout
+                BufferFormatUsage::Scanout
             },
-            _ => BufferDMABufFormatUsage::Rendering,
+            _ => BufferFormatUsage::Rendering,
         };
 
         // Start a new tranche group.

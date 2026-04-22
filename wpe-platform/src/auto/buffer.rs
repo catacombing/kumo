@@ -34,6 +34,18 @@ pub trait BufferExt: IsA<Buffer> + 'static {
         unsafe { ffi::wpe_buffer_get_height(self.as_ref().to_glib_none().0) }
     }
 
+    #[doc(alias = "wpe_buffer_get_release_fence")]
+    #[doc(alias = "get_release_fence")]
+    fn release_fence(&self) -> i32 {
+        unsafe { ffi::wpe_buffer_get_release_fence(self.as_ref().to_glib_none().0) }
+    }
+
+    #[doc(alias = "wpe_buffer_get_rendering_fence")]
+    #[doc(alias = "get_rendering_fence")]
+    fn rendering_fence(&self) -> i32 {
+        unsafe { ffi::wpe_buffer_get_rendering_fence(self.as_ref().to_glib_none().0) }
+    }
+
     //#[doc(alias = "wpe_buffer_get_user_data")]
     //#[doc(alias = "get_user_data")]
     // fn user_data(&self) -> /*Unimplemented*/Option<Basic: Pointer> {
@@ -61,10 +73,34 @@ pub trait BufferExt: IsA<Buffer> + 'static {
         }
     }
 
+    #[doc(alias = "wpe_buffer_set_release_fence")]
+    fn set_release_fence(&self, fd: i32) {
+        unsafe {
+            ffi::wpe_buffer_set_release_fence(self.as_ref().to_glib_none().0, fd);
+        }
+    }
+
+    #[doc(alias = "wpe_buffer_set_rendering_fence")]
+    fn set_rendering_fence(&self, fd: i32) {
+        unsafe {
+            ffi::wpe_buffer_set_rendering_fence(self.as_ref().to_glib_none().0, fd);
+        }
+    }
+
     //#[doc(alias = "wpe_buffer_set_user_data")]
     // fn set_user_data(&self, user_data: /*Unimplemented*/Option<Basic: Pointer>) {
     //    unsafe { TODO: call ffi:wpe_buffer_set_user_data() }
     //}
+
+    #[doc(alias = "wpe_buffer_take_release_fence")]
+    fn take_release_fence(&self) -> i32 {
+        unsafe { ffi::wpe_buffer_take_release_fence(self.as_ref().to_glib_none().0) }
+    }
+
+    #[doc(alias = "wpe_buffer_take_rendering_fence")]
+    fn take_rendering_fence(&self) -> i32 {
+        unsafe { ffi::wpe_buffer_take_rendering_fence(self.as_ref().to_glib_none().0) }
+    }
 }
 
 impl<O: IsA<Buffer>> BufferExt for O {}

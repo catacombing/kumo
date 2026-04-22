@@ -3,12 +3,12 @@
 use std::ffi::CStr;
 use std::ptr;
 
-use ffi::{WPEBufferDMABufFormats, WPEDRMDevice, WPEDisplay, WPEInputMethodContext, WPEView};
+use ffi::{WPEBufferFormats, WPEDRMDevice, WPEDisplay, WPEInputMethodContext, WPEView};
 use glib::object::IsA;
 use glib::subclass::prelude::*;
 use glib::translate::{ToGlibPtr, *};
 
-use crate::{BufferDMABufFormats, Display, InputMethodContext, Settings, View};
+use crate::{BufferFormats, Display, InputMethodContext, Settings, View};
 
 pub trait DisplayExtManual: IsA<Display> + 'static {
     /// Get WPE platform settings.
@@ -29,7 +29,7 @@ pub trait DisplayImpl: ObjectImpl {
     fn create_input_method_context(&self) -> &InputMethodContext;
 
     /// Get acceptable DMA buffer formats.
-    fn preferred_dmabuf_formats(&self) -> Option<BufferDMABufFormats>;
+    fn preferred_dmabuf_formats(&self) -> Option<BufferFormats>;
 
     /// Get the DRM device node path.
     fn device_node(&self) -> &CStr;
@@ -44,7 +44,7 @@ unsafe impl<T: DisplayImpl> IsSubclassable<T> for Display {
         klass.create_view = Some(create_view::<T>);
         klass.get_egl_display = None;
         klass.get_keymap = None;
-        klass.get_preferred_dma_buf_formats = Some(preferred_dmabuf_formats::<T>);
+        klass.get_preferred_buffer_formats = Some(preferred_dmabuf_formats::<T>);
         klass.get_n_screens = None;
         klass.get_screen = None;
         klass.get_drm_device = Some(drm_device::<T>);
@@ -61,7 +61,7 @@ unsafe extern "C" fn create_view<T: DisplayImpl>(display: *mut WPEDisplay) -> *m
 
 unsafe extern "C" fn preferred_dmabuf_formats<T: DisplayImpl>(
     display: *mut WPEDisplay,
-) -> *mut WPEBufferDMABufFormats {
+) -> *mut WPEBufferFormats {
     unsafe {
         let instance = &*(display as *mut T::Instance);
         instance.imp().preferred_dmabuf_formats().to_glib_full()

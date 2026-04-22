@@ -67,6 +67,21 @@ impl ContextMenu {
         unsafe { ffi::webkit_context_menu_get_n_items(self.to_glib_none().0) }
     }
 
+    #[doc(alias = "webkit_context_menu_get_position")]
+    #[doc(alias = "get_position")]
+    pub fn position(&self) -> Option<(i32, i32)> {
+        unsafe {
+            let mut x = std::mem::MaybeUninit::uninit();
+            let mut y = std::mem::MaybeUninit::uninit();
+            let ret = from_glib(ffi::webkit_context_menu_get_position(
+                self.to_glib_none().0,
+                x.as_mut_ptr(),
+                y.as_mut_ptr(),
+            ));
+            if ret { Some((x.assume_init(), y.assume_init())) } else { None }
+        }
+    }
+
     #[doc(alias = "webkit_context_menu_get_user_data")]
     #[doc(alias = "get_user_data")]
     pub fn user_data(&self) -> Option<glib::Variant> {

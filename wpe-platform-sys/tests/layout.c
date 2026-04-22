@@ -12,9 +12,9 @@ int main() {
     printf("%s;%zu;%zu\n", "WPEBuffer", sizeof(WPEBuffer), alignof(WPEBuffer));
     printf("%s;%zu;%zu\n", "WPEBufferClass", sizeof(WPEBufferClass), alignof(WPEBufferClass));
     printf("%s;%zu;%zu\n", "WPEBufferDMABufClass", sizeof(WPEBufferDMABufClass), alignof(WPEBufferDMABufClass));
-    printf("%s;%zu;%zu\n", "WPEBufferDMABufFormatUsage", sizeof(WPEBufferDMABufFormatUsage), alignof(WPEBufferDMABufFormatUsage));
-    printf("%s;%zu;%zu\n", "WPEBufferDMABufFormatsClass", sizeof(WPEBufferDMABufFormatsClass), alignof(WPEBufferDMABufFormatsClass));
     printf("%s;%zu;%zu\n", "WPEBufferError", sizeof(WPEBufferError), alignof(WPEBufferError));
+    printf("%s;%zu;%zu\n", "WPEBufferFormatUsage", sizeof(WPEBufferFormatUsage), alignof(WPEBufferFormatUsage));
+    printf("%s;%zu;%zu\n", "WPEBufferFormatsClass", sizeof(WPEBufferFormatsClass), alignof(WPEBufferFormatsClass));
     printf("%s;%zu;%zu\n", "WPEBufferSHMClass", sizeof(WPEBufferSHMClass), alignof(WPEBufferSHMClass));
     printf("%s;%zu;%zu\n", "WPEClipboard", sizeof(WPEClipboard), alignof(WPEClipboard));
     printf("%s;%zu;%zu\n", "WPEClipboardClass", sizeof(WPEClipboardClass), alignof(WPEClipboardClass));

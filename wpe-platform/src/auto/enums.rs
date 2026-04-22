@@ -10,102 +10,6 @@ use crate::ffi;
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
-#[doc(alias = "WPEBufferDMABufFormatUsage")]
-pub enum BufferDMABufFormatUsage {
-    #[doc(alias = "WPE_BUFFER_DMA_BUF_FORMAT_USAGE_RENDERING")]
-    Rendering,
-    #[doc(alias = "WPE_BUFFER_DMA_BUF_FORMAT_USAGE_MAPPING")]
-    Mapping,
-    #[doc(alias = "WPE_BUFFER_DMA_BUF_FORMAT_USAGE_SCANOUT")]
-    Scanout,
-    #[doc(hidden)]
-    __Unknown(i32),
-}
-
-#[doc(hidden)]
-impl IntoGlib for BufferDMABufFormatUsage {
-    type GlibType = ffi::WPEBufferDMABufFormatUsage;
-
-    #[inline]
-    fn into_glib(self) -> ffi::WPEBufferDMABufFormatUsage {
-        match self {
-            Self::Rendering => ffi::WPE_BUFFER_DMA_BUF_FORMAT_USAGE_RENDERING,
-            Self::Mapping => ffi::WPE_BUFFER_DMA_BUF_FORMAT_USAGE_MAPPING,
-            Self::Scanout => ffi::WPE_BUFFER_DMA_BUF_FORMAT_USAGE_SCANOUT,
-            Self::__Unknown(value) => value,
-        }
-    }
-}
-
-#[doc(hidden)]
-impl FromGlib<ffi::WPEBufferDMABufFormatUsage> for BufferDMABufFormatUsage {
-    #[inline]
-    unsafe fn from_glib(value: ffi::WPEBufferDMABufFormatUsage) -> Self {
-        match value {
-            ffi::WPE_BUFFER_DMA_BUF_FORMAT_USAGE_RENDERING => Self::Rendering,
-            ffi::WPE_BUFFER_DMA_BUF_FORMAT_USAGE_MAPPING => Self::Mapping,
-            ffi::WPE_BUFFER_DMA_BUF_FORMAT_USAGE_SCANOUT => Self::Scanout,
-            value => Self::__Unknown(value),
-        }
-    }
-}
-
-impl StaticType for BufferDMABufFormatUsage {
-    #[inline]
-    #[doc(alias = "wpe_buffer_dma_buf_format_usage_get_type")]
-    fn static_type() -> glib::Type {
-        unsafe { from_glib(ffi::wpe_buffer_dma_buf_format_usage_get_type()) }
-    }
-}
-
-impl glib::HasParamSpec for BufferDMABufFormatUsage {
-    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
-    type ParamSpec = glib::ParamSpecEnum;
-    type SetValue = Self;
-
-    fn param_spec_builder() -> Self::BuilderFn {
-        Self::ParamSpec::builder_with_default
-    }
-}
-
-impl glib::value::ValueType for BufferDMABufFormatUsage {
-    type Type = Self;
-}
-
-unsafe impl<'a> glib::value::FromValue<'a> for BufferDMABufFormatUsage {
-    type Checker = glib::value::GenericValueTypeChecker<Self>;
-
-    #[inline]
-    unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
-    }
-}
-
-impl ToValue for BufferDMABufFormatUsage {
-    #[inline]
-    fn to_value(&self) -> glib::Value {
-        let mut value = glib::Value::for_value_type::<Self>();
-        unsafe {
-            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
-        }
-        value
-    }
-
-    #[inline]
-    fn value_type(&self) -> glib::Type {
-        Self::static_type()
-    }
-}
-
-impl From<BufferDMABufFormatUsage> for glib::Value {
-    #[inline]
-    fn from(v: BufferDMABufFormatUsage) -> Self {
-        ToValue::to_value(&v)
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
-#[non_exhaustive]
 #[doc(alias = "WPEBufferError")]
 pub enum BufferError {
     #[doc(alias = "WPE_BUFFER_ERROR_NOT_SUPPORTED")]
@@ -189,7 +93,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for BufferError {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -218,12 +122,110 @@ impl From<BufferError> for glib::Value {
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
+#[doc(alias = "WPEBufferFormatUsage")]
+pub enum BufferFormatUsage {
+    #[doc(alias = "WPE_BUFFER_FORMAT_USAGE_RENDERING")]
+    Rendering,
+    #[doc(alias = "WPE_BUFFER_FORMAT_USAGE_MAPPING")]
+    Mapping,
+    #[doc(alias = "WPE_BUFFER_FORMAT_USAGE_SCANOUT")]
+    Scanout,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[doc(hidden)]
+impl IntoGlib for BufferFormatUsage {
+    type GlibType = ffi::WPEBufferFormatUsage;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WPEBufferFormatUsage {
+        match self {
+            Self::Rendering => ffi::WPE_BUFFER_FORMAT_USAGE_RENDERING,
+            Self::Mapping => ffi::WPE_BUFFER_FORMAT_USAGE_MAPPING,
+            Self::Scanout => ffi::WPE_BUFFER_FORMAT_USAGE_SCANOUT,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WPEBufferFormatUsage> for BufferFormatUsage {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WPEBufferFormatUsage) -> Self {
+        match value {
+            ffi::WPE_BUFFER_FORMAT_USAGE_RENDERING => Self::Rendering,
+            ffi::WPE_BUFFER_FORMAT_USAGE_MAPPING => Self::Mapping,
+            ffi::WPE_BUFFER_FORMAT_USAGE_SCANOUT => Self::Scanout,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+impl StaticType for BufferFormatUsage {
+    #[inline]
+    #[doc(alias = "wpe_buffer_format_usage_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::wpe_buffer_format_usage_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for BufferFormatUsage {
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+impl glib::value::ValueType for BufferFormatUsage {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for BufferFormatUsage {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+impl ToValue for BufferFormatUsage {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<BufferFormatUsage> for glib::Value {
+    #[inline]
+    fn from(v: BufferFormatUsage) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
 #[doc(alias = "WPEDisplayError")]
 pub enum DisplayError {
     #[doc(alias = "WPE_DISPLAY_ERROR_NOT_SUPPORTED")]
     NotSupported,
     #[doc(alias = "WPE_DISPLAY_ERROR_CONNECTION_FAILED")]
     ConnectionFailed,
+    #[doc(alias = "WPE_DISPLAY_ERROR_CONNECTION_LOST")]
+    ConnectionLost,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -237,6 +239,7 @@ impl IntoGlib for DisplayError {
         match self {
             Self::NotSupported => ffi::WPE_DISPLAY_ERROR_NOT_SUPPORTED,
             Self::ConnectionFailed => ffi::WPE_DISPLAY_ERROR_CONNECTION_FAILED,
+            Self::ConnectionLost => ffi::WPE_DISPLAY_ERROR_CONNECTION_LOST,
             Self::__Unknown(value) => value,
         }
     }
@@ -249,6 +252,7 @@ impl FromGlib<ffi::WPEDisplayError> for DisplayError {
         match value {
             ffi::WPE_DISPLAY_ERROR_NOT_SUPPORTED => Self::NotSupported,
             ffi::WPE_DISPLAY_ERROR_CONNECTION_FAILED => Self::ConnectionFailed,
+            ffi::WPE_DISPLAY_ERROR_CONNECTION_LOST => Self::ConnectionLost,
             value => Self::__Unknown(value),
         }
     }
@@ -301,7 +305,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for DisplayError {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -409,7 +413,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for EGLError {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -543,7 +547,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for EventType {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -643,7 +647,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for GamepadAxis {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -793,7 +797,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for GamepadButton {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -893,7 +897,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for Gesture {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1021,7 +1025,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for InputPurpose {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1133,7 +1137,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for InputSource {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1221,7 +1225,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PixelFormat {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1341,7 +1345,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SettingsError {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1441,7 +1445,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SettingsHintingStyle {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1533,7 +1537,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SettingsSource {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1633,7 +1637,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SettingsSubpixelLayout {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1742,7 +1746,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ViewError {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 

@@ -1,7 +1,7 @@
 [options]
 library = "WPEWebKit"
 version = "2.0"
-min_cfg_version = "2.46"
+min_cfg_version = "2.52"
 target_path = "."
 girs_directories = ["/usr/share/gir-1.0/", "../gir-files"]
 work_mode = "normal"
@@ -46,6 +46,7 @@ generate = [
     "WPEWebKit.GeolocationPosition",
     "WPEWebKit.HitTestResult",
     "WPEWebKit.HitTestResultContext",
+    "WPEWebKit.Image",
     "WPEWebKit.InputHints",
     "WPEWebKit.InputMethodContext",
     "WPEWebKit.InputMethodUnderline",
@@ -92,6 +93,8 @@ generate = [
     "WPEWebKit.SecurityOrigin",
     "WPEWebKit.Settings",
     "WPEWebKit.SnapshotError",
+    "WPEWebKit.SnapshotOptions",
+    "WPEWebKit.SnapshotRegion",
     "WPEWebKit.TLSErrorsPolicy",
     "WPEWebKit.URIRequest",
     "WPEWebKit.URIResponse",
@@ -110,7 +113,11 @@ generate = [
     "WPEWebKit.UserStyleLevel",
     "WPEWebKit.UserStyleSheet",
     "WPEWebKit.WebContext",
+    "WPEWebKit.WebExtension",
+    "WPEWebKit.WebExtensionError",
+    "WPEWebKit.WebExtensionMatchPattern",
     "WPEWebKit.WebExtensionMatchPatternError",
+    "WPEWebKit.WebExtensionMatchPatternOptions",
     "WPEWebKit.WebExtensionMode",
     "WPEWebKit.WebProcessTerminationReason",
     "WPEWebKit.WebResource",
@@ -121,6 +128,9 @@ generate = [
     "WPEWebKit.WebView",
     "WPEWebKit.WebViewSessionState",
     "WPEWebKit.WindowProperties",
+    "WPEWebKit.XRPermissionRequest",
+    "WPEWebKit.XRSessionFeatures",
+    "WPEWebKit.XRSessionMode",
 ]
 manual = [
     "Gio.Action",

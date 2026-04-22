@@ -78,14 +78,16 @@ pub trait GamepadExt: IsA<Gamepad> + 'static {
             value: std::ffi::c_double,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Gamepad::from_glib_borrow(this).unsafe_cast_ref(), from_glib(axis), value)
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Gamepad::from_glib_borrow(this).unsafe_cast_ref(), from_glib(axis), value)
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"axis-event".as_ptr() as *const _,
+                c"axis-event".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     axis_event_trampoline::<Self, F> as *const (),
                 )),
@@ -108,18 +110,20 @@ pub trait GamepadExt: IsA<Gamepad> + 'static {
             is_pressed: glib::ffi::gboolean,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                Gamepad::from_glib_borrow(this).unsafe_cast_ref(),
-                from_glib(button),
-                from_glib(is_pressed),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    Gamepad::from_glib_borrow(this).unsafe_cast_ref(),
+                    from_glib(button),
+                    from_glib(is_pressed),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"button-event".as_ptr() as *const _,
+                c"button-event".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     button_event_trampoline::<Self, F> as *const (),
                 )),

@@ -115,10 +115,12 @@ impl Value {
             reject: *mut ffi::JSCValue,
             user_data: glib::ffi::gpointer,
         ) {
-            let resolve = from_glib_borrow(resolve);
-            let reject = from_glib_borrow(reject);
-            let callback = user_data as *mut P;
-            (*callback)(&resolve, &reject)
+            unsafe {
+                let resolve = from_glib_borrow(resolve);
+                let reject = from_glib_borrow(reject);
+                let callback = user_data as *mut P;
+                (*callback)(&resolve, &reject)
+            }
         }
         let executor = Some(executor_func::<P> as _);
         let super_callback0: &mut P = &mut executor_data;
@@ -177,12 +179,6 @@ impl Value {
     pub fn builder() -> ValueBuilder {
         ValueBuilder::new()
     }
-
-    //#[doc(alias = "jsc_value_array_buffer_get_data")]
-    // pub fn array_buffer_get_data(&self, size: usize) ->
-    // /*Unimplemented*/Option<Basic: Pointer> {    unsafe { TODO: call
-    // ffi:jsc_value_array_buffer_get_data() }
-    //}
 
     #[doc(alias = "jsc_value_array_buffer_get_size")]
     pub fn array_buffer_get_size(&self) -> usize {

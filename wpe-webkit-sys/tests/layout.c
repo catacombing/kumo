@@ -41,6 +41,7 @@ int main() {
     printf("%s;%zu;%zu\n", "WebKitGeolocationPermissionRequestClass", sizeof(WebKitGeolocationPermissionRequestClass), alignof(WebKitGeolocationPermissionRequestClass));
     printf("%s;%zu;%zu\n", "WebKitHitTestResultClass", sizeof(WebKitHitTestResultClass), alignof(WebKitHitTestResultClass));
     printf("%s;%zu;%zu\n", "WebKitHitTestResultContext", sizeof(WebKitHitTestResultContext), alignof(WebKitHitTestResultContext));
+    printf("%s;%zu;%zu\n", "WebKitImageClass", sizeof(WebKitImageClass), alignof(WebKitImageClass));
     printf("%s;%zu;%zu\n", "WebKitInputHints", sizeof(WebKitInputHints), alignof(WebKitInputHints));
     printf("%s;%zu;%zu\n", "WebKitInputMethodContext", sizeof(WebKitInputMethodContext), alignof(WebKitInputMethodContext));
     printf("%s;%zu;%zu\n", "WebKitInputMethodContextClass", sizeof(WebKitInputMethodContextClass), alignof(WebKitInputMethodContextClass));
@@ -72,6 +73,8 @@ int main() {
     printf("%s;%zu;%zu\n", "WebKitSecurityManagerClass", sizeof(WebKitSecurityManagerClass), alignof(WebKitSecurityManagerClass));
     printf("%s;%zu;%zu\n", "WebKitSettingsClass", sizeof(WebKitSettingsClass), alignof(WebKitSettingsClass));
     printf("%s;%zu;%zu\n", "WebKitSnapshotError", sizeof(WebKitSnapshotError), alignof(WebKitSnapshotError));
+    printf("%s;%zu;%zu\n", "WebKitSnapshotOptions", sizeof(WebKitSnapshotOptions), alignof(WebKitSnapshotOptions));
+    printf("%s;%zu;%zu\n", "WebKitSnapshotRegion", sizeof(WebKitSnapshotRegion), alignof(WebKitSnapshotRegion));
     printf("%s;%zu;%zu\n", "WebKitTLSErrorsPolicy", sizeof(WebKitTLSErrorsPolicy), alignof(WebKitTLSErrorsPolicy));
     printf("%s;%zu;%zu\n", "WebKitURIRequestClass", sizeof(WebKitURIRequestClass), alignof(WebKitURIRequestClass));
     printf("%s;%zu;%zu\n", "WebKitURIResponseClass", sizeof(WebKitURIResponseClass), alignof(WebKitURIResponseClass));
@@ -87,7 +90,10 @@ int main() {
     printf("%s;%zu;%zu\n", "WebKitUserScriptInjectionTime", sizeof(WebKitUserScriptInjectionTime), alignof(WebKitUserScriptInjectionTime));
     printf("%s;%zu;%zu\n", "WebKitUserStyleLevel", sizeof(WebKitUserStyleLevel), alignof(WebKitUserStyleLevel));
     printf("%s;%zu;%zu\n", "WebKitWebContextClass", sizeof(WebKitWebContextClass), alignof(WebKitWebContextClass));
+    printf("%s;%zu;%zu\n", "WebKitWebExtensionClass", sizeof(WebKitWebExtensionClass), alignof(WebKitWebExtensionClass));
+    printf("%s;%zu;%zu\n", "WebKitWebExtensionError", sizeof(WebKitWebExtensionError), alignof(WebKitWebExtensionError));
     printf("%s;%zu;%zu\n", "WebKitWebExtensionMatchPatternError", sizeof(WebKitWebExtensionMatchPatternError), alignof(WebKitWebExtensionMatchPatternError));
+    printf("%s;%zu;%zu\n", "WebKitWebExtensionMatchPatternOptions", sizeof(WebKitWebExtensionMatchPatternOptions), alignof(WebKitWebExtensionMatchPatternOptions));
     printf("%s;%zu;%zu\n", "WebKitWebExtensionMode", sizeof(WebKitWebExtensionMode), alignof(WebKitWebExtensionMode));
     printf("%s;%zu;%zu\n", "WebKitWebProcessTerminationReason", sizeof(WebKitWebProcessTerminationReason), alignof(WebKitWebProcessTerminationReason));
     printf("%s;%zu;%zu\n", "WebKitWebResourceClass", sizeof(WebKitWebResourceClass), alignof(WebKitWebResourceClass));
@@ -98,5 +104,8 @@ int main() {
     printf("%s;%zu;%zu\n", "WebKitWebsiteDataTypes", sizeof(WebKitWebsiteDataTypes), alignof(WebKitWebsiteDataTypes));
     printf("%s;%zu;%zu\n", "WebKitWebsitePoliciesClass", sizeof(WebKitWebsitePoliciesClass), alignof(WebKitWebsitePoliciesClass));
     printf("%s;%zu;%zu\n", "WebKitWindowPropertiesClass", sizeof(WebKitWindowPropertiesClass), alignof(WebKitWindowPropertiesClass));
+    printf("%s;%zu;%zu\n", "WebKitXRPermissionRequestClass", sizeof(WebKitXRPermissionRequestClass), alignof(WebKitXRPermissionRequestClass));
+    printf("%s;%zu;%zu\n", "WebKitXRSessionFeatures", sizeof(WebKitXRSessionFeatures), alignof(WebKitXRSessionFeatures));
+    printf("%s;%zu;%zu\n", "WebKitXRSessionMode", sizeof(WebKitXRSessionMode), alignof(WebKitXRSessionMode));
     return 0;
 }

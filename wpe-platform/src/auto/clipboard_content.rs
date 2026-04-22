@@ -25,6 +25,23 @@ impl ClipboardContent {
         unsafe { from_glib_full(ffi::wpe_clipboard_content_new()) }
     }
 
+    #[doc(alias = "wpe_clipboard_content_get_bytes")]
+    #[doc(alias = "get_bytes")]
+    pub fn bytes(&self, format: &str) -> Option<glib::Bytes> {
+        unsafe {
+            from_glib_none(ffi::wpe_clipboard_content_get_bytes(
+                self.to_glib_none().0,
+                format.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "wpe_clipboard_content_get_text")]
+    #[doc(alias = "get_text")]
+    pub fn text(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::wpe_clipboard_content_get_text(self.to_glib_none().0)) }
+    }
+
     #[doc(alias = "wpe_clipboard_content_serialize")]
     pub fn serialize(&self, format: &str, stream: &impl IsA<gio::OutputStream>) -> bool {
         unsafe {

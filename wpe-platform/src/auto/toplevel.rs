@@ -6,7 +6,7 @@
 use glib::prelude::*;
 use glib::translate::*;
 
-use crate::{BufferDMABufFormats, Display, Screen, ToplevelState, View, ffi};
+use crate::{BufferFormats, Display, Screen, ToplevelState, View, ffi};
 
 glib::wrapper! {
     #[doc(alias = "WPEToplevel")]
@@ -84,10 +84,12 @@ pub trait ToplevelExt: IsA<Toplevel> + 'static {
             view: *mut ffi::WPEView,
             user_data: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let toplevel = from_glib_borrow(toplevel);
-            let view = from_glib_borrow(view);
-            let callback = user_data as *mut P;
-            (*callback)(&toplevel, &view).into_glib()
+            unsafe {
+                let toplevel = from_glib_borrow(toplevel);
+                let view = from_glib_borrow(view);
+                let callback = user_data as *mut P;
+                (*callback)(&toplevel, &view).into_glib()
+            }
         }
         let func = Some(func_func::<P> as _);
         let super_callback0: &mut P = &mut func_data;
@@ -124,11 +126,11 @@ pub trait ToplevelExt: IsA<Toplevel> + 'static {
         unsafe { ffi::wpe_toplevel_get_n_views(self.as_ref().to_glib_none().0) }
     }
 
-    #[doc(alias = "wpe_toplevel_get_preferred_dma_buf_formats")]
-    #[doc(alias = "get_preferred_dma_buf_formats")]
-    fn preferred_dma_buf_formats(&self) -> Option<BufferDMABufFormats> {
+    #[doc(alias = "wpe_toplevel_get_preferred_buffer_formats")]
+    #[doc(alias = "get_preferred_buffer_formats")]
+    fn preferred_buffer_formats(&self) -> Option<BufferFormats> {
         unsafe {
-            from_glib_none(ffi::wpe_toplevel_get_preferred_dma_buf_formats(
+            from_glib_none(ffi::wpe_toplevel_get_preferred_buffer_formats(
                 self.as_ref().to_glib_none().0,
             ))
         }
@@ -177,10 +179,10 @@ pub trait ToplevelExt: IsA<Toplevel> + 'static {
         unsafe { from_glib(ffi::wpe_toplevel_minimize(self.as_ref().to_glib_none().0)) }
     }
 
-    #[doc(alias = "wpe_toplevel_preferred_dma_buf_formats_changed")]
-    fn preferred_dma_buf_formats_changed(&self) {
+    #[doc(alias = "wpe_toplevel_preferred_buffer_formats_changed")]
+    fn preferred_buffer_formats_changed(&self) {
         unsafe {
-            ffi::wpe_toplevel_preferred_dma_buf_formats_changed(self.as_ref().to_glib_none().0);
+            ffi::wpe_toplevel_preferred_buffer_formats_changed(self.as_ref().to_glib_none().0);
         }
     }
 

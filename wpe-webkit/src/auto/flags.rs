@@ -71,7 +71,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for EditorTypingAttributes {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
     }
 }
 
@@ -162,7 +162,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for FindOptions {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
     }
 }
 
@@ -255,7 +255,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for HitTestResultContext {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
     }
 }
 
@@ -348,7 +348,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for InputHints {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
     }
 }
 
@@ -371,6 +371,178 @@ impl ToValue for InputHints {
 impl From<InputHints> for glib::Value {
     #[inline]
     fn from(v: InputHints) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[doc(alias = "WebKitSnapshotOptions")]
+    pub struct SnapshotOptions: u32 {
+        #[doc(alias = "WEBKIT_SNAPSHOT_OPTIONS_NONE")]
+        const NONE = ffi::WEBKIT_SNAPSHOT_OPTIONS_NONE as _;
+        #[doc(alias = "WEBKIT_SNAPSHOT_OPTIONS_INCLUDE_SELECTION_HIGHLIGHTING")]
+        const INCLUDE_SELECTION_HIGHLIGHTING = ffi::WEBKIT_SNAPSHOT_OPTIONS_INCLUDE_SELECTION_HIGHLIGHTING as _;
+        #[doc(alias = "WEBKIT_SNAPSHOT_OPTIONS_TRANSPARENT_BACKGROUND")]
+        const TRANSPARENT_BACKGROUND = ffi::WEBKIT_SNAPSHOT_OPTIONS_TRANSPARENT_BACKGROUND as _;
+    }
+}
+
+#[doc(hidden)]
+impl IntoGlib for SnapshotOptions {
+    type GlibType = ffi::WebKitSnapshotOptions;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WebKitSnapshotOptions {
+        self.bits()
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WebKitSnapshotOptions> for SnapshotOptions {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WebKitSnapshotOptions) -> Self {
+        Self::from_bits_truncate(value)
+    }
+}
+
+impl StaticType for SnapshotOptions {
+    #[inline]
+    #[doc(alias = "webkit_snapshot_options_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::webkit_snapshot_options_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for SnapshotOptions {
+    type BuilderFn = fn(&str) -> glib::ParamSpecFlagsBuilder<Self>;
+    type ParamSpec = glib::ParamSpecFlags;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder
+    }
+}
+
+impl glib::value::ValueType for SnapshotOptions {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for SnapshotOptions {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
+    }
+}
+
+impl ToValue for SnapshotOptions {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_flags(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<SnapshotOptions> for glib::Value {
+    #[inline]
+    fn from(v: SnapshotOptions) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[doc(alias = "WebKitWebExtensionMatchPatternOptions")]
+    pub struct WebExtensionMatchPatternOptions: u32 {
+        #[doc(alias = "WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_NONE")]
+        const NONE = ffi::WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_NONE as _;
+        #[doc(alias = "WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_IGNORE_SCHEMES")]
+        const IGNORE_SCHEMES = ffi::WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_IGNORE_SCHEMES as _;
+        #[doc(alias = "WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_IGNORE_PATHS")]
+        const IGNORE_PATHS = ffi::WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_IGNORE_PATHS as _;
+        #[doc(alias = "WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_MATCH_BIDIRECTIONALLY")]
+        const MATCH_BIDIRECTIONALLY = ffi::WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_MATCH_BIDIRECTIONALLY as _;
+    }
+}
+
+#[doc(hidden)]
+impl IntoGlib for WebExtensionMatchPatternOptions {
+    type GlibType = ffi::WebKitWebExtensionMatchPatternOptions;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WebKitWebExtensionMatchPatternOptions {
+        self.bits()
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WebKitWebExtensionMatchPatternOptions> for WebExtensionMatchPatternOptions {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WebKitWebExtensionMatchPatternOptions) -> Self {
+        Self::from_bits_truncate(value)
+    }
+}
+
+impl StaticType for WebExtensionMatchPatternOptions {
+    #[inline]
+    #[doc(alias = "webkit_web_extension_match_pattern_options_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::webkit_web_extension_match_pattern_options_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for WebExtensionMatchPatternOptions {
+    type BuilderFn = fn(&str) -> glib::ParamSpecFlagsBuilder<Self>;
+    type ParamSpec = glib::ParamSpecFlags;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder
+    }
+}
+
+impl glib::value::ValueType for WebExtensionMatchPatternOptions {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for WebExtensionMatchPatternOptions {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
+    }
+}
+
+impl ToValue for WebExtensionMatchPatternOptions {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_flags(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<WebExtensionMatchPatternOptions> for glib::Value {
+    #[inline]
+    fn from(v: WebExtensionMatchPatternOptions) -> Self {
         ToValue::to_value(&v)
     }
 }
@@ -453,7 +625,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for WebsiteDataTypes {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
     }
 }
 
@@ -476,6 +648,101 @@ impl ToValue for WebsiteDataTypes {
 impl From<WebsiteDataTypes> for glib::Value {
     #[inline]
     fn from(v: WebsiteDataTypes) -> Self {
+        ToValue::to_value(&v)
+    }
+}
+
+bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[doc(alias = "WebKitXRSessionFeatures")]
+    pub struct XRSessionFeatures: u32 {
+        #[doc(alias = "WEBKIT_XR_SESSION_FEATURES_VIEWER")]
+        const VIEWER = ffi::WEBKIT_XR_SESSION_FEATURES_VIEWER as _;
+        #[doc(alias = "WEBKIT_XR_SESSION_FEATURES_LOCAL")]
+        const LOCAL = ffi::WEBKIT_XR_SESSION_FEATURES_LOCAL as _;
+        #[doc(alias = "WEBKIT_XR_SESSION_FEATURES_LOCAL_FLOOR")]
+        const LOCAL_FLOOR = ffi::WEBKIT_XR_SESSION_FEATURES_LOCAL_FLOOR as _;
+        #[doc(alias = "WEBKIT_XR_SESSION_FEATURES_BOUNDED_FLOOR")]
+        const BOUNDED_FLOOR = ffi::WEBKIT_XR_SESSION_FEATURES_BOUNDED_FLOOR as _;
+        #[doc(alias = "WEBKIT_XR_SESSION_FEATURES_UNBOUNDED")]
+        const UNBOUNDED = ffi::WEBKIT_XR_SESSION_FEATURES_UNBOUNDED as _;
+        #[doc(alias = "WEBKIT_XR_SESSION_FEATURES_HAND_TRACKING")]
+        const HAND_TRACKING = ffi::WEBKIT_XR_SESSION_FEATURES_HAND_TRACKING as _;
+        #[doc(alias = "WEBKIT_XR_SESSION_FEATURES_HIT_TEST")]
+        const HIT_TEST = ffi::WEBKIT_XR_SESSION_FEATURES_HIT_TEST as _;
+        #[doc(alias = "WEBKIT_XR_SESSION_FEATURES_LAYERS")]
+        const LAYERS = ffi::WEBKIT_XR_SESSION_FEATURES_LAYERS as _;
+    }
+}
+
+#[doc(hidden)]
+impl IntoGlib for XRSessionFeatures {
+    type GlibType = ffi::WebKitXRSessionFeatures;
+
+    #[inline]
+    fn into_glib(self) -> ffi::WebKitXRSessionFeatures {
+        self.bits()
+    }
+}
+
+#[doc(hidden)]
+impl FromGlib<ffi::WebKitXRSessionFeatures> for XRSessionFeatures {
+    #[inline]
+    unsafe fn from_glib(value: ffi::WebKitXRSessionFeatures) -> Self {
+        Self::from_bits_truncate(value)
+    }
+}
+
+impl StaticType for XRSessionFeatures {
+    #[inline]
+    #[doc(alias = "webkit_xr_session_features_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::webkit_xr_session_features_get_type()) }
+    }
+}
+
+impl glib::HasParamSpec for XRSessionFeatures {
+    type BuilderFn = fn(&str) -> glib::ParamSpecFlagsBuilder<Self>;
+    type ParamSpec = glib::ParamSpecFlags;
+    type SetValue = Self;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder
+    }
+}
+
+impl glib::value::ValueType for XRSessionFeatures {
+    type Type = Self;
+}
+
+unsafe impl<'a> glib::value::FromValue<'a> for XRSessionFeatures {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
+    }
+}
+
+impl ToValue for XRSessionFeatures {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_flags(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+impl From<XRSessionFeatures> for glib::Value {
+    #[inline]
+    fn from(v: XRSessionFeatures) -> Self {
         ToValue::to_value(&v)
     }
 }

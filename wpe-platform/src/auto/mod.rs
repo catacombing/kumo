@@ -9,8 +9,8 @@ pub use self::buffer::Buffer;
 mod buffer_dma_buf;
 pub use self::buffer_dma_buf::BufferDMABuf;
 
-mod buffer_dma_buf_formats;
-pub use self::buffer_dma_buf_formats::BufferDMABufFormats;
+mod buffer_formats;
+pub use self::buffer_formats::BufferFormats;
 
 mod buffer_shm;
 pub use self::buffer_shm::BufferSHM;
@@ -57,8 +57,8 @@ pub use self::view::View;
 mod view_accessible;
 pub use self::view_accessible::ViewAccessible;
 
-mod buffer_dma_buf_formats_builder;
-pub use self::buffer_dma_buf_formats_builder::BufferDMABufFormatsBuilder;
+mod buffer_formats_builder;
+pub use self::buffer_formats_builder::BufferFormatsBuilder;
 
 mod clipboard_content;
 pub use self::clipboard_content::ClipboardContent;
@@ -80,9 +80,9 @@ pub use self::rectangle::Rectangle;
 
 mod enums;
 pub use self::enums::{
-    BufferDMABufFormatUsage, BufferError, DisplayError, EGLError, EventType, GamepadAxis,
-    GamepadButton, Gesture, InputPurpose, InputSource, PixelFormat, SettingsError,
-    SettingsHintingStyle, SettingsSource, SettingsSubpixelLayout, ViewError,
+    BufferError, BufferFormatUsage, DisplayError, EGLError, EventType, GamepadAxis, GamepadButton,
+    Gesture, InputPurpose, InputSource, PixelFormat, SettingsError, SettingsHintingStyle,
+    SettingsSource, SettingsSubpixelLayout, ViewError,
 };
 
 mod flags;

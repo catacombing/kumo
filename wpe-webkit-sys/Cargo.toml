@@ -17,7 +17,7 @@ workspace = true
 
 [package.metadata.system-deps.wpe_webkit_2_0]
 name = "wpe-webkit-2.0"
-version = "2.50"
+version = "2.52"
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

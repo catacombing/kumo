@@ -57,6 +57,9 @@ pub use self::geolocation_permission_request::GeolocationPermissionRequest;
 mod hit_test_result;
 pub use self::hit_test_result::HitTestResult;
 
+mod image;
+pub use self::image::Image;
+
 mod input_method_context;
 pub use self::input_method_context::InputMethodContext;
 
@@ -120,6 +123,9 @@ pub use self::user_message::UserMessage;
 mod web_context;
 pub use self::web_context::WebContext;
 
+mod web_extension;
+pub use self::web_extension::WebExtension;
+
 mod web_resource;
 pub use self::web_resource::WebResource;
 
@@ -137,6 +143,9 @@ pub use self::website_policies::WebsitePolicies;
 
 mod window_properties;
 pub use self::window_properties::WindowProperties;
+
+mod xr_permission_request;
+pub use self::xr_permission_request::XRPermissionRequest;
 
 mod application_info;
 pub use self::application_info::ApplicationInfo;
@@ -201,6 +210,9 @@ pub use self::user_script::UserScript;
 mod user_style_sheet;
 pub use self::user_style_sheet::UserStyleSheet;
 
+mod web_extension_match_pattern;
+pub use self::web_extension_match_pattern::WebExtensionMatchPattern;
+
 mod web_view_backend;
 pub use self::web_view_backend::WebViewBackend;
 
@@ -218,14 +230,16 @@ pub use self::enums::{
     ContextMenuAction, CookieAcceptPolicy, CookiePersistentStorage, CredentialPersistence,
     DownloadError, FaviconDatabaseError, FeatureStatus, InputPurpose, JavascriptError, LoadEvent,
     MediaCaptureState, MediaError, NavigationType, NetworkError, NetworkProxyMode, PermissionState,
-    PolicyDecisionType, PolicyError, SaveMode, ScriptDialogType, SnapshotError, TLSErrorsPolicy,
-    UserContentFilterError, UserContentInjectedFrames, UserMessageError, UserScriptInjectionTime,
-    UserStyleLevel, WebExtensionMatchPatternError, WebExtensionMode, WebProcessTerminationReason,
+    PolicyDecisionType, PolicyError, SaveMode, ScriptDialogType, SnapshotError, SnapshotRegion,
+    TLSErrorsPolicy, UserContentFilterError, UserContentInjectedFrames, UserMessageError,
+    UserScriptInjectionTime, UserStyleLevel, WebExtensionError, WebExtensionMatchPatternError,
+    WebExtensionMode, WebProcessTerminationReason, XRSessionMode,
 };
 
 mod flags;
 pub use self::flags::{
-    EditorTypingAttributes, FindOptions, HitTestResultContext, InputHints, WebsiteDataTypes,
+    EditorTypingAttributes, FindOptions, HitTestResultContext, InputHints, SnapshotOptions,
+    WebExtensionMatchPatternOptions, WebsiteDataTypes, XRSessionFeatures,
 };
 
 pub(crate) mod traits {
@@ -239,6 +253,7 @@ pub(crate) mod builders {
     pub use super::download::DownloadBuilder;
     pub use super::find_controller::FindControllerBuilder;
     pub use super::hit_test_result::HitTestResultBuilder;
+    pub use super::image::ImageBuilder;
     pub use super::network_session::NetworkSessionBuilder;
     pub use super::settings::SettingsBuilder;
     pub use super::uri_request::URIRequestBuilder;
@@ -246,6 +261,7 @@ pub(crate) mod builders {
     pub use super::user_content_filter_store::UserContentFilterStoreBuilder;
     pub use super::user_message::UserMessageBuilder;
     pub use super::web_context::WebContextBuilder;
+    pub use super::web_extension::WebExtensionBuilder;
     pub use super::web_view::WebViewBuilder;
     pub use super::website_data_manager::WebsiteDataManagerBuilder;
     pub use super::website_policies::WebsitePoliciesBuilder;

@@ -2,7 +2,7 @@
 
 use std::ptr;
 
-use ffi::{WPEBufferDMABufFormats, WPEToplevel};
+use ffi::{WPEBufferFormats, WPEToplevel};
 use glib::object::ObjectExt;
 use glib::subclass::prelude::*;
 use glib::translate::{IntoGlib, ToGlibPtr};
@@ -27,7 +27,7 @@ unsafe impl<T: ToplevelImpl> IsSubclassable<T> for Toplevel {
         klass.resize = None;
         klass.set_fullscreen = Some(set_fullscreen::<T>);
         klass.set_maximized = None;
-        klass.get_preferred_dma_buf_formats = Some(get_preferred_dmabuf_formats::<T>);
+        klass.get_preferred_buffer_formats = Some(get_preferred_dmabuf_formats::<T>);
     }
 }
 
@@ -44,11 +44,11 @@ unsafe extern "C" fn set_fullscreen<T: ToplevelImpl>(
 
 unsafe extern "C" fn get_preferred_dmabuf_formats<T: ToplevelImpl>(
     toplevel: *mut WPEToplevel,
-) -> *mut WPEBufferDMABufFormats {
+) -> *mut WPEBufferFormats {
     unsafe {
         let instance = &*(toplevel as *mut T::Instance);
         let display: Display = instance.imp().obj().property("display");
-        match display.class().as_ref().get_preferred_dma_buf_formats {
+        match display.class().as_ref().get_preferred_buffer_formats {
             Some(fun) => fun(display.to_glib_full()),
             None => ptr::null_mut(),
         }

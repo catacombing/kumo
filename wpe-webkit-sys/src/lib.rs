@@ -221,6 +221,10 @@ pub const WEBKIT_SCRIPT_DIALOG_BEFORE_UNLOAD_CONFIRM: WebKitScriptDialogType = 3
 pub type WebKitSnapshotError = c_int;
 pub const WEBKIT_SNAPSHOT_ERROR_FAILED_TO_CREATE: WebKitSnapshotError = 799;
 
+pub type WebKitSnapshotRegion = c_int;
+pub const WEBKIT_SNAPSHOT_REGION_VISIBLE: WebKitSnapshotRegion = 0;
+pub const WEBKIT_SNAPSHOT_REGION_FULL_DOCUMENT: WebKitSnapshotRegion = 1;
+
 pub type WebKitTLSErrorsPolicy = c_int;
 pub const WEBKIT_TLS_ERRORS_POLICY_IGNORE: WebKitTLSErrorsPolicy = 0;
 pub const WEBKIT_TLS_ERRORS_POLICY_FAIL: WebKitTLSErrorsPolicy = 1;
@@ -244,6 +248,18 @@ pub type WebKitUserStyleLevel = c_int;
 pub const WEBKIT_USER_STYLE_LEVEL_USER: WebKitUserStyleLevel = 0;
 pub const WEBKIT_USER_STYLE_LEVEL_AUTHOR: WebKitUserStyleLevel = 1;
 
+pub type WebKitWebExtensionError = c_int;
+pub const WEBKIT_WEB_EXTENSION_ERROR_UNKNOWN: WebKitWebExtensionError = 899;
+pub const WEBKIT_WEB_EXTENSION_ERROR_RESOURCE_NOT_FOUND: WebKitWebExtensionError = 800;
+pub const WEBKIT_WEB_EXTENSION_ERROR_INVALID_RESOURCE_CODE_SIGNATURE: WebKitWebExtensionError = 801;
+pub const WEBKIT_WEB_EXTENSION_ERROR_INVALID_MANIFEST: WebKitWebExtensionError = 802;
+pub const WEBKIT_WEB_EXTENSION_ERROR_UNSUPPORTED_MANIFEST_VERSION: WebKitWebExtensionError = 803;
+pub const WEBKIT_WEB_EXTENSION_ERROR_INVALID_MANIFEST_ENTRY: WebKitWebExtensionError = 804;
+pub const WEBKIT_WEB_EXTENSION_ERROR_INVALID_DECLARATIVE_NET_REQUEST_ENTRY:
+    WebKitWebExtensionError = 805;
+pub const WEBKIT_WEB_EXTENSION_ERROR_INVALID_BACKGROUND_PERSISTENCE: WebKitWebExtensionError = 806;
+pub const WEBKIT_WEB_EXTENSION_ERROR_INVALID_ARCHIVE: WebKitWebExtensionError = 807;
+
 pub type WebKitWebExtensionMatchPatternError = c_int;
 pub const WEBKIT_WEB_EXTENSION_MATCH_PATTERN_ERROR_UNKNOWN: WebKitWebExtensionMatchPatternError =
     899;
@@ -264,6 +280,11 @@ pub const WEBKIT_WEB_PROCESS_CRASHED: WebKitWebProcessTerminationReason = 0;
 pub const WEBKIT_WEB_PROCESS_EXCEEDED_MEMORY_LIMIT: WebKitWebProcessTerminationReason = 1;
 pub const WEBKIT_WEB_PROCESS_TERMINATED_BY_API: WebKitWebProcessTerminationReason = 2;
 
+pub type WebKitXRSessionMode = c_int;
+pub const WEBKIT_XR_SESSION_MODE_INLINE: WebKitXRSessionMode = 0;
+pub const WEBKIT_XR_SESSION_MODE_IMMERSIVE_VR: WebKitXRSessionMode = 1;
+pub const WEBKIT_XR_SESSION_MODE_IMMERSIVE_AR: WebKitXRSessionMode = 2;
+
 // Constants
 pub const WEBKIT_EDITING_COMMAND_COPY: &[u8] = b"Copy\0";
 pub const WEBKIT_EDITING_COMMAND_CREATE_LINK: &[u8] = b"CreateLink\0";
@@ -275,8 +296,8 @@ pub const WEBKIT_EDITING_COMMAND_REDO: &[u8] = b"Redo\0";
 pub const WEBKIT_EDITING_COMMAND_SELECT_ALL: &[u8] = b"SelectAll\0";
 pub const WEBKIT_EDITING_COMMAND_UNDO: &[u8] = b"Undo\0";
 pub const WEBKIT_MAJOR_VERSION: c_int = 2;
-pub const WEBKIT_MICRO_VERSION: c_int = 0;
-pub const WEBKIT_MINOR_VERSION: c_int = 50;
+pub const WEBKIT_MICRO_VERSION: c_int = 3;
+pub const WEBKIT_MINOR_VERSION: c_int = 52;
 
 // Flags
 pub type WebKitEditorTypingAttributes = c_uint;
@@ -312,6 +333,21 @@ pub const WEBKIT_INPUT_HINT_UPPERCASE_WORDS: WebKitInputHints = 8;
 pub const WEBKIT_INPUT_HINT_UPPERCASE_SENTENCES: WebKitInputHints = 16;
 pub const WEBKIT_INPUT_HINT_INHIBIT_OSK: WebKitInputHints = 32;
 
+pub type WebKitSnapshotOptions = c_uint;
+pub const WEBKIT_SNAPSHOT_OPTIONS_NONE: WebKitSnapshotOptions = 0;
+pub const WEBKIT_SNAPSHOT_OPTIONS_INCLUDE_SELECTION_HIGHLIGHTING: WebKitSnapshotOptions = 1;
+pub const WEBKIT_SNAPSHOT_OPTIONS_TRANSPARENT_BACKGROUND: WebKitSnapshotOptions = 2;
+
+pub type WebKitWebExtensionMatchPatternOptions = c_uint;
+pub const WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_NONE: WebKitWebExtensionMatchPatternOptions =
+    1;
+pub const WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_IGNORE_SCHEMES:
+    WebKitWebExtensionMatchPatternOptions = 2;
+pub const WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_IGNORE_PATHS:
+    WebKitWebExtensionMatchPatternOptions = 4;
+pub const WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_MATCH_BIDIRECTIONALLY:
+    WebKitWebExtensionMatchPatternOptions = 8;
+
 pub type WebKitWebsiteDataTypes = c_uint;
 pub const WEBKIT_WEBSITE_DATA_MEMORY_CACHE: WebKitWebsiteDataTypes = 1;
 pub const WEBKIT_WEBSITE_DATA_DISK_CACHE: WebKitWebsiteDataTypes = 2;
@@ -326,6 +362,16 @@ pub const WEBKIT_WEBSITE_DATA_ITP: WebKitWebsiteDataTypes = 512;
 pub const WEBKIT_WEBSITE_DATA_SERVICE_WORKER_REGISTRATIONS: WebKitWebsiteDataTypes = 1024;
 pub const WEBKIT_WEBSITE_DATA_DOM_CACHE: WebKitWebsiteDataTypes = 2048;
 pub const WEBKIT_WEBSITE_DATA_ALL: WebKitWebsiteDataTypes = 4095;
+
+pub type WebKitXRSessionFeatures = c_uint;
+pub const WEBKIT_XR_SESSION_FEATURES_VIEWER: WebKitXRSessionFeatures = 1;
+pub const WEBKIT_XR_SESSION_FEATURES_LOCAL: WebKitXRSessionFeatures = 2;
+pub const WEBKIT_XR_SESSION_FEATURES_LOCAL_FLOOR: WebKitXRSessionFeatures = 4;
+pub const WEBKIT_XR_SESSION_FEATURES_BOUNDED_FLOOR: WebKitXRSessionFeatures = 8;
+pub const WEBKIT_XR_SESSION_FEATURES_UNBOUNDED: WebKitXRSessionFeatures = 16;
+pub const WEBKIT_XR_SESSION_FEATURES_HAND_TRACKING: WebKitXRSessionFeatures = 32;
+pub const WEBKIT_XR_SESSION_FEATURES_HIT_TEST: WebKitXRSessionFeatures = 64;
+pub const WEBKIT_XR_SESSION_FEATURES_LAYERS: WebKitXRSessionFeatures = 128;
 
 // Callbacks
 pub type WebKitFrameDisplayedCallback = Option<unsafe extern "C" fn(*mut WebKitWebView, gpointer)>;
@@ -693,6 +739,20 @@ pub struct WebKitITPThirdParty {
 impl ::std::fmt::Debug for WebKitITPThirdParty {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitITPThirdParty @ {self:p}")).finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WebKitImageClass {
+    pub parent_class: gobject::GObjectClass,
+}
+
+impl ::std::fmt::Debug for WebKitImageClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitImageClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
     }
 }
 
@@ -1285,6 +1345,33 @@ impl ::std::fmt::Debug for WebKitWebContextClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct WebKitWebExtensionClass {
+    pub parent_class: gobject::GObjectClass,
+}
+
+impl ::std::fmt::Debug for WebKitWebExtensionClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitWebExtensionClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct WebKitWebExtensionMatchPattern {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for WebKitWebExtensionMatchPattern {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitWebExtensionMatchPattern @ {self:p}")).finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct WebKitWebResourceClass {
     pub parent_class: gobject::GObjectClass,
 }
@@ -1578,6 +1665,20 @@ impl ::std::fmt::Debug for WebKitWindowPropertiesClass {
     }
 }
 
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WebKitXRPermissionRequestClass {
+    pub parent_class: gobject::GObjectClass,
+}
+
+impl ::std::fmt::Debug for WebKitXRPermissionRequestClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitXRPermissionRequestClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
 // Classes
 #[repr(C)]
 #[allow(dead_code)]
@@ -1810,6 +1911,19 @@ pub struct WebKitHitTestResult {
 impl ::std::fmt::Debug for WebKitHitTestResult {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitHitTestResult @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct WebKitImage {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for WebKitImage {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitImage @ {self:p}")).finish()
     }
 }
 
@@ -2081,6 +2195,19 @@ impl ::std::fmt::Debug for WebKitWebContext {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct WebKitWebExtension {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for WebKitWebExtension {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitWebExtension @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct WebKitWebResource {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2157,6 +2284,19 @@ pub struct WebKitWindowProperties {
 impl ::std::fmt::Debug for WebKitWindowProperties {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WebKitWindowProperties @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct WebKitXRPermissionRequest {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for WebKitXRPermissionRequest {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("WebKitXRPermissionRequest @ {self:p}")).finish()
     }
 }
 
@@ -2314,6 +2454,11 @@ unsafe extern "C" {
     pub fn webkit_snapshot_error_quark() -> glib::GQuark;
 
     //=========================================================================
+    // WebKitSnapshotRegion
+    //=========================================================================
+    pub fn webkit_snapshot_region_get_type() -> GType;
+
+    //=========================================================================
     // WebKitTLSErrorsPolicy
     //=========================================================================
     pub fn webkit_tls_errors_policy_get_type() -> GType;
@@ -2346,6 +2491,12 @@ unsafe extern "C" {
     pub fn webkit_user_style_level_get_type() -> GType;
 
     //=========================================================================
+    // WebKitWebExtensionError
+    //=========================================================================
+    pub fn webkit_web_extension_error_get_type() -> GType;
+    pub fn webkit_web_extension_error_quark() -> glib::GQuark;
+
+    //=========================================================================
     // WebKitWebExtensionMatchPatternError
     //=========================================================================
     pub fn webkit_web_extension_match_pattern_error_get_type() -> GType;
@@ -2360,6 +2511,11 @@ unsafe extern "C" {
     // WebKitWebProcessTerminationReason
     //=========================================================================
     pub fn webkit_web_process_termination_reason_get_type() -> GType;
+
+    //=========================================================================
+    // WebKitXRSessionMode
+    //=========================================================================
+    pub fn webkit_xr_session_mode_get_type() -> GType;
 
     //=========================================================================
     // WebKitEditorTypingAttributes
@@ -2382,9 +2538,24 @@ unsafe extern "C" {
     pub fn webkit_input_hints_get_type() -> GType;
 
     //=========================================================================
+    // WebKitSnapshotOptions
+    //=========================================================================
+    pub fn webkit_snapshot_options_get_type() -> GType;
+
+    //=========================================================================
+    // WebKitWebExtensionMatchPatternOptions
+    //=========================================================================
+    pub fn webkit_web_extension_match_pattern_options_get_type() -> GType;
+
+    //=========================================================================
     // WebKitWebsiteDataTypes
     //=========================================================================
     pub fn webkit_website_data_types_get_type() -> GType;
+
+    //=========================================================================
+    // WebKitXRSessionFeatures
+    //=========================================================================
+    pub fn webkit_xr_session_features_get_type() -> GType;
 
     //=========================================================================
     // WebKitApplicationInfo
@@ -2804,6 +2975,60 @@ unsafe extern "C" {
     pub fn webkit_user_style_sheet_unref(user_style_sheet: *mut WebKitUserStyleSheet);
 
     //=========================================================================
+    // WebKitWebExtensionMatchPattern
+    //=========================================================================
+    pub fn webkit_web_extension_match_pattern_get_type() -> GType;
+    pub fn webkit_web_extension_match_pattern_new_all_hosts_and_schemes()
+    -> *mut WebKitWebExtensionMatchPattern;
+    pub fn webkit_web_extension_match_pattern_new_all_urls() -> *mut WebKitWebExtensionMatchPattern;
+    pub fn webkit_web_extension_match_pattern_new_with_scheme(
+        scheme: *const c_char,
+        host: *const c_char,
+        path: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> *mut WebKitWebExtensionMatchPattern;
+    pub fn webkit_web_extension_match_pattern_new_with_string(
+        string: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> *mut WebKitWebExtensionMatchPattern;
+    pub fn webkit_web_extension_match_pattern_get_host(
+        matchPattern: *mut WebKitWebExtensionMatchPattern,
+    ) -> *const c_char;
+    pub fn webkit_web_extension_match_pattern_get_matches_all_hosts(
+        matchPattern: *mut WebKitWebExtensionMatchPattern,
+    ) -> gboolean;
+    pub fn webkit_web_extension_match_pattern_get_matches_all_urls(
+        matchPattern: *mut WebKitWebExtensionMatchPattern,
+    ) -> gboolean;
+    pub fn webkit_web_extension_match_pattern_get_path(
+        matchPattern: *mut WebKitWebExtensionMatchPattern,
+    ) -> *const c_char;
+    pub fn webkit_web_extension_match_pattern_get_scheme(
+        matchPattern: *mut WebKitWebExtensionMatchPattern,
+    ) -> *const c_char;
+    pub fn webkit_web_extension_match_pattern_get_string(
+        matchPattern: *mut WebKitWebExtensionMatchPattern,
+    ) -> *const c_char;
+    pub fn webkit_web_extension_match_pattern_matches_pattern(
+        matchPattern: *mut WebKitWebExtensionMatchPattern,
+        pattern: *mut WebKitWebExtensionMatchPattern,
+        options: WebKitWebExtensionMatchPatternOptions,
+    ) -> gboolean;
+    pub fn webkit_web_extension_match_pattern_matches_url(
+        matchPattern: *mut WebKitWebExtensionMatchPattern,
+        url: *const c_char,
+        options: WebKitWebExtensionMatchPatternOptions,
+    ) -> gboolean;
+    pub fn webkit_web_extension_match_pattern_ref(
+        matchPattern: *mut WebKitWebExtensionMatchPattern,
+    ) -> *mut WebKitWebExtensionMatchPattern;
+    pub fn webkit_web_extension_match_pattern_unref(
+        matchPattern: *mut WebKitWebExtensionMatchPattern,
+    );
+    pub fn webkit_web_extension_match_pattern_register_custom_URL_scheme(urlScheme: *const c_char);
+    pub fn webkit_web_extension_match_pattern_register_custom_url_scheme(urlScheme: *const c_char);
+
+    //=========================================================================
     // WebKitWebViewBackend
     //=========================================================================
     pub fn webkit_web_view_backend_get_type() -> GType;
@@ -2974,6 +3199,11 @@ unsafe extern "C" {
     ) -> *mut WebKitContextMenuItem;
     pub fn webkit_context_menu_get_items(menu: *mut WebKitContextMenu) -> *mut glib::GList;
     pub fn webkit_context_menu_get_n_items(menu: *mut WebKitContextMenu) -> c_uint;
+    pub fn webkit_context_menu_get_position(
+        menu: *mut WebKitContextMenu,
+        x: *mut c_int,
+        y: *mut c_int,
+    ) -> gboolean;
     pub fn webkit_context_menu_get_user_data(menu: *mut WebKitContextMenu) -> *mut glib::GVariant;
     pub fn webkit_context_menu_insert(
         menu: *mut WebKitContextMenu,
@@ -3024,6 +3254,9 @@ unsafe extern "C" {
     pub fn webkit_context_menu_item_get_gaction(
         item: *mut WebKitContextMenuItem,
     ) -> *mut gio::GAction;
+    pub fn webkit_context_menu_item_get_gaction_target(
+        item: *mut WebKitContextMenuItem,
+    ) -> *mut glib::GVariant;
     pub fn webkit_context_menu_item_get_stock_action(
         item: *mut WebKitContextMenuItem,
     ) -> WebKitContextMenuAction;
@@ -3308,6 +3541,15 @@ unsafe extern "C" {
     pub fn webkit_hit_test_result_get_media_uri(
         hit_test_result: *mut WebKitHitTestResult,
     ) -> *const c_char;
+
+    //=========================================================================
+    // WebKitImage
+    //=========================================================================
+    pub fn webkit_image_get_type() -> GType;
+    pub fn webkit_image_as_bytes(image: *mut WebKitImage) -> *mut glib::GBytes;
+    pub fn webkit_image_get_height(image: *mut WebKitImage) -> c_int;
+    pub fn webkit_image_get_stride(image: *mut WebKitImage) -> c_uint;
+    pub fn webkit_image_get_width(image: *mut WebKitImage) -> c_int;
 
     //=========================================================================
     // WebKitInputMethodContext
@@ -3648,6 +3890,7 @@ unsafe extern "C" {
     pub fn webkit_settings_get_load_icons_ignoring_image_load_setting(
         settings: *mut WebKitSettings,
     ) -> gboolean;
+    pub fn webkit_settings_get_math_font_family(settings: *mut WebKitSettings) -> *const c_char;
     pub fn webkit_settings_get_media_content_types_requiring_hardware_support(
         settings: *mut WebKitSettings,
     ) -> *const c_char;
@@ -3820,6 +4063,10 @@ unsafe extern "C" {
     pub fn webkit_settings_set_load_icons_ignoring_image_load_setting(
         settings: *mut WebKitSettings,
         enabled: gboolean,
+    );
+    pub fn webkit_settings_set_math_font_family(
+        settings: *mut WebKitSettings,
+        math_font_family: *const c_char,
     );
     pub fn webkit_settings_set_media_content_types_requiring_hardware_support(
         settings: *mut WebKitSettings,
@@ -4189,6 +4436,86 @@ unsafe extern "C" {
     );
 
     //=========================================================================
+    // WebKitWebExtension
+    //=========================================================================
+    pub fn webkit_web_extension_get_type() -> GType;
+    pub fn webkit_web_extension_new(
+        extension_path: *const c_char,
+        error: *mut *mut glib::GError,
+    ) -> *mut WebKitWebExtension;
+    pub fn webkit_web_extension_get_action_icon(
+        extension: *mut WebKitWebExtension,
+        width: c_double,
+        height: c_double,
+    ) -> *mut gio::GIcon;
+    pub fn webkit_web_extension_get_all_requested_match_patterns(
+        extension: *mut WebKitWebExtension,
+    ) -> *mut *mut WebKitWebExtensionMatchPattern;
+    pub fn webkit_web_extension_get_default_locale(
+        extension: *mut WebKitWebExtension,
+    ) -> *const c_char;
+    pub fn webkit_web_extension_get_display_action_label(
+        extension: *mut WebKitWebExtension,
+    ) -> *const c_char;
+    pub fn webkit_web_extension_get_display_description(
+        extension: *mut WebKitWebExtension,
+    ) -> *const c_char;
+    pub fn webkit_web_extension_get_display_name(
+        extension: *mut WebKitWebExtension,
+    ) -> *const c_char;
+    pub fn webkit_web_extension_get_display_short_name(
+        extension: *mut WebKitWebExtension,
+    ) -> *const c_char;
+    pub fn webkit_web_extension_get_display_version(
+        extension: *mut WebKitWebExtension,
+    ) -> *const c_char;
+    pub fn webkit_web_extension_get_has_background_content(
+        extension: *mut WebKitWebExtension,
+    ) -> gboolean;
+    pub fn webkit_web_extension_get_has_commands(extension: *mut WebKitWebExtension) -> gboolean;
+    pub fn webkit_web_extension_get_has_content_modification_rules(
+        extension: *mut WebKitWebExtension,
+    ) -> gboolean;
+    pub fn webkit_web_extension_get_has_injected_content(
+        extension: *mut WebKitWebExtension,
+    ) -> gboolean;
+    pub fn webkit_web_extension_get_has_options_page(
+        extension: *mut WebKitWebExtension,
+    ) -> gboolean;
+    pub fn webkit_web_extension_get_has_override_new_tab_page(
+        extension: *mut WebKitWebExtension,
+    ) -> gboolean;
+    pub fn webkit_web_extension_get_has_persistent_background_content(
+        extension: *mut WebKitWebExtension,
+    ) -> gboolean;
+    pub fn webkit_web_extension_get_icon(
+        extension: *mut WebKitWebExtension,
+        width: c_double,
+        height: c_double,
+    ) -> *mut gio::GIcon;
+    pub fn webkit_web_extension_get_manifest_version(
+        extension: *mut WebKitWebExtension,
+    ) -> c_double;
+    pub fn webkit_web_extension_get_optional_permission_match_patterns(
+        extension: *mut WebKitWebExtension,
+    ) -> *mut *mut WebKitWebExtensionMatchPattern;
+    pub fn webkit_web_extension_get_optional_permissions(
+        extension: *mut WebKitWebExtension,
+    ) -> *const *const c_char;
+    pub fn webkit_web_extension_get_path(extension: *mut WebKitWebExtension) -> *const c_char;
+    pub fn webkit_web_extension_get_requested_permission_match_patterns(
+        extension: *mut WebKitWebExtension,
+    ) -> *mut *mut WebKitWebExtensionMatchPattern;
+    pub fn webkit_web_extension_get_requested_permissions(
+        extension: *mut WebKitWebExtension,
+    ) -> *const *const c_char;
+    pub fn webkit_web_extension_get_version(extension: *mut WebKitWebExtension) -> *const c_char;
+    pub fn webkit_web_extension_supports_manifest_version(
+        extension: *mut WebKitWebExtension,
+        manifest_version: c_double,
+    ) -> gboolean;
+
+    //=========================================================================
     // WebKitWebResource
     //=========================================================================
     pub fn webkit_web_resource_get_type() -> GType;
@@ -4333,6 +4660,19 @@ unsafe extern "C" {
         web_view: *mut WebKitWebView,
     ) -> *mut WebKitWebViewSessionState;
     pub fn webkit_web_view_get_settings(web_view: *mut WebKitWebView) -> *mut WebKitSettings;
+    pub fn webkit_web_view_get_snapshot(
+        web_view: *mut WebKitWebView,
+        region: WebKitSnapshotRegion,
+        options: WebKitSnapshotOptions,
+        cancellable: *mut gio::GCancellable,
+        callback: gio::GAsyncReadyCallback,
+        user_data: gpointer,
+    );
+    pub fn webkit_web_view_get_snapshot_finish(
+        web_view: *mut WebKitWebView,
+        result: *mut gio::GAsyncResult,
+        error: *mut *mut glib::GError,
+    ) -> *mut WebKitImage;
     pub fn webkit_web_view_get_theme_color(
         web_view: *mut WebKitWebView,
         color: *mut WebKitColor,
@@ -4367,8 +4707,10 @@ unsafe extern "C" {
     );
     pub fn webkit_web_view_is_controlled_by_automation(web_view: *mut WebKitWebView) -> gboolean;
     pub fn webkit_web_view_is_editable(web_view: *mut WebKitWebView) -> gboolean;
+    pub fn webkit_web_view_is_immersive_mode_enabled(web_view: *mut WebKitWebView) -> gboolean;
     pub fn webkit_web_view_is_loading(web_view: *mut WebKitWebView) -> gboolean;
     pub fn webkit_web_view_is_playing_audio(web_view: *mut WebKitWebView) -> gboolean;
+    pub fn webkit_web_view_leave_immersive_mode(web_view: *mut WebKitWebView);
     pub fn webkit_web_view_load_alternate_html(
         web_view: *mut WebKitWebView,
         content: *const c_char,
@@ -4599,6 +4941,36 @@ unsafe extern "C" {
     pub fn webkit_window_properties_get_toolbar_visible(
         window_properties: *mut WebKitWindowProperties,
     ) -> gboolean;
+
+    //=========================================================================
+    // WebKitXRPermissionRequest
+    //=========================================================================
+    pub fn webkit_xr_permission_request_get_type() -> GType;
+    pub fn webkit_xr_permission_request_get_consent_optional_features(
+        request: *mut WebKitXRPermissionRequest,
+    ) -> WebKitXRSessionFeatures;
+    pub fn webkit_xr_permission_request_get_consent_required_features(
+        request: *mut WebKitXRPermissionRequest,
+    ) -> WebKitXRSessionFeatures;
+    pub fn webkit_xr_permission_request_get_granted_features(
+        request: *mut WebKitXRPermissionRequest,
+    ) -> WebKitXRSessionFeatures;
+    pub fn webkit_xr_permission_request_get_optional_features_requested(
+        request: *mut WebKitXRPermissionRequest,
+    ) -> WebKitXRSessionFeatures;
+    pub fn webkit_xr_permission_request_get_required_features_requested(
+        request: *mut WebKitXRPermissionRequest,
+    ) -> WebKitXRSessionFeatures;
+    pub fn webkit_xr_permission_request_get_security_origin(
+        request: *mut WebKitXRPermissionRequest,
+    ) -> *mut WebKitSecurityOrigin;
+    pub fn webkit_xr_permission_request_get_session_mode(
+        request: *mut WebKitXRPermissionRequest,
+    ) -> WebKitXRSessionMode;
+    pub fn webkit_xr_permission_request_set_granted_optional_features(
+        request: *mut WebKitXRPermissionRequest,
+        granted: WebKitXRSessionFeatures,
+    );
 
     //=========================================================================
     // WebKitPermissionRequest

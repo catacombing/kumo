@@ -2,7 +2,6 @@
 // from /usr/share/gir-1.0
 // from ../gir-files
 // DO NOT EDIT
-#![allow(deprecated)]
 
 use std::boxed::Box as Box_;
 
@@ -191,15 +190,6 @@ impl Settings {
         }
     }
 
-    #[deprecated = "Since 2.48"]
-    #[allow(deprecated)]
-    #[doc(alias = "webkit_settings_get_enable_dns_prefetching")]
-    #[doc(alias = "get_enable_dns_prefetching")]
-    #[doc(alias = "enable-dns-prefetching")]
-    pub fn enables_dns_prefetching(&self) -> bool {
-        unsafe { from_glib(ffi::webkit_settings_get_enable_dns_prefetching(self.to_glib_none().0)) }
-    }
-
     #[doc(alias = "webkit_settings_get_enable_encrypted_media")]
     #[doc(alias = "get_enable_encrypted_media")]
     #[doc(alias = "enable-encrypted-media")]
@@ -227,17 +217,6 @@ impl Settings {
     pub fn enables_html5_local_storage(&self) -> bool {
         unsafe {
             from_glib(ffi::webkit_settings_get_enable_html5_local_storage(self.to_glib_none().0))
-        }
-    }
-
-    #[deprecated = "Since 2.50"]
-    #[allow(deprecated)]
-    #[doc(alias = "webkit_settings_get_enable_hyperlink_auditing")]
-    #[doc(alias = "get_enable_hyperlink_auditing")]
-    #[doc(alias = "enable-hyperlink-auditing")]
-    pub fn enables_hyperlink_auditing(&self) -> bool {
-        unsafe {
-            from_glib(ffi::webkit_settings_get_enable_hyperlink_auditing(self.to_glib_none().0))
         }
     }
 
@@ -418,6 +397,13 @@ impl Settings {
                 self.to_glib_none().0,
             ))
         }
+    }
+
+    #[doc(alias = "webkit_settings_get_math_font_family")]
+    #[doc(alias = "get_math_font_family")]
+    #[doc(alias = "math-font-family")]
+    pub fn math_font_family(&self) -> Option<glib::GString> {
+        unsafe { from_glib_none(ffi::webkit_settings_get_math_font_family(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "webkit_settings_get_media_content_types_requiring_hardware_support")]
@@ -678,19 +664,6 @@ impl Settings {
         }
     }
 
-    #[deprecated = "Since 2.48"]
-    #[allow(deprecated)]
-    #[doc(alias = "webkit_settings_set_enable_dns_prefetching")]
-    #[doc(alias = "enable-dns-prefetching")]
-    pub fn set_enable_dns_prefetching(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_dns_prefetching(
-                self.to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
     #[doc(alias = "webkit_settings_set_enable_encrypted_media")]
     #[doc(alias = "enable-encrypted-media")]
     pub fn set_enable_encrypted_media(&self, enabled: bool) {
@@ -726,19 +699,6 @@ impl Settings {
     pub fn set_enable_html5_local_storage(&self, enabled: bool) {
         unsafe {
             ffi::webkit_settings_set_enable_html5_local_storage(
-                self.to_glib_none().0,
-                enabled.into_glib(),
-            );
-        }
-    }
-
-    #[deprecated = "Since 2.50"]
-    #[allow(deprecated)]
-    #[doc(alias = "webkit_settings_set_enable_hyperlink_auditing")]
-    #[doc(alias = "enable-hyperlink-auditing")]
-    pub fn set_enable_hyperlink_auditing(&self, enabled: bool) {
-        unsafe {
-            ffi::webkit_settings_set_enable_hyperlink_auditing(
                 self.to_glib_none().0,
                 enabled.into_glib(),
             );
@@ -955,6 +915,17 @@ impl Settings {
         }
     }
 
+    #[doc(alias = "webkit_settings_set_math_font_family")]
+    #[doc(alias = "math-font-family")]
+    pub fn set_math_font_family(&self, math_font_family: Option<&str>) {
+        unsafe {
+            ffi::webkit_settings_set_math_font_family(
+                self.to_glib_none().0,
+                math_font_family.to_glib_none().0,
+            );
+        }
+    }
+
     #[doc(alias = "webkit_settings_set_media_content_types_requiring_hardware_support")]
     #[doc(alias = "media-content-types-requiring-hardware-support")]
     pub fn set_media_content_types_requiring_hardware_support(&self, content_types: Option<&str>) {
@@ -1126,14 +1097,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::allow-file-access-from-file-urls".as_ptr() as *const _,
+                c"notify::allow-file-access-from-file-urls".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_allow_file_access_from_file_urls_trampoline::<F> as *const (),
                 )),
@@ -1152,14 +1125,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::allow-modal-dialogs".as_ptr() as *const _,
+                c"notify::allow-modal-dialogs".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_allow_modal_dialogs_trampoline::<F> as *const (),
                 )),
@@ -1180,14 +1155,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::allow-top-navigation-to-data-urls".as_ptr() as *const _,
+                c"notify::allow-top-navigation-to-data-urls".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_allow_top_navigation_to_data_urls_trampoline::<F> as *const (),
                 )),
@@ -1208,14 +1185,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::allow-universal-access-from-file-urls".as_ptr() as *const _,
+                c"notify::allow-universal-access-from-file-urls".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_allow_universal_access_from_file_urls_trampoline::<F> as *const (),
                 )),
@@ -1231,14 +1210,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::auto-load-images".as_ptr() as *const _,
+                c"notify::auto-load-images".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_auto_load_images_trampoline::<F> as *const (),
                 )),
@@ -1257,14 +1238,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::cursive-font-family".as_ptr() as *const _,
+                c"notify::cursive-font-family".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_cursive_font_family_trampoline::<F> as *const (),
                 )),
@@ -1280,14 +1263,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::default-charset".as_ptr() as *const _,
+                c"notify::default-charset".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_default_charset_trampoline::<F> as *const (),
                 )),
@@ -1306,14 +1291,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::default-font-family".as_ptr() as *const _,
+                c"notify::default-font-family".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_default_font_family_trampoline::<F> as *const (),
                 )),
@@ -1332,14 +1319,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::default-font-size".as_ptr() as *const _,
+                c"notify::default-font-size".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_default_font_size_trampoline::<F> as *const (),
                 )),
@@ -1360,14 +1349,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::default-monospace-font-size".as_ptr() as *const _,
+                c"notify::default-monospace-font-size".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_default_monospace_font_size_trampoline::<F> as *const (),
                 )),
@@ -1386,14 +1377,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::disable-web-security".as_ptr() as *const _,
+                c"notify::disable-web-security".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_disable_web_security_trampoline::<F> as *const (),
                 )),
@@ -1414,14 +1407,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::draw-compositing-indicators".as_ptr() as *const _,
+                c"notify::draw-compositing-indicators".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_draw_compositing_indicators_trampoline::<F> as *const (),
                 )),
@@ -1442,14 +1437,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-2d-canvas-acceleration".as_ptr() as *const _,
+                c"notify::enable-2d-canvas-acceleration".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_2d_canvas_acceleration_trampoline::<F> as *const (),
                 )),
@@ -1468,14 +1465,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-caret-browsing".as_ptr() as *const _,
+                c"notify::enable-caret-browsing".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_caret_browsing_trampoline::<F> as *const (),
                 )),
@@ -1496,45 +1495,18 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-developer-extras".as_ptr() as *const _,
+                c"notify::enable-developer-extras".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_developer_extras_trampoline::<F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[deprecated = "Since 2.48"]
-    #[doc(alias = "enable-dns-prefetching")]
-    pub fn connect_enable_dns_prefetching_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_dns_prefetching_trampoline<
-            F: Fn(&Settings) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                c"notify::enable-dns-prefetching".as_ptr() as *const _,
-                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
-                    notify_enable_dns_prefetching_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -1553,14 +1525,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-encrypted-media".as_ptr() as *const _,
+                c"notify::enable-encrypted-media".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_encrypted_media_trampoline::<F> as *const (),
                 )),
@@ -1579,14 +1553,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-fullscreen".as_ptr() as *const _,
+                c"notify::enable-fullscreen".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_fullscreen_trampoline::<F> as *const (),
                 )),
@@ -1605,14 +1581,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-html5-database".as_ptr() as *const _,
+                c"notify::enable-html5-database".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_html5_database_trampoline::<F> as *const (),
                 )),
@@ -1633,45 +1611,18 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-html5-local-storage".as_ptr() as *const _,
+                c"notify::enable-html5-local-storage".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_html5_local_storage_trampoline::<F> as *const (),
-                )),
-                Box_::into_raw(f),
-            )
-        }
-    }
-
-    #[deprecated = "Since 2.50"]
-    #[doc(alias = "enable-hyperlink-auditing")]
-    pub fn connect_enable_hyperlink_auditing_notify<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> SignalHandlerId {
-        unsafe extern "C" fn notify_enable_hyperlink_auditing_trampoline<
-            F: Fn(&Settings) + 'static,
-        >(
-            this: *mut ffi::WebKitSettings,
-            _param_spec: glib::ffi::gpointer,
-            f: glib::ffi::gpointer,
-        ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
-        }
-        unsafe {
-            let f: Box_<F> = Box_::new(f);
-            connect_raw(
-                self.as_ptr() as *mut _,
-                c"notify::enable-hyperlink-auditing".as_ptr() as *const _,
-                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
-                    notify_enable_hyperlink_auditing_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -1688,14 +1639,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-javascript".as_ptr() as *const _,
+                c"notify::enable-javascript".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_javascript_trampoline::<F> as *const (),
                 )),
@@ -1716,14 +1669,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-javascript-markup".as_ptr() as *const _,
+                c"notify::enable-javascript-markup".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_javascript_markup_trampoline::<F> as *const (),
                 )),
@@ -1739,14 +1694,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-media".as_ptr() as *const _,
+                c"notify::enable-media".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_media_trampoline::<F> as *const (),
                 )),
@@ -1767,14 +1724,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-media-capabilities".as_ptr() as *const _,
+                c"notify::enable-media-capabilities".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_media_capabilities_trampoline::<F> as *const (),
                 )),
@@ -1793,14 +1752,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-media-stream".as_ptr() as *const _,
+                c"notify::enable-media-stream".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_media_stream_trampoline::<F> as *const (),
                 )),
@@ -1819,14 +1780,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-mediasource".as_ptr() as *const _,
+                c"notify::enable-mediasource".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_mediasource_trampoline::<F> as *const (),
                 )),
@@ -1847,14 +1810,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-mock-capture-devices".as_ptr() as *const _,
+                c"notify::enable-mock-capture-devices".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_mock_capture_devices_trampoline::<F> as *const (),
                 )),
@@ -1873,14 +1838,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-page-cache".as_ptr() as *const _,
+                c"notify::enable-page-cache".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_page_cache_trampoline::<F> as *const (),
                 )),
@@ -1901,14 +1868,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-resizable-text-areas".as_ptr() as *const _,
+                c"notify::enable-resizable-text-areas".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_resizable_text_areas_trampoline::<F> as *const (),
                 )),
@@ -1929,14 +1898,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-site-specific-quirks".as_ptr() as *const _,
+                c"notify::enable-site-specific-quirks".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_site_specific_quirks_trampoline::<F> as *const (),
                 )),
@@ -1957,14 +1928,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-smooth-scrolling".as_ptr() as *const _,
+                c"notify::enable-smooth-scrolling".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_smooth_scrolling_trampoline::<F> as *const (),
                 )),
@@ -1985,14 +1958,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-spatial-navigation".as_ptr() as *const _,
+                c"notify::enable-spatial-navigation".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_spatial_navigation_trampoline::<F> as *const (),
                 )),
@@ -2011,14 +1986,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-tabs-to-links".as_ptr() as *const _,
+                c"notify::enable-tabs-to-links".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_tabs_to_links_trampoline::<F> as *const (),
                 )),
@@ -2034,14 +2011,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-webaudio".as_ptr() as *const _,
+                c"notify::enable-webaudio".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_webaudio_trampoline::<F> as *const (),
                 )),
@@ -2057,14 +2036,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-webgl".as_ptr() as *const _,
+                c"notify::enable-webgl".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_webgl_trampoline::<F> as *const (),
                 )),
@@ -2080,14 +2061,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-webrtc".as_ptr() as *const _,
+                c"notify::enable-webrtc".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_webrtc_trampoline::<F> as *const (),
                 )),
@@ -2108,14 +2091,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-write-console-messages-to-stdout".as_ptr() as *const _,
+                c"notify::enable-write-console-messages-to-stdout".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_write_console_messages_to_stdout_trampoline::<F> as *const (),
                 )),
@@ -2134,14 +2119,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::fantasy-font-family".as_ptr() as *const _,
+                c"notify::fantasy-font-family".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_fantasy_font_family_trampoline::<F> as *const (),
                 )),
@@ -2162,14 +2149,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::javascript-can-access-clipboard".as_ptr() as *const _,
+                c"notify::javascript-can-access-clipboard".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_javascript_can_access_clipboard_trampoline::<F> as *const (),
                 )),
@@ -2190,16 +2179,43 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::javascript-can-open-windows-automatically".as_ptr() as *const _,
+                c"notify::javascript-can-open-windows-automatically".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_javascript_can_open_windows_automatically_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "math-font-family")]
+    pub fn connect_math_font_family_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_math_font_family_trampoline<F: Fn(&Settings) + 'static>(
+            this: *mut ffi::WebKitSettings,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::math-font-family".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_math_font_family_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -2218,14 +2234,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::media-content-types-requiring-hardware-support".as_ptr() as *const _,
+                c"notify::media-content-types-requiring-hardware-support".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_media_content_types_requiring_hardware_support_trampoline::<F>
                         as *const (),
@@ -2247,14 +2265,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::media-playback-allows-inline".as_ptr() as *const _,
+                c"notify::media-playback-allows-inline".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_media_playback_allows_inline_trampoline::<F> as *const (),
                 )),
@@ -2275,14 +2295,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::media-playback-requires-user-gesture".as_ptr() as *const _,
+                c"notify::media-playback-requires-user-gesture".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_media_playback_requires_user_gesture_trampoline::<F> as *const (),
                 )),
@@ -2301,14 +2323,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::minimum-font-size".as_ptr() as *const _,
+                c"notify::minimum-font-size".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_minimum_font_size_trampoline::<F> as *const (),
                 )),
@@ -2327,14 +2351,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::monospace-font-family".as_ptr() as *const _,
+                c"notify::monospace-font-family".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_monospace_font_family_trampoline::<F> as *const (),
                 )),
@@ -2355,14 +2381,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::pictograph-font-family".as_ptr() as *const _,
+                c"notify::pictograph-font-family".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_pictograph_font_family_trampoline::<F> as *const (),
                 )),
@@ -2381,14 +2409,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::print-backgrounds".as_ptr() as *const _,
+                c"notify::print-backgrounds".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_print_backgrounds_trampoline::<F> as *const (),
                 )),
@@ -2409,14 +2439,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::sans-serif-font-family".as_ptr() as *const _,
+                c"notify::sans-serif-font-family".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_sans_serif_font_family_trampoline::<F> as *const (),
                 )),
@@ -2435,14 +2467,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::serif-font-family".as_ptr() as *const _,
+                c"notify::serif-font-family".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_serif_font_family_trampoline::<F> as *const (),
                 )),
@@ -2458,14 +2492,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::user-agent".as_ptr() as *const _,
+                c"notify::user-agent".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_user_agent_trampoline::<F> as *const (),
                 )),
@@ -2486,14 +2522,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::webrtc-udp-ports-range".as_ptr() as *const _,
+                c"notify::webrtc-udp-ports-range".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_webrtc_udp_ports_range_trampoline::<F> as *const (),
                 )),
@@ -2509,14 +2547,16 @@ impl Settings {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::zoom-text-only".as_ptr() as *const _,
+                c"notify::zoom-text-only".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_zoom_text_only_trampoline::<F> as *const (),
                 )),
@@ -2637,11 +2677,6 @@ impl SettingsBuilder {
         Self { builder: self.builder.property("enable-developer-extras", enable_developer_extras) }
     }
 
-    #[deprecated = "Since 2.48"]
-    pub fn enable_dns_prefetching(self, enable_dns_prefetching: bool) -> Self {
-        Self { builder: self.builder.property("enable-dns-prefetching", enable_dns_prefetching) }
-    }
-
     pub fn enable_encrypted_media(self, enable_encrypted_media: bool) -> Self {
         Self { builder: self.builder.property("enable-encrypted-media", enable_encrypted_media) }
     }
@@ -2659,13 +2694,6 @@ impl SettingsBuilder {
             builder: self
                 .builder
                 .property("enable-html5-local-storage", enable_html5_local_storage),
-        }
-    }
-
-    #[deprecated = "Since 2.50"]
-    pub fn enable_hyperlink_auditing(self, enable_hyperlink_auditing: bool) -> Self {
-        Self {
-            builder: self.builder.property("enable-hyperlink-auditing", enable_hyperlink_auditing),
         }
     }
 
@@ -2785,6 +2813,10 @@ impl SettingsBuilder {
                 javascript_can_open_windows_automatically,
             ),
         }
+    }
+
+    pub fn math_font_family(self, math_font_family: impl Into<glib::GString>) -> Self {
+        Self { builder: self.builder.property("math-font-family", math_font_family.into()) }
     }
 
     pub fn media_content_types_requiring_hardware_support(

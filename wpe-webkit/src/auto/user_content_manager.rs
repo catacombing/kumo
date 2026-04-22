@@ -168,19 +168,22 @@ impl UserContentManager {
             value: *mut wpe_java_script_core::ffi::JSCValue,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(value))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(value))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             let detailed_signal_name =
                 detail.map(|name| format!("script-message-received::{name}\0"));
-            let signal_name: &[u8] = detailed_signal_name
-                .as_ref()
-                .map_or(c"script-message-received".to_bytes(), |n| n.as_bytes());
+            let signal_name =
+                detailed_signal_name.as_ref().map_or(c"script-message-received", |n| {
+                    std::ffi::CStr::from_bytes_with_nul_unchecked(n.as_bytes())
+                });
             connect_raw(
                 self.as_ptr() as *mut _,
-                signal_name.as_ptr() as *const _,
+                signal_name.as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     script_message_received_trampoline::<F> as *const (),
                 )),
@@ -206,20 +209,23 @@ impl UserContentManager {
             reply: *mut ffi::WebKitScriptMessageReply,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(value), &from_glib_borrow(reply))
-                .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(value), &from_glib_borrow(reply))
+                    .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             let detailed_signal_name =
                 detail.map(|name| format!("script-message-with-reply-received::{name}\0"));
-            let signal_name: &[u8] = detailed_signal_name
-                .as_ref()
-                .map_or(c"script-message-with-reply-received".to_bytes(), |n| n.as_bytes());
+            let signal_name =
+                detailed_signal_name.as_ref().map_or(c"script-message-with-reply-received", |n| {
+                    std::ffi::CStr::from_bytes_with_nul_unchecked(n.as_bytes())
+                });
             connect_raw(
                 self.as_ptr() as *mut _,
-                signal_name.as_ptr() as *const _,
+                signal_name.as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     script_message_with_reply_received_trampoline::<F> as *const (),
                 )),

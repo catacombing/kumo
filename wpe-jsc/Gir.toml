@@ -1,7 +1,7 @@
 [options]
 library = "WPEJavaScriptCore"
 version = "2.0"
-min_cfg_version = "2.38"
+min_cfg_version = "2.52"
 target_path = "."
 girs_directories = ["/usr/share/gir-1.0/", "../gir-files"]
 work_mode = "normal"
@@ -25,7 +25,6 @@ generate = [
     "WPEJavaScriptCore.OptionsFunc",
     "WPEJavaScriptCore.OptionType",
     "WPEJavaScriptCore.TypedArrayType",
-    "WPEJavaScriptCore.Value",
     "WPEJavaScriptCore.ValuePropertyFlags",
     "WPEJavaScriptCore.VirtualMachine",
     "WPEJavaScriptCore.WeakValue",
@@ -36,4 +35,11 @@ manual = [
     "GLib.OptionGroup",
 
     "GObject.Callback",
+]
+
+[[object]]
+name = "WPEJavaScriptCore.Value"
+status = "generate"
+function = [
+    { name = "array_buffer_get_data", manual = true },
 ]

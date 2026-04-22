@@ -22,7 +22,7 @@ all-features = true
 
 [package.metadata.system-deps.wpe_webkit_2_0]
 name = "wpe-webkit-2.0"
-version = "2.50"
+version = "2.52"
 
 [dependencies]
 libc = "0.2"
@@ -39,5 +39,3 @@ system-deps = "7"
 [dev-dependencies]
 shell-words = "1.0.0"
 tempfile = "3"
-
-[features]

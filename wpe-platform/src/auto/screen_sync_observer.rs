@@ -24,53 +24,43 @@ impl ScreenSyncObserver {
 }
 
 pub trait ScreenSyncObserverExt: IsA<ScreenSyncObserver> + 'static {
-    #[doc(alias = "wpe_screen_sync_observer_is_active")]
-    fn is_active(&self) -> bool {
-        unsafe {
-            from_glib(ffi::wpe_screen_sync_observer_is_active(self.as_ref().to_glib_none().0))
-        }
-    }
-
-    #[doc(alias = "wpe_screen_sync_observer_set_callback")]
-    fn set_callback<P: Fn(&ScreenSyncObserver) + 'static>(&self, sync_func: P) {
+    #[doc(alias = "wpe_screen_sync_observer_add_callback")]
+    fn add_callback<P: Fn(&ScreenSyncObserver) + 'static>(&self, sync_func: P) -> u32 {
         let sync_func_data: Box_<P> = Box_::new(sync_func);
         unsafe extern "C" fn sync_func_func<P: Fn(&ScreenSyncObserver) + 'static>(
             observer: *mut ffi::WPEScreenSyncObserver,
             user_data: glib::ffi::gpointer,
         ) {
-            let observer = from_glib_borrow(observer);
-            let callback = &*(user_data as *mut P);
-            (*callback)(&observer)
+            unsafe {
+                let observer = from_glib_borrow(observer);
+                let callback = &*(user_data as *mut P);
+                (*callback)(&observer)
+            }
         }
         let sync_func = Some(sync_func_func::<P> as _);
         unsafe extern "C" fn destroy_notify_func<P: Fn(&ScreenSyncObserver) + 'static>(
             data: glib::ffi::gpointer,
         ) {
-            let _callback = Box_::from_raw(data as *mut P);
+            unsafe {
+                let _callback = Box_::from_raw(data as *mut P);
+            }
         }
         let destroy_call3 = Some(destroy_notify_func::<P> as _);
         let super_callback0: Box_<P> = sync_func_data;
         unsafe {
-            ffi::wpe_screen_sync_observer_set_callback(
+            ffi::wpe_screen_sync_observer_add_callback(
                 self.as_ref().to_glib_none().0,
                 sync_func,
                 Box_::into_raw(super_callback0) as *mut _,
                 destroy_call3,
-            );
+            )
         }
     }
 
-    #[doc(alias = "wpe_screen_sync_observer_start")]
-    fn start(&self) {
+    #[doc(alias = "wpe_screen_sync_observer_remove_callback")]
+    fn remove_callback(&self, id: u32) {
         unsafe {
-            ffi::wpe_screen_sync_observer_start(self.as_ref().to_glib_none().0);
-        }
-    }
-
-    #[doc(alias = "wpe_screen_sync_observer_stop")]
-    fn stop(&self) {
-        unsafe {
-            ffi::wpe_screen_sync_observer_stop(self.as_ref().to_glib_none().0);
+            ffi::wpe_screen_sync_observer_remove_callback(self.as_ref().to_glib_none().0, id);
         }
     }
 }

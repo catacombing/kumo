@@ -75,6 +75,14 @@ impl ContextMenuItem {
         unsafe { from_glib_none(ffi::webkit_context_menu_item_get_gaction(self.to_glib_none().0)) }
     }
 
+    #[doc(alias = "webkit_context_menu_item_get_gaction_target")]
+    #[doc(alias = "get_gaction_target")]
+    pub fn gaction_target(&self) -> Option<glib::Variant> {
+        unsafe {
+            from_glib_none(ffi::webkit_context_menu_item_get_gaction_target(self.to_glib_none().0))
+        }
+    }
+
     #[doc(alias = "webkit_context_menu_item_get_stock_action")]
     #[doc(alias = "get_stock_action")]
     pub fn stock_action(&self) -> ContextMenuAction {

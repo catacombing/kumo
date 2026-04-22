@@ -31,18 +31,19 @@ use xkbcommon::{xkb_keymap, xkb_state};
 use xkbcommon_sys as xkbcommon;
 
 // Enums
-pub type WPEBufferDMABufFormatUsage = c_int;
-pub const WPE_BUFFER_DMA_BUF_FORMAT_USAGE_RENDERING: WPEBufferDMABufFormatUsage = 0;
-pub const WPE_BUFFER_DMA_BUF_FORMAT_USAGE_MAPPING: WPEBufferDMABufFormatUsage = 1;
-pub const WPE_BUFFER_DMA_BUF_FORMAT_USAGE_SCANOUT: WPEBufferDMABufFormatUsage = 2;
-
 pub type WPEBufferError = c_int;
 pub const WPE_BUFFER_ERROR_NOT_SUPPORTED: WPEBufferError = 0;
 pub const WPE_BUFFER_ERROR_IMPORT_FAILED: WPEBufferError = 1;
 
+pub type WPEBufferFormatUsage = c_int;
+pub const WPE_BUFFER_FORMAT_USAGE_RENDERING: WPEBufferFormatUsage = 0;
+pub const WPE_BUFFER_FORMAT_USAGE_MAPPING: WPEBufferFormatUsage = 1;
+pub const WPE_BUFFER_FORMAT_USAGE_SCANOUT: WPEBufferFormatUsage = 2;
+
 pub type WPEDisplayError = c_int;
 pub const WPE_DISPLAY_ERROR_NOT_SUPPORTED: WPEDisplayError = 0;
 pub const WPE_DISPLAY_ERROR_CONNECTION_FAILED: WPEDisplayError = 1;
+pub const WPE_DISPLAY_ERROR_CONNECTION_LOST: WPEDisplayError = 2;
 
 pub type WPEEGLError = c_int;
 pub const WPE_EGL_ERROR_NOT_AVAILABLE: WPEEGLError = 0;
@@ -2427,8 +2428,8 @@ pub const WPE_KEY_zerosubscript: c_int = 16785536;
 pub const WPE_KEY_zerosuperior: c_int = 16785520;
 pub const WPE_KEY_zstroke: c_int = 16777654;
 pub const WPE_PLATFORM_MAJOR_VERSION: c_int = 2;
-pub const WPE_PLATFORM_MICRO_VERSION: c_int = 0;
-pub const WPE_PLATFORM_MINOR_VERSION: c_int = 50;
+pub const WPE_PLATFORM_MICRO_VERSION: c_int = 3;
+pub const WPE_PLATFORM_MINOR_VERSION: c_int = 52;
 pub const WPE_SETTING_CREATE_VIEWS_WITH_A_TOPLEVEL: &[u8] =
     b"/wpe-platform/create-views-with-a-toplevel\0";
 pub const WPE_SETTING_CURSOR_BLINK_TIME: &[u8] = b"/wpe-platform/cursor-blink-time\0";
@@ -2445,6 +2446,7 @@ pub const WPE_SETTING_FONT_NAME: &[u8] = b"/wpe-platform/font-name\0";
 pub const WPE_SETTING_FONT_SUBPIXEL_LAYOUT: &[u8] = b"/wpe-platform/font-subpixel-layout\0";
 pub const WPE_SETTING_KEY_REPEAT_DELAY: &[u8] = b"/wpe-platform/events/key-repeat/delay\0";
 pub const WPE_SETTING_KEY_REPEAT_INTERVAL: &[u8] = b"/wpe-platform/events/key-repeat/interval\0";
+pub const WPE_SETTING_OVERLAY_SCROLLBARS: &[u8] = b"/wpe-platform/overlay-scrollbars\0";
 pub const WPE_SETTING_TOPLEVEL_DEFAULT_SIZE: &[u8] = b"/wpe-platform/toplevel-default-size\0";
 
 // Flags
@@ -2532,26 +2534,26 @@ impl ::std::fmt::Debug for WPEBufferDMABufClass {
 
 #[repr(C)]
 #[allow(dead_code)]
-pub struct WPEBufferDMABufFormatsBuilder {
+pub struct WPEBufferFormatsBuilder {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
-impl ::std::fmt::Debug for WPEBufferDMABufFormatsBuilder {
+impl ::std::fmt::Debug for WPEBufferFormatsBuilder {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WPEBufferDMABufFormatsBuilder @ {self:p}")).finish()
+        f.debug_struct(&format!("WPEBufferFormatsBuilder @ {self:p}")).finish()
     }
 }
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct WPEBufferDMABufFormatsClass {
+pub struct WPEBufferFormatsClass {
     pub parent_class: gobject::GObjectClass,
 }
 
-impl ::std::fmt::Debug for WPEBufferDMABufFormatsClass {
+impl ::std::fmt::Debug for WPEBufferFormatsClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WPEBufferDMABufFormatsClass @ {self:p}"))
+        f.debug_struct(&format!("WPEBufferFormatsClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -2672,14 +2674,15 @@ pub struct WPEDisplayClass {
         Option<unsafe extern "C" fn(*mut WPEDisplay, *mut *mut glib::GError) -> gpointer>,
     pub get_keymap: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEKeymap>,
     pub get_clipboard: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEClipboard>,
-    pub get_preferred_dma_buf_formats:
-        Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEBufferDMABufFormats>,
+    pub get_preferred_buffer_formats:
+        Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEBufferFormats>,
     pub get_n_screens: Option<unsafe extern "C" fn(*mut WPEDisplay) -> c_uint>,
     pub get_screen: Option<unsafe extern "C" fn(*mut WPEDisplay, c_uint) -> *mut WPEScreen>,
     pub get_drm_device: Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEDRMDevice>,
     pub use_explicit_sync: Option<unsafe extern "C" fn(*mut WPEDisplay) -> gboolean>,
     pub create_input_method_context:
         Option<unsafe extern "C" fn(*mut WPEDisplay, *mut WPEView) -> *mut WPEInputMethodContext>,
+    pub create_toplevel: Option<unsafe extern "C" fn(*mut WPEDisplay, c_uint) -> *mut WPEToplevel>,
     pub create_gamepad_manager:
         Option<unsafe extern "C" fn(*mut WPEDisplay) -> *mut WPEGamepadManager>,
     pub padding: [gpointer; 32],
@@ -2694,12 +2697,13 @@ impl ::std::fmt::Debug for WPEDisplayClass {
             .field("get_egl_display", &self.get_egl_display)
             .field("get_keymap", &self.get_keymap)
             .field("get_clipboard", &self.get_clipboard)
-            .field("get_preferred_dma_buf_formats", &self.get_preferred_dma_buf_formats)
+            .field("get_preferred_buffer_formats", &self.get_preferred_buffer_formats)
             .field("get_n_screens", &self.get_n_screens)
             .field("get_screen", &self.get_screen)
             .field("get_drm_device", &self.get_drm_device)
             .field("use_explicit_sync", &self.use_explicit_sync)
             .field("create_input_method_context", &self.create_input_method_context)
+            .field("create_toplevel", &self.create_toplevel)
             .field("create_gamepad_manager", &self.create_gamepad_manager)
             .field("padding", &self.padding)
             .finish()
@@ -2786,7 +2790,8 @@ pub type WPEGamepadPrivate = _WPEGamepadPrivate;
 #[repr(C)]
 pub struct WPEGestureControllerInterface {
     pub parent_interface: gobject::GTypeInterface,
-    pub handle_event: Option<unsafe extern "C" fn(*mut WPEGestureController, *mut WPEEvent)>,
+    pub handle_event:
+        Option<unsafe extern "C" fn(*mut WPEGestureController, *mut WPEEvent) -> gboolean>,
     pub cancel: Option<unsafe extern "C" fn(*mut WPEGestureController)>,
     pub get_gesture: Option<unsafe extern "C" fn(*mut WPEGestureController) -> WPEGesture>,
     pub get_gesture_position: Option<
@@ -3064,8 +3069,8 @@ pub struct WPEToplevelClass {
     pub set_fullscreen: Option<unsafe extern "C" fn(*mut WPEToplevel, gboolean) -> gboolean>,
     pub set_maximized: Option<unsafe extern "C" fn(*mut WPEToplevel, gboolean) -> gboolean>,
     pub set_minimized: Option<unsafe extern "C" fn(*mut WPEToplevel) -> gboolean>,
-    pub get_preferred_dma_buf_formats:
-        Option<unsafe extern "C" fn(*mut WPEToplevel) -> *mut WPEBufferDMABufFormats>,
+    pub get_preferred_buffer_formats:
+        Option<unsafe extern "C" fn(*mut WPEToplevel) -> *mut WPEBufferFormats>,
     pub padding: [gpointer; 32],
 }
 
@@ -3079,7 +3084,7 @@ impl ::std::fmt::Debug for WPEToplevelClass {
             .field("set_fullscreen", &self.set_fullscreen)
             .field("set_maximized", &self.set_maximized)
             .field("set_minimized", &self.set_minimized)
-            .field("get_preferred_dma_buf_formats", &self.get_preferred_dma_buf_formats)
+            .field("get_preferred_buffer_formats", &self.get_preferred_buffer_formats)
             .field("padding", &self.padding)
             .finish()
     }
@@ -3114,6 +3119,7 @@ impl ::std::fmt::Debug for WPEViewAccessibleInterface {
 #[repr(C)]
 pub struct WPEViewClass {
     pub parent_class: gobject::GObjectClass,
+    pub buffers_changed: Option<unsafe extern "C" fn(*mut WPEView, *mut *mut WPEBuffer, c_uint)>,
     pub render_buffer: Option<
         unsafe extern "C" fn(
             *mut WPEView,
@@ -3148,6 +3154,7 @@ impl ::std::fmt::Debug for WPEViewClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("WPEViewClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
+            .field("buffers_changed", &self.buffers_changed)
             .field("render_buffer", &self.render_buffer)
             .field("lock_pointer", &self.lock_pointer)
             .field("unlock_pointer", &self.unlock_pointer)
@@ -3202,14 +3209,14 @@ impl ::std::fmt::Debug for WPEBufferDMABuf {
 
 #[repr(C)]
 #[allow(dead_code)]
-pub struct WPEBufferDMABufFormats {
+pub struct WPEBufferFormats {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 
-impl ::std::fmt::Debug for WPEBufferDMABufFormats {
+impl ::std::fmt::Debug for WPEBufferFormats {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("WPEBufferDMABufFormats @ {self:p}")).finish()
+        f.debug_struct(&format!("WPEBufferFormats @ {self:p}")).finish()
     }
 }
 
@@ -3442,15 +3449,15 @@ impl ::std::fmt::Debug for WPEViewAccessible {
 unsafe extern "C" {
 
     //=========================================================================
-    // WPEBufferDMABufFormatUsage
-    //=========================================================================
-    pub fn wpe_buffer_dma_buf_format_usage_get_type() -> GType;
-
-    //=========================================================================
     // WPEBufferError
     //=========================================================================
     pub fn wpe_buffer_error_get_type() -> GType;
     pub fn wpe_buffer_error_quark() -> glib::GQuark;
+
+    //=========================================================================
+    // WPEBufferFormatUsage
+    //=========================================================================
+    pub fn wpe_buffer_format_usage_get_type() -> GType;
 
     //=========================================================================
     // WPEDisplayError
@@ -3547,35 +3554,40 @@ unsafe extern "C" {
     pub fn wpe_toplevel_state_get_type() -> GType;
 
     //=========================================================================
-    // WPEBufferDMABufFormatsBuilder
+    // WPEBufferFormatsBuilder
     //=========================================================================
-    pub fn wpe_buffer_dma_buf_formats_builder_get_type() -> GType;
-    pub fn wpe_buffer_dma_buf_formats_builder_new(
+    pub fn wpe_buffer_formats_builder_get_type() -> GType;
+    pub fn wpe_buffer_formats_builder_new(
         device: *mut WPEDRMDevice,
-    ) -> *mut WPEBufferDMABufFormatsBuilder;
-    pub fn wpe_buffer_dma_buf_formats_builder_append_format(
-        builder: *mut WPEBufferDMABufFormatsBuilder,
+    ) -> *mut WPEBufferFormatsBuilder;
+    pub fn wpe_buffer_formats_builder_append_format(
+        builder: *mut WPEBufferFormatsBuilder,
         fourcc: u32,
         modifier: u64,
     );
-    pub fn wpe_buffer_dma_buf_formats_builder_append_group(
-        builder: *mut WPEBufferDMABufFormatsBuilder,
+    pub fn wpe_buffer_formats_builder_append_group(
+        builder: *mut WPEBufferFormatsBuilder,
         device: *mut WPEDRMDevice,
-        usage: WPEBufferDMABufFormatUsage,
+        usage: WPEBufferFormatUsage,
     );
-    pub fn wpe_buffer_dma_buf_formats_builder_end(
-        builder: *mut WPEBufferDMABufFormatsBuilder,
-    ) -> *mut WPEBufferDMABufFormats;
-    pub fn wpe_buffer_dma_buf_formats_builder_ref(
-        builder: *mut WPEBufferDMABufFormatsBuilder,
-    ) -> *mut WPEBufferDMABufFormatsBuilder;
-    pub fn wpe_buffer_dma_buf_formats_builder_unref(builder: *mut WPEBufferDMABufFormatsBuilder);
+    pub fn wpe_buffer_formats_builder_end(
+        builder: *mut WPEBufferFormatsBuilder,
+    ) -> *mut WPEBufferFormats;
+    pub fn wpe_buffer_formats_builder_ref(
+        builder: *mut WPEBufferFormatsBuilder,
+    ) -> *mut WPEBufferFormatsBuilder;
+    pub fn wpe_buffer_formats_builder_unref(builder: *mut WPEBufferFormatsBuilder);
 
     //=========================================================================
     // WPEClipboardContent
     //=========================================================================
     pub fn wpe_clipboard_content_get_type() -> GType;
     pub fn wpe_clipboard_content_new() -> *mut WPEClipboardContent;
+    pub fn wpe_clipboard_content_get_bytes(
+        content: *mut WPEClipboardContent,
+        format: *const c_char,
+    ) -> *mut glib::GBytes;
+    pub fn wpe_clipboard_content_get_text(content: *mut WPEClipboardContent) -> *const c_char;
     pub fn wpe_clipboard_content_ref(content: *mut WPEClipboardContent)
     -> *mut WPEClipboardContent;
     pub fn wpe_clipboard_content_serialize(
@@ -3739,6 +3751,8 @@ unsafe extern "C" {
     pub fn wpe_buffer_get_type() -> GType;
     pub fn wpe_buffer_get_display(buffer: *mut WPEBuffer) -> *mut WPEDisplay;
     pub fn wpe_buffer_get_height(buffer: *mut WPEBuffer) -> c_int;
+    pub fn wpe_buffer_get_release_fence(buffer: *mut WPEBuffer) -> c_int;
+    pub fn wpe_buffer_get_rendering_fence(buffer: *mut WPEBuffer) -> c_int;
     pub fn wpe_buffer_get_user_data(buffer: *mut WPEBuffer) -> gpointer;
     pub fn wpe_buffer_get_width(buffer: *mut WPEBuffer) -> c_int;
     pub fn wpe_buffer_import_to_egl_image(
@@ -3749,11 +3763,15 @@ unsafe extern "C" {
         buffer: *mut WPEBuffer,
         error: *mut *mut glib::GError,
     ) -> *mut glib::GBytes;
+    pub fn wpe_buffer_set_release_fence(buffer: *mut WPEBuffer, fd: c_int);
+    pub fn wpe_buffer_set_rendering_fence(buffer: *mut WPEBuffer, fd: c_int);
     pub fn wpe_buffer_set_user_data(
         buffer: *mut WPEBuffer,
         user_data: gpointer,
         destroy_func: glib::GDestroyNotify,
     );
+    pub fn wpe_buffer_take_release_fence(buffer: *mut WPEBuffer) -> c_int;
+    pub fn wpe_buffer_take_rendering_fence(buffer: *mut WPEBuffer) -> c_int;
 
     //=========================================================================
     // WPEBufferDMABuf
@@ -3775,44 +3793,36 @@ unsafe extern "C" {
     pub fn wpe_buffer_dma_buf_get_modifier(buffer: *mut WPEBufferDMABuf) -> u64;
     pub fn wpe_buffer_dma_buf_get_n_planes(buffer: *mut WPEBufferDMABuf) -> u32;
     pub fn wpe_buffer_dma_buf_get_offset(buffer: *mut WPEBufferDMABuf, plane: u32) -> u32;
-    pub fn wpe_buffer_dma_buf_get_release_fence(buffer: *mut WPEBufferDMABuf) -> c_int;
-    pub fn wpe_buffer_dma_buf_get_rendering_fence(buffer: *mut WPEBufferDMABuf) -> c_int;
     pub fn wpe_buffer_dma_buf_get_stride(buffer: *mut WPEBufferDMABuf, plane: u32) -> u32;
-    pub fn wpe_buffer_dma_buf_set_release_fence(buffer: *mut WPEBufferDMABuf, fd: c_int);
-    pub fn wpe_buffer_dma_buf_set_rendering_fence(buffer: *mut WPEBufferDMABuf, fd: c_int);
-    pub fn wpe_buffer_dma_buf_take_release_fence(buffer: *mut WPEBufferDMABuf) -> c_int;
-    pub fn wpe_buffer_dma_buf_take_rendering_fence(buffer: *mut WPEBufferDMABuf) -> c_int;
 
     //=========================================================================
-    // WPEBufferDMABufFormats
+    // WPEBufferFormats
     //=========================================================================
-    pub fn wpe_buffer_dma_buf_formats_get_type() -> GType;
-    pub fn wpe_buffer_dma_buf_formats_get_device(
-        formats: *mut WPEBufferDMABufFormats,
-    ) -> *mut WPEDRMDevice;
-    pub fn wpe_buffer_dma_buf_formats_get_format_fourcc(
-        formats: *mut WPEBufferDMABufFormats,
+    pub fn wpe_buffer_formats_get_type() -> GType;
+    pub fn wpe_buffer_formats_get_device(formats: *mut WPEBufferFormats) -> *mut WPEDRMDevice;
+    pub fn wpe_buffer_formats_get_format_fourcc(
+        formats: *mut WPEBufferFormats,
         group: c_uint,
         format: c_uint,
     ) -> u32;
-    pub fn wpe_buffer_dma_buf_formats_get_format_modifiers(
-        formats: *mut WPEBufferDMABufFormats,
+    pub fn wpe_buffer_formats_get_format_modifiers(
+        formats: *mut WPEBufferFormats,
         group: c_uint,
         format: c_uint,
     ) -> *mut glib::GArray;
-    pub fn wpe_buffer_dma_buf_formats_get_group_device(
-        formats: *mut WPEBufferDMABufFormats,
+    pub fn wpe_buffer_formats_get_group_device(
+        formats: *mut WPEBufferFormats,
         group: c_uint,
     ) -> *mut WPEDRMDevice;
-    pub fn wpe_buffer_dma_buf_formats_get_group_n_formats(
-        formats: *mut WPEBufferDMABufFormats,
+    pub fn wpe_buffer_formats_get_group_n_formats(
+        formats: *mut WPEBufferFormats,
         group: c_uint,
     ) -> c_uint;
-    pub fn wpe_buffer_dma_buf_formats_get_group_usage(
-        formats: *mut WPEBufferDMABufFormats,
+    pub fn wpe_buffer_formats_get_group_usage(
+        formats: *mut WPEBufferFormats,
         group: c_uint,
-    ) -> WPEBufferDMABufFormatUsage;
-    pub fn wpe_buffer_dma_buf_formats_get_n_groups(formats: *mut WPEBufferDMABufFormats) -> c_uint;
+    ) -> WPEBufferFormatUsage;
+    pub fn wpe_buffer_formats_get_n_groups(formats: *mut WPEBufferFormats) -> c_uint;
 
     //=========================================================================
     // WPEBufferSHM
@@ -3862,6 +3872,11 @@ unsafe extern "C" {
     pub fn wpe_display_connect(display: *mut WPEDisplay, error: *mut *mut glib::GError)
     -> gboolean;
     pub fn wpe_display_create_gamepad_manager(display: *mut WPEDisplay) -> *mut WPEGamepadManager;
+    pub fn wpe_display_create_toplevel(
+        display: *mut WPEDisplay,
+        max_views: c_uint,
+    ) -> *mut WPEToplevel;
+    pub fn wpe_display_disconnected(display: *mut WPEDisplay, error: *mut glib::GError);
     pub fn wpe_display_get_available_input_devices(
         display: *mut WPEDisplay,
     ) -> WPEAvailableInputDevices;
@@ -3873,9 +3888,9 @@ unsafe extern "C" {
     ) -> gpointer;
     pub fn wpe_display_get_keymap(display: *mut WPEDisplay) -> *mut WPEKeymap;
     pub fn wpe_display_get_n_screens(display: *mut WPEDisplay) -> c_uint;
-    pub fn wpe_display_get_preferred_dma_buf_formats(
+    pub fn wpe_display_get_preferred_buffer_formats(
         display: *mut WPEDisplay,
-    ) -> *mut WPEBufferDMABufFormats;
+    ) -> *mut WPEBufferFormats;
     pub fn wpe_display_get_screen(display: *mut WPEDisplay, index: c_uint) -> *mut WPEScreen;
     pub fn wpe_display_get_settings(display: *mut WPEDisplay) -> *mut WPESettings;
     pub fn wpe_display_screen_added(display: *mut WPEDisplay, screen: *mut WPEScreen);
@@ -4030,15 +4045,16 @@ unsafe extern "C" {
     // WPEScreenSyncObserver
     //=========================================================================
     pub fn wpe_screen_sync_observer_get_type() -> GType;
-    pub fn wpe_screen_sync_observer_is_active(observer: *mut WPEScreenSyncObserver) -> gboolean;
-    pub fn wpe_screen_sync_observer_set_callback(
+    pub fn wpe_screen_sync_observer_add_callback(
         observer: *mut WPEScreenSyncObserver,
         sync_func: WPEScreenSyncObserverSyncFunc,
         user_data: gpointer,
         destroy_notify: glib::GDestroyNotify,
+    ) -> c_uint;
+    pub fn wpe_screen_sync_observer_remove_callback(
+        observer: *mut WPEScreenSyncObserver,
+        id: c_uint,
     );
-    pub fn wpe_screen_sync_observer_start(observer: *mut WPEScreenSyncObserver);
-    pub fn wpe_screen_sync_observer_stop(observer: *mut WPEScreenSyncObserver);
 
     //=========================================================================
     // WPESettings
@@ -4181,16 +4197,16 @@ unsafe extern "C" {
     pub fn wpe_toplevel_get_display(toplevel: *mut WPEToplevel) -> *mut WPEDisplay;
     pub fn wpe_toplevel_get_max_views(toplevel: *mut WPEToplevel) -> c_uint;
     pub fn wpe_toplevel_get_n_views(toplevel: *mut WPEToplevel) -> c_uint;
-    pub fn wpe_toplevel_get_preferred_dma_buf_formats(
+    pub fn wpe_toplevel_get_preferred_buffer_formats(
         toplevel: *mut WPEToplevel,
-    ) -> *mut WPEBufferDMABufFormats;
+    ) -> *mut WPEBufferFormats;
     pub fn wpe_toplevel_get_scale(toplevel: *mut WPEToplevel) -> c_double;
     pub fn wpe_toplevel_get_screen(toplevel: *mut WPEToplevel) -> *mut WPEScreen;
     pub fn wpe_toplevel_get_size(toplevel: *mut WPEToplevel, width: *mut c_int, height: *mut c_int);
     pub fn wpe_toplevel_get_state(toplevel: *mut WPEToplevel) -> WPEToplevelState;
     pub fn wpe_toplevel_maximize(toplevel: *mut WPEToplevel) -> gboolean;
     pub fn wpe_toplevel_minimize(toplevel: *mut WPEToplevel) -> gboolean;
-    pub fn wpe_toplevel_preferred_dma_buf_formats_changed(toplevel: *mut WPEToplevel);
+    pub fn wpe_toplevel_preferred_buffer_formats_changed(toplevel: *mut WPEToplevel);
     pub fn wpe_toplevel_resize(toplevel: *mut WPEToplevel, width: c_int, height: c_int)
     -> gboolean;
     pub fn wpe_toplevel_resized(toplevel: *mut WPEToplevel, width: c_int, height: c_int);
@@ -4208,6 +4224,11 @@ unsafe extern "C" {
     pub fn wpe_view_new(display: *mut WPEDisplay) -> *mut WPEView;
     pub fn wpe_view_buffer_released(view: *mut WPEView, buffer: *mut WPEBuffer);
     pub fn wpe_view_buffer_rendered(view: *mut WPEView, buffer: *mut WPEBuffer);
+    pub fn wpe_view_buffers_changed(
+        view: *mut WPEView,
+        buffers: *mut *mut WPEBuffer,
+        n_buffers: c_uint,
+    );
     pub fn wpe_view_closed(view: *mut WPEView);
     pub fn wpe_view_compute_press_count(
         view: *mut WPEView,
@@ -4225,9 +4246,7 @@ unsafe extern "C" {
     pub fn wpe_view_get_has_focus(view: *mut WPEView) -> gboolean;
     pub fn wpe_view_get_height(view: *mut WPEView) -> c_int;
     pub fn wpe_view_get_mapped(view: *mut WPEView) -> gboolean;
-    pub fn wpe_view_get_preferred_dma_buf_formats(
-        view: *mut WPEView,
-    ) -> *mut WPEBufferDMABufFormats;
+    pub fn wpe_view_get_preferred_buffer_formats(view: *mut WPEView) -> *mut WPEBufferFormats;
     pub fn wpe_view_get_scale(view: *mut WPEView) -> c_double;
     pub fn wpe_view_get_screen(view: *mut WPEView) -> *mut WPEScreen;
     pub fn wpe_view_get_toplevel(view: *mut WPEView) -> *mut WPEToplevel;
@@ -4291,7 +4310,7 @@ unsafe extern "C" {
     pub fn wpe_gesture_controller_handle_event(
         controller: *mut WPEGestureController,
         event: *mut WPEEvent,
-    );
+    ) -> gboolean;
     pub fn wpe_gesture_controller_is_drag_begin(controller: *mut WPEGestureController) -> gboolean;
 
     //=========================================================================

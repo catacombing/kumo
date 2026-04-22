@@ -81,12 +81,12 @@ pub trait GestureControllerExt: IsA<GestureController> + 'static {
     }
 
     #[doc(alias = "wpe_gesture_controller_handle_event")]
-    fn handle_event(&self, event: &Event) {
+    fn handle_event(&self, event: &Event) -> bool {
         unsafe {
-            ffi::wpe_gesture_controller_handle_event(
+            from_glib(ffi::wpe_gesture_controller_handle_event(
                 self.as_ref().to_glib_none().0,
                 event.to_glib_none().0,
-            );
+            ))
         }
     }
 

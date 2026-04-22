@@ -151,17 +151,19 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             text: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                InputMethodContext::from_glib_borrow(this).unsafe_cast_ref(),
-                &glib::GString::from_glib_borrow(text),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    InputMethodContext::from_glib_borrow(this).unsafe_cast_ref(),
+                    &glib::GString::from_glib_borrow(text),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"committed".as_ptr() as *const _,
+                c"committed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     committed_trampoline::<Self, F> as *const (),
                 )),
@@ -184,14 +186,16 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             n_chars: std::ffi::c_uint,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref(), offset, n_chars)
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref(), offset, n_chars)
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"delete-surrounding".as_ptr() as *const _,
+                c"delete-surrounding".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     delete_surrounding_trampoline::<Self, F> as *const (),
                 )),
@@ -209,14 +213,16 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             this: *mut ffi::WebKitInputMethodContext,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"preedit-changed".as_ptr() as *const _,
+                c"preedit-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     preedit_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -234,14 +240,16 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             this: *mut ffi::WebKitInputMethodContext,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"preedit-finished".as_ptr() as *const _,
+                c"preedit-finished".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     preedit_finished_trampoline::<Self, F> as *const (),
                 )),
@@ -259,14 +267,16 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             this: *mut ffi::WebKitInputMethodContext,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"preedit-started".as_ptr() as *const _,
+                c"preedit-started".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     preedit_started_trampoline::<Self, F> as *const (),
                 )),
@@ -285,14 +295,16 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::input-hints".as_ptr() as *const _,
+                c"notify::input-hints".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_input_hints_trampoline::<Self, F> as *const (),
                 )),
@@ -311,14 +323,16 @@ pub trait InputMethodContextExt: IsA<InputMethodContext> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(InputMethodContext::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::input-purpose".as_ptr() as *const _,
+                c"notify::input-purpose".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_input_purpose_trampoline::<Self, F> as *const (),
                 )),

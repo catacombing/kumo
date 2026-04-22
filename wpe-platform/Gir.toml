@@ -11,15 +11,14 @@ generate_builder = true
 generate = [
     "WPEPlatform.AvailableInputDevices",
     "WPEPlatform.Buffer",
-    "WPEPlatform.BufferDMABufFormats",
-    "WPEPlatform.BufferDMABufFormatsBuilder",
-    "WPEPlatform.BufferDMABufFormatUsage",
     "WPEPlatform.BufferError",
+    "WPEPlatform.BufferFormats",
+    "WPEPlatform.BufferFormatsBuilder",
+    "WPEPlatform.BufferFormatUsage",
     "WPEPlatform.BufferSHM",
     "WPEPlatform.Clipboard",
     "WPEPlatform.ClipboardContent",
     "WPEPlatform.Color",
-    "WPEPlatform.Display",
     "WPEPlatform.DisplayError",
     "WPEPlatform.DRMDevice",
     "WPEPlatform.EGLError",
@@ -73,10 +72,20 @@ function = [
     { name = "set_opaque_rectangles", manual = true },
     { name = "render_buffer", manual = true },
 ]
+signal = [
+    { name = "buffers-changed", manual = true },
+]
 
 [[object]]
 name = "WPEPlatform.BufferDMABuf"
 status = "generate"
 function = [
     { name = "new", manual = true },
+]
+
+[[object]]
+name = "WPEPlatform.Display"
+status = "generate"
+function = [
+    { name = "disconnected", manual = true },
 ]

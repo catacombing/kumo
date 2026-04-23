@@ -105,4 +105,5 @@ gl_generator = "0.14.0"
 tempfile = "3.27.0"
 
 [patch.crates-io]
+servo_arc = { git = "https://github.com/servo/stylo", rev = "a556f4cbd15fc289039261661b049a5dc845cd80" }
 keyboard-types = { git = "https://github.com/chrisduerr/keyboard-types", rev = "03b47d33d345b35671076bcd8ce4533250997c72" }

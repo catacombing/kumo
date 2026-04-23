@@ -6007,7 +6007,7 @@ dependencies = [
  "phf 0.11.3",
  "phf_codegen 0.11.3",
  "precomputed-hash",
- "servo_arc 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "servo_arc",
  "smallvec",
 ]
 
@@ -6025,7 +6025,7 @@ dependencies = [
  "phf_codegen 0.13.1",
  "precomputed-hash",
  "rustc-hash 2.1.2",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "smallvec",
  "to_shmem",
  "to_shmem_derive",
@@ -6519,7 +6519,7 @@ dependencies = [
  "servo-profile-traits",
  "servo-tracing",
  "servo-url",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "skrifa",
  "smallvec",
  "stylo",
@@ -6634,7 +6634,7 @@ dependencies = [
  "servo-script-traits",
  "servo-tracing",
  "servo-url",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "smallvec",
  "strum",
  "stylo",
@@ -6676,7 +6676,7 @@ dependencies = [
  "servo-profile-traits",
  "servo-script-traits",
  "servo-url",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "stylo",
  "stylo_traits",
  "webrender_api",
@@ -6705,7 +6705,7 @@ dependencies = [
  "parking_lot",
  "resvg",
  "servo-allocator",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "smallvec",
  "string_cache 0.9.0",
  "stylo",
@@ -6938,7 +6938,7 @@ dependencies = [
  "servo-profile-traits",
  "servo-tracing",
  "servo-url",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "sha2",
  "time",
  "tokio",
@@ -6985,7 +6985,7 @@ dependencies = [
  "servo-pixels",
  "servo-profile-traits",
  "servo-url",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "sys-locale",
  "tokio",
  "url",
@@ -7224,7 +7224,7 @@ dependencies = [
  "servo-url",
  "servo-wakelock",
  "servo-xpath",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "sha1",
  "sha2",
  "sha3",
@@ -7281,7 +7281,7 @@ dependencies = [
  "servo-malloc-size-of",
  "servo-profile-traits",
  "servo-url",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "smallvec",
  "stylo",
  "stylo_atoms",
@@ -7391,7 +7391,7 @@ dependencies = [
  "malloc_size_of_derive",
  "serde",
  "servo-malloc-size-of",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "url",
  "uuid",
 ]
@@ -7471,15 +7471,6 @@ dependencies = [
  "malloc_size_of_derive",
  "markup5ever 0.39.0",
  "servo-malloc-size-of",
-]
-
-[[package]]
-name = "servo_arc"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "170fb83ab34de17dc69aa7c67482b22218ddb85da56546f9bd6b929e32a05930"
-dependencies = [
- "stable_deref_trait",
 ]
 
 [[package]]
@@ -7892,7 +7883,7 @@ dependencies = [
  "rustc-hash 2.1.2",
  "selectors 0.37.0",
  "serde",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "smallbitvec",
  "smallvec",
  "static_assertions",
@@ -7954,7 +7945,7 @@ dependencies = [
  "cssparser 0.36.0",
  "euclid",
  "selectors 0.37.0",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "smallbitvec",
  "smallvec",
  "string_cache 0.9.0",
@@ -7979,7 +7970,7 @@ dependencies = [
  "malloc_size_of_derive",
  "selectors 0.37.0",
  "serde",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "stylo_atoms",
  "stylo_malloc_size_of",
  "thin-vec",
@@ -8371,7 +8362,7 @@ version = "0.3.0"
 source = "git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80#a556f4cbd15fc289039261661b049a5dc845cd80"
 dependencies = [
  "cssparser 0.36.0",
- "servo_arc 0.4.3 (git+https://github.com/servo/stylo?rev=a556f4cbd15fc289039261661b049a5dc845cd80)",
+ "servo_arc",
  "smallbitvec",
  "smallvec",
  "string_cache 0.9.0",

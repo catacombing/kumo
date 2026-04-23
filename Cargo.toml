@@ -77,7 +77,7 @@ keyboard-types = { version = "0.8.3", optional = true }
 libc.workspace = true
 librsvg = "2.61.0"
 pangocairo = "0.21.1"
-servo = { git = "https://github.com/chrisduerr/servo", rev = "36c07f4e4f0fbbd775d68171a3767053e8a24b5e", optional = true }
+servo = { git = "https://github.com/chrisduerr/servo", rev = "aa7eca43b7147ba7c4e71ea0e01b33b95be9a876", optional = true }
 surfman = { version = "0.12.0", optional = true }
 profiling = { version = "1.0.14", optional = true, features = ["profile-with-puffin"] }
 puffin_http = { version = "0.16.0", optional = true }
@@ -105,5 +105,4 @@ gl_generator = "0.14.0"
 tempfile = "3.27.0"
 
 [patch.crates-io]
-glslopt = { git = "https://github.com/chrisduerr/glslopt-rs", rev = "c3c9457b752729f90761352e6c1e70e051430dd6" }
 keyboard-types = { git = "https://github.com/chrisduerr/keyboard-types", rev = "03b47d33d345b35671076bcd8ce4533250997c72" }

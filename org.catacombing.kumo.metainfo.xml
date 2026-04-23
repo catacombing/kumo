@@ -48,6 +48,15 @@
         </screenshot>
     </screenshots>
     <releases>
+        <release version="1.7.0" date="2026-04-23">
+            <description>
+                <p>Kumo Version 1.7.0</p>
+                <ul>
+                    <li>Added Servo browser engine support</li>
+                    <li>Updated WebKit to 2.52.3</li>
+                </ul>
+            </description>
+        </release>
         <release version="1.6.2" date="2026-01-02">
             <description>
                 <p>Kumo Version 1.6.2</p>

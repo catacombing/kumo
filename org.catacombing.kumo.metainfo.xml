@@ -48,6 +48,14 @@
         </screenshot>
     </screenshots>
     <releases>
+        <release version="1.7.1" date="2026-04-24">
+            <description>
+                <p>Kumo Version 1.7.1</p>
+                <ul>
+                    <li>Fixed build issues</li>
+                </ul>
+            </description>
+        </release>
         <release version="1.7.0" date="2026-04-23">
             <description>
                 <p>Kumo Version 1.7.0</p>

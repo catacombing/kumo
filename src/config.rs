@@ -464,7 +464,7 @@ pub fn reload_config(config: &configory::Config) {
     config.generation = next_generation;
 }
 
-#[cfg(test)]
+#[cfg(test, feature = "webkit")]
 mod tests {
     use std::fs;
 
@@ -472,7 +472,6 @@ mod tests {
 
     use super::*;
 
-    #[cfg(feature = "webkit")]
     #[test]
     fn config_docs() {
         let mut formatter = Markdown::new();

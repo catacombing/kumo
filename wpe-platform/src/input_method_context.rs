@@ -1,10 +1,11 @@
 //! Trait for subclassing InputMethodContext.
 
-use std::ffi::{CStr, CString, c_char, c_int, c_uint};
+use std::ffi::{CStr, c_char, c_int, c_uint};
 use std::{cmp, ptr};
 
 use ffi::{WPEInputMethodContext, wpe_input_method_underline_new};
 use glib::subclass::prelude::*;
+use glib::translate::ToGlibPtr;
 use glib_sys::{GList, g_list_prepend};
 
 use crate::InputMethodContext;
@@ -64,7 +65,7 @@ unsafe extern "C" fn get_preedit_string<T: InputMethodContextImpl>(
             None => return,
         };
 
-        *return_text = CString::new(text).unwrap().into_raw();
+        *return_text = text.to_glib_full();
 
         // Only set cursor offset when the cursor is visible.
         if cursor_begin > 0 {

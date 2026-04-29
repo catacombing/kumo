@@ -214,11 +214,19 @@ impl Default for Input {
 pub struct Engine {
     /// Default browser engine.
     pub default: EngineType,
+    /// Maximum number of loaded invisible tabs.
+    ///
+    /// If the number of background tabs exceeds this value, the least recently
+    /// used tabs will be unloaded.
+    ///
+    /// This limit is per window.
+    pub max_background_tabs: usize,
 }
 
 impl Default for Engine {
     fn default() -> Self {
         Self {
+            max_background_tabs: 3,
             #[cfg(feature = "webkit")]
             default: EngineType::WebKit,
             #[cfg(not(feature = "webkit"))]

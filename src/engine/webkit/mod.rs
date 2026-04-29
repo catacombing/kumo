@@ -292,7 +292,7 @@ impl WebKitHandler for State {
     ) {
         // Short-circuit to generic implementation if no pre-processing is necessary.
         if !update_history {
-            self.queue.set_engine_uri(engine_id, uri, update_history);
+            self.queue.update_engine_uri(engine_id, update_history);
             return;
         }
 
@@ -312,7 +312,7 @@ impl WebKitHandler for State {
             update_history = false;
         }
 
-        self.queue.set_engine_uri(engine_id, uri, update_history);
+        self.queue.update_engine_uri(engine_id, update_history);
     }
 
     fn set_uri_failed(&mut self, engine_id: EngineId, uri: String) {
@@ -384,16 +384,16 @@ impl WebKitState {
     pub fn create_engine(
         &mut self,
         surface: WlSurface,
-        engine_id: EngineId,
+        id: EngineId,
         size: Size,
         scale: f64,
         uri: Option<&str>,
     ) -> WebKitEngine {
         // Create a new network session for this group if necessary.
-        let group_id = engine_id.group_id();
+        let group_id = id.group_id();
         let network_session = self.network_sessions.entry(group_id).or_insert_with(|| {
             let network_session =
-                xdg_network_session(&self.cookie_whitelist, engine_id, self.queue.clone())
+                xdg_network_session(&self.cookie_whitelist, id, self.queue.clone())
                     .unwrap_or_else(NetworkSession::new_ephemeral);
             network_session.website_data_manager().unwrap().set_favicons_enabled(true);
             network_session
@@ -402,7 +402,7 @@ impl WebKitState {
         // Create WebKit platform.
         let webkit_display = WebKitDisplay::new(
             self.queue.clone(),
-            engine_id,
+            id,
             &self.drm_node,
             size,
             scale,
@@ -427,12 +427,12 @@ impl WebKitState {
         web_view.connect_load_changed(move |web_view, load| {
             let uri = web_view.uri().unwrap_or_default().to_string();
             let update_history = load == LoadEvent::Finished;
-            load_queue.clone().set_webkit_engine_uri(engine_id, uri, update_history);
+            load_queue.clone().set_webkit_engine_uri(id, uri, update_history);
         });
         let uri_queue = self.queue.clone();
         web_view.connect_uri_notify(move |web_view| {
             let uri = web_view.uri().unwrap_or_default().to_string();
-            uri_queue.clone().set_webkit_engine_uri(engine_id, uri, false);
+            uri_queue.clone().set_webkit_engine_uri(id, uri, false);
         });
         let failed_queue = self.queue.clone();
         web_view.connect_load_failed(move |web_view, _load, uri, error| {
@@ -445,19 +445,16 @@ impl WebKitState {
                 .replace("{{FG_COLOR}}", &fg);
             web_view.load_alternate_html(&html, uri, None);
 
-            failed_queue.clone().set_uri_failed(engine_id, uri.into());
+            failed_queue.clone().set_uri_failed(id, uri.into());
             true
         });
         let title_queue = self.queue.clone();
-        web_view.connect_title_notify(move |web_view| {
-            let title = web_view.title().unwrap_or_default().to_string();
-            title_queue.clone().set_engine_title(engine_id, title);
-        });
+        web_view.connect_title_notify(move |_| title_queue.clone().update_engine_title(id));
 
         // Listen for option menu open events.
         let option_menu_queue = self.queue.clone();
         web_view.connect_show_option_menu(move |_, menu, rect| {
-            option_menu_queue.clone().open_menu(engine_id, menu.into(), Some(rect.geometry()));
+            option_menu_queue.clone().open_menu(id, menu.into(), Some(rect.geometry()));
             true
         });
 
@@ -486,7 +483,7 @@ impl WebKitState {
                 target_uri,
             );
             let menu = Menu::ContextMenu(context_menu);
-            context_menu_queue.clone().open_menu(engine_id, menu, None);
+            context_menu_queue.clone().open_menu(id, menu, None);
             true
         });
 
@@ -494,31 +491,31 @@ impl WebKitState {
         let load_progress_queue = self.queue.clone();
         web_view.connect_estimated_load_progress_notify(move |web_view| {
             let progress = web_view.estimated_load_progress();
-            load_progress_queue.clone().set_load_progress(engine_id, progress);
+            load_progress_queue.clone().set_load_progress(id, progress);
         });
 
         // Update tabs view when on favicon change.
         let favicon_queue = self.queue.clone();
         web_view.connect_favicon_notify(move |_web_view| {
-            favicon_queue.clone().update_favicon(engine_id);
+            favicon_queue.clone().update_favicon(id);
         });
 
         // Update search input on failed/successful search.
         if let Some(find_controller) = web_view.find_controller() {
             let failed_queue = self.queue.clone();
             find_controller.connect_failed_to_find_text(move |_| {
-                failed_queue.clone().set_search_match_count(engine_id, 0)
+                failed_queue.clone().set_search_match_count(id, 0)
             });
             let success_queue = self.queue.clone();
             find_controller.connect_found_text(move |_, match_count| {
-                success_queue.clone().set_search_match_count(engine_id, match_count as usize)
+                success_queue.clone().set_search_match_count(id, match_count as usize)
             });
         }
 
         // Listen for audio playback changes.
         let audio_queue = self.queue.clone();
         web_view.connect_is_playing_audio_notify(move |web_view| {
-            audio_queue.clone().set_audio_playing(engine_id, web_view.is_playing_audio());
+            audio_queue.clone().set_audio_playing(id, web_view.is_playing_audio());
         });
 
         // Load adblock content filter.
@@ -537,7 +534,7 @@ impl WebKitState {
             dark_mode: config.colors.dark_mode,
             queue: self.queue.clone(),
             surface,
-            id: engine_id,
+            id,
             buffers_pending_release: Default::default(),
             last_input_position: Default::default(),
             last_failed_uri: Default::default(),
@@ -922,7 +919,12 @@ impl Engine for WebKitEngine {
             .map_or(Vec::new(), |session| session.to_vec())
     }
 
-    fn restore_session(&self, session: Vec<u8>) {
+    fn restore_session(&mut self, session: Vec<u8>) {
+        // Filter out invalid sessions.
+        if session.is_empty() {
+            return;
+        }
+
         let session = WebViewSessionState::new(&Bytes::from_owned(session));
         self.web_view.restore_session_state(&session);
     }
@@ -1006,6 +1008,12 @@ impl Engine for WebKitEngine {
 
     fn as_any(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl Drop for WebKitEngine {
+    fn drop(&mut self) {
+        self.web_view.terminate_web_process();
     }
 }
 

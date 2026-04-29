@@ -64,3 +64,4 @@ This section documents the `[engine]` table.
 |Name|Description|Type|Default|
 |-|-|-|-|
 |default|Default browser engine|"WebKit" \| "Servo"|`WebKit`|
+|max_background_tabs|Maximum number of loaded invisible tabs.<br><br>If the number of background tabs exceeds this value, the least recently used tabs will be unloaded.<br><br>This limit is per window.|integer|`3`|

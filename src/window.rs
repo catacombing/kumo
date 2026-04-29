@@ -1,7 +1,7 @@
 //! Browser window handling.
 
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::mem;
 use std::ops::Range;
 use std::path::Path;
@@ -32,9 +32,9 @@ use smithay_client_toolkit::shell::xdg::window::{
 use tracing::error;
 
 use crate::config::CONFIG;
-use crate::engine::dummy::DummyEngine;
 #[cfg(feature = "servo")]
 use crate::engine::servo::ServoState;
+use crate::engine::unloaded::UnloadedEngine;
 #[cfg(feature = "webkit")]
 use crate::engine::webkit::WebKitState;
 use crate::engine::{
@@ -166,6 +166,7 @@ pub struct Window {
     webkit_state: OnDemandState<WebKitState>,
     #[cfg(feature = "servo")]
     servo_state: OnDemandState<ServoState>,
+    foreground_engines: VecDeque<EngineId>,
     engine_preference: EnginePreference,
     active_tab: Option<EngineId>,
 
@@ -315,6 +316,7 @@ impl Window {
             initial_configure_done: Default::default(),
             history_menu_matches: Default::default(),
             last_rendered_engine: Default::default(),
+            foreground_engines: Default::default(),
             keyboard_focus: Default::default(),
             fullscreened: Default::default(),
             history_menu: Default::default(),
@@ -338,9 +340,8 @@ impl Window {
     }
 
     /// Get a reference to a tab using its ID.
-    #[allow(clippy::borrowed_box)]
-    pub fn tab(&self, engine_id: EngineId) -> Option<&Box<dyn Engine>> {
-        self.tabs.get(&engine_id)
+    pub fn tab(&self, engine_id: EngineId) -> Option<&dyn Engine> {
+        self.tabs.get(&engine_id).map(|engine| &**engine)
     }
 
     /// Get a mutable reference to a tab using its ID.
@@ -375,37 +376,14 @@ impl Window {
         // Get the tab group for the new engine.
         let group = self.groups.get(&group_id).unwrap_or(NO_GROUP_REF);
 
-        // Get browser engine for this URL.
+        // Create an inactive browser engine.
         //
-        // If no URL is provided, we create a dummy engine. The dummy engine is replaced
-        // when a URL is loaded, at which point we can determine the preferred engine
-        // for the URL.
-        let engine_type = match url {
-            Some(url) => self.engine_preference.get(url).unwrap_or_else(|| {
-                let config = CONFIG.read().unwrap();
-                config.engine.default
-            }),
-            None => EngineType::Dummy,
-        };
-
-        // Create a new browser engine.
+        // Since loading depends on `switch_focus`, we don't need to actually create a
+        // real browser engine. The call to `set_active_tab` will automatically load the
+        // appropriate engine if necessary.
         let new_engine_id = EngineId::new(self.id, group.id());
-        let engine = match engine_type {
-            EngineType::Dummy => {
-                let surface = self.engine_surface.clone();
-                Box::new(DummyEngine::new(new_engine_id, surface))
-            },
-
-            #[cfg(feature = "webkit")]
-            EngineType::WebKit => self.create_webkit_engine(new_engine_id, url),
-            #[cfg(not(feature = "servo"))]
-            EngineType::Servo => self.create_webkit_engine(new_engine_id, url),
-
-            #[cfg(feature = "servo")]
-            EngineType::Servo => self.create_servo_engine(new_engine_id, url),
-            #[cfg(not(feature = "webkit"))]
-            EngineType::WebKit => self.create_servo_engine(new_engine_id, url),
-        };
+        let surface = self.engine_surface.clone();
+        let engine = Box::new(UnloadedEngine::new(surface, new_engine_id, url));
 
         // Insert tab after the specified `engine_id`, or at the end.
         match engine_id.into().and_then(|id| self.tabs.get_index_of(&id)) {
@@ -415,7 +393,7 @@ impl Window {
             _ => _ = self.tabs.insert(new_engine_id, engine),
         }
 
-        // Update tabs popup.
+        // Update tabs overlay.
         self.overlay.tabs_mut().set_tabs(self.tabs.values(), self.active_tab);
 
         if focus_uribar {
@@ -493,44 +471,62 @@ impl Window {
 
     /// Load a URI in an existing tab with a new browser engine.
     fn switch_engine_with_uri(&mut self, engine_id: EngineId, engine_type: EngineType, uri: &str) {
+        let surface = self.engine_surface.clone();
+        let engine_size = self.engine_size();
+
+        let old_engine = match self.tabs.get_mut(&engine_id) {
+            Some(old_engine) => old_engine,
+            None => return,
+        };
+
         // Just switch URI if the correct engine is already used.
-        if let Some(engine) = self.tabs.get_mut(&engine_id)
-            && engine.engine_type() == engine_type
-        {
-            engine.load_uri(uri);
+        let old_type = old_engine.engine_type();
+        if old_type == engine_type {
+            old_engine.load_uri(uri);
             return;
         }
 
         // Create a new engine with the desired engine type.
         let new_engine = match engine_type {
             #[cfg(feature = "webkit")]
-            EngineType::WebKit => self.create_webkit_engine(engine_id, Some(uri)),
+            EngineType::WebKit => {
+                let session = old_engine.session();
+                self.create_webkit_engine(engine_id, Some(uri), Some(session))
+            },
             #[cfg(not(feature = "servo"))]
-            EngineType::Servo => self.create_webkit_engine(engine_id, Some(uri)),
+            EngineType::Servo => {
+                let session = old_engine.session();
+                self.create_webkit_engine(engine_id, Some(uri), Some(session))
+            },
 
             #[cfg(feature = "servo")]
             EngineType::Servo => self.create_servo_engine(engine_id, Some(uri)),
             #[cfg(not(feature = "webkit"))]
             EngineType::WebKit => self.create_servo_engine(engine_id, Some(uri)),
 
-            EngineType::Dummy => unreachable!("switched to dummy engine"),
+            EngineType::Unloaded => Box::new(UnloadedEngine::from_engine(
+                surface,
+                engine_size,
+                self.scale,
+                &**old_engine,
+            )),
         };
 
-        let old_engine = match self.tabs.get_mut(&engine_id) {
-            Some(engine) => engine,
-            None => return,
-        };
+        // Update status for previously unloaded engines.
+        if old_type == EngineType::Unloaded {
+            self.overlay.tabs_mut().set_loaded(engine_id, true);
+        }
 
         // Discard all existing option menus for the old engine.
         self.overlay.close_engine_menus(engine_id);
 
         // Replace the engine with a new one, using the requested URI.
+        let old_engine = self.tabs.get_mut(&engine_id).unwrap();
         *old_engine = new_engine;
     }
 
     /// Get a reference to this window's active tab.
-    #[allow(clippy::borrowed_box)]
-    pub fn active_tab(&self) -> Option<&Box<dyn Engine>> {
+    pub fn active_tab(&self) -> Option<&dyn Engine> {
         self.tab(self.active_tab?)
     }
 
@@ -542,18 +538,57 @@ impl Window {
 
     /// Switch between tabs.
     pub fn set_active_tab(&mut self, engine_id: impl Into<Option<EngineId>>) {
-        // Indicate to the previous engine that it was hidden.
-        if let Some(engine) = self.active_tab_mut() {
-            engine.set_visible(false);
+        let config = CONFIG.read().unwrap();
+        let engine_id = engine_id.into();
+
+        // The new active engine does not count towards the background tab count.
+        if let Some(engine_id) = &engine_id {
+            self.foreground_engines.retain(|id| id != engine_id);
         }
 
-        self.active_tab = engine_id.into();
+        // Unload all inactive engines beyond the configured maximum.
+        let engine_size = self.engine_size();
+        let scale = self.scale;
+        while self.foreground_engines.len() > config.engine.max_background_tabs
+            && let Some(engine_id) = self.foreground_engines.pop_front()
+        {
+            let surface = self.engine_surface.clone();
+            if let Some(engine) = self.tab_mut(engine_id) {
+                let new_engine =
+                    UnloadedEngine::from_engine(surface, engine_size, scale, &**engine);
+                *engine = Box::new(new_engine);
+
+                // Mark tab as unloaded.
+                self.overlay.tabs_mut().set_loaded(engine_id, false);
+            }
+        }
+
+        self.active_tab = engine_id;
+
+        // Mark new active tab as the latest foreground engine.
+        if let Some(engine_id) = self.active_tab {
+            self.foreground_engines.retain(|id| *id != engine_id);
+            self.foreground_engines.push_back(engine_id);
+        }
 
         // Update URI and load progress.
         if let Some(engine) = self.active_tab.and_then(|id| self.tabs.get_mut(&id)) {
             self.ui.set_uri(engine.uri());
             self.ui.set_load_progress(1.);
-            engine.set_visible(true);
+
+            match engine.engine_type() {
+                EngineType::Unloaded => {
+                    let url = engine.uri().to_string();
+                    let id = engine.id();
+
+                    // Get the preferred engine for this URL.
+                    let engine_type =
+                        self.engine_preference.get(&url).unwrap_or(config.engine.default);
+
+                    self.switch_engine_with_uri(id, engine_type, &url)
+                },
+                _ => engine.set_visible(true),
+            }
         }
 
         // Update tabs popup.
@@ -606,7 +641,7 @@ impl Window {
         } else {
             let engine = self.active_tab_mut().unwrap();
             match engine.engine_type() {
-                EngineType::Dummy => {
+                EngineType::Unloaded => {
                     let config = CONFIG.read().unwrap();
                     let default_engine = config.engine.default;
                     self.switch_engine_with_uri(active_tab, default_engine, &uri);
@@ -1184,19 +1219,25 @@ impl Window {
         }
     }
 
-    /// Update an engine's URI.
-    pub fn set_engine_uri(&mut self, engine_id: EngineId, uri: String, update_history: bool) {
+    /// Reload an engine's URI.
+    pub fn update_engine_uri(&mut self, engine_id: EngineId, update_history: bool) {
+        // We need to manually retrieve the URI, since the engine could have changed.
+        let uri = match self.tabs.get(&engine_id) {
+            Some(tab) => tab.uri(),
+            None => return,
+        };
+
         // Update UI if the URI change is for the active tab.
         //
         // This always needs to be performed since `Self::set_engine_title` might have
         // changed the URI or the navigation could be between different normalization
         // forms (e.g. example.org -> https://example.org)
         if Some(engine_id) == self.active_tab {
-            self.ui.set_uri(Cow::Borrowed(&uri));
+            self.ui.set_uri(uri.clone());
         }
 
         // Update tabs popup.
-        self.overlay.tabs_mut().set_tab_uri(engine_id, uri.clone());
+        self.overlay.tabs_mut().set_tab_uri(engine_id, uri.to_string());
 
         if update_history && self.groups.get(&engine_id.group_id()).is_none_or(|g| !g.ephemeral) {
             // Increment URI visit count for history.
@@ -1219,7 +1260,7 @@ impl Window {
         // Persist latest session state.
         let session = self.tabs.iter().filter_map(|(engine_id, engine)| {
             let group = self.groups.get(&engine_id.group_id()).unwrap_or(NO_GROUP_REF);
-            SessionRecord::new(engine, group, Some(*engine_id) == self.active_tab)
+            SessionRecord::new(&**engine, group, Some(*engine_id) == self.active_tab)
         });
         self.session_storage.persist(self.id, session);
 
@@ -1228,15 +1269,19 @@ impl Window {
     }
 
     /// Update an engine's title.
-    pub fn set_engine_title(&mut self, history: &History, engine_id: EngineId, title: String) {
+    pub fn update_engine_title(&mut self, history: &History, engine_id: EngineId) {
+        // We need to manually retrieve the title, since the engine could have changed.
+        let tab = match self.tabs.get(&engine_id) {
+            Some(tab) => tab,
+            None => return,
+        };
+        let title = tab.title();
+
         // Update title of current URI for history.
-        if let Some(engine) = self.tabs.get(&engine_id) {
-            let uri = engine.uri();
-            history.set_title(&uri, title.clone());
-        }
+        history.set_title(&tab.uri(), title.to_string());
 
         // Update tabs popup.
-        self.overlay.tabs_mut().set_tab_title(engine_id, title);
+        self.overlay.tabs_mut().set_tab_title(engine_id, title.into());
 
         if self.overlay.dirty() {
             self.unstall();
@@ -1258,7 +1303,7 @@ impl Window {
     /// Reload an engine's favicon.
     pub fn update_favicon(&mut self, engine_id: EngineId) {
         if let Some(tab) = self.tabs.get(&engine_id) {
-            self.overlay.tabs_mut().update_favicon(tab);
+            self.overlay.tabs_mut().update_favicon(&**tab);
             self.unstall();
         }
     }
@@ -1736,26 +1781,34 @@ impl Window {
 
     /// Create a new WebKit browser engine.
     #[cfg(feature = "webkit")]
-    fn create_webkit_engine(&self, engine_id: EngineId, uri: Option<&str>) -> Box<dyn Engine> {
-        let engine_size = self.engine_size();
-        Box::new(self.webkit_state.get().create_engine(
+    fn create_webkit_engine(
+        &self,
+        engine_id: EngineId,
+        uri: Option<&str>,
+        session: Option<Vec<u8>>,
+    ) -> Box<dyn Engine> {
+        let mut engine = Box::new(self.webkit_state.get().create_engine(
             self.engine_surface.clone(),
             engine_id,
-            engine_size,
+            self.engine_size(),
             self.scale,
             uri,
-        ))
+        ));
+
+        if let Some(session) = session {
+            engine.restore_session(session);
+        }
+
+        engine
     }
 
     /// Create a new Servo browser engine.
     #[cfg(feature = "servo")]
     fn create_servo_engine(&self, engine_id: EngineId, uri: Option<&str>) -> Box<dyn Engine> {
-        let engine_size = self.engine_size();
-
         let result = self.servo_state.get().create_engine(
             &self.engine_surface,
             engine_id,
-            engine_size,
+            self.engine_size(),
             self.scale,
             uri,
         );
@@ -1766,7 +1819,7 @@ impl Window {
             #[cfg(feature = "webkit")]
             Err(err) => {
                 error!("Servo engine creation failed, falling back to WebKit: {err:?}");
-                self.create_webkit_engine(engine_id, uri)
+                self.create_webkit_engine(engine_id, uri, None)
             },
             #[cfg(not(feature = "webkit"))]
             Err(err) => panic!("Failed to create Servo engine: {err:?}"),

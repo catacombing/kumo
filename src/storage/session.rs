@@ -199,8 +199,7 @@ pub struct SessionRecord<'a> {
 }
 
 impl<'a> SessionRecord<'a> {
-    #[allow(clippy::borrowed_box)]
-    pub fn new(engine: &Box<dyn Engine>, group: &'a Group, focused: bool) -> Option<Self> {
+    pub fn new(engine: &dyn Engine, group: &'a Group, focused: bool) -> Option<Self> {
         // Never persist ephemeral tab groups.
         if group.ephemeral {
             return None;

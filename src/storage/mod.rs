@@ -74,10 +74,7 @@ impl Storage {
 
     /// Attempt to create or access the SQLite database.
     fn open_db() -> Option<Connection> {
-        let db_path = match dirs::data_dir() {
-            Some(data_dir) => data_dir.join("kumo/default/storage.sqlite"),
-            None => return None,
-        };
+        let db_path = dirs::data_dir()?.join("kumo/default/storage.sqlite");
 
         // Ensure necessary directories exist.
         if let Some(dir) = db_path.parent() {

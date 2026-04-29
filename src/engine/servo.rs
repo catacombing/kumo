@@ -29,6 +29,7 @@ use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::protocols::wp::text_input::zv3::client as _text_input;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
+use surfman::error::Error as SurfmanError;
 use tracing::{debug, error};
 use url::Url;
 use xkbcommon_dl::{XkbCommon, xkbcommon_handle};
@@ -283,7 +284,7 @@ impl ServoState {
         size: Size,
         scale: f64,
         url: Option<&str>,
-    ) -> Result<ServoEngine, surfman::error::Error> {
+    ) -> Result<ServoEngine, SurfmanError> {
         // Create a new rendering context for this web view.
         let size = size * scale;
         let entry = self.rendering_contexts.entry(id.window_id());
@@ -751,12 +752,12 @@ impl WebViewDelegate for WebViewHandler {
         self.queue.clone().frame(self.engine_id);
     }
 
-    fn notify_url_changed(&self, _webview: WebView, url: Url) {
-        self.queue.clone().set_engine_uri(self.engine_id, url.to_string(), true);
+    fn notify_url_changed(&self, _webview: WebView, _url: Url) {
+        self.queue.clone().update_engine_uri(self.engine_id, true);
     }
 
-    fn notify_page_title_changed(&self, _webview: WebView, title: Option<String>) {
-        self.queue.clone().set_engine_title(self.engine_id, title.unwrap_or_default());
+    fn notify_page_title_changed(&self, _webview: WebView, _title: Option<String>) {
+        self.queue.clone().update_engine_title(self.engine_id);
     }
 
     fn notify_animating_changed(&self, _webview: WebView, animating: bool) {

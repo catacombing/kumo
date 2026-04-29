@@ -25,10 +25,7 @@ impl Groups {
 
     /// Get a group's config from its ID.
     pub fn group_by_id(&self, uuid: Uuid) -> Option<Group> {
-        let db = match &self.db {
-            Some(db) => db,
-            None => return None,
-        };
+        let db = self.db.as_ref()?;
 
         match db.group_by_id(uuid) {
             Ok(group) => group,

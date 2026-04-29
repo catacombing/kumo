@@ -13,7 +13,9 @@ use pangocairo::pango::Alignment;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 
 use crate::config::CONFIG;
-use crate::engine::{Engine, EngineId, Favicon, FaviconId, Group, GroupId, NO_GROUP, NO_GROUP_ID};
+use crate::engine::{
+    Engine, EngineId, EngineType, Favicon, FaviconId, Group, GroupId, NO_GROUP, NO_GROUP_ID,
+};
 use crate::ui::overlay::Popup;
 use crate::ui::renderer::{Renderer, Svg, TextLayout, TextOptions, Texture, TextureBuilder};
 use crate::ui::{ScrollVelocity, SvgButton, TextField};
@@ -292,14 +294,18 @@ impl Tabs {
     }
 
     /// Reload a tab's favicon.
-    #[allow(clippy::borrowed_box)]
-    pub fn update_favicon(&mut self, tab: &Box<dyn Engine>) {
+    pub fn update_favicon(&mut self, tab: &dyn Engine) {
         self.dirty |= self.texture_cache.update_favicon(tab);
     }
 
     /// Update a tab's load progress.
     pub fn set_load_progress(&mut self, engine_id: EngineId, load_progress: f64) {
         self.dirty |= self.texture_cache.set_load_progress(engine_id, load_progress);
+    }
+
+    /// Update a tab's dynamic load status.
+    pub fn set_loaded(&mut self, engine_id: EngineId, loaded: bool) {
+        self.dirty |= self.texture_cache.set_loaded(engine_id, loaded);
     }
 
     /// Update the active tab.
@@ -1231,6 +1237,19 @@ impl TextureCache {
         }
     }
 
+    /// Update a tab's dynamic load status.
+    ///
+    /// Returns `true` if the dynamic load status of a tab was updated.
+    fn set_loaded(&mut self, engine_id: EngineId, loaded: bool) -> bool {
+        match self.tabs.get_mut(&engine_id) {
+            Some(tab) => {
+                tab.loaded = loaded;
+                true
+            },
+            None => false,
+        }
+    }
+
     /// Update a tab's audio playback state.
     #[cfg(feature = "webkit")]
     fn set_audio_playing(&mut self, engine_id: EngineId, playing: bool) -> bool {
@@ -1246,8 +1265,7 @@ impl TextureCache {
     /// Update an existing engine's favicon.
     ///
     /// Returns `true` if a tab's favicon was reloaded.
-    #[allow(clippy::borrowed_box)]
-    fn update_favicon(&mut self, tab: &Box<dyn Engine>) -> bool {
+    fn update_favicon(&mut self, tab: &dyn Engine) -> bool {
         let render_tab = match self.tabs.get_mut(&tab.id()) {
             Some(render_tab) => render_tab,
             None => return false,
@@ -1388,13 +1406,19 @@ impl TextureCache {
         let bg = config.colors.alt_background.as_f64();
         builder.clear(bg);
 
-        // Draw load progress indicator as background color.
-        if tab.load_progress < 100 {
-            let width = tab_size.width as f64 / 100. * tab.load_progress as f64;
-            let hl = config.colors.highlight.as_f64();
+        // Indicate load progress and unloaded tabs using the background color.
+        if !tab.loaded || tab.load_progress < 100 {
+            let (width, color) = if !tab.loaded {
+                let color = config.colors.background.as_f64();
+                (tab_size.width as f64, color)
+            } else {
+                let width = tab_size.width as f64 / 100. * tab.load_progress as f64;
+                let color = config.colors.highlight.as_f64();
+                (width, color)
+            };
 
             context.rectangle(0., 0., width, tab_size.height as f64);
-            context.set_source_rgba(hl[0], hl[1], hl[2], 0.5);
+            context.set_source_rgba(color[0], color[1], color[2], 0.5);
             context.fill().unwrap();
         }
 
@@ -1444,6 +1468,7 @@ struct RenderTab {
     uri: String,
     title: String,
     active: bool,
+    loaded: bool,
     favicon: Option<Favicon>,
     audio_playing: bool,
     load_progress: u8,
@@ -1453,6 +1478,7 @@ impl RenderTab {
     fn new(engine: &dyn Engine, active: bool) -> Self {
         Self {
             active,
+            loaded: engine.engine_type() != EngineType::Unloaded,
             title: engine.title().into(),
             favicon: engine.favicon(),
             uri: engine.uri().into(),
@@ -1473,6 +1499,7 @@ impl RenderTab {
             label: Cow::Borrowed(self.label()),
             load_progress: self.load_progress,
             active: self.active,
+            loaded: self.loaded,
         }
     }
 
@@ -1483,6 +1510,7 @@ impl RenderTab {
             label: Cow::Owned(self.label().to_string()),
             load_progress: self.load_progress,
             active: self.active,
+            loaded: self.loaded,
         }
     }
 }
@@ -1507,6 +1535,7 @@ struct TabTextureCacheKey<'a> {
     label: Cow<'a, str>,
     load_progress: u8,
     active: bool,
+    loaded: bool,
 }
 
 /// Button with a `+` as icon.

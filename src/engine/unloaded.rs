@@ -3,40 +3,73 @@
 use std::any::Any;
 use std::borrow::Cow;
 
+use glib::GString;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
 use smithay_client_toolkit::seat::pointer::AxisScroll;
 
-use crate::engine::{Engine, EngineId, EngineType};
+use crate::engine::{Engine, EngineId, EngineType, Favicon};
 use crate::ui::overlay::option_menu::OptionMenuId;
 use crate::window::TextInputChange;
 use crate::{Position, Size};
 
-/// Dummy engine.
+/// An unloaded browser engine.
 ///
-/// This no-op engine can be used as a placeholder for a real engine.
-pub struct DummyEngine {
+/// This is used to store data necessary to immitate a generic browser engine in
+/// the UI, without having to use up the resources to keep the engine alive.
+pub struct UnloadedEngine {
     id: EngineId,
 
     surface: WlSurface,
+
+    favicon_uri: Option<GString>,
+    favicon: Option<Favicon>,
+    uri: Option<String>,
+    session: Vec<u8>,
+    title: String,
 
     size: Size,
     scale: f64,
 }
 
-impl DummyEngine {
-    pub fn new(id: EngineId, surface: WlSurface) -> Self {
-        Self { surface, id, scale: 1., size: Default::default() }
+impl UnloadedEngine {
+    pub fn new(surface: WlSurface, id: EngineId, uri: Option<&str>) -> Self {
+        Self {
+            surface,
+            id,
+            uri: uri.map(String::from),
+            scale: 1.,
+            favicon_uri: Default::default(),
+            favicon: Default::default(),
+            session: Default::default(),
+            title: Default::default(),
+            size: Default::default(),
+        }
+    }
+
+    /// Convert any engine into an unloaded engine.
+    pub fn from_engine(surface: WlSurface, size: Size, scale: f64, engine: &dyn Engine) -> Self {
+        // Get current URL, filtering out blank pages.
+        let uri = engine.uri().to_string();
+        let uri = if uri.is_empty() || uri == "about:blank" { None } else { Some(uri) };
+
+        let favicon_uri = engine.favicon_uri();
+        let title = engine.title().to_string();
+        let favicon = engine.favicon();
+        let session = engine.session();
+        let id = engine.id();
+
+        Self { favicon_uri, favicon, session, surface, title, scale, size, uri, id }
     }
 }
 
-impl Engine for DummyEngine {
+impl Engine for UnloadedEngine {
     fn id(&self) -> EngineId {
         self.id
     }
 
     fn engine_type(&self) -> EngineType {
-        EngineType::Dummy
+        EngineType::Unloaded
     }
 
     fn dirty(&mut self) -> bool {
@@ -108,7 +141,9 @@ impl Engine for DummyEngine {
 
     fn reload(&mut self) {}
 
-    fn load_uri(&mut self, _uri: &str) {}
+    fn load_uri(&mut self, uri: &str) {
+        self.uri = Some(uri.into());
+    }
 
     fn load_prev(&mut self) {}
 
@@ -117,11 +152,11 @@ impl Engine for DummyEngine {
     }
 
     fn uri(&self) -> Cow<'_, str> {
-        Cow::Borrowed("")
+        self.uri.as_ref().map_or(Cow::Borrowed(""), |uri| uri.into())
     }
 
     fn title(&self) -> Cow<'_, str> {
-        Cow::Borrowed("")
+        Cow::Borrowed(&self.title)
     }
 
     fn text_input_state(&mut self) -> TextInputChange {
@@ -141,6 +176,22 @@ impl Engine for DummyEngine {
     fn close_option_menu(&mut self, _menu_id: Option<OptionMenuId>) {}
 
     fn set_fullscreen(&mut self, _fullscreen: bool) {}
+
+    fn session(&self) -> Vec<u8> {
+        self.session.clone()
+    }
+
+    fn restore_session(&mut self, session: Vec<u8>) {
+        self.session = session;
+    }
+
+    fn favicon(&self) -> Option<Favicon> {
+        self.favicon.clone()
+    }
+
+    fn favicon_uri(&self) -> Option<GString> {
+        self.favicon_uri.clone()
+    }
 
     fn as_any(&mut self) -> &mut dyn Any {
         self

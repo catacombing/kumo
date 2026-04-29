@@ -32,9 +32,9 @@ use crate::ui::overlay::option_menu::{OptionMenuId, OptionMenuItem};
 use crate::window::{PasteTarget, TextInputChange, WindowHandler};
 use crate::{KeyboardFocus, Position, Size, State, WindowId};
 
-pub mod dummy;
 #[cfg(feature = "servo")]
 pub mod servo;
+pub mod unloaded;
 #[cfg(feature = "webkit")]
 pub mod webkit;
 
@@ -191,7 +191,7 @@ pub trait Engine {
     }
 
     /// Restore a browser session.
-    fn restore_session(&self, _session: Vec<u8>) {}
+    fn restore_session(&mut self, _session: Vec<u8>) {}
 
     /// Get favicon for the current page.
     fn favicon(&self) -> Option<Favicon> {
@@ -236,7 +236,7 @@ pub trait Engine {
 #[funq::callbacks(State)]
 pub trait EngineHandler {
     /// Update current URI for an engine.
-    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String, update_history: bool);
+    fn update_engine_uri(&mut self, engine_id: EngineId, update_history: bool);
 
     /// Reload a page.
     fn reload(&mut self, engine_id: EngineId);
@@ -246,7 +246,7 @@ pub trait EngineHandler {
     fn switch_engine(&mut self, engine_id: EngineId, engine_type: EngineType);
 
     /// Update current title for an engine.
-    fn set_engine_title(&mut self, engine_id: EngineId, title: String);
+    fn update_engine_title(&mut self, engine_id: EngineId);
 
     /// Handle fullscreen enter/leave.
     fn set_fullscreen(&mut self, engine_id: EngineId, enable: bool);
@@ -299,9 +299,9 @@ pub trait EngineHandler {
 }
 
 impl EngineHandler for State {
-    fn set_engine_uri(&mut self, engine_id: EngineId, uri: String, update_history: bool) {
+    fn update_engine_uri(&mut self, engine_id: EngineId, update_history: bool) {
         if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
-            window.set_engine_uri(engine_id, uri, update_history);
+            window.update_engine_uri(engine_id, update_history);
         }
     }
 
@@ -328,9 +328,9 @@ impl EngineHandler for State {
         window.switch_engine(engine_id, engine_type);
     }
 
-    fn set_engine_title(&mut self, engine_id: EngineId, title: String) {
+    fn update_engine_title(&mut self, engine_id: EngineId) {
         if let Some(window) = self.windows.get_mut(&engine_id.window_id()) {
-            window.set_engine_title(&self.storage.history, engine_id, title);
+            window.update_engine_title(&self.storage.history, engine_id);
         }
     }
 
@@ -652,7 +652,7 @@ impl ContextMenu {
             1 => match self.engine_type {
                 EngineType::Servo => return Some(ContextMenuItem::ReloadInWebKit),
                 EngineType::WebKit => return Some(ContextMenuItem::ReloadInServo),
-                EngineType::Dummy => unreachable!("dummy engine context menu"),
+                EngineType::Unloaded => unreachable!("unloaded engine context menu"),
             },
             _ => (),
         }
@@ -828,7 +828,7 @@ pub enum EngineType {
     WebKit,
     Servo,
     #[serde(skip)]
-    Dummy,
+    Unloaded,
 }
 
 impl FromSql for EngineType {
@@ -844,7 +844,7 @@ impl FromSql for EngineType {
 impl ToSql for EngineType {
     fn to_sql(&self) -> Result<ToSqlOutput<'_>, rusqlite::Error> {
         let s = match self {
-            Self::Dummy => unreachable!("dummy engine sql write"),
+            Self::Unloaded => unreachable!("Unloaded engine sql write"),
             Self::WebKit => "webkit",
             Self::Servo => "servo",
         };

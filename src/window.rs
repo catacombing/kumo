@@ -543,6 +543,14 @@ impl Window {
         let config = CONFIG.read().unwrap();
         let engine_id = engine_id.into();
 
+        // Indicate to the previous engine that it was hidden.
+        //
+        // NOTE: Servo will only render to one surface at a time, so forgetting to hide
+        // a Servo engine will prevent new engines from working.
+        if let Some(engine) = self.active_tab_mut() {
+            engine.set_visible(false);
+        }
+
         // The new active engine does not count towards the background tab count.
         if let Some(engine_id) = &engine_id {
             self.foreground_engines.retain(|id| id != engine_id);

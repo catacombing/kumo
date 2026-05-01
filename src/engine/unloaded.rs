@@ -3,6 +3,7 @@
 use std::any::Any;
 use std::borrow::Cow;
 
+#[cfg(feature = "webkit")]
 use glib::GString;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::seat::keyboard::{Keysym, Modifiers};
@@ -22,6 +23,7 @@ pub struct UnloadedEngine {
 
     surface: WlSurface,
 
+    #[cfg(feature = "webkit")]
     favicon_uri: Option<GString>,
     favicon: Option<Favicon>,
     uri: Option<String>,
@@ -39,6 +41,7 @@ impl UnloadedEngine {
             id,
             uri: uri.map(String::from),
             scale: 1.,
+            #[cfg(feature = "webkit")]
             favicon_uri: Default::default(),
             favicon: Default::default(),
             session: Default::default(),
@@ -53,13 +56,25 @@ impl UnloadedEngine {
         let uri = engine.uri().to_string();
         let uri = if uri.is_empty() || uri == "about:blank" { None } else { Some(uri) };
 
+        #[cfg(feature = "webkit")]
         let favicon_uri = engine.favicon_uri();
         let title = engine.title().to_string();
         let favicon = engine.favicon();
         let session = engine.session();
         let id = engine.id();
 
-        Self { favicon_uri, favicon, session, surface, title, scale, size, uri, id }
+        Self {
+            #[cfg(feature = "webkit")]
+            favicon_uri,
+            favicon,
+            session,
+            surface,
+            title,
+            scale,
+            size,
+            uri,
+            id,
+        }
     }
 }
 
@@ -189,6 +204,7 @@ impl Engine for UnloadedEngine {
         self.favicon.clone()
     }
 
+    #[cfg(feature = "webkit")]
     fn favicon_uri(&self) -> Option<GString> {
         self.favicon_uri.clone()
     }

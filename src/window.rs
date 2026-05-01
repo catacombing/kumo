@@ -460,8 +460,10 @@ impl Window {
             None => return,
         };
 
-        // Update engine preference.
-        self.engine_preference.set(&uri, engine_type);
+        // Update engine preference for non-ephemeral tabs.
+        if self.groups.get(&engine_id.group_id()).is_none_or(|g| !g.ephemeral) {
+            self.engine_preference.set(&uri, engine_type);
+        }
 
         // Swap out the tab's engine.
         self.switch_engine_with_uri(engine_id, engine_type, &uri);

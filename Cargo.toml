@@ -37,23 +37,23 @@ members = [
 ]
 
 [workspace.package]
-rust-version = "1.88.0"
+rust-version = "1.92.0"
 edition = "2024"
 
 # Workspace member dependencies are defined here for consistency and easier updates.
 [workspace.dependencies]
-gio = "0.21.1"
-gio-sys = "0.21.1"
-glib = "0.21.1"
-glib-sys = "0.21.1"
-gobject-sys = "0.21.1"
+gio = "0.22.6"
+gio-sys = "0.22.0"
+glib = "0.22.7"
+glib-sys = "0.22.6"
+gobject-sys = "0.22.6"
 libc = "0.2.158"
 pkg-config = "0.3.30"
 proc-macro2 = "1.0.78"
 quote = "1.0.35"
 rustix = { version = "1.0.8", features = ["event"] }
-soup = { package = "soup3", version = "0.8.0" }
-soup-sys = { package = "soup3-sys", version = "0.8.0" }
+soup = { package = "soup3", version = "0.9.0" }
+soup-sys = { package = "soup3-sys", version = "0.9.0" }
 syn = { version = "2.0.51", features = ["full", "extra-traits"] }
 xkbcommon-sys = "1.4.1"
 
@@ -62,25 +62,26 @@ xkbcommon-sys = "1.4.1"
 bitflags = "2.11.0"
 chrono = "0.4.39"
 clap = { version = "4.5.39", features = ["derive"] }
-configory = { version = "0.6.0", features = ["log", "docgen"] }
+configory = { version = "0.7.0", features = ["log", "docgen"] }
 dashmap = "6.0.1"
 dirs = "6.0.0"
 dpi = { version = "0.1.2", optional = true }
-drm = "0.14.0"
+drm = "0.15.0"
 euclid = { version = "0.22.13", optional = true }
 funq = { path = "./funq" }
 gio.workspace = true
 glib.workspace = true
+glib-unix = "0.22.0"
 glutin = { version = "0.32.1", default-features = false, features = ["wayland"] }
 indexmap = "2.2.6"
 keyboard-types = { version = "0.8.3", optional = true }
 libc.workspace = true
 librsvg = "2.61.0"
-pangocairo = "0.21.1"
+pangocairo = "0.22.0"
 servo = { git = "https://github.com/chrisduerr/servo", rev = "407031540914a5bf629722c9dc02e8d919ca4c2b", optional = true }
 surfman = { version = "0.12.0", optional = true }
 profiling = { version = "1.0.14", optional = true, features = ["profile-with-puffin"] }
-puffin_http = { version = "0.16.0", optional = true }
+puffin_http = { version = "0.17.0", optional = true }
 raw-window-handle = "0.6.0"
 rusqlite = { version = "0.37.0", features = ["uuid", "chrono"] }
 rustix.workspace = true
@@ -88,7 +89,7 @@ serde = { version = "1.0.219", features = ["derive"] }
 smallvec = "1.13.2"
 smithay-client-toolkit = { version = "0.20.0", default-features = false, features = ["xkbcommon"] }
 thiserror = "2.0.3"
-toml = "0.9.5"
+toml = "1.1.2"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 url = "2.5.8"

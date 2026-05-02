@@ -225,16 +225,17 @@ fn run() -> Result<(), Error> {
     // Register Wayland socket with GLib event loop.
     let mut queue_handle = queue.handle();
     let wayland_fd = state.connection.as_fd().as_raw_fd();
-    source::unix_fd_add_local(wayland_fd, IOCondition::IN, move |_, _c| {
+    glib_unix::unix_fd_add_local(wayland_fd, IOCondition::IN, move |_, _c| {
         queue_handle.wayland_dispatch();
         ControlFlow::Continue
     });
 
     // Register funq with GLib event loop.
-    let source = source::unix_fd_add_local(queue.fd().as_raw_fd(), IOCondition::IN, move |_, _| {
-        let _ = queue.dispatch(&mut state);
-        ControlFlow::Continue
-    });
+    let source =
+        glib_unix::unix_fd_add_local(queue.fd().as_raw_fd(), IOCondition::IN, move |_, _| {
+            let _ = queue.dispatch(&mut state);
+            ControlFlow::Continue
+        });
 
     // Run main event loop.
     main_loop.run();
@@ -471,7 +472,7 @@ impl State {
         // Asynchronously write paste text to the window.
         let mut queue = self.queue.clone();
         let mut target = Some(target);
-        source::unix_fd_add_local(pipe.as_raw_fd(), IOCondition::IN, move |_, _| {
+        glib_unix::unix_fd_add_local(pipe.as_raw_fd(), IOCondition::IN, move |_, _| {
             // Read available text from pipe.
             let mut text = String::new();
             pipe.read_to_string(&mut text).unwrap();

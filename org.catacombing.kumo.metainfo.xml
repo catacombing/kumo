@@ -48,6 +48,15 @@
         </screenshot>
     </screenshots>
     <releases>
+        <release version="1.8.0" date="2026-05-02">
+            <description>
+                <p>Kumo Version 1.8.0</p>
+                <ul>
+                    <li>Added automatic unloading of background tabs</li>
+                    <li>Fixed engine preferences being written in private mode</li>
+                </ul>
+            </description>
+        </release>
         <release version="1.7.3" date="2026-04-25">
             <description>
                 <p>Kumo Version 1.7.3</p>
